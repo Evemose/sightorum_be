@@ -105,15 +105,13 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
             .build();
-        return Arguments.of("Simple SELECT ALL", query, "select", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("name"), r -> r.get("email"))
-                .containsExactlyInAnyOrder(
-                    tuple("Alice", "alice@test.com"),
-                    tuple("Bob", "bob@test.com")
-                );
-        });
+        return Arguments.of("Simple SELECT ALL", query, "select", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("name"), r -> r.get("email"))
+            .containsExactlyInAnyOrder(
+                tuple("Alice", "alice@test.com"),
+                tuple("Bob", "bob@test.com")
+            ));
     }
 
     private static Arguments selectWithWhereEquals() {
@@ -124,12 +122,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .where(new BinaryExpression(namePath, BinaryOperator.EQUALS, new Literal("Alice")))
             .build();
 
-        return Arguments.of("SELECT with WHERE equals", query, "where", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .extracting(r -> r.get("name"), r -> r.get("email"))
-                .containsExactly(tuple("Alice", "alice@test.com"));
-        });
+        return Arguments.of("SELECT with WHERE equals", query, "where", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .extracting(r -> r.get("name"), r -> r.get("email"))
+            .containsExactly(tuple("Alice", "alice@test.com")));
     }
 
     private static Arguments selectWithWhereLike() {
@@ -140,12 +136,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .where(new BinaryExpression(emailPath, BinaryOperator.LIKE, new Literal("%test.com")))
             .build();
 
-        return Arguments.of("SELECT with WHERE LIKE", query, "like", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("email"))
-                .containsExactlyInAnyOrder("alice@test.com", "bob@test.com");
-        });
+        return Arguments.of("SELECT with WHERE LIKE", query, "like", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("email"))
+            .containsExactlyInAnyOrder("alice@test.com", "bob@test.com"));
     }
 
     private static Arguments selectWithWhereIsNull() {
@@ -156,13 +150,11 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .where(new UnaryExpression(UnaryOperator.IS_NOT_NULL, emailPath))
             .build();
 
-        return Arguments.of("SELECT with WHERE IS NOT NULL", query, "is not null", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("email"))
-                .allMatch(Objects::nonNull)
-                .containsExactlyInAnyOrder("alice@test.com", "bob@test.com");
-        });
+        return Arguments.of("SELECT with WHERE IS NOT NULL", query, "is not null", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("email"))
+            .allMatch(Objects::nonNull)
+            .containsExactlyInAnyOrder("alice@test.com", "bob@test.com"));
     }
 
     private static Arguments selectWithManyToOneJoin() {
@@ -172,12 +164,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .selector(new SingleExprSelector(bioPath, false, null))
             .build();
 
-        return Arguments.of("SELECT with many-to-one join (user->profile)", query, "left outer join", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("bio"))
-                .containsExactlyInAnyOrder("Software Engineer", "Designer");
-        });
+        return Arguments.of("SELECT with many-to-one join (user->profile)", query, "left outer join", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("bio"))
+            .containsExactlyInAnyOrder("Software Engineer", "Designer"));
     }
 
     private static Arguments selectWithManyToOneDoubleJoin() {
@@ -188,12 +178,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .selector(new SingleExprSelector(cityPath, false, null))
             .build();
 
-        return Arguments.of("SELECT with double many-to-one join (user->profile->address)", query, "left outer join", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("city"))
-                .containsExactlyInAnyOrder("New York", "London");
-        });
+        return Arguments.of("SELECT with double many-to-one join (user->profile->address)", query, "left outer join", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("city"))
+            .containsExactlyInAnyOrder("New York", "London"));
     }
 
     private static Arguments selectWithWhereAndJoin() {
@@ -204,12 +192,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .where(new BinaryExpression(bioPath, BinaryOperator.EQUALS, new Literal("Software Engineer")))
             .build();
 
-        return Arguments.of("SELECT with WHERE and JOIN", query, "left outer join", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .extracting(r -> r.get("name"))
-                .containsExactly("Alice");
-        });
+        return Arguments.of("SELECT with WHERE and JOIN", query, "left outer join", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .extracting(r -> r.get("name"))
+            .containsExactly("Alice"));
     }
 
     private static Arguments selectDistinct() {
@@ -217,12 +203,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .from(userRoot)
             .selector(new RootSelector(userRoot, true))
             .build();
-        return Arguments.of("SELECT DISTINCT", query, "select distinct", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("name"))
-                .containsExactlyInAnyOrder("Alice", "Bob");
-        });
+        return Arguments.of("SELECT DISTINCT", query, "select distinct", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("name"))
+            .containsExactlyInAnyOrder("Alice", "Bob"));
     }
 
     private static Arguments selectSingleExpression() {
@@ -232,12 +216,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .selector(new SingleExprSelector(namePath, false, null))
             .build();
 
-        return Arguments.of("SELECT single expression", query, "select", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("name"))
-                .containsExactlyInAnyOrder("Alice", "Bob");
-        });
+        return Arguments.of("SELECT single expression", query, "select", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("name"))
+            .containsExactlyInAnyOrder("Alice", "Bob"));
     }
 
     private static Arguments selectMultipleExpressions() {
@@ -312,12 +294,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
                 new Literal(1L), new Literal(2L)))
             .build();
 
-        return Arguments.of("SELECT with BETWEEN", query, "between", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("name"))
-                .containsExactlyInAnyOrder("Alice", "Bob");
-        });
+        return Arguments.of("SELECT with BETWEEN", query, "between", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("name"))
+            .containsExactlyInAnyOrder("Alice", "Bob"));
     }
 
     private static Arguments selectWithOrderByAsc() {
@@ -328,12 +308,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .orderBy(new OrderBy(namePath, true))
             .build();
 
-        return Arguments.of("SELECT with ORDER BY ASC", query, "order by", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("name"))
-                .containsExactly("Alice", "Bob");
-        });
+        return Arguments.of("SELECT with ORDER BY ASC", query, "order by", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("name"))
+            .containsExactly("Alice", "Bob"));
     }
 
     private static Arguments selectWithOrderByDesc() {
@@ -344,12 +322,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .orderBy(new OrderBy(namePath, false))
             .build();
 
-        return Arguments.of("SELECT with ORDER BY DESC", query, "desc", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(r -> r.get("name"))
-                .containsExactly("Bob", "Alice");
-        });
+        return Arguments.of("SELECT with ORDER BY DESC", query, "desc", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("name"))
+            .containsExactly("Bob", "Alice"));
     }
 
     private static Arguments selectWithLimit() {
@@ -358,12 +334,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .selector(new RootSelector(userRoot, false))
             .limit(1L)
             .build();
-        return Arguments.of("SELECT with LIMIT", query, "", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .extracting(r -> r.get("name"))
-                .containsAnyOf("Alice", "Bob");
-        });
+        return Arguments.of("SELECT with LIMIT", query, "", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .extracting(r -> r.get("name"))
+            .containsAnyOf("Alice", "Bob"));
     }
 
     private static Arguments selectWithOffset() {
@@ -372,12 +346,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .selector(new RootSelector(userRoot, false))
             .offset(1L)
             .build();
-        return Arguments.of("SELECT with OFFSET", query, "offset", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .extracting(r -> r.get("name"))
-                .containsAnyOf("Alice", "Bob");
-        });
+        return Arguments.of("SELECT with OFFSET", query, "offset", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .extracting(r -> r.get("name"))
+            .containsAnyOf("Alice", "Bob"));
     }
 
     private static Arguments selectWithLimitAndOffset() {
@@ -387,12 +359,10 @@ class QueryTransformerTest extends AbstractPostgresTest {
             .limit(1L)
             .offset(1L)
             .build();
-        return Arguments.of("SELECT with LIMIT and OFFSET", query, "", (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .extracting(r -> r.get("name"))
-                .containsAnyOf("Alice", "Bob");
-        });
+        return Arguments.of("SELECT with LIMIT and OFFSET", query, "", (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .extracting(r -> r.get("name"))
+            .containsAnyOf("Alice", "Bob"));
     }
 
     @BeforeEach

@@ -106,7 +106,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
     }
 
     @Override
-    protected void afterDatabaseSetup() throws Exception {
+    protected void afterDatabaseSetup() {
         dsl.execute("""
             create table customers (
                 id bigserial primary key,

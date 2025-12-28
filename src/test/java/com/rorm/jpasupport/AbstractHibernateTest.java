@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeAll;
 import java.sql.DriverManager;
 import java.util.HashMap;
 
+@SuppressWarnings("SqlNoDataSourceInspection")
 public abstract class AbstractHibernateTest extends AbstractPostgresTest {
 
     protected static ModelSpace modelSpace;
@@ -66,7 +67,7 @@ public abstract class AbstractHibernateTest extends AbstractPostgresTest {
     }
 
     @Override
-    protected void afterDatabaseSetup() throws Exception {
+    protected void afterDatabaseSetup() {
         var properties = createHibernateProperties("create", getCurrentSchema());
         emf = Persistence.createEntityManagerFactory("test-unit", properties);
         em = emf.createEntityManager();
@@ -88,7 +89,7 @@ public abstract class AbstractHibernateTest extends AbstractPostgresTest {
     }
 
     @Override
-    protected void beforeDatabaseCleanup() throws Exception {
+    protected void beforeDatabaseCleanup() {
         if (em != null) {
             if (em.getTransaction().isActive()) {
                 em.getTransaction().rollback();

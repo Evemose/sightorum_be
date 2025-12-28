@@ -11,6 +11,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.sql.DriverManager;
 import java.util.UUID;
 
+@SuppressWarnings("SqlNoDataSourceInspection")
 @Testcontainers
 public abstract class AbstractPostgresTest {
 
@@ -45,7 +46,7 @@ public abstract class AbstractPostgresTest {
         afterDatabaseSetup();
     }
 
-    protected void afterDatabaseSetup() throws Exception {
+    protected void afterDatabaseSetup() {
     }
 
     protected String getCurrentSchema() {
@@ -66,6 +67,6 @@ public abstract class AbstractPostgresTest {
         }
     }
 
-    protected void beforeDatabaseCleanup() throws Exception {
+    protected void beforeDatabaseCleanup() {
     }
 }

@@ -131,13 +131,11 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .from(orderRoot)
             .selector(new SingleExprSelector(countExpr, false, "order_count"))
             .build();
-        return Arguments.of("COUNT all orders", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("order_count", Long.class))
-                .isEqualTo(3L);
-        });
+        return Arguments.of("COUNT all orders", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("order_count", Long.class))
+            .isEqualTo(3L));
     }
 
     private static Arguments sumOrderTotals() {
@@ -146,14 +144,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .from(orderRoot)
             .selector(new SingleExprSelector(sumExpr, false, "total_sum"))
             .build();
-        return Arguments.of("SUM of order totals", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("total_sum", BigDecimal.class))
-                .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
-                .isEqualByComparingTo(new BigDecimal("450.00"));
-        });
+        return Arguments.of("SUM of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("total_sum", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("450.00")));
     }
 
     private static Arguments avgOrderTotal() {
@@ -162,14 +158,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .from(orderRoot)
             .selector(new SingleExprSelector(avgExpr, false, "avg_total"))
             .build();
-        return Arguments.of("AVG of order totals", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("avg_total", BigDecimal.class))
-                .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
-                .isEqualByComparingTo(new BigDecimal("150.00"));
-        });
+        return Arguments.of("AVG of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("avg_total", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("150.00")));
     }
 
     private static Arguments maxOrderTotal() {
@@ -178,14 +172,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .from(orderRoot)
             .selector(new SingleExprSelector(maxExpr, false, "max_total"))
             .build();
-        return Arguments.of("MAX of order totals", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("max_total", BigDecimal.class))
-                .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
-                .isEqualByComparingTo(new BigDecimal("200.00"));
-        });
+        return Arguments.of("MAX of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("max_total", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("200.00")));
     }
 
     private static Arguments minOrderTotal() {
@@ -194,14 +186,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .from(orderRoot)
             .selector(new SingleExprSelector(minExpr, false, "min_total"))
             .build();
-        return Arguments.of("MIN of order totals", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("min_total", BigDecimal.class))
-                .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
-                .isEqualByComparingTo(new BigDecimal("100.00"));
-        });
+        return Arguments.of("MIN of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("min_total", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("100.00")));
     }
 
     private static Arguments countOrdersByUser() {
@@ -218,13 +208,11 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .orderBy(new OrderBy(countExpr, false))
             .limit(1L)
             .build();
-        return Arguments.of("COUNT orders grouped by user (highest first)", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("order_count", Long.class))
-                .isEqualTo(2L);
-        });
+        return Arguments.of("COUNT orders grouped by user (highest first)", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("order_count", Long.class))
+            .isEqualTo(2L));
     }
 
     private static Arguments sumTotalsByUserWithHaving() {
@@ -246,14 +234,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .groupBy(new GroupBy(userIdPath))
             .having(havingCondition)
             .build();
-        return Arguments.of("SUM totals by user with HAVING > 150", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("total_sum", BigDecimal.class))
-                .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
-                .isEqualByComparingTo(new BigDecimal("300.00"));
-        });
+        return Arguments.of("SUM totals by user with HAVING > 150", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("total_sum", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("300.00")));
     }
 
     private static Arguments avgQuantityPerProduct() {
@@ -270,15 +256,13 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .orderBy(new OrderBy(productPath, true))
             .limit(1L)
             .build();
-        return Arguments.of("AVG quantity for Book", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .satisfies(r -> {
-                    assertThat(r.get("product")).isEqualTo("Book");
-                    assertThat(r.get("avg_quantity", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("2.0"));
-                });
-        });
+        return Arguments.of("AVG quantity for Book", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .satisfies(r -> {
+                assertThat(r.get("product")).isEqualTo("Book");
+                assertThat(r.get("avg_quantity", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("2.0"));
+            }));
     }
 
     private static Arguments countOrdersWithJoin() {
@@ -296,13 +280,11 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .selector(new SingleExprSelector(countExpr, false, "order_count"))
             .where(whereCondition)
             .build();
-        return Arguments.of("COUNT orders with JOIN on user name", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .extracting(r -> r.get("order_count", Long.class))
-                .isEqualTo(2L);
-        });
+        return Arguments.of("COUNT orders with JOIN on user name", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("order_count", Long.class))
+            .isEqualTo(2L));
     }
 
     private static Arguments sumTotalsGroupedByCity() {
@@ -320,15 +302,13 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .orderBy(new OrderBy(sumExpr, false))
             .limit(1L)
             .build();
-        return Arguments.of("SUM totals grouped by city (highest first)", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .satisfies(r -> {
-                    assertThat(r.get("city")).isEqualTo("New York");
-                    assertThat(r.get("total_sum", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("300.00"));
-                });
-        });
+        return Arguments.of("SUM totals grouped by city (highest first)", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .satisfies(r -> {
+                assertThat(r.get("city")).isEqualTo("New York");
+                assertThat(r.get("total_sum", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("300.00"));
+            }));
     }
 
     private static Arguments complexAggregationWithMultipleJoins() {
@@ -355,17 +335,15 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .having(havingCondition)
             .orderBy(new OrderBy(sumExpr, false))
             .build();
-        return Arguments.of("Multiple aggregations with JOIN and HAVING", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(1)
-                .first()
-                .satisfies(r -> {
-                    assertThat(r.get("user_name")).isEqualTo("Alice");
-                    assertThat(r.get("order_count", Long.class)).isEqualTo(2L);
-                    assertThat(r.get("total_sum", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("300.00"));
-                    assertThat(r.get("total_avg", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("150.00"));
-                });
-        });
+        return Arguments.of("Multiple aggregations with JOIN and HAVING", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .satisfies(r -> {
+                assertThat(r.get("user_name")).isEqualTo("Alice");
+                assertThat(r.get("order_count", Long.class)).isEqualTo(2L);
+                assertThat(r.get("total_sum", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("300.00"));
+                assertThat(r.get("total_avg", BigDecimal.class)).isEqualByComparingTo(new BigDecimal("150.00"));
+            }));
     }
 
     private static Arguments windowFunctionRowNumber() {
@@ -386,12 +364,10 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
                 new SelectedExpression(rowNumWindow, "row_num")
             ), false))
             .build();
-        return Arguments.of("Window function ROW_NUMBER() PARTITION BY user", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(3)
-                .extracting(r -> r.get("row_num", Integer.class))
-                .allMatch(rowNum -> rowNum >= 1 && rowNum <= 2);
-        });
+        return Arguments.of("Window function ROW_NUMBER() PARTITION BY user", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(3)
+            .extracting(r -> r.get("row_num", Integer.class))
+            .allMatch(rowNum -> rowNum >= 1 && rowNum <= 2));
     }
 
     private static Arguments windowFunctionRankWithOrderBy() {
@@ -410,12 +386,10 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
                 new SelectedExpression(rankWindow, "rank")
             ), false))
             .build();
-        return Arguments.of("Window function RANK() ORDER BY total DESC", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(3)
-                .extracting(r -> r.get("rank", Integer.class))
-                .containsExactly(1, 2, 3);
-        });
+        return Arguments.of("Window function RANK() ORDER BY total DESC", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(3)
+            .extracting(r -> r.get("rank", Integer.class))
+            .containsExactly(1, 2, 3));
     }
 
     private static Arguments windowFunctionWithPartitionAndOrder() {
@@ -441,12 +415,10 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
                 new SelectedExpression(denseRankWindow, "dense_rank")
             ), false))
             .build();
-        return Arguments.of("Window function DENSE_RANK() PARTITION BY user ORDER BY total", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(3)
-                .extracting(r -> r.get("dense_rank", Integer.class))
-                .allMatch(rank -> rank >= 1 && rank <= 2);
-        });
+        return Arguments.of("Window function DENSE_RANK() PARTITION BY user ORDER BY total", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(3)
+            .extracting(r -> r.get("dense_rank", Integer.class))
+            .allMatch(rank -> rank >= 1 && rank <= 2));
     }
 
     private static Arguments expressionWithAlias() {
@@ -456,16 +428,14 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             .from(orderRoot)
             .selector(new SingleExprSelector(totalPath, false, "order_total"))
             .build();
-        return Arguments.of("Expression with alias", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(3)
-                .extracting(r -> r.get("order_total", BigDecimal.class))
-                .containsExactlyInAnyOrder(
-                    new BigDecimal("100.00"),
-                    new BigDecimal("200.00"),
-                    new BigDecimal("150.00")
-                );
-        });
+        return Arguments.of("Expression with alias", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(3)
+            .extracting(r -> r.get("order_total", BigDecimal.class))
+            .containsExactlyInAnyOrder(
+                new BigDecimal("100.00"),
+                new BigDecimal("200.00"),
+                new BigDecimal("150.00")
+            ));
     }
 
     private static Arguments multipleExpressionsWithAliases() {
@@ -482,18 +452,16 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             ), false))
             .groupBy(new GroupBy(userIdPath))
             .build();
-        return Arguments.of("Multiple expressions with aliases", query, (Consumer<Result<Record>>) result -> {
-            assertThat(result)
-                .hasSize(2)
-                .extracting(
-                    r -> r.get("order_count", Long.class),
-                    r -> r.get("total_amount", BigDecimal.class)
-                )
-                .containsExactlyInAnyOrder(
-                    tuple(2L, new BigDecimal("300.00")),
-                    tuple(1L, new BigDecimal("150.00"))
-                );
-        });
+        return Arguments.of("Multiple expressions with aliases", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(
+                r -> r.get("order_count", Long.class),
+                r -> r.get("total_amount", BigDecimal.class)
+            )
+            .containsExactlyInAnyOrder(
+                tuple(2L, new BigDecimal("300.00")),
+                tuple(1L, new BigDecimal("150.00"))
+            ));
     }
 
     @BeforeEach
@@ -563,8 +531,9 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         dsl.execute("insert into order_items (order_id, product_name, quantity) values (1, 'Book', 2), (1, 'Pen', 5), (2, 'Laptop', 1), (3, 'Mouse', 3)");
     }
 
-    @ParameterizedTest(name = "{0}")
+    @SuppressWarnings("unchecked")
     @MethodSource("statsTestCases")
+    @ParameterizedTest(name = "{0}")
     void testStatsQueryTransformation(String testName, Query query, Consumer<Result<Record>> resultValidator) {
         var sql = transformer.transform(query);
         println("Generated SQL for test '" + testName + "':\n" + sql + "\n");
