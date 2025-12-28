@@ -9,6 +9,8 @@ import com.rorm.query.Path;
 import org.jooq.Field;
 import org.jooq.Table;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,11 +21,36 @@ final class QueryContext {
     private final Map<Path, JoinInfo> joinRegistry = new HashMap<>();
     private final Table<?> rootTable;
     private final String rootTableName;
+    private final @Nullable QueryContext parent;
+    private final int depth;
     private int aliasCounter = 0;
 
     QueryContext(Root root) {
+        this(root, null, 0);
+    }
+
+    QueryContext(Root root, @Nullable QueryContext parent, int depth) {
+        if (depth < 0) {
+            throw new IllegalArgumentException("Depth cannot be negative");
+        }
         this.rootTableName = root.primaryTableName();
-        this.rootTable = table(name(rootTableName)).as("t0");
+        this.depth = depth;
+        this.parent = parent;
+        this.rootTable = table(name(rootTableName)).as(generateAlias());
+    }
+
+    QueryContext nested(Root root) {
+        return new QueryContext(root, this, depth + 1);
+    }
+
+    QueryContext ancestor(int levels) {
+        if (levels == 0) {
+            return this;
+        }
+        if (parent == null) {
+            throw new IllegalStateException("Cannot access outer scope at depth " + levels + " - no parent context");
+        }
+        return parent.ancestor(levels - 1);
     }
 
     Table<?> rootTable() {
@@ -63,7 +90,7 @@ final class QueryContext {
 
     private JoinInfo handleSingularReference(JoinInfo parent, SingularReferenceAttribute ref) {
         var targetTable = ref.targetRoot().primaryTableName();
-        var joined = table(name(targetTable)).as("t" + ++aliasCounter);
+        var joined = table(name(targetTable)).as(generateAlias());
 
         return switch (ref.mappingStrategy()) {
             case JoinTableMapping jtm -> new JoinInfo(joined, targetTable,
@@ -80,14 +107,14 @@ final class QueryContext {
 
         return switch (ref.mappingStrategy()) {
             case InverseRootTableColumn inv -> {
-                var joined = table(name(targetTable)).as("t" + ++aliasCounter);
+                var joined = table(name(targetTable)).as(generateAlias());
                 yield new JoinInfo(joined, targetTable,
                     field(name(parent.table().getName(), "id")),
                     field(name(joined.getName(), inv.columnName())));
             }
             case JoinTableMapping jtm -> {
                 var joinTableName = jtm.joinColumnLocation().table();
-                var joined = table(name(joinTableName)).as("t" + ++aliasCounter);
+                var joined = table(name(joinTableName)).as(generateAlias());
                 yield new JoinInfo(joined, joinTableName,
                     field(name(parent.table().getName(), "id")),
                     field(name(joined.getName(), jtm.joinColumnLocation().column())));
@@ -101,7 +128,7 @@ final class QueryContext {
             return parent;
         }
 
-        var joined = table(name(tableName)).as("t" + ++aliasCounter);
+        var joined = table(name(tableName)).as(generateAlias());
         var underscoreIdx = tableName.lastIndexOf('_');
         var ownerSingular = underscoreIdx > 0 ? tableName.substring(0, underscoreIdx) : tableName;
         var fkColumn = ownerSingular + "_id";
@@ -109,6 +136,10 @@ final class QueryContext {
         return new JoinInfo(joined, tableName,
             field(name(parent.table().getName(), "id")),
             field(name(joined.getName(), fkColumn)));
+    }
+
+    private String generateAlias() {
+        return "t" + depth + "_" + aliasCounter++;
     }
 
     record JoinInfo(Table<?> table, String actualTableName, Field<?> leftJoinColumn, Field<?> rightJoinColumn) {}

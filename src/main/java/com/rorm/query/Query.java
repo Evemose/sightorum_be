@@ -4,6 +4,7 @@ import com.rorm.metamodel.Root;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import java.util.LinkedHashSet;
 import java.util.SequencedSet;
 
 @Builder
@@ -27,4 +28,10 @@ public record Query(
         return offset != null ? offset : 0L;
     }
 
+
+    @SuppressWarnings("unused")
+    public static class QueryBuilder {
+        @SuppressWarnings("FieldMayBeFinal")
+        private SequencedSet<Join> joins = new LinkedHashSet<>();
+    }
 }

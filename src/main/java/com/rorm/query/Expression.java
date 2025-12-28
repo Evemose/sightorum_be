@@ -7,7 +7,16 @@ import com.rorm.query.Operator.UnaryOperator;
 
 import java.util.List;
 
-public sealed interface Expression permits Path, FunctionCall, WindowFunction, Literal, BinaryExpression, UnaryExpression, TernaryExpression {
+public sealed interface Expression permits
+    Path,
+    FunctionCall,
+    WindowFunction,
+    Literal,
+    BinaryExpression,
+    UnaryExpression,
+    TernaryExpression,
+    Subquery,
+    OuterRef {
 
     record FunctionCall(
         String functionName,

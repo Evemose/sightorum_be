@@ -7,19 +7,21 @@ import com.rorm.metamodel.ReferenceAttribute;
 import com.rorm.query.Expression;
 import com.rorm.query.Expression.*;
 import com.rorm.query.Operator.*;
+import com.rorm.query.OuterRef;
 import com.rorm.query.Path;
+import com.rorm.query.Subquery;
 import com.rorm.query.WindowSpec;
+import lombok.AccessLevel;
+import lombok.Setter;
 import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.SortField;
 import org.jooq.WindowOverStep;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Supplier;
 
 import static org.jooq.impl.DSL.*;
@@ -29,16 +31,18 @@ class ExpressionTransformer {
 
     private final ScopedValue<QueryContext> ctxScope = ScopedValue.newInstance();
 
-    public <T> T withContext(QueryContext ctx, Supplier<T> action) {
+    @Setter(value = AccessLevel.PACKAGE, onMethod_ = {@Lazy, @Autowired})
+    private SubqueryTransformer subqueryTransformer;
+
+    <T> T withContext(QueryContext ctx, Supplier<T> action) {
         return ScopedValue.where(ctxScope, ctx).call(action::get);
     }
 
-    public QueryContext ctx() {
+    QueryContext ctx() {
         return ctxScope.get();
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public Field<?> transform(Expression expr) {
+    Field<?> transform(Expression expr) {
         return switch (expr) {
             case Path path -> resolvePath(path);
             case Literal(var value) -> inline(value);
@@ -47,58 +51,9 @@ class ExpressionTransformer {
             case BinaryExpression(var left, var op, var right) -> transformBinary(left, op, right);
             case UnaryExpression(var op, var operand) -> transformUnary(op, operand);
             case TernaryExpression(var first, var op, var second, var third) -> transformTernary(first, op, second, third);
+            case Subquery(var query) -> subqueryTransformer.transform(query);
+            case OuterRef(var depth, var path) -> resolveOuterRef(depth, path);
         };
-    }
-
-    public Set<QueryContext.JoinInfo> collectJoins(Expression expr) {
-        var joins = new LinkedHashSet<QueryContext.JoinInfo>();
-        collectJoinsRecursive(expr, joins);
-        return joins;
-    }
-
-    private void collectJoinsRecursive(Expression expr, Set<QueryContext.JoinInfo> joins) {
-        switch (expr) {
-            case Path path -> collectJoinsFromPath(path, joins);
-            case FunctionCall(_, var args) -> args.forEach(arg -> collectJoinsRecursive(arg, joins));
-            case WindowFunction(_, var args, var spec) -> {
-                args.forEach(arg -> collectJoinsRecursive(arg, joins));
-                if (spec.partitionBy() != null) {
-                    spec.partitionBy().forEach(e -> collectJoinsRecursive(e, joins));
-                }
-                if (spec.orderBy() != null) {
-                    spec.orderBy().forEach(ob -> collectJoinsRecursive(ob.expression(), joins));
-                }
-            }
-            case BinaryExpression(var left, _, var right) -> {
-                collectJoinsRecursive(left, joins);
-                collectJoinsRecursive(right, joins);
-            }
-            case UnaryExpression(_, var operand) -> collectJoinsRecursive(operand, joins);
-            case TernaryExpression(var first, _, var second, var third) -> {
-                collectJoinsRecursive(first, joins);
-                collectJoinsRecursive(second, joins);
-                collectJoinsRecursive(third, joins);
-            }
-            case Literal _ -> {}
-        }
-    }
-
-    private void collectJoinsFromPath(Path path, Set<QueryContext.JoinInfo> joins) {
-        var effectivePath = extendReferencePathIfNeeded(path);
-        var paths = new ArrayList<Path>();
-        var current = effectivePath;
-        while (current != null) {
-            paths.add(current);
-            current = current.parent();
-        }
-        Collections.reverse(paths);
-
-        for (var p : paths) {
-            var joinInfo = ctx().resolveJoin(p);
-            if (joinInfo.leftJoinColumn() != null && joinInfo.rightJoinColumn() != null) {
-                joins.add(joinInfo);
-            }
-        }
     }
 
     private Field<?> resolvePath(Path path) {
@@ -113,13 +68,26 @@ class ExpressionTransformer {
         };
     }
 
-    private Path extendReferencePathIfNeeded(Path path) {
+    Path extendReferencePathIfNeeded(Path path) {
         if (path.target() instanceof ReferenceAttribute refAttr) {
             var targetRoot = refAttr.targetRoot();
             var syntheticId = new BasicAttribute("id", new AttributeLocation(targetRoot.primaryTableName(), "id"));
             return new Path(syntheticId, path);
         }
         return path;
+    }
+
+    private Field<?> resolveOuterRef(int depth, Path path) {
+        var outerCtx = ctx().ancestor(depth);
+        var effectivePath = extendReferencePathIfNeeded(path);
+        var joinInfo = outerCtx.resolveJoin(effectivePath);
+
+        return switch (effectivePath.target()) {
+            case BasicAttribute attr -> outerCtx.resolveField(attr, joinInfo.table());
+            case BasicElement(var loc) -> field(name(joinInfo.table().getName(), loc.column()));
+            default -> throw new UnsupportedOperationException(
+                "Unsupported outer ref path target: " + effectivePath.target().getClass().getSimpleName());
+        };
     }
 
     private Field<?> transformFunctionCall(String name, List<Expression> args) {

@@ -1,10 +1,10 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.BasicAttribute;
-import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.metamodel.AttributeLocation;
-import com.rorm.metamodel.Root;
+import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
+import com.rorm.metamodel.Root;
+import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.TernaryExpression;
@@ -18,6 +18,7 @@ import com.rorm.query.SelectedExpression;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
+import com.rorm.testutil.AbstractPostgresTest;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.Result;
@@ -27,11 +28,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -40,14 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 @Testcontainers
-class QueryTransformerTest {
+class QueryTransformerTest extends AbstractPostgresTest {
 
-    @Container
-    @SuppressWarnings("resource")
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-        .withDatabaseName("test")
-        .withUsername("test")
-        .withPassword("test");
     private static BasicAttribute userId;
     private static BasicAttribute userName;
     private static BasicAttribute userEmail;
@@ -108,7 +104,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("Simple SELECT ALL", query, "select", (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -126,7 +121,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(namePath, BinaryOperator.EQUALS, new Literal("Alice")))
             .build();
 
@@ -143,7 +137,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(emailPath, BinaryOperator.LIKE, new Literal("%test.com")))
             .build();
 
@@ -160,7 +153,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new UnaryExpression(UnaryOperator.IS_NOT_NULL, emailPath))
             .build();
 
@@ -178,7 +170,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new SingleExprSelector(bioPath, false, null))
-            .joins(new LinkedHashSet<>())
             .build();
 
         return Arguments.of("SELECT with many-to-one join (user->profile)", query, "left outer join", (Consumer<Result<Record>>) result -> {
@@ -195,7 +186,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new SingleExprSelector(cityPath, false, null))
-            .joins(new LinkedHashSet<>())
             .build();
 
         return Arguments.of("SELECT with double many-to-one join (user->profile->address)", query, "left outer join", (Consumer<Result<Record>>) result -> {
@@ -211,7 +201,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(bioPath, BinaryOperator.EQUALS, new Literal("Software Engineer")))
             .build();
 
@@ -227,7 +216,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, true))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("SELECT DISTINCT", query, "select distinct", (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -242,7 +230,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new SingleExprSelector(namePath, false, null))
-            .joins(new LinkedHashSet<>())
             .build();
 
         return Arguments.of("SELECT single expression", query, "select", (Consumer<Result<Record>>) result -> {
@@ -263,7 +250,6 @@ class QueryTransformerTest {
                 new SelectedExpression(namePath, null),
                 new SelectedExpression(emailPath, null)
             ), false))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("SELECT multiple expressions", query, "select", (Consumer<Result<Record>>) result ->
             assertThat(result)
@@ -286,7 +272,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(namePredicate, BinaryOperator.AND, emailPredicate))
             .build();
 
@@ -307,7 +292,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(alicePredicate, BinaryOperator.OR, bobPredicate))
             .build();
 
@@ -324,7 +308,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new TernaryExpression(idPath, com.rorm.query.Operator.TernaryOperator.BETWEEN,
                 new Literal(1L), new Literal(2L)))
             .build();
@@ -342,7 +325,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .orderBy(new OrderBy(namePath, true))
             .build();
 
@@ -359,7 +341,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .orderBy(new OrderBy(namePath, false))
             .build();
 
@@ -375,7 +356,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .limit(1L)
             .build();
         return Arguments.of("SELECT with LIMIT", query, "", (Consumer<Result<Record>>) result -> {
@@ -390,7 +370,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .offset(1L)
             .build();
         return Arguments.of("SELECT with OFFSET", query, "offset", (Consumer<Result<Record>>) result -> {
@@ -405,7 +384,6 @@ class QueryTransformerTest {
         var query = Query.builder()
             .from(userRoot)
             .selector(new RootSelector(userRoot, false))
-            .joins(new LinkedHashSet<>())
             .limit(1L)
             .offset(1L)
             .build();
@@ -423,7 +401,8 @@ class QueryTransformerTest {
         var schemaName = "test_" + UUID.randomUUID().toString().replace("-", "_");
 
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        transformer = new QueryTransformer(dsl, new ExpressionTransformer());
+        var expressionTransformer = new ExpressionTransformer();
+        transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
 
         dsl.execute("create schema " + schemaName);
         dsl.execute("set search_path to " + schemaName);

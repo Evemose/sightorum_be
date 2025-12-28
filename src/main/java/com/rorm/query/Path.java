@@ -7,5 +7,4 @@ public record Path(
     PathTarget target,
     @Nullable Path parent
 ) implements Expression {
-
 }

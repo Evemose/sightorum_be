@@ -17,13 +17,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 
-@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection", "FieldCanBeLocal"})
 class QueryTransformerNavigationTest extends AbstractPostgresTest {
 
     private static Root customerRoot;
@@ -168,7 +167,8 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         dsl.execute("insert into order_tags (order_id, tag) values (3, 'urgent')");
         dsl.execute("insert into order_tags (order_id, tag) values (3, 'international')");
 
-        transformer = new QueryTransformer(dsl, new ExpressionTransformer());
+        var expressionTransformer = new ExpressionTransformer();
+        transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
     }
 
     @Test
@@ -179,7 +179,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new RootSelector(customerRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 profileBioPath,
                 BinaryOperator.EQUALS,
@@ -206,7 +205,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new RootSelector(customerRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 addressCityPath,
                 BinaryOperator.EQUALS,
@@ -231,7 +229,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new SingleExprSelector(profileBioPath, false, "bio"))
-            .joins(new LinkedHashSet<>())
             .build();
 
         var sql = transformer.transform(query);
@@ -259,7 +256,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(customerIdPath))
             .build();
 
@@ -291,7 +287,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new RootSelector(customerRoot, false))
-            .joins(new LinkedHashSet<>())
             .orderBy(OrderBy.asc(profileBioPath))
             .build();
 
@@ -318,7 +313,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(customerIdPath))
             .having(new BinaryExpression(
                 countExpr,
@@ -349,7 +343,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(maxNameExpr, false, "max_customer_name"))
-            .joins(new LinkedHashSet<>())
             .build();
 
         var sql = transformer.transform(query);
@@ -371,7 +364,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(substringExpr, false, "email_prefix"))
-            .joins(new LinkedHashSet<>())
             .build();
 
         var sql = transformer.transform(query);
@@ -406,7 +398,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new RootSelector(customerRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 bioCondition,
                 BinaryOperator.AND,
@@ -441,7 +432,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .build();
 
         var sql = transformer.transform(query);
@@ -477,7 +467,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(customerIdPath))
             .orderBy(OrderBy.desc(sumExpr))
             .build();
@@ -486,29 +475,19 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var result = dsl.fetch(sql);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).get("customer_name")).isEqualTo("Jane Smith");
-        assertThat(result.get(0).get("total_amount"))
+        assertThat(result)
+            .first()
+            .extracting(r -> r.get("customer_name"))
+            .describedAs("Customer with highest total amount should be Jane Smith")
+            .isEqualTo("Jane Smith");
+        assertThat(result)
+            .first()
+            .extracting(r -> r.get("total_amount"))
+            .describedAs("Total amount for Jane Smith should be 500.00")
             .asInstanceOf(DOUBLE)
             .isEqualTo(500.00);
     }
 
-    /**
-     * Bug: QueryTransformer does not handle navigation through relationship -> embedded -> field.
-     * <p>
-     * Path structure: customer -> profile (ReferenceAttribute) -> socialLinks (CompositeAttribute) -> twitter (BasicAttribute)
-     * <p>
-     * Current behavior:
-     * - Generates: SELECT ... FROM customers t0 WHERE t0.twitter = '@john_dev'
-     * - Fails with: ERROR: column t0.twitter does not exist
-     * <p>
-     * Expected behavior:
-     * - Should generate: SELECT ... FROM customers t0
-     * LEFT JOIN profiles t1 ON t0.profile_id = t1.id
-     * WHERE t1.twitter = '@john_dev'
-     * <p>
-     * The bug is that QueryTransformer does not create the necessary JOIN when navigating through
-     * a ReferenceAttribute to reach a field inside a CompositeAttribute on the related table.
-     */
     @Test
     @DisplayName("Should navigate through relationship into embedded attribute field in WHERE")
     void shouldNavigateThroughRelationshipToEmbeddedField() {
@@ -519,7 +498,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new RootSelector(customerRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 twitterPath,
                 BinaryOperator.EQUALS,
@@ -552,7 +530,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .build();
 
         var sql = transformer.transform(query);
@@ -583,7 +560,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new RootSelector(customerRoot, false))
-            .joins(new LinkedHashSet<>())
             .orderBy(OrderBy.asc(linkedinPath))
             .build();
 
@@ -628,7 +604,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(customerIdPath))
             .having(new BinaryExpression(
                 countCondition,
@@ -654,7 +629,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
     }
 
     @Test
-    // @org.junit.jupiter.api.Disabled("Bug: QueryTransformer does not handle navigation through ref -> multiref -> ref")
     @DisplayName("Should navigate ref -> multiref -> ref (customer -> orders -> customer)")
     void shouldNavigateRefToMultirefToRef() {
         var ordersPath = new Path(customerOrders, null);
@@ -670,7 +644,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .build();
 
         var sql = transformer.transform(query);
@@ -680,7 +653,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
     }
 
     @Test
-    // @org.junit.jupiter.api.Disabled("Bug: QueryTransformer does not handle navigation through multiref -> ref")
     @DisplayName("Should navigate multiref -> ref in WHERE (filter orders by customer name)")
     void shouldNavigateMultirefToRef() {
         var ordersPath = new Path(customerOrders, null);
@@ -690,7 +662,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var query = Query.builder()
             .from(customerRoot)
             .selector(new RootSelector(customerRoot, false))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 customerNamePath,
                 BinaryOperator.EQUALS,
@@ -720,7 +691,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 addressCityPath,
                 BinaryOperator.EQUALS,
@@ -754,7 +724,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 tagPath,
                 BinaryOperator.EQUALS,
@@ -787,7 +756,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .where(new BinaryExpression(
                 tagPath,
                 BinaryOperator.EQUALS,
@@ -802,7 +770,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
     }
 
     @Test
-    // @org.junit.jupiter.api.Disabled("Bug: QueryTransformer does not handle aggregates over PluralReferenceAttribute")
     @DisplayName("Should aggregate over PluralReferenceAttribute (count orders per customer)")
     void shouldAggregateOverPluralReference() {
         var ordersPath = new Path(customerOrders, null);
@@ -818,7 +785,6 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 ),
                 false
             ))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(new Path(customerId, null)))
             .build();
 

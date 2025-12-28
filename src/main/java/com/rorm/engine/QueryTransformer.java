@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.*;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashSet;
 import java.util.Set;
 
 import static org.jooq.impl.DSL.noCondition;
@@ -23,6 +22,7 @@ public class QueryTransformer {
 
     private final DSLContext dsl;
     private final ExpressionTransformer expr;
+    private final JoinCollector joinCollector;
 
     public Select<?> transform(Query query) {
         return expr.withContext(new QueryContext(query.from()), () -> doTransform(query));
@@ -84,21 +84,7 @@ public class QueryTransformer {
     }
 
     private Set<QueryContext.JoinInfo> collectAllJoins(Query query) {
-        var joins = new LinkedHashSet<QueryContext.JoinInfo>();
-        collectJoinsFromSelector(query.selector(), joins);
-        if (query.where() != null) {
-            joins.addAll(expr.collectJoins(query.where()));
-        }
-        if (query.groupBy() != null) {
-            joins.addAll(expr.collectJoins(query.groupBy().expression()));
-        }
-        if (query.having() != null) {
-            joins.addAll(expr.collectJoins(query.having()));
-        }
-        if (query.orderBy() != null) {
-            joins.addAll(expr.collectJoins(query.orderBy().expression()));
-        }
-        return joins;
+        return joinCollector.collectFromQuery(query);
     }
 
     private Select<?> applyFilters(Select<?> query, Expression where, GroupBy groupBy, Expression having) {
@@ -141,15 +127,5 @@ public class QueryTransformer {
             case RIGHT -> step.rightJoin(table("explicit")).on(condition);
             case CROSS -> step.crossJoin(table("explicit"));
         };
-    }
-
-    private void collectJoinsFromSelector(Selector selector, Set<QueryContext.JoinInfo> joins) {
-        switch (selector) {
-            case RootSelector _ -> {
-            }
-            case SingleExprSelector(var e, _, _) -> joins.addAll(expr.collectJoins(e));
-            case MultiExprSelector(var exprs, _) ->
-                exprs.forEach(ae -> joins.addAll(expr.collectJoins(ae.expression())));
-        }
     }
 }

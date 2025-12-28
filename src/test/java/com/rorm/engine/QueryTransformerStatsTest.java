@@ -1,10 +1,10 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.BasicAttribute;
-import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.metamodel.AttributeLocation;
-import com.rorm.metamodel.Root;
+import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
+import com.rorm.metamodel.Root;
+import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
@@ -13,8 +13,8 @@ import com.rorm.query.*;
 import com.rorm.query.Operator.BinaryOperator;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
+import com.rorm.testutil.AbstractPostgresTest;
 import org.assertj.core.api.InstanceOfAssertFactories;
-import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.Result;
 import org.jooq.impl.DSL;
@@ -23,12 +23,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -41,14 +38,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 @Testcontainers
 @SuppressWarnings("FieldCanBeLocal")
-class QueryTransformerStatsTest {
-
-    @Container
-    @SuppressWarnings("resource")
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-        .withDatabaseName("test")
-        .withUsername("test")
-        .withPassword("test");
+class QueryTransformerStatsTest extends AbstractPostgresTest {
 
     private static BasicAttribute userId;
     private static BasicAttribute userName;
@@ -73,7 +63,6 @@ class QueryTransformerStatsTest {
     private static Root orderRoot;
     private static Root orderItemRoot;
 
-    private DSLContext dsl;
     private QueryTransformer transformer;
 
     @BeforeAll
@@ -141,7 +130,6 @@ class QueryTransformerStatsTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(countExpr, false, "order_count"))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("COUNT all orders", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -157,7 +145,6 @@ class QueryTransformerStatsTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(sumExpr, false, "total_sum"))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("SUM of order totals", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -174,7 +161,6 @@ class QueryTransformerStatsTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(avgExpr, false, "avg_total"))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("AVG of order totals", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -191,7 +177,6 @@ class QueryTransformerStatsTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(maxExpr, false, "max_total"))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("MAX of order totals", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -208,7 +193,6 @@ class QueryTransformerStatsTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(minExpr, false, "min_total"))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("MIN of order totals", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -230,7 +214,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(userIdPath, "user_id"),
                 new SelectedExpression(countExpr, "order_count")
             ), false))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(userIdPath))
             .orderBy(new OrderBy(countExpr, false))
             .limit(1L)
@@ -260,7 +243,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(userIdPath, "user_id"),
                 new SelectedExpression(sumExpr, "total_sum")
             ), false))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(userIdPath))
             .having(havingCondition)
             .build();
@@ -284,7 +266,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(productPath, "product"),
                 new SelectedExpression(avgExpr, "avg_quantity")
             ), false))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(productPath))
             .orderBy(new OrderBy(productPath, true))
             .limit(1L)
@@ -313,7 +294,6 @@ class QueryTransformerStatsTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(countExpr, false, "order_count"))
-            .joins(new LinkedHashSet<>())
             .where(whereCondition)
             .build();
         return Arguments.of("COUNT orders with JOIN on user name", query, (Consumer<Result<Record>>) result -> {
@@ -336,7 +316,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(cityPath, "city"),
                 new SelectedExpression(sumExpr, "total_sum")
             ), false))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(cityPath))
             .orderBy(new OrderBy(sumExpr, false))
             .limit(1L)
@@ -372,7 +351,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(sumExpr, "total_sum"),
                 new SelectedExpression(avgExpr, "total_avg")
             ), false))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(userNamePath))
             .having(havingCondition)
             .orderBy(new OrderBy(sumExpr, false))
@@ -407,7 +385,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(userIdPath, "user_id"),
                 new SelectedExpression(rowNumWindow, "row_num")
             ), false))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("Window function ROW_NUMBER() PARTITION BY user", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -432,7 +409,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(totalPath, "total"),
                 new SelectedExpression(rankWindow, "rank")
             ), false))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("Window function RANK() ORDER BY total DESC", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -464,7 +440,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(totalPath, "total"),
                 new SelectedExpression(denseRankWindow, "dense_rank")
             ), false))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("Window function DENSE_RANK() PARTITION BY user ORDER BY total", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -480,7 +455,6 @@ class QueryTransformerStatsTest {
         var query = Query.builder()
             .from(orderRoot)
             .selector(new SingleExprSelector(totalPath, false, "order_total"))
-            .joins(new LinkedHashSet<>())
             .build();
         return Arguments.of("Expression with alias", query, (Consumer<Result<Record>>) result -> {
             assertThat(result)
@@ -506,7 +480,6 @@ class QueryTransformerStatsTest {
                 new SelectedExpression(countExpr, "order_count"),
                 new SelectedExpression(sumExpr, "total_amount")
             ), false))
-            .joins(new LinkedHashSet<>())
             .groupBy(new GroupBy(userIdPath))
             .build();
         return Arguments.of("Multiple expressions with aliases", query, (Consumer<Result<Record>>) result -> {
@@ -529,7 +502,8 @@ class QueryTransformerStatsTest {
         var schemaName = "test_" + UUID.randomUUID().toString().replace("-", "_");
 
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        transformer = new QueryTransformer(dsl, new ExpressionTransformer());
+        var expressionTransformer = new ExpressionTransformer();
+        transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
 
         dsl.execute("create schema " + schemaName);
         dsl.execute("set search_path to " + schemaName);
@@ -591,7 +565,6 @@ class QueryTransformerStatsTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("statsTestCases")
-    @SuppressWarnings("unchecked")
     void testStatsQueryTransformation(String testName, Query query, Consumer<Result<Record>> resultValidator) {
         var sql = transformer.transform(query);
         println("Generated SQL for test '" + testName + "':\n" + sql + "\n");
