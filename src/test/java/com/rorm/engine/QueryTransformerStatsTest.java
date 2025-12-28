@@ -1,9 +1,10 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.Attribute.BasicAttribute;
-import com.rorm.metamodel.Attribute.ReferenceAttribute;
+import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.metamodel.AttributeLocation;
 import com.rorm.metamodel.Root;
+import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
@@ -63,10 +64,10 @@ class QueryTransformerStatsTest {
     private static BasicAttribute orderItemProductName;
     private static BasicAttribute orderItemQuantity;
 
-    private static ReferenceAttribute userProfile;
-    private static ReferenceAttribute profileAddress;
-    private static ReferenceAttribute orderUser;
-    private static ReferenceAttribute orderItemOrder;
+    private static SingularReferenceAttribute userProfile;
+    private static SingularReferenceAttribute profileAddress;
+    private static SingularReferenceAttribute orderUser;
+    private static SingularReferenceAttribute orderItemOrder;
 
     private static Root userRoot;
     private static Root orderRoot;
@@ -77,32 +78,41 @@ class QueryTransformerStatsTest {
 
     @BeforeAll
     static void setupMetamodel() {
-        userId = new BasicAttribute("id", Long.class, new AttributeLocation("users", "id"));
-        userName = new BasicAttribute("name", String.class, new AttributeLocation("users", "name"));
-        userEmail = new BasicAttribute("email", String.class, new AttributeLocation("users", "email"));
+        // Address (no dependencies)
+        addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"));
+        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"));
+        addressStreet = new BasicAttribute("street", new AttributeLocation("addresses", "street"));
+        var addressRoot = new Root("addresses", List.of(addressId, addressCity, addressStreet));
 
-        profileId = new BasicAttribute("id", Long.class, new AttributeLocation("profiles", "id"));
-        profileBio = new BasicAttribute("bio", String.class, new AttributeLocation("profiles", "bio"));
+        // Profile (depends on Address)
+        profileId = new BasicAttribute("id", new AttributeLocation("profiles", "id"));
+        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"));
+        profileAddress = new SingularReferenceAttribute("address", addressRoot,
+            new JoinTableMapping(new AttributeLocation("profiles", "address_id"), "id"));
+        var profileRoot = new Root("profiles", List.of(profileId, profileBio, profileAddress));
 
-        addressId = new BasicAttribute("id", Long.class, new AttributeLocation("addresses", "id"));
-        addressCity = new BasicAttribute("city", String.class, new AttributeLocation("addresses", "city"));
-        addressStreet = new BasicAttribute("street", String.class, new AttributeLocation("addresses", "street"));
+        // User (depends on Profile)
+        userId = new BasicAttribute("id", new AttributeLocation("users", "id"));
+        userName = new BasicAttribute("name", new AttributeLocation("users", "name"));
+        userEmail = new BasicAttribute("email", new AttributeLocation("users", "email"));
+        userProfile = new SingularReferenceAttribute("profile", profileRoot,
+            new JoinTableMapping(new AttributeLocation("users", "profile_id"), "id"));
+        userRoot = new Root("users", List.of(userId, userName, userEmail, userProfile));
 
-        orderId = new BasicAttribute("id", Long.class, new AttributeLocation("orders", "id"));
-        orderTotal = new BasicAttribute("total", BigDecimal.class, new AttributeLocation("orders", "total"));
+        // Order (depends on User)
+        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
+        orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"));
+        orderUser = new SingularReferenceAttribute("user", userRoot,
+            new JoinTableMapping(new AttributeLocation("orders", "user_id"), "id"));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderUser));
 
-        orderItemId = new BasicAttribute("id", Long.class, new AttributeLocation("order_items", "id"));
-        orderItemProductName = new BasicAttribute("product_name", String.class, new AttributeLocation("order_items", "product_name"));
-        orderItemQuantity = new BasicAttribute("quantity", Integer.class, new AttributeLocation("order_items", "quantity"));
-
-        userProfile = new ReferenceAttribute("profile", Object.class, new AttributeLocation("users", "profile_id"));
-        profileAddress = new ReferenceAttribute("address", Object.class, new AttributeLocation("profiles", "address_id"));
-        orderUser = new ReferenceAttribute("user", Object.class, new AttributeLocation("orders", "user_id"));
-        orderItemOrder = new ReferenceAttribute("order", Object.class, new AttributeLocation("order_items", "order_id"));
-
-        userRoot = new Root("users", Object.class, List.of(userId, userName, userEmail, userProfile));
-        orderRoot = new Root("orders", Object.class, List.of(orderId, orderTotal, orderUser));
-        orderItemRoot = new Root("order_items", Object.class, List.of(orderItemId, orderItemProductName, orderItemQuantity, orderItemOrder));
+        // OrderItem (depends on Order)
+        orderItemId = new BasicAttribute("id", new AttributeLocation("order_items", "id"));
+        orderItemProductName = new BasicAttribute("product_name", new AttributeLocation("order_items", "product_name"));
+        orderItemQuantity = new BasicAttribute("quantity", new AttributeLocation("order_items", "quantity"));
+        orderItemOrder = new SingularReferenceAttribute("order", orderRoot,
+            new JoinTableMapping(new AttributeLocation("order_items", "order_id"), "id"));
+        orderItemRoot = new Root("order_items", List.of(orderItemId, orderItemProductName, orderItemQuantity, orderItemOrder));
     }
 
     static Stream<Arguments> statsTestCases() {
@@ -519,7 +529,7 @@ class QueryTransformerStatsTest {
         var schemaName = "test_" + UUID.randomUUID().toString().replace("-", "_");
 
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        transformer = new QueryTransformer(dsl);
+        transformer = new QueryTransformer(dsl, new ExpressionTransformer());
 
         dsl.execute("create schema " + schemaName);
         dsl.execute("set search_path to " + schemaName);
@@ -584,8 +594,7 @@ class QueryTransformerStatsTest {
     @SuppressWarnings("unchecked")
     void testStatsQueryTransformation(String testName, Query query, Consumer<Result<Record>> resultValidator) {
         var sql = transformer.transform(query);
-        println();
-        println("Generated SQL for test '" + testName + "':\n" + sql);
+        println("Generated SQL for test '" + testName + "':\n" + sql + "\n");
         var result = (Result<Record>) dsl.fetch(sql);
         resultValidator.accept(result);
     }

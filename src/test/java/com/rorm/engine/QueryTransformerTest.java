@@ -1,9 +1,10 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.Attribute.BasicAttribute;
-import com.rorm.metamodel.Attribute.ReferenceAttribute;
+import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.metamodel.AttributeLocation;
 import com.rorm.metamodel.Root;
+import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.TernaryExpression;
@@ -52,8 +53,8 @@ class QueryTransformerTest {
     private static BasicAttribute userEmail;
     private static BasicAttribute profileBio;
     private static BasicAttribute addressCity;
-    private static ReferenceAttribute userProfile;
-    private static ReferenceAttribute profileAddress;
+    private static SingularReferenceAttribute userProfile;
+    private static SingularReferenceAttribute profileAddress;
     private static Root userRoot;
 
     private DSLContext dsl;
@@ -61,16 +62,23 @@ class QueryTransformerTest {
 
     @BeforeAll
     static void setupMetamodel() {
-        userId = new BasicAttribute("id", Long.class, new AttributeLocation("users", "id"));
-        userName = new BasicAttribute("name", String.class, new AttributeLocation("users", "name"));
-        userEmail = new BasicAttribute("email", String.class, new AttributeLocation("users", "email"));
-        profileBio = new BasicAttribute("bio", String.class, new AttributeLocation("profiles", "bio"));
-        addressCity = new BasicAttribute("city", String.class, new AttributeLocation("addresses", "city"));
+        // Address (no dependencies)
+        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"));
+        var addressRoot = new Root("addresses", List.of(addressCity));
 
-        userProfile = new ReferenceAttribute("profile", Object.class, new AttributeLocation("users", "profile_id"));
-        profileAddress = new ReferenceAttribute("address", Object.class, new AttributeLocation("profiles", "address_id"));
+        // Profile (depends on Address)
+        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"));
+        profileAddress = new SingularReferenceAttribute("address", addressRoot,
+            new JoinTableMapping(new AttributeLocation("profiles", "address_id"), "id"));
+        var profileRoot = new Root("profiles", List.of(profileBio, profileAddress));
 
-        userRoot = new Root("users", Object.class, List.of(userId, userName, userEmail, userProfile));
+        // User (depends on Profile)
+        userId = new BasicAttribute("id", new AttributeLocation("users", "id"));
+        userName = new BasicAttribute("name", new AttributeLocation("users", "name"));
+        userEmail = new BasicAttribute("email", new AttributeLocation("users", "email"));
+        userProfile = new SingularReferenceAttribute("profile", profileRoot,
+            new JoinTableMapping(new AttributeLocation("users", "profile_id"), "id"));
+        userRoot = new Root("users", List.of(userId, userName, userEmail, userProfile));
     }
 
     static Stream<Arguments> queryTestCases() {
@@ -415,7 +423,7 @@ class QueryTransformerTest {
         var schemaName = "test_" + UUID.randomUUID().toString().replace("-", "_");
 
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        transformer = new QueryTransformer(dsl);
+        transformer = new QueryTransformer(dsl, new ExpressionTransformer());
 
         dsl.execute("create schema " + schemaName);
         dsl.execute("set search_path to " + schemaName);
@@ -487,7 +495,7 @@ class QueryTransformerTest {
                 .contains(expectedSqlFragment.toLowerCase());
         }
 
-        println("Generated SQL for " + testName + ": " + sqlString);
+        println("Generated SQL for " + testName + ": " + sqlString + "\n");
 
         var result = (Result<Record>) dsl.fetch(sql);
         resultValidator.accept(result);
