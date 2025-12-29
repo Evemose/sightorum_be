@@ -27,34 +27,51 @@ repositories {
 extra["springModulithVersion"] = "1.4.6"
 val jspecifyVersion = "1.0.0"
 
+subprojects {
+    apply(plugin = "java-library")
+    apply(plugin = "io.spring.dependency-management")
+
+    group = rootProject.group
+    version = rootProject.version
+
+    repositories {
+        mavenCentral()
+    }
+
+    the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
+        imports {
+            mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.9")
+            mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.6")
+        }
+    }
+
+    configure<JavaPluginExtension> {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    dependencies {
+        "compileOnly"("org.jspecify:jspecify:$jspecifyVersion")
+    }
+
+    tasks.withType<Test> {
+        useJUnitPlatform()
+        maxParallelForks = Runtime.getRuntime().availableProcessors()
+        systemProperty("junit.jupiter.execution.parallel.enabled", "true")
+        systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
+        systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
+    }
+}
+
 dependencies {
-    implementation("org.springframework.modulith:spring-modulith-starter-core")
-    implementation("org.springframework.boot:spring-boot-starter-jooq")
-    implementation("org.springframework.boot:spring-boot-starter-json")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.hibernate.orm:hibernate-core")
+    implementation(project(":rorm-core"))
+    implementation(project(":rorm-jpasupport"))
+    implementation(project(":rorm-serialization"))
 
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:postgresql")
+    implementation("org.springframework.boot:spring-boot-starter")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.modulith:spring-modulith-starter-test")
-    testImplementation("com.h2database:h2")
-
-    compileOnly("org.projectlombok:lombok")
-    compileOnly("org.jspecify:jspecify:$jspecifyVersion")
-    annotationProcessor("org.projectlombok:lombok")
-
-    testCompileOnly("org.projectlombok:lombok")
-    testAnnotationProcessor("org.projectlombok:lombok")
-
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
-    developmentOnly("org.springframework.boot:spring-boot-docker-compose")
-
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-
-    runtimeOnly("org.postgresql:postgresql")
-
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
