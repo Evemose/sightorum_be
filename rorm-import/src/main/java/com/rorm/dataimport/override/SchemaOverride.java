@@ -23,7 +23,7 @@ public sealed interface SchemaOverride permits
     record CompositeAttributeOverride(
         String attributeName,
         List<String> subAttributeColumns,
-        @Nullable List<SchemaOverride> nestedOverrides
+        List<SchemaOverride> nestedOverrides
     ) implements SchemaOverride {
     }
 
@@ -49,7 +49,7 @@ public sealed interface SchemaOverride permits
         String attributeName,
         String targetRootName,
         List<String> subAttributeColumns,
-        @Nullable List<SchemaOverride> nestedOverrides
+        List<SchemaOverride> nestedOverrides
     ) implements SchemaOverride {
     }
 }

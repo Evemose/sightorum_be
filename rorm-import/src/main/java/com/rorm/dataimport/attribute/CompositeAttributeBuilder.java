@@ -17,19 +17,17 @@ class CompositeAttributeBuilder {
     }
 
     Map<String, DetectedAttribute> buildSubAttributes(
-        @Nullable List<String> subAttributeColumns,
-        @Nullable List<SchemaOverride> nestedOverrides,
+        List<String> columns,
+        List<SchemaOverride> nestedOverrides,
         Set<String> claimedColumns
     ) {
         var subAttrs = new LinkedHashMap<String, DetectedAttribute>();
-        var columns = Objects.requireNonNullElse(subAttributeColumns, List.<String>of());
         var prefix = extractCommonPrefix(columns);
-        var prefixPartCount = prefix != null ? namingStyle.split(prefix).length : 0;
+        var prefixPartCount = prefix.map(s -> namingStyle.split(s).length).orElse(0);
 
         // Process nested overrides first
-        var overrides = Objects.requireNonNullElse(nestedOverrides, List.<SchemaOverride>of());
-        overrides.stream()
-            .map(override -> processNestedOverride(override, columns, prefix, claimedColumns))
+        nestedOverrides.stream()
+            .map(override -> processNestedOverride(override, columns, claimedColumns, prefix.orElse(null)))
             .flatMap(Optional::stream)
             .forEach(attr -> subAttrs.put(attr.name(), attr));
 
@@ -45,15 +43,14 @@ class CompositeAttributeBuilder {
         return subAttrs;
     }
 
-    @Nullable
-    private String extractCommonPrefix(List<String> columns) {
+    private Optional<String> extractCommonPrefix(List<String> columns) {
         if (columns.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
 
         var allParts = columns.stream().map(namingStyle::split).toList();
         if (allParts.stream().anyMatch(parts -> parts.length < 2)) {
-            return null;
+            return Optional.empty();
         }
 
         var minLength = allParts.stream().mapToInt(parts -> parts.length).min().orElse(0);
@@ -68,7 +65,9 @@ class CompositeAttributeBuilder {
             prefixParts.add(part);
         }
 
-        return prefixParts.isEmpty() ? null : String.join(namingStyle.getSeparator(), prefixParts);
+        return prefixParts.isEmpty() ?
+            Optional.empty() :
+            Optional.of(String.join(namingStyle.getSeparator(), prefixParts));
     }
 
     private String extractAttributeName(String column, int prefixPartCount) {
@@ -82,21 +81,21 @@ class CompositeAttributeBuilder {
     private Optional<DetectedAttribute> processNestedOverride(
         SchemaOverride override,
         List<String> columns,
-        @Nullable String prefix,
-        Set<String> claimedColumns
+        Set<String> claimedColumns,
+        @Nullable String prefix
     ) {
         return switch (override) {
             case SchemaOverride.BasicAttributeOverride o ->
-                findAndClaimColumn(o.attributeName(), columns, prefix, claimedColumns)
+                findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
                     .map(col -> new DetectedAttribute.Basic(o.attributeName(), col, o.descriptor()));
             case SchemaOverride.SingularReferenceOverride o ->
-                findAndClaimColumn(o.attributeName(), columns, prefix, claimedColumns)
+                findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
                     .map(col -> new DetectedAttribute.SingularReference(o.attributeName(), col, o.targetRootName()));
             case SchemaOverride.PluralReferenceOverride o ->
-                findAndClaimColumn(o.attributeName(), columns, prefix, claimedColumns)
+                findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
                     .map(col -> new DetectedAttribute.PluralReference(o.attributeName(), col, o.targetRootName()));
             case SchemaOverride.CollectionAttributeOverride o ->
-                findAndClaimColumn(o.attributeName(), columns, prefix, claimedColumns)
+                findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
                     .map(col -> new DetectedAttribute.Collection(
                         o.attributeName(), col, Objects.requireNonNullElse(o.separator(), defaultListSeparator)));
             case SchemaOverride.CompositeAttributeOverride o -> Optional.of(new DetectedAttribute.Composite(
@@ -112,8 +111,8 @@ class CompositeAttributeBuilder {
     private Optional<String> findAndClaimColumn(
         String attributeName,
         List<String> columns,
-        @Nullable String prefix,
-        Set<String> claimedColumns
+        Set<String> claimedColumns,
+        @Nullable String prefix
     ) {
         var prefixPartCount = prefix != null ? namingStyle.split(prefix).length : 0;
         return columns.stream()
