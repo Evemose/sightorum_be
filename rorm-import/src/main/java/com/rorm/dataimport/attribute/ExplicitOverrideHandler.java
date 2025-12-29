@@ -61,7 +61,7 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
         return findColumnForAttribute(basic.attributeName(), columnNames)
             .map(column -> {
                 claimedColumns.add(column);
-                return new DetectedAttribute.Basic(basic.attributeName(), column, basic.descriptor());
+                return new DetectedAttribute.Basic(basic.attributeName(), column);
             });
     }
 

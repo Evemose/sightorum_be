@@ -1,5 +1,7 @@
 package com.rorm.dataimport.pipeline;
 
+import com.rorm.dataimport.type.TypeParser;
+import com.rorm.metamodel.DataType;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -14,6 +16,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
     private final JdbcTemplate jdbcTemplate;
     private final String qualifiedTableName;
     private final List<String> dataColumns;
+    private final Map<String, DataType> columnTypes;
     private final boolean hasIdColumn;
     private final String insertSql;
     private final AtomicLong rowCounter;
@@ -22,10 +25,12 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
         JdbcTemplate jdbcTemplate,
         String schema,
         String tableName,
-        List<String> columnNames
+        List<String> columnNames,
+        Map<String, DataType> columnTypes
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.qualifiedTableName = "%s.%s".formatted(schema, tableName);
+        this.columnTypes = columnTypes;
         this.hasIdColumn = columnNames.stream().anyMatch(col -> col.equalsIgnoreCase("id"));
         this.dataColumns = columnNames.stream()
             .filter(col -> !col.equalsIgnoreCase("id"))
@@ -71,7 +76,14 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
             Stream.of(id),
             dataColumns.stream().map(col -> {
                 var value = row.get(col);
-                return (value == null || value.isEmpty()) ? null : value;
+                if (value == null || value.isEmpty()) {
+                    return null;
+                }
+                var dataType = columnTypes.get(col);
+                if (dataType == null) {
+                    return value; // Fallback to string
+                }
+                return TypeParser.parseValue(value, dataType);
             })
         ).toArray();
     }

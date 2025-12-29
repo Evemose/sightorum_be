@@ -3,6 +3,7 @@ package com.rorm.jpasupport;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
 import com.rorm.metamodel.CollectionAttribute.CompositeElement;
+import com.rorm.metamodel.DataType.NumericType;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.metamodel.Attribute.PersistentAttributeType;
 import jakarta.persistence.metamodel.MapAttribute;
@@ -11,6 +12,10 @@ import jakarta.persistence.metamodel.SingularAttribute;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -126,7 +131,37 @@ public class JpaModelSpaceSource {
         Class<?> ownerType
     ) {
         var location = mappingResolver.resolveLocation(ownerType, jpaAttr.getName());
-        return new BasicAttribute(jpaAttr.getName(), location);
+        var dataType = inferDataType(jpaAttr.getJavaType());
+        return new BasicAttribute(jpaAttr.getName(), location, dataType);
+    }
+
+    @SuppressWarnings("java:S3776")
+    private DataType inferDataType(Class<?> javaType) {
+        if (javaType == String.class) {
+            return new DataType.StringType();
+        } else if (javaType == Boolean.class || javaType == boolean.class) {
+            return new DataType.BooleanType();
+        } else if (Number.class.isAssignableFrom(javaType) || javaType.isPrimitive()) {
+            return new NumericType(19, 0);
+        } else if (javaType == LocalDate.class || javaType == Date.class) {
+            return new DataType.DateType();
+        } else if (javaType == LocalTime.class || javaType == Time.class) {
+            return new DataType.TimeType();
+        } else if (javaType == ZoneId.class || javaType == ZoneOffset.class) {
+            return new DataType.TimezoneType();
+        } else if (javaType == LocalDateTime.class || javaType == Timestamp.class ||
+                   javaType == ZonedDateTime.class || javaType == OffsetDateTime.class ||
+                   javaType == Instant.class) {
+            return new DataType.DateTimeType();
+        } else if (javaType == DayOfWeek.class) {
+            return new DataType.DayOfWeekType();
+        } else if (javaType.isEnum()) {
+            var enumConstants = javaType.getEnumConstants();
+            var values = Arrays.stream(enumConstants).map(Object::toString).toArray(String[]::new);
+            return new DataType.EnumType(values);
+        } else {
+            return new DataType.StringType();
+        }
     }
 
     /**
@@ -158,9 +193,11 @@ public class JpaModelSpaceSource {
     ) {
         return switch (jpaAttr.getPersistentAttributeType()) {
             case BASIC -> {
+                var singularAttr = (SingularAttribute<?, ?>) jpaAttr;
                 var path = embeddableFieldPath + "." + jpaAttr.getName();
                 var location = mappingResolver.resolveLocation(ownerType, path);
-                yield new BasicAttribute(jpaAttr.getName(), location);
+                var dataType = inferDataType(singularAttr.getJavaType());
+                yield new BasicAttribute(jpaAttr.getName(), location, dataType);
             }
             case EMBEDDED -> {
                 var singularAttr = (SingularAttribute<?, ?>) jpaAttr;
@@ -216,7 +253,10 @@ public class JpaModelSpaceSource {
         var elementTypeInfo = jpaAttr.getElementType();
 
         var element = switch (elementTypeInfo.getPersistenceType()) {
-            case BASIC -> new BasicElement(location);
+            case BASIC -> {
+                var dataType = inferDataType(elementTypeInfo.getJavaType());
+                yield new BasicElement(location, dataType);
+            }
             case EMBEDDABLE -> {
                 var elementType = elementTypeInfo.getJavaType();
                 var embeddableType = jpaMetamodel.embeddable(elementType);
@@ -245,9 +285,11 @@ public class JpaModelSpaceSource {
     ) {
         return switch (jpaAttr.getPersistentAttributeType()) {
             case BASIC -> {
+                var singularAttr = (SingularAttribute<?, ?>) jpaAttr;
                 var path = collectionName + "." + jpaAttr.getName();
                 var location = mappingResolver.resolveLocation(ownerType, path);
-                yield new BasicAttribute(jpaAttr.getName(), location);
+                var dataType = inferDataType(singularAttr.getJavaType());
+                yield new BasicAttribute(jpaAttr.getName(), location, dataType);
             }
             case EMBEDDED -> {
                 var singularAttr = (SingularAttribute<?, ?>) jpaAttr;

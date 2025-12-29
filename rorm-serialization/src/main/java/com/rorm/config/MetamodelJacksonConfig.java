@@ -10,6 +10,7 @@ import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
 import com.rorm.metamodel.CollectionAttribute.CollectionElement;
 import com.rorm.metamodel.CollectionAttribute.CompositeElement;
+import com.rorm.metamodel.DataType.*;
 import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.metamodel.ReferenceAttribute.ReferenceMapping;
@@ -38,12 +39,29 @@ public class MetamodelJacksonConfig {
         module.setMixInAnnotation(PathTarget.class, PathTargetMixin.class);
         module.setMixInAnnotation(ReferenceMapping.class, ReferenceMappingMixin.class);
         module.setMixInAnnotation(CollectionElement.class, CollectionElementMixin.class);
+        module.setMixInAnnotation(DataType.class, DataTypeMixin.class);
 
         return module;
     }
 
     @JsonIdentityInfo(generator = ObjectIdGenerators.StringIdGenerator.class)
     abstract static class RootMixin {
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
+    @JsonSubTypes({
+        @JsonSubTypes.Type(value = NumericType.class, name = "numeric"),
+        @JsonSubTypes.Type(value = StringType.class, name = "string"),
+        @JsonSubTypes.Type(value = BooleanType.class, name = "boolean"),
+        @JsonSubTypes.Type(value = DateType.class, name = "date"),
+        @JsonSubTypes.Type(value = TimeType.class, name = "time"),
+        @JsonSubTypes.Type(value = TimezoneType.class, name = "timezone"),
+        @JsonSubTypes.Type(value = DateTimeType.class, name = "datetime"),
+        @JsonSubTypes.Type(value = DayOfWeekType.class, name = "dayOfWeek"),
+        @JsonSubTypes.Type(value = EnumType.class, name = "enum"),
+        @JsonSubTypes.Type(value = ListType.class, name = "list")
+    })
+    abstract static class DataTypeMixin {
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")

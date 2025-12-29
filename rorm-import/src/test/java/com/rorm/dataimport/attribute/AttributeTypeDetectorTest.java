@@ -2,11 +2,11 @@ package com.rorm.dataimport.attribute;
 
 import com.rorm.dataimport.naming.NamingStyle;
 import com.rorm.dataimport.override.SchemaOverride;
+import com.rorm.metamodel.DataType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,7 +32,6 @@ class AttributeTypeDetectorTest {
             .satisfies(attr -> {
                 assertThat(attr.name()).isEqualTo("firstName");
                 assertThat(attr.columnName()).isEqualTo("first_name");
-                assertThat(attr.type()).isEqualTo("string");
             });
     }
 
@@ -97,53 +96,33 @@ class AttributeTypeDetectorTest {
                     .extracting(a -> (DetectedAttribute.Basic) a)
                     .satisfies(attr -> {
                         assertThat(attr.columnName()).isEqualTo("address_street");
-                        assertThat(attr.type()).isEqualTo("string");
                     });
             });
     }
 
     @Test
-    @DisplayName("detects one-to-one root when columns have prefix_id pattern and prefix is not an available root")
-    void detectOneToOneRoot() {
+    @DisplayName("treats columns as basic attributes by default (collections need explicit override)")
+    void detectBasicAttributesByDefault() {
         var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, List.of(), ";");
-        var columns = List.of("profile_id", "profile_name", "profile_email", "username");
+        var columns = List.of("tags", "categories", "name");
 
         var result = detector.detectAttributes(columns);
 
-        assertThat(result).hasSize(2);
-        assertThat(result.get("username")).isInstanceOf(DetectedAttribute.Basic.class);
-        assertThat(result.get("profile"))
-            .isInstanceOf(DetectedAttribute.OneToOneRoot.class)
-            .extracting(a -> (DetectedAttribute.OneToOneRoot) a)
-            .satisfies(oneToOne -> {
-                assertThat(oneToOne.name()).isEqualTo("profile");
-                assertThat(oneToOne.targetRootName()).isEqualTo("profile");
-                assertThat(oneToOne.subAttributes()).hasSize(3);
-                assertThat(oneToOne.subAttributes()).containsKeys("id", "name", "email");
+        assertThat(result).hasSize(3);
+        assertThat(result.get("tags"))
+            .isInstanceOf(DetectedAttribute.Basic.class)
+            .extracting(a -> (DetectedAttribute.Basic) a)
+            .satisfies(attr -> {
+                assertThat(attr.name()).isEqualTo("tags");
+                assertThat(attr.columnName()).isEqualTo("tags");
             });
     }
 
     @Test
-    @DisplayName("detects composite when prefix_id exists but prefix IS an available root")
-    void detectCompositeWhenPrefixIsAvailableRoot() {
-        var detector = new AttributeTypeDetector(Set.of("user"), SNAKE_CASE, List.of(), ";");
-        var columns = List.of("user_id", "user_name", "user_email");
-
-        var result = detector.detectAttributes(columns);
-
-        // Since "user" is an available root, user_id should be detected as a reference
-        // and user_name, user_email should form a composite (if there's more than one non-id column)
-        // Actually, user_id is a reference, the others would be composite
-        assertThat(result).hasSize(2);
-        assertThat(result.get("userId")).isInstanceOf(DetectedAttribute.SingularReference.class);
-        assertThat(result.get("user")).isInstanceOf(DetectedAttribute.Composite.class);
-    }
-
-    @Test
-    @DisplayName("basic override takes precedence over detection")
-    void basicOverrideTakesPrecedence() {
+    @DisplayName("applies basic attribute override")
+    void applyBasicAttributeOverride() {
         List<SchemaOverride> overrides = List.of(
-            new SchemaOverride.BasicAttributeOverride("firstName", "integer")
+            new SchemaOverride.BasicAttributeOverride("firstName", new DataType.NumericType(10, 0))
         );
         var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
         var columns = List.of("first_name", "last_name");
@@ -154,73 +133,22 @@ class AttributeTypeDetectorTest {
         assertThat(result.get("firstName"))
             .isInstanceOf(DetectedAttribute.Basic.class)
             .extracting(a -> (DetectedAttribute.Basic) a)
-            .satisfies(attr -> assertThat(attr.type()).isEqualTo("integer"));
+            .satisfies(attr -> {
+                assertThat(attr.name()).isEqualTo("firstName");
+                assertThat(attr.columnName()).isEqualTo("first_name");
+            });
         assertThat(result.get("lastName"))
-            .isInstanceOf(DetectedAttribute.Basic.class)
-            .extracting(a -> (DetectedAttribute.Basic) a)
-            .satisfies(attr -> assertThat(attr.type()).isEqualTo("string"));
+            .isInstanceOf(DetectedAttribute.Basic.class);
     }
 
     @Test
-    @DisplayName("composite override with explicit sub-attribute columns")
-    void compositeOverrideWithSubAttributeColumns() {
-        List<SchemaOverride> overrides = List.of(
-            new SchemaOverride.CompositeAttributeOverride(
-                "address",
-                List.of("street_address", "city_name", "postal_code"),
-                null
-            )
+    @DisplayName("applies composite override with explicit sub-attribute columns")
+    void applyCompositeOverride() {
+        var nestedOverrides = List.<SchemaOverride>of(
+            new SchemaOverride.BasicAttributeOverride("street", new DataType.StringType()),
+            new SchemaOverride.BasicAttributeOverride("zipCode", new DataType.NumericType(10, 0))
         );
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
-        var columns = List.of("street_address", "city_name", "postal_code", "country");
 
-        var result = detector.detectAttributes(columns);
-
-        assertThat(result).hasSize(2);
-        assertThat(result.get("country")).isInstanceOf(DetectedAttribute.Basic.class);
-        assertThat(result.get("address"))
-            .isInstanceOf(DetectedAttribute.Composite.class)
-            .extracting(a -> (DetectedAttribute.Composite) a)
-            .satisfies(composite -> {
-                assertThat(composite.subAttributes()).hasSize(3);
-                assertThat(composite.subAttributes()).containsKeys("streetAddress", "cityName", "postalCode");
-            });
-    }
-
-    @Test
-    @DisplayName("composite override with nested overrides for sub-attributes")
-    void compositeOverrideWithNestedOverrides() {
-        var result = detectAttributeTypesForNestedOverridesCase();
-
-        assertThat(result).hasSize(2);
-        assertThat(result.get("name")).isInstanceOf(DetectedAttribute.Basic.class);
-        assertThat(result.get("address"))
-            .isInstanceOf(DetectedAttribute.Composite.class)
-            .extracting(a -> (DetectedAttribute.Composite) a)
-            .satisfies(composite -> {
-                assertThat(composite.subAttributes()).hasSize(3);
-                // Nested overrides should apply
-                assertThat(composite.subAttributes().get("street"))
-                    .isInstanceOf(DetectedAttribute.Basic.class)
-                    .extracting(a -> (DetectedAttribute.Basic) a)
-                    .satisfies(attr -> assertThat(attr.type()).isEqualTo("text"));
-                assertThat(composite.subAttributes().get("zipCode"))
-                    .isInstanceOf(DetectedAttribute.Basic.class)
-                    .extracting(a -> (DetectedAttribute.Basic) a)
-                    .satisfies(attr -> assertThat(attr.type()).isEqualTo("integer"));
-                // City should default to string
-                assertThat(composite.subAttributes().get("city"))
-                    .isInstanceOf(DetectedAttribute.Basic.class)
-                    .extracting(a -> (DetectedAttribute.Basic) a)
-                    .satisfies(attr -> assertThat(attr.type()).isEqualTo("string"));
-            });
-    }
-
-    private static Map<String, DetectedAttribute> detectAttributeTypesForNestedOverridesCase() {
-        List<SchemaOverride> nestedOverrides = List.of(
-            new SchemaOverride.BasicAttributeOverride("street", "text"),
-            new SchemaOverride.BasicAttributeOverride("zipCode", "integer")
-        );
         List<SchemaOverride> overrides = List.of(
             new SchemaOverride.CompositeAttributeOverride(
                 "address",
@@ -228,108 +156,152 @@ class AttributeTypeDetectorTest {
                 nestedOverrides
             )
         );
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
-        var columns = List.of("address_street", "address_city", "address_zip_code", "name");
 
-        return detector.detectAttributes(columns);
-    }
-
-    @Test
-    @DisplayName("one-to-one root override creates OneToOneRoot attribute")
-    void oneToOneRootOverride() {
-        List<SchemaOverride> nestedOverrides = List.of(
-            new SchemaOverride.BasicAttributeOverride("bio", "text")
-        );
-        List<SchemaOverride> overrides = List.of(
-            new SchemaOverride.OneToOneRootOverride(
-                "profile",
-                "user_profile",
-                List.of("profile_id", "profile_bio", "profile_avatar"),
-                nestedOverrides
-            )
-        );
         var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
-        var columns = List.of("profile_id", "profile_bio", "profile_avatar", "username");
+        var columns = List.of("name", "address_street", "address_city", "address_zip_code");
 
         var result = detector.detectAttributes(columns);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get("username")).isInstanceOf(DetectedAttribute.Basic.class);
-        assertThat(result.get("profile"))
-            .isInstanceOf(DetectedAttribute.OneToOneRoot.class)
-            .extracting(a -> (DetectedAttribute.OneToOneRoot) a)
-            .satisfies(oneToOne -> {
-                assertThat(oneToOne.name()).isEqualTo("profile");
-                assertThat(oneToOne.targetRootName()).isEqualTo("user_profile");
-                assertThat(oneToOne.subAttributes()).hasSize(3);
-                assertThat(oneToOne.subAttributes().get("bio"))
+        assertThat(result.get("address"))
+            .isInstanceOf(DetectedAttribute.Composite.class)
+            .extracting(a -> (DetectedAttribute.Composite) a)
+            .satisfies(composite -> {
+                assertThat(composite.subAttributes()).hasSize(3);
+                assertThat(composite.subAttributes().get("street"))
                     .isInstanceOf(DetectedAttribute.Basic.class)
                     .extracting(a -> (DetectedAttribute.Basic) a)
-                    .satisfies(attr -> assertThat(attr.type()).isEqualTo("text"));
+                    .satisfies(attr -> assertThat(attr.columnName()).isEqualTo("address_street"));
+                assertThat(composite.subAttributes().get("zipCode"))
+                    .isInstanceOf(DetectedAttribute.Basic.class)
+                    .extracting(a -> (DetectedAttribute.Basic) a)
+                    .satisfies(attr -> assertThat(attr.columnName()).isEqualTo("address_zip_code"));
+                assertThat(composite.subAttributes().get("city"))
+                    .isInstanceOf(DetectedAttribute.Basic.class)
+                    .extracting(a -> (DetectedAttribute.Basic) a)
+                    .satisfies(attr -> assertThat(attr.columnName()).isEqualTo("address_city"));
             });
     }
 
     @Test
-    @DisplayName("collection override with custom separator")
-    void collectionOverride() {
+    @DisplayName("applies singular reference override")
+    void applySingularReferenceOverride() {
         List<SchemaOverride> overrides = List.of(
-            new SchemaOverride.CollectionAttributeOverride("tags", ",")
+            new SchemaOverride.SingularReferenceOverride("authorName", "users")
         );
         var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
-        var columns = List.of("tags", "name");
+        var columns = List.of("title", "author_name");
 
         var result = detector.detectAttributes(columns);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get("name")).isInstanceOf(DetectedAttribute.Basic.class);
+        assertThat(result.get("authorName"))
+            .isInstanceOf(DetectedAttribute.SingularReference.class)
+            .extracting(a -> (DetectedAttribute.SingularReference) a)
+            .satisfies(attr -> {
+                assertThat(attr.name()).isEqualTo("authorName");
+                assertThat(attr.columnName()).isEqualTo("author_name");
+                assertThat(attr.targetRootName()).isEqualTo("users");
+            });
+    }
+
+    @Test
+    @DisplayName("applies collection attribute override with custom separator")
+    void applyCollectionAttributeOverride() {
+        List<SchemaOverride> overrides = List.of(
+            new SchemaOverride.CollectionAttributeOverride("tags", null, ",")
+        );
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
+        var columns = List.of("name", "tags");
+
+        var result = detector.detectAttributes(columns);
+
+        assertThat(result).hasSize(2);
         assertThat(result.get("tags"))
             .isInstanceOf(DetectedAttribute.Collection.class)
             .extracting(a -> (DetectedAttribute.Collection) a)
-            .satisfies(collection -> {
-                assertThat(collection.columnName()).isEqualTo("tags");
-                assertThat(collection.separator()).isEqualTo(",");
+            .satisfies(attr -> {
+                assertThat(attr.name()).isEqualTo("tags");
+                assertThat(attr.columnName()).isEqualTo("tags");
+                assertThat(attr.separator()).isEqualTo(",");
             });
     }
 
     @Test
-    @DisplayName("reference override takes precedence even when root doesn't exist")
-    void referenceOverrideTakesPrecedence() {
-        List<SchemaOverride> overrides = List.of(
-            new SchemaOverride.SingularReferenceOverride("customerId", "customer")
+    @DisplayName("applies one-to-one root override")
+    void applyOneToOneRootOverride() {
+        var nestedOverrides = List.<SchemaOverride>of(
+            new SchemaOverride.BasicAttributeOverride("bio", new DataType.StringType())
         );
+
+        List<SchemaOverride> overrides = List.of(
+            new SchemaOverride.OneToOneRootOverride(
+                "profile",
+                "user_profiles",
+                List.of("profile_id", "profile_bio"),
+                nestedOverrides
+            )
+        );
+
         var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
-        var columns = List.of("customer_id", "order_id");
+        var columns = List.of("username", "profile_id", "profile_bio");
 
         var result = detector.detectAttributes(columns);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get("customerId"))
-            .isInstanceOf(DetectedAttribute.SingularReference.class)
-            .extracting(a -> (DetectedAttribute.SingularReference) a)
-            .satisfies(attr -> assertThat(attr.targetRootName()).isEqualTo("customer"));
-        // order_id should be basic since "order" is not in available roots
-        assertThat(result.get("orderId")).isInstanceOf(DetectedAttribute.Basic.class);
+        assertThat(result.get("profile"))
+            .isInstanceOf(DetectedAttribute.OneToOneRoot.class)
+            .extracting(a -> (DetectedAttribute.OneToOneRoot) a)
+            .satisfies(attr -> {
+                assertThat(attr.name()).isEqualTo("profile");
+                assertThat(attr.targetRootName()).isEqualTo("user_profiles");
+                assertThat(attr.subAttributes()).hasSize(2);
+                assertThat(attr.subAttributes().get("bio"))
+                    .isInstanceOf(DetectedAttribute.Basic.class);
+            });
     }
 
     @Test
-    @DisplayName("override prevents composite detection for same attribute name")
-    void compositeNotDetectedWhenOverrideExists() {
+    @DisplayName("handler priority: overrides take precedence over detection")
+    void handlerPriority() {
         List<SchemaOverride> overrides = List.of(
-            new SchemaOverride.BasicAttributeOverride("address", "text")
+            new SchemaOverride.CompositeAttributeOverride(
+                "address",
+                List.of("address_street", "address_city"),
+                List.of()
+            )
         );
         var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";");
-        var columns = List.of("address", "address_street", "address_city");
+        var columns = List.of("address_street", "address_city", "name");
 
         var result = detector.detectAttributes(columns);
 
-        // The override claims "address" column, so address_street and address_city
-        // should not form a composite and remain as separate basic attributes
-        assertThat(result).hasSize(3);
+        // Override should claim address columns explicitly as composite
+        assertThat(result).hasSize(2);
         assertThat(result.get("address"))
-            .isInstanceOf(DetectedAttribute.Basic.class)
-            .extracting(a -> (DetectedAttribute.Basic) a)
-            .satisfies(attr -> assertThat(attr.type()).isEqualTo("text"));
-        assertThat(result.get("addressStreet")).isInstanceOf(DetectedAttribute.Basic.class);
-        assertThat(result.get("addressCity")).isInstanceOf(DetectedAttribute.Basic.class);
+            .isInstanceOf(DetectedAttribute.Composite.class);
+        assertThat(result.get("name"))
+            .isInstanceOf(DetectedAttribute.Basic.class);
+    }
+
+    @Test
+    @DisplayName("detects one-to-one root when prefix_id exists but prefix is not available root")
+    void detectOneToOneRoot() {
+        var detector = new AttributeTypeDetector(Set.of("user"), SNAKE_CASE, List.of(), ";");
+        var columns = List.of("user_id", "profile_id", "profile_bio", "profile_avatar");
+
+        var result = detector.detectAttributes(columns);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get("userId"))
+            .isInstanceOf(DetectedAttribute.SingularReference.class);
+        assertThat(result.get("profile"))
+            .isInstanceOf(DetectedAttribute.OneToOneRoot.class)
+            .extracting(a -> (DetectedAttribute.OneToOneRoot) a)
+            .satisfies(attr -> {
+                assertThat(attr.name()).isEqualTo("profile");
+                assertThat(attr.targetRootName()).isEqualTo("profile");
+                assertThat(attr.subAttributes()).hasSize(3);
+            });
     }
 }

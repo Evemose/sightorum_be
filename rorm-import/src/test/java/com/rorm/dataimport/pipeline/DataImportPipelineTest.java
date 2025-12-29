@@ -50,17 +50,17 @@ class DataImportPipelineTest extends AbstractImportTest {
         assertThat(rows.get(0))
             .containsEntry("name", "Alice")
             .containsEntry("email", "alice@example.com")
-            .containsEntry("age", "30");
+            .containsEntry("age", 30L);
 
         assertThat(rows.get(1))
             .containsEntry("name", "Bob")
             .containsEntry("email", "bob@example.com")
-            .containsEntry("age", "25");
+            .containsEntry("age", 25L);
 
         assertThat(rows.get(2))
             .containsEntry("name", "Charlie")
             .containsEntry("email", "charlie@example.com")
-            .containsEntry("age", "35");
+            .containsEntry("age", 35L);
 
         dataSource.close();
     }
@@ -94,12 +94,12 @@ class DataImportPipelineTest extends AbstractImportTest {
         assertThat(rows.get(0))
             .containsEntry("id", 100L)
             .containsEntry("name", "Laptop")
-            .containsEntry("price", "999.99");
+            .containsEntry("price", new java.math.BigDecimal("999.99"));
 
         assertThat(rows.get(1))
             .containsEntry("id", 200L)
             .containsEntry("name", "Mouse")
-            .containsEntry("price", "19.99");
+            .containsEntry("price", new java.math.BigDecimal("19.99"));
 
         dataSource.close();
     }

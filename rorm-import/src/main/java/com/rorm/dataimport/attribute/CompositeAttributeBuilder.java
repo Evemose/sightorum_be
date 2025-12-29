@@ -18,7 +18,7 @@ class CompositeAttributeBuilder {
 
     Map<String, DetectedAttribute> buildSubAttributes(
         List<String> columns,
-        List<SchemaOverride> nestedOverrides,
+        @Nullable List<SchemaOverride> nestedOverrides,
         Set<String> claimedColumns
     ) {
         var subAttrs = new LinkedHashMap<String, DetectedAttribute>();
@@ -26,10 +26,12 @@ class CompositeAttributeBuilder {
         var prefixPartCount = prefix.map(s -> namingStyle.split(s).length).orElse(0);
 
         // Process nested overrides first
-        nestedOverrides.stream()
-            .map(override -> processNestedOverride(override, columns, claimedColumns, prefix.orElse(null)))
-            .flatMap(Optional::stream)
-            .forEach(attr -> subAttrs.put(attr.name(), attr));
+        if (nestedOverrides != null) {
+            nestedOverrides.stream()
+                .map(override -> processNestedOverride(override, columns, claimedColumns, prefix.orElse(null)))
+                .flatMap(Optional::stream)
+                .forEach(attr -> subAttrs.put(attr.name(), attr));
+        }
 
         // Process remaining columns
         columns.stream()
@@ -37,7 +39,7 @@ class CompositeAttributeBuilder {
             .forEach(col -> {
                 claimedColumns.add(col);
                 var name = extractAttributeName(col, prefixPartCount);
-                subAttrs.putIfAbsent(name, new DetectedAttribute.Basic(name, col, "string"));
+                subAttrs.putIfAbsent(name, new DetectedAttribute.Basic(name, col));
             });
 
         return subAttrs;
@@ -87,7 +89,7 @@ class CompositeAttributeBuilder {
         return switch (override) {
             case SchemaOverride.BasicAttributeOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
-                    .map(col -> new DetectedAttribute.Basic(o.attributeName(), col, o.descriptor()));
+                    .map(col -> new DetectedAttribute.Basic(o.attributeName(), col));
             case SchemaOverride.SingularReferenceOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
                     .map(col -> new DetectedAttribute.SingularReference(o.attributeName(), col, o.targetRootName()));

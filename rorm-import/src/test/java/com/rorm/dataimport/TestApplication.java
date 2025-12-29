@@ -1,9 +1,9 @@
-package com.rorm.dataimport.pipeline;
+package com.rorm.dataimport;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication(scanBasePackages = "com.rorm.dataimport")
+@SpringBootApplication
 public class TestApplication {
 
     static void main(String[] args) {

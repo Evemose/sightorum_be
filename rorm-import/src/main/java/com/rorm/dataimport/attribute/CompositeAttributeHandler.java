@@ -120,7 +120,7 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
                 var subAttrName = NamingStyle.toCamelCase(new String[]{suffix});
                 return Map.entry(
                     subAttrName,
-                    (DetectedAttribute) new DetectedAttribute.Basic(subAttrName, column, "string")
+                    (DetectedAttribute) new DetectedAttribute.Basic(subAttrName, column)
                 );
             })
             .collect(Collectors.toMap(

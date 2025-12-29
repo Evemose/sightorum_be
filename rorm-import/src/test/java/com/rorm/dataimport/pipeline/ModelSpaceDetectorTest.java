@@ -3,6 +3,7 @@ package com.rorm.dataimport.pipeline;
 import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
+import com.rorm.dataimport.type.DataTypeDetector;
 import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.Root;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +20,10 @@ import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
 @SpringBootTest(classes = {
     ModelSpaceDetector.class,
-    NamingStyleDetector.class
+    NamingStyleDetector.class,
+    SchemaDetector.class,
+    MetamodelConverter.class,
+    DataTypeDetector.class
 })
 class ModelSpaceDetectorTest {
 
@@ -147,8 +151,8 @@ class ModelSpaceDetectorTest {
             """);
 
         var overrides = List.<SchemaOverride>of(
-            new SchemaOverride.BasicAttributeOverride("price", "decimal"),
-            new SchemaOverride.BasicAttributeOverride("quantity", "integer")
+            new SchemaOverride.BasicAttributeOverride("price", new com.rorm.metamodel.DataType.NumericType(10, 2)),
+            new SchemaOverride.BasicAttributeOverride("quantity", new com.rorm.metamodel.DataType.NumericType(10, 0))
         );
 
         var dataSource = new CsvDataSource(csvFile);

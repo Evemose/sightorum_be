@@ -3,6 +3,7 @@ package com.rorm.dataimport.pipeline;
 import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
+import com.rorm.dataimport.type.DataTypeDetector;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -17,7 +18,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = {
     ModelSpaceDetector.class,
-    NamingStyleDetector.class
+    NamingStyleDetector.class,
+    SchemaDetector.class,
+    MetamodelConverter.class,
+    DataTypeDetector.class
 })
 class ModelSpaceDetectorComplexTest {
 
@@ -103,7 +107,7 @@ class ModelSpaceDetectorComplexTest {
             new SchemaOverride.CompositeAttributeOverride(
                 "address",
                 List.of("street_address", "city_name", "postal_code"),
-                null
+                List.of()
             )
         );
 
@@ -130,8 +134,8 @@ class ModelSpaceDetectorComplexTest {
             """);
 
         var nestedOverrides = List.<SchemaOverride>of(
-            new SchemaOverride.BasicAttributeOverride("street", "text"),
-            new SchemaOverride.BasicAttributeOverride("zipCode", "integer")
+            new SchemaOverride.BasicAttributeOverride("street", new com.rorm.metamodel.DataType.StringType()),
+            new SchemaOverride.BasicAttributeOverride("zipCode", new com.rorm.metamodel.DataType.NumericType(10, 0))
         );
 
         var overrides = List.<SchemaOverride>of(
@@ -199,7 +203,7 @@ class ModelSpaceDetectorComplexTest {
             """);
 
         var overrides = List.<SchemaOverride>of(
-            new SchemaOverride.CollectionAttributeOverride("tags", "|")
+            new SchemaOverride.CollectionAttributeOverride("tags", null, "|")
         );
 
         var dataSource = new CsvDataSource(csvFile);
@@ -248,7 +252,7 @@ class ModelSpaceDetectorComplexTest {
             """);
 
         var nestedOverrides = List.<SchemaOverride>of(
-            new SchemaOverride.BasicAttributeOverride("bio", "text")
+            new SchemaOverride.BasicAttributeOverride("bio", new com.rorm.metamodel.DataType.StringType())
         );
 
         var overrides = List.<SchemaOverride>of(

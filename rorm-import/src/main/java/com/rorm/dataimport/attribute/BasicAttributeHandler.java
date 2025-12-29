@@ -21,7 +21,7 @@ class BasicAttributeHandler implements AttributeDetectionHandler {
         columnNames.forEach(column -> {
             var parts = namingStyle.split(column);
             var attrName = NamingStyle.toCamelCase(parts);
-            result.put(attrName, new DetectedAttribute.Basic(attrName, column, "string"));
+            result.put(attrName, new DetectedAttribute.Basic(attrName, column));
         });
         return claimedColumns;
     }

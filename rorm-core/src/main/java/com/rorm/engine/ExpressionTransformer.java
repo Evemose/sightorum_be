@@ -3,6 +3,7 @@ package com.rorm.engine;
 import com.rorm.metamodel.AttributeLocation;
 import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
+import com.rorm.metamodel.DataType.NumericType;
 import com.rorm.metamodel.ReferenceAttribute;
 import com.rorm.query.*;
 import com.rorm.query.Expression.*;
@@ -60,7 +61,7 @@ class ExpressionTransformer {
 
         return switch (effectivePath.target()) {
             case BasicAttribute attr -> ctx().resolveField(attr, joinInfo.table());
-            case BasicElement(var loc) -> field(name(joinInfo.table().getName(), loc.column()));
+            case BasicElement(var loc, _) -> field(name(joinInfo.table().getName(), loc.column()));
             default -> throw new UnsupportedOperationException(
                 "Unsupported path target: " + effectivePath.target().getClass().getSimpleName());
         };
@@ -69,7 +70,7 @@ class ExpressionTransformer {
     Path extendReferencePathIfNeeded(Path path) {
         if (path.target() instanceof ReferenceAttribute refAttr) {
             var targetRoot = refAttr.targetRoot();
-            var syntheticId = new BasicAttribute("id", new AttributeLocation(targetRoot.primaryTableName(), "id"));
+            var syntheticId = new BasicAttribute("id", new AttributeLocation(targetRoot.primaryTableName(), "id"), new NumericType(19, 0));
             return new Path(syntheticId, path);
         }
         return path;
@@ -82,7 +83,7 @@ class ExpressionTransformer {
 
         return switch (effectivePath.target()) {
             case BasicAttribute attr -> outerCtx.resolveField(attr, joinInfo.table());
-            case BasicElement(var loc) -> field(name(joinInfo.table().getName(), loc.column()));
+            case BasicElement(var loc, _) -> field(name(joinInfo.table().getName(), loc.column()));
             default -> throw new UnsupportedOperationException(
                 "Unsupported outer ref path target: " + effectivePath.target().getClass().getSimpleName());
         };

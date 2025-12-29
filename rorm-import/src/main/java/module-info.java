@@ -12,6 +12,7 @@ open module module_name {
     requires spring.batch.infrastructure;
     requires org.jspecify;
     requires spring.batch.core;
+    requires spring.core;
 
     exports com.rorm.dataimport.override;
     exports com.rorm.dataimport.pipeline;

@@ -14,8 +14,7 @@ public sealed interface DetectedAttribute permits
 
     record Basic(
         String name,
-        String columnName,
-        String type
+        String columnName
     ) implements DetectedAttribute {
     }
 

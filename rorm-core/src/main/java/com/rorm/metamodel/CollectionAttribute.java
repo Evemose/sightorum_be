@@ -14,7 +14,8 @@ public record CollectionAttribute(
     }
 
     public record BasicElement(
-        AttributeLocation location
+        AttributeLocation location,
+        DataType dataType
     ) implements CollectionElement {
     }
 

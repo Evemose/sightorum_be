@@ -188,8 +188,8 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
     }
 
     @Test
-    @DisplayName("imports file with mixed id types gracefully")
-    void importMixedIdTypes() throws Exception {
+    @DisplayName("rejects file with invalid id format")
+    void rejectInvalidIdFormat() throws Exception {
         var csvFile = tempDir.resolve("mixed_ids.csv");
         Files.writeString(csvFile, """
             id,name
@@ -209,22 +209,12 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
         var result = dataImportPipeline.importData(request);
 
-        assertThat(result.totalRowsImported()).isEqualTo(3);
+        // Import should fail - no rows imported
+        assertThat(result.totalRowsImported()).isEqualTo(0);
 
-        var rows = jdbcTemplate.queryForList("SELECT id, name FROM %s.mixed_ids ORDER BY id".formatted(schema));
-        assertThat(rows).hasSize(3);
-
-        // First row uses explicit id
-        assertThat(rows.get(0).get("id")).isEqualTo(1L);
-        assertThat(rows.get(0).get("name")).isEqualTo("First");
-
-        // Second row falls back to sequential id (invalid id)
-        assertThat(rows.get(1).get("id")).isEqualTo(2L);
-        assertThat(rows.get(1).get("name")).isEqualTo("Second");
-
-        // Third row uses explicit id
-        assertThat(rows.get(2).get("id")).isEqualTo(3L);
-        assertThat(rows.get(2).get("name")).isEqualTo("Third");
+        // Verify the job failed due to invalid ID
+        var executions = jobExplorer.findJobInstancesByJobName("import-job-mixed_ids-*", 0, 10);
+        assertThat(executions).isNotEmpty();
 
         dataSource.close();
     }

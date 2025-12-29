@@ -4,6 +4,7 @@ import com.rorm.metamodel.Attribute.SingularAttribute;
 
 public record BasicAttribute(
     String name,
-    AttributeLocation location
+    AttributeLocation location,
+    DataType dataType
 ) implements SingularAttribute {
 }

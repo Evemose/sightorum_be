@@ -1,5 +1,6 @@
 package com.rorm.dataimport.override;
 
+import com.rorm.metamodel.DataType;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -16,7 +17,7 @@ public sealed interface SchemaOverride permits
 
     record BasicAttributeOverride(
         String attributeName,
-        String descriptor
+        @Nullable DataType dataType
     ) implements SchemaOverride {
     }
 
@@ -41,6 +42,7 @@ public sealed interface SchemaOverride permits
 
     record CollectionAttributeOverride(
         String attributeName,
+        @Nullable DataType elementType,
         @Nullable String separator
     ) implements SchemaOverride {
     }
