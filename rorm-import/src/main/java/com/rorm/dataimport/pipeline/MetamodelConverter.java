@@ -41,12 +41,19 @@ class MetamodelConverter {
 
         for (var detectedRoot : detectedSchema.roots().values()) {
             var rootName = detectedRoot.name();
+            var root = rootMap.get(rootName);
+
+            // Add the ID attribute from the IdDescriptor to the attributes list
+            // The ID should be both in the descriptor AND in the attributes
+            root.attributes().add(root.idDescriptor().idAttribute());
+
+            // Add all other attributes
             var attributes = convertToAttributes(
                 detectedRoot.attributes(),
                 rootName,
                 rootMap
             );
-            rootMap.get(rootName).attributes().addAll(attributes);
+            root.attributes().addAll(attributes);
         }
 
         return new ModelSpace(

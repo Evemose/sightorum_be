@@ -14,10 +14,12 @@ import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.SortField;
 import org.jooq.WindowOverStep;
+import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -128,9 +130,21 @@ class ExpressionTransformer {
         return func.over();
     }
 
-    @SuppressWarnings({"rawtypes"})
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private Field<?> transformBinary(Expression left, BinaryOperator op, Expression right) {
         var leftField = (Field) transform(left);
+
+        // Special handling for IN/NOT_IN operators with Literal containing Collection/Array
+        if ((op == BinaryOperator.IN || op == BinaryOperator.NOT_IN) && right instanceof Literal(var value)) {
+            if (value instanceof Collection<?> collection) {
+                var values = collection.stream().map(DSL::inline).toArray(Field[]::new);
+                return op == BinaryOperator.IN ? leftField.in(values) : leftField.notIn(values);
+            } else if (value != null && value.getClass().isArray()) {
+                var arrayValues = java.util.Arrays.stream((Object[]) value).map(DSL::inline).toArray(Field[]::new);
+                return op == BinaryOperator.IN ? leftField.in(arrayValues) : leftField.notIn(arrayValues);
+            }
+        }
+
         var rightField = (Field) transform(right);
         return applyBinaryOperator(leftField, op, rightField);
     }
