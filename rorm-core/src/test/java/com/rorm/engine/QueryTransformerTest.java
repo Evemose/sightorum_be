@@ -1,10 +1,7 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.AttributeLocation;
-import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
-import com.rorm.metamodel.Root;
-import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.TernaryExpression;
@@ -59,22 +56,22 @@ class QueryTransformerTest extends AbstractPostgresTest {
     @BeforeAll
     static void setupMetamodel() {
         // Address (no dependencies)
-        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"));
-        var addressRoot = new Root("addresses", List.of(addressCity));
+        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"), new DataType.StringType());
+        var addressRoot = new Root("addresses", List.of(addressCity), IdDescriptor.longId("addresses"));
 
         // Profile (depends on Address)
-        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"));
+        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"), new DataType.StringType());
         profileAddress = new SingularReferenceAttribute("address", addressRoot,
             new JoinTableMapping(new AttributeLocation("profiles", "address_id"), "id"));
-        var profileRoot = new Root("profiles", List.of(profileBio, profileAddress));
+        var profileRoot = new Root("profiles", List.of(profileBio, profileAddress), IdDescriptor.longId("profiles"));
 
         // User (depends on Profile)
-        userId = new BasicAttribute("id", new AttributeLocation("users", "id"));
-        userName = new BasicAttribute("name", new AttributeLocation("users", "name"));
-        userEmail = new BasicAttribute("email", new AttributeLocation("users", "email"));
+        userId = new BasicAttribute("id", new AttributeLocation("users", "id"), new DataType.NumericType(19, 0));
+        userName = new BasicAttribute("name", new AttributeLocation("users", "name"), new DataType.StringType());
+        userEmail = new BasicAttribute("email", new AttributeLocation("users", "email"), new DataType.StringType());
         userProfile = new SingularReferenceAttribute("profile", profileRoot,
             new JoinTableMapping(new AttributeLocation("users", "profile_id"), "id"));
-        userRoot = new Root("users", List.of(userId, userName, userEmail, userProfile));
+        userRoot = new Root("users", List.of(userId, userName, userEmail, userProfile), IdDescriptor.longId("users"));
     }
 
     static Stream<Arguments> queryTestCases() {

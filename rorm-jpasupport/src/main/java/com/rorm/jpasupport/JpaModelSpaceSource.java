@@ -6,6 +6,7 @@ import com.rorm.metamodel.CollectionAttribute.CompositeElement;
 import com.rorm.metamodel.DataType.NumericType;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.metamodel.Attribute.PersistentAttributeType;
+import jakarta.persistence.metamodel.EntityType;
 import jakarta.persistence.metamodel.MapAttribute;
 import jakarta.persistence.metamodel.PluralAttribute;
 import jakarta.persistence.metamodel.SingularAttribute;
@@ -48,19 +49,28 @@ public class JpaModelSpaceSource {
         var jpaMetamodel = emf.getMetamodel();
         var rootsByType = rootsByTypeScope.get();
         for (var entityType : jpaMetamodel.getEntities()) {
-            var root = new Root(
-                mappingResolver.getPrimaryTableName(entityType.getJavaType()),
-                new ArrayList<>()
-            );
+            var tableName = mappingResolver.getPrimaryTableName(entityType.getJavaType());
+            var idDescriptor = createIdDescriptor(entityType);
+            var root = new Root(tableName, new ArrayList<>(), idDescriptor);
             rootsByType.put(entityType.getJavaType(), root);
         }
+    }
+
+    private IdDescriptor createIdDescriptor(EntityType<?> entityType) {
+        var idType = entityType.getIdType();
+        var javaType = idType.getJavaType();
+        var idAttr = entityType.getId(javaType);
+        var location = mappingResolver.resolveLocation(entityType.getJavaType(), idAttr.getName());
+        var dataType = inferDataType(javaType);
+        return new IdDescriptor(new BasicAttribute(idAttr.getName(), location, dataType));
     }
 
     private Set<Root> freeze(Collection<Root> completeRoots) {
         return completeRoots.stream()
             .map(root -> new Root(
                 root.primaryTableName(),
-                List.copyOf(root.attributes())
+                List.copyOf(root.attributes()),
+                root.idDescriptor()
             )).collect(Collectors.toUnmodifiableSet());
     }
 

@@ -94,9 +94,7 @@ class AttributeTypeDetectorTest {
                 assertThat(composite.subAttributes().get("street"))
                     .isInstanceOf(DetectedAttribute.Basic.class)
                     .extracting(a -> (DetectedAttribute.Basic) a)
-                    .satisfies(attr -> {
-                        assertThat(attr.columnName()).isEqualTo("address_street");
-                    });
+                    .satisfies(attr -> assertThat(attr.columnName()).isEqualTo("address_street"));
             });
     }
 
@@ -239,7 +237,8 @@ class AttributeTypeDetectorTest {
                 "profile",
                 "user_profiles",
                 List.of("profile_id", "profile_bio"),
-                nestedOverrides
+                nestedOverrides,
+                null  // No explicit ID column specified
             )
         );
 

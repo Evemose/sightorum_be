@@ -1,0 +1,1154 @@
+review_id,enrollment_id,student_id,course_id,rating,review_text,sentiment_score,review_date,helpful_count,verified_purchase
+REV000001,ENR000159,STU00133,CRS0060,4,,85.7,2025-01-23,1,True
+REV000002,ENR001602,STU00244,CRS0004,3,Average experience. The instructor was very knowledgeable.,40.8,2022-09-26,5,True
+REV000003,ENR000903,STU00059,CRS0064,4,Highly recommend! The instructor was very knowledgeable.,79.8,2026-01-10,4,True
+REV000004,ENR000798,STU00131,CRS0076,4,Met expectations. Too much busy work.,45.9,2024-02-24,1,True
+REV000005,ENR000010,STU00474,CRS0074,4,Met expectations. Good mix of theory and practice.,50.9,2023-01-03,4,False
+REV000006,ENR000622,STU00461,CRS0014,3,Decent course. Not enough hands-on practice.,50.0,2022-05-23,3,True
+REV000007,ENR001024,STU00148,CRS0078,3,Decent course. Too much busy work.,61.3,2022-06-29,2,False
+REV000008,ENR001459,STU00068,CRS0041,5,Excellent course! Not enough hands-on practice.,96.2,2022-05-15,6,True
+REV000009,ENR001603,STU00167,CRS0013,1,Could be much better. Material was well organized.,34.1,2022-05-13,4,True
+REV000010,ENR001249,STU00187,CRS0099,3,Average experience. Good mix of theory and practice.,60.0,2021-11-29,3,True
+REV000011,ENR000332,STU00383,CRS0044,5,Really enjoyed this class. Could use more examples.,86.0,2024-09-02,1,True
+REV000012,ENR001910,STU00435,CRS0039,5,Highly recommend! Good mix of theory and practice.,84.9,2023-09-09,5,True
+REV000013,ENR000725,STU00441,CRS0001,3,,57.1,2022-05-22,0,True
+REV000014,ENR001013,STU00423,CRS0012,5,Excellent course! Assignments were challenging but fair.,77.7,2024-03-08,3,True
+REV000015,ENR001175,STU00320,CRS0063,3,It was okay. The pace was appropriate.,68.0,2022-04-06,1,True
+REV000016,ENR001172,STU00150,CRS0060,3,It was okay. The pace was appropriate.,68.7,2022-03-20,3,True
+REV000017,ENR001882,STU00255,CRS0049,4,Outstanding content and delivery. Not enough hands-on practice.,95.0,2026-01-10,5,True
+REV000018,ENR001296,STU00009,CRS0092,5,Excellent course! The pace was appropriate.,100.0,2023-12-01,3,True
+REV000019,ENR000270,STU00141,CRS0080,2,,67.1,2021-08-21,5,True
+REV000020,ENR001216,STU00222,CRS0039,3,It was okay. The pace was appropriate.,57.8,2021-11-22,5,True
+REV000021,ENR001414,STU00032,CRS0056,5,,77.0,2022-11-01,7,True
+REV000022,ENR000366,STU00363,CRS0049,3,Decent course. Lectures were too long.,56.0,2021-02-27,4,False
+REV000023,ENR000816,STU00353,CRS0078,4,Decent course. Too much busy work.,57.7,2022-07-13,0,True
+REV000024,ENR000973,STU00056,CRS0028,5,Really enjoyed this class. The pace was appropriate.,76.8,2021-12-24,2,True
+REV000025,ENR000082,STU00102,CRS0049,5,Highly recommend! Good mix of theory and practice.,88.6,2022-07-26,2,True
+REV000026,ENR000773,STU00329,CRS0070,5,Outstanding content and delivery. The instructor was very knowledgeable.,75.9,2023-03-08,2,True
+REV000027,ENR001580,STU00386,CRS0028,3,Average experience. The instructor was very knowledgeable.,59.1,2021-08-30,3,True
+REV000028,ENR000783,STU00402,CRS0072,4,Met expectations. Material was well organized.,40.5,2021-07-21,3,False
+REV000029,ENR001672,STU00078,CRS0084,3,Average experience. Good mix of theory and practice.,53.3,2022-08-04,1,True
+REV000030,ENR000028,STU00355,CRS0034,3,Met expectations. Not enough hands-on practice.,67.0,2024-01-13,7,True
+REV000031,ENR001343,STU00362,CRS0065,4,Great learning experience. Lectures were too long.,79.3,2022-05-28,3,True
+REV000032,ENR001183,STU00280,CRS0021,3,Average experience. Learned a lot of practical skills.,50.4,2023-06-26,4,True
+REV000033,ENR001881,STU00326,CRS0049,5,Great learning experience. Could use more examples.,94.3,2021-03-18,5,True
+REV000034,ENR001481,STU00169,CRS0054,4,Really enjoyed this class. Assignments were challenging but fair.,78.3,2021-01-16,3,True
+REV000035,ENR001724,STU00487,CRS0057,3,Average experience. Too much busy work.,43.9,2022-07-18,0,True
+REV000036,ENR001422,STU00290,CRS0013,2,Wouldn't recommend. Could use more examples.,33.5,2022-09-12,2,True
+REV000037,ENR000005,STU00128,CRS0092,2,,67.8,2021-07-08,4,True
+REV000038,ENR000997,STU00468,CRS0095,3,,62.7,2026-01-10,5,True
+REV000039,ENR000797,STU00381,CRS0089,1,Not what I expected. Too much busy work.,31.1,2023-02-06,4,True
+REV000040,ENR000804,STU00098,CRS0043,4,Excellent course! Too much busy work.,95.4,2021-08-09,2,True
+REV000041,ENR001356,STU00400,CRS0059,3,Met expectations. Material was well organized.,63.2,2022-03-29,3,True
+REV000042,ENR001830,STU00036,CRS0050,4,Met expectations. Not enough hands-on practice.,57.3,2022-03-30,1,True
+REV000043,ENR000665,STU00211,CRS0073,2,,59.1,2022-07-12,3,True
+REV000044,ENR001302,STU00407,CRS0080,4,Decent course. Learned a lot of practical skills.,51.6,2023-10-08,2,True
+REV000045,ENR001945,STU00248,CRS0038,5,Highly recommend! The pace was appropriate.,70.4,2023-05-15,2,True
+REV000046,ENR000337,STU00156,CRS0045,2,Average experience. Lectures were too long.,63.4,2026-01-10,2,True
+REV000047,ENR000987,STU00111,CRS0027,4,It was okay. Material was well organized.,48.2,2023-02-18,2,True
+REV000048,ENR000974,STU00318,CRS0077,5,,81.5,2023-01-08,4,True
+REV000049,ENR001697,STU00294,CRS0084,2,,44.5,2023-01-12,1,True
+REV000050,ENR001379,STU00311,CRS0024,4,It was okay. Good mix of theory and practice.,43.3,2023-12-10,3,True
+REV000051,ENR001412,STU00206,CRS0097,5,Outstanding content and delivery. Material was well organized.,78.1,2021-06-09,5,True
+REV000052,ENR000842,STU00262,CRS0084,5,Really enjoyed this class. Learned a lot of practical skills.,73.3,2022-07-24,5,True
+REV000053,ENR000811,STU00396,CRS0006,3,It was okay. Could use more examples.,56.9,2021-03-11,2,True
+REV000054,ENR000478,STU00258,CRS0065,2,It was okay. Learned a lot of practical skills.,47.3,2026-01-10,5,True
+REV000055,ENR001288,STU00237,CRS0021,5,,81.9,2026-01-10,2,True
+REV000056,ENR000669,STU00388,CRS0098,5,,84.6,2024-08-06,5,True
+REV000057,ENR001386,STU00047,CRS0071,1,Struggled with this one. Too much busy work.,10.1,2022-10-30,5,True
+REV000058,ENR001325,STU00398,CRS0034,5,Really enjoyed this class. Assignments were challenging but fair.,76.2,2023-07-14,3,True
+REV000059,ENR001866,STU00464,CRS0075,3,Average experience. Not enough hands-on practice.,56.0,2022-06-05,2,True
+REV000060,ENR001033,STU00108,CRS0054,5,Excellent course! Could use more examples.,77.2,2022-03-09,6,True
+REV000061,ENR000555,STU00157,CRS0069,4,Really enjoyed this class. Material was well organized.,89.3,2026-01-10,2,True
+REV000062,ENR001290,STU00233,CRS0093,1,,16.6,2020-10-25,3,False
+REV000063,ENR000547,STU00330,CRS0085,3,It was okay. Material was well organized.,58.2,2024-11-14,2,True
+REV000064,ENR000330,STU00166,CRS0096,2,Average experience. Lectures were too long.,45.4,2022-09-07,2,True
+REV000065,ENR000602,STU00062,CRS0092,3,Decent course. Learned a lot of practical skills.,50.0,2021-07-20,1,True
+REV000066,ENR000507,STU00297,CRS0075,3,,50.0,2026-01-10,4,True
+REV000067,ENR000764,STU00158,CRS0053,4,,69.3,2022-01-09,4,True
+REV000068,ENR001434,STU00285,CRS0067,3,Met expectations. Could use more examples.,45.2,2023-06-02,5,True
+REV000069,ENR001844,STU00494,CRS0061,3,Average experience. Not enough hands-on practice.,40.4,2023-11-08,1,True
+REV000070,ENR000180,STU00127,CRS0080,4,Outstanding content and delivery. Good mix of theory and practice.,84.0,2022-11-08,10,True
+REV000071,ENR000297,STU00063,CRS0098,1,Wouldn't recommend. Too much busy work.,22.8,2023-10-11,4,True
+REV000072,ENR001557,STU00208,CRS0099,5,,97.9,2023-06-30,2,True
+REV000073,ENR000371,STU00477,CRS0046,3,It was okay. Assignments were challenging but fair.,61.7,2023-04-30,3,True
+REV000074,ENR001266,STU00350,CRS0033,4,Excellent course! The instructor was very knowledgeable.,81.9,2023-06-11,3,True
+REV000075,ENR000160,STU00439,CRS0008,4,Really enjoyed this class. The instructor was very knowledgeable.,71.2,2023-01-21,5,True
+REV000076,ENR000431,STU00404,CRS0091,4,Highly recommend! Assignments were challenging but fair.,94.1,2022-01-02,4,True
+REV000077,ENR001275,STU00401,CRS0040,5,,100.0,2022-05-07,4,True
+REV000078,ENR000615,STU00371,CRS0087,5,,100.0,2023-08-30,0,True
+REV000079,ENR000654,STU00230,CRS0074,5,Great learning experience. Lectures were too long.,81.7,2024-09-19,2,True
+REV000080,ENR000293,STU00224,CRS0076,4,Great learning experience. The pace was appropriate.,79.8,2021-07-09,1,True
+REV000081,ENR001709,STU00006,CRS0030,4,Highly recommend! Lectures were too long.,71.8,2022-09-27,4,True
+REV000082,ENR000162,STU00483,CRS0094,5,Really enjoyed this class. Assignments were challenging but fair.,73.8,2021-10-29,2,True
+REV000083,ENR001423,STU00010,CRS0041,4,Decent course. The pace was appropriate.,50.6,2024-07-02,4,True
+REV000084,ENR001732,STU00090,CRS0012,5,,83.2,2021-11-10,4,True
+REV000085,ENR001742,STU00153,CRS0077,5,,89.1,2025-03-16,5,True
+REV000086,ENR001527,STU00124,CRS0007,2,Met expectations. Could use more examples.,58.1,2023-04-28,3,True
+REV000087,ENR000581,STU00048,CRS0002,4,,59.7,2022-04-01,4,True
+REV000088,ENR001425,STU00431,CRS0078,5,Highly recommend! Lectures were too long.,100.0,2021-03-13,5,True
+REV000089,ENR000939,STU00044,CRS0057,3,Average experience. Assignments were challenging but fair.,41.2,2023-08-09,3,True
+REV000090,ENR001395,STU00212,CRS0014,4,Met expectations. The instructor was very knowledgeable.,68.7,2025-01-10,3,True
+REV000091,ENR000403,STU00080,CRS0032,4,Met expectations. Lectures were too long.,50.0,2021-01-05,3,True
+REV000092,ENR001128,STU00079,CRS0020,3,Met expectations. Learned a lot of practical skills.,57.4,2023-09-21,2,True
+REV000093,ENR000700,STU00032,CRS0035,4,Average experience. Lectures were too long.,68.2,2021-05-14,5,True
+REV000094,ENR000568,STU00399,CRS0078,2,Not what I expected. Too much busy work.,32.2,2022-11-09,4,True
+REV000095,ENR001701,STU00314,CRS0004,4,Average experience. Good mix of theory and practice.,64.1,2022-12-10,4,True
+REV000096,ENR001468,STU00191,CRS0002,5,Excellent course! Lectures were too long.,81.2,2022-09-15,3,True
+REV000097,ENR001654,STU00134,CRS0006,4,Average experience. Not enough hands-on practice.,65.7,2023-12-08,7,True
+REV000098,ENR000178,STU00342,CRS0062,5,Highly recommend! The instructor was very knowledgeable.,75.5,2024-04-18,2,True
+REV000099,ENR000912,STU00369,CRS0084,5,Outstanding content and delivery. Not enough hands-on practice.,83.8,2025-03-04,4,True
+REV000100,ENR000567,STU00035,CRS0005,2,Disappointing course. Could use more examples.,19.7,2022-07-14,1,True
+REV000101,ENR001841,STU00025,CRS0100,3,Average experience. Learned a lot of practical skills.,68.1,2024-07-26,5,True
+REV000102,ENR001317,STU00158,CRS0017,5,Really enjoyed this class. Good mix of theory and practice.,73.8,2021-05-08,3,True
+REV000103,ENR000444,STU00277,CRS0047,3,Average experience. Lectures were too long.,47.1,2024-06-03,3,True
+REV000104,ENR000419,STU00412,CRS0009,5,Really enjoyed this class. Too much busy work.,70.8,2022-07-25,3,True
+REV000105,ENR000761,STU00387,CRS0094,2,Struggled with this one. Learned a lot of practical skills.,26.7,2021-07-12,5,True
+REV000106,ENR000030,STU00136,CRS0009,3,Not what I expected. Not enough hands-on practice.,26.1,2022-06-12,1,True
+REV000107,ENR000060,STU00276,CRS0045,3,Met expectations. Lectures were too long.,50.7,2024-04-16,3,True
+REV000108,ENR001568,STU00366,CRS0026,3,It was okay. The pace was appropriate.,44.1,2024-08-26,2,False
+REV000109,ENR000794,STU00391,CRS0088,5,Outstanding content and delivery. Lectures were too long.,84.0,2022-04-19,2,True
+REV000110,ENR001633,STU00309,CRS0072,2,It was okay. Too much busy work.,47.0,2022-11-21,4,True
+REV000111,ENR001213,STU00478,CRS0063,3,Average experience. Could use more examples.,60.8,2023-05-06,1,True
+REV000112,ENR000702,STU00001,CRS0087,2,Decent course. Not enough hands-on practice.,47.2,2023-02-08,2,True
+REV000113,ENR000938,STU00391,CRS0038,3,Decent course. Learned a lot of practical skills.,67.2,2021-11-12,6,True
+REV000114,ENR001436,STU00291,CRS0073,4,Great learning experience. Learned a lot of practical skills.,75.8,2021-11-29,6,False
+REV000115,ENR000049,STU00226,CRS0016,4,Outstanding content and delivery. The pace was appropriate.,98.4,2024-05-10,1,True
+REV000116,ENR001269,STU00161,CRS0011,3,Average experience. Good mix of theory and practice.,66.6,2022-05-23,3,True
+REV000117,ENR001600,STU00360,CRS0017,5,Outstanding content and delivery. The pace was appropriate.,94.6,2022-09-23,2,True
+REV000118,ENR000059,STU00416,CRS0040,4,,41.0,2023-11-26,1,True
+REV000119,ENR001595,STU00389,CRS0001,4,It was okay. The pace was appropriate.,54.1,2023-08-30,1,False
+REV000120,ENR001749,STU00335,CRS0025,3,,69.8,2024-01-05,4,True
+REV000121,ENR001530,STU00295,CRS0099,3,It was okay. The pace was appropriate.,57.6,2026-01-10,5,True
+REV000122,ENR000905,STU00484,CRS0011,4,,87.3,2026-01-10,4,True
+REV000123,ENR000486,STU00222,CRS0028,3,,67.7,2021-05-24,3,False
+REV000124,ENR000305,STU00132,CRS0028,4,Excellent course! Assignments were challenging but fair.,77.9,2021-04-01,3,False
+REV000125,ENR001787,STU00035,CRS0060,1,Not what I expected. Assignments were challenging but fair.,33.5,2022-09-17,4,True
+REV000126,ENR000899,STU00099,CRS0080,2,Wouldn't recommend. The pace was appropriate.,9.2,2021-05-14,4,True
+REV000127,ENR000847,STU00343,CRS0036,3,,67.0,2022-01-11,3,True
+REV000128,ENR000937,STU00338,CRS0100,3,,56.0,2024-05-14,6,True
+REV000129,ENR001150,STU00289,CRS0091,2,,50.0,2020-12-01,1,True
+REV000130,ENR001888,STU00224,CRS0044,4,Decent course. The instructor was very knowledgeable.,56.9,2022-04-17,6,True
+REV000131,ENR001497,STU00366,CRS0021,3,Met expectations. The instructor was very knowledgeable.,57.1,2025-02-19,0,True
+REV000132,ENR001550,STU00472,CRS0045,2,Average experience. Too much busy work.,60.7,2023-10-27,5,True
+REV000133,ENR000830,STU00439,CRS0002,5,Really enjoyed this class. Not enough hands-on practice.,75.3,2023-03-25,2,True
+REV000134,ENR001810,STU00205,CRS0029,3,Met expectations. Could use more examples.,56.6,2021-12-11,6,True
+REV000135,ENR001894,STU00385,CRS0050,4,Decent course. Could use more examples.,64.6,2026-01-10,5,True
+REV000136,ENR000272,STU00441,CRS0092,3,,56.1,2022-03-17,3,True
+REV000137,ENR001420,STU00483,CRS0056,3,Average experience. Learned a lot of practical skills.,54.3,2022-07-17,4,True
+REV000138,ENR000034,STU00495,CRS0041,5,Excellent course! Assignments were challenging but fair.,92.1,2024-09-21,2,True
+REV000139,ENR001419,STU00124,CRS0010,2,Average experience. Assignments were challenging but fair.,64.6,2022-09-18,2,True
+REV000140,ENR001478,STU00043,CRS0079,4,It was okay. Good mix of theory and practice.,60.3,2021-10-19,7,True
+REV000141,ENR001051,STU00291,CRS0027,4,Average experience. Assignments were challenging but fair.,59.8,2021-04-25,5,True
+REV000142,ENR001741,STU00194,CRS0088,5,Really enjoyed this class. Learned a lot of practical skills.,76.9,2022-06-26,4,True
+REV000143,ENR000212,STU00327,CRS0009,4,Excellent course! Assignments were challenging but fair.,82.9,2023-02-02,1,True
+REV000144,ENR001125,STU00418,CRS0066,5,Outstanding content and delivery. Not enough hands-on practice.,87.4,2023-10-06,1,False
+REV000145,ENR001768,STU00027,CRS0059,3,Average experience. Lectures were too long.,62.9,2022-04-18,4,True
+REV000146,ENR001698,STU00285,CRS0031,3,Decent course. Learned a lot of practical skills.,67.0,2023-09-10,5,True
+REV000147,ENR001450,STU00464,CRS0050,2,Not what I expected. Could use more examples.,38.5,2022-01-31,1,True
+REV000148,ENR000740,STU00053,CRS0099,5,Really enjoyed this class. Material was well organized.,79.0,2023-04-08,5,True
+REV000149,ENR000415,STU00080,CRS0057,5,Great learning experience. Too much busy work.,99.8,2021-02-01,4,True
+REV000150,ENR000138,STU00223,CRS0096,5,Excellent course! Learned a lot of practical skills.,81.8,2022-03-17,3,True
+REV000151,ENR001819,STU00082,CRS0051,2,Could be much better. Good mix of theory and practice.,39.9,2023-07-06,4,True
+REV000152,ENR000866,STU00317,CRS0066,4,Average experience. The pace was appropriate.,44.9,2022-04-26,2,True
+REV000153,ENR001285,STU00463,CRS0078,2,Average experience. Material was well organized.,52.2,2021-12-23,1,True
+REV000154,ENR001196,STU00448,CRS0068,5,Outstanding content and delivery. The pace was appropriate.,85.0,2020-11-21,3,True
+REV000155,ENR001499,STU00435,CRS0038,2,Met expectations. Too much busy work.,55.3,2023-03-01,2,True
+REV000156,ENR000155,STU00003,CRS0058,3,It was okay. The pace was appropriate.,53.6,2022-07-01,2,True
+REV000157,ENR001019,STU00304,CRS0012,3,Average experience. Lectures were too long.,49.8,2022-12-12,2,True
+REV000158,ENR000950,STU00315,CRS0069,4,,80.2,2023-07-22,3,False
+REV000159,ENR001435,STU00388,CRS0018,4,Really enjoyed this class. The pace was appropriate.,74.1,2024-12-15,2,True
+REV000160,ENR000387,STU00146,CRS0065,2,,51.9,2024-04-01,5,True
+REV000161,ENR001769,STU00231,CRS0001,5,,72.1,2021-09-09,3,True
+REV000162,ENR000851,STU00200,CRS0016,5,Outstanding content and delivery. Lectures were too long.,100.0,2021-06-25,4,True
+REV000163,ENR000498,STU00018,CRS0025,4,Outstanding content and delivery. Lectures were too long.,77.6,2021-10-09,3,True
+REV000164,ENR000551,STU00007,CRS0069,5,Great learning experience. Could use more examples.,77.6,2022-10-31,3,True
+REV000165,ENR001193,STU00496,CRS0097,4,Average experience. Learned a lot of practical skills.,65.6,2023-12-13,7,True
+REV000166,ENR001262,STU00025,CRS0052,3,,57.0,2024-04-12,4,True
+REV000167,ENR000449,STU00410,CRS0081,3,It was okay. The instructor was very knowledgeable.,50.0,2022-05-04,3,True
+REV000168,ENR001416,STU00004,CRS0099,4,Outstanding content and delivery. Could use more examples.,85.5,2022-09-25,3,False
+REV000169,ENR000485,STU00038,CRS0053,2,Decent course. Material was well organized.,58.9,2024-08-04,1,True
+REV000170,ENR000693,STU00461,CRS0045,5,Outstanding content and delivery. Learned a lot of practical skills.,72.4,2022-02-07,1,True
+REV000171,ENR000098,STU00284,CRS0029,4,It was okay. The pace was appropriate.,63.0,2024-09-26,3,True
+REV000172,ENR000243,STU00493,CRS0100,1,Could be much better. Not enough hands-on practice.,38.5,2024-01-04,7,True
+REV000173,ENR000204,STU00078,CRS0012,3,,64.3,2023-02-11,4,True
+REV000174,ENR001107,STU00212,CRS0017,5,Outstanding content and delivery. Good mix of theory and practice.,79.8,2024-09-06,3,True
+REV000175,ENR000963,STU00036,CRS0036,2,It was okay. Could use more examples.,56.5,2021-10-03,5,True
+REV000176,ENR000355,STU00341,CRS0066,5,Really enjoyed this class. Material was well organized.,81.2,2022-02-11,2,True
+REV000177,ENR000299,STU00095,CRS0085,4,Really enjoyed this class. Learned a lot of practical skills.,97.5,2021-05-20,4,True
+REV000178,ENR001859,STU00458,CRS0052,4,Average experience. Not enough hands-on practice.,57.2,2024-11-19,0,True
+REV000179,ENR000634,STU00080,CRS0084,5,Outstanding content and delivery. Learned a lot of practical skills.,76.1,2020-04-10,3,True
+REV000180,ENR000762,STU00295,CRS0030,3,Average experience. The pace was appropriate.,62.7,2024-04-20,5,True
+REV000181,ENR001605,STU00388,CRS0006,4,,82.0,2024-11-24,4,False
+REV000182,ENR000286,STU00102,CRS0090,3,Decent course. Not enough hands-on practice.,59.5,2022-04-12,1,True
+REV000183,ENR001567,STU00319,CRS0015,1,Could be much better. The instructor was very knowledgeable.,27.8,2021-03-10,2,True
+REV000184,ENR000682,STU00310,CRS0001,4,Excellent course! The instructor was very knowledgeable.,77.1,2023-06-24,4,True
+REV000185,ENR000128,STU00420,CRS0083,4,,63.6,2021-03-05,5,True
+REV000186,ENR000168,STU00259,CRS0067,4,,72.3,2024-03-29,1,True
+REV000187,ENR001860,STU00036,CRS0074,4,Met expectations. The pace was appropriate.,62.1,2022-02-27,1,True
+REV000188,ENR000782,STU00389,CRS0035,3,Average experience. Lectures were too long.,56.5,2022-11-29,5,True
+REV000189,ENR001369,STU00485,CRS0006,3,Decent course. Material was well organized.,59.3,2023-11-12,5,True
+REV000190,ENR001735,STU00285,CRS0010,3,Average experience. Learned a lot of practical skills.,62.5,2023-05-02,0,True
+REV000191,ENR000627,STU00139,CRS0012,2,Met expectations. Learned a lot of practical skills.,59.0,2021-11-21,5,True
+REV000192,ENR000650,STU00276,CRS0023,2,,53.1,2024-03-06,2,True
+REV000193,ENR000329,STU00249,CRS0029,3,,66.6,2021-10-21,1,True
+REV000194,ENR001358,STU00078,CRS0010,4,Highly recommend! Assignments were challenging but fair.,77.4,2022-12-24,4,True
+REV000195,ENR001113,STU00485,CRS0037,5,Really enjoyed this class. The pace was appropriate.,80.1,2024-06-16,5,True
+REV000196,ENR001364,STU00411,CRS0005,5,Outstanding content and delivery. The pace was appropriate.,97.0,2024-06-27,7,True
+REV000197,ENR000728,STU00342,CRS0068,3,Average experience. Could use more examples.,41.5,2023-09-28,2,True
+REV000198,ENR000151,STU00046,CRS0005,5,,100.0,2021-06-22,3,True
+REV000199,ENR000747,STU00088,CRS0079,5,Excellent course! Assignments were challenging but fair.,83.1,2021-10-06,1,True
+REV000200,ENR001055,STU00092,CRS0074,5,Highly recommend! Assignments were challenging but fair.,89.0,2023-09-25,7,True
+REV000201,ENR001659,STU00339,CRS0045,3,It was okay. Good mix of theory and practice.,53.9,2020-10-27,1,True
+REV000202,ENR001852,STU00284,CRS0058,5,Highly recommend! Could use more examples.,81.2,2026-01-10,5,True
+REV000203,ENR000125,STU00227,CRS0091,3,Disappointing course. Good mix of theory and practice.,35.2,2024-09-05,1,True
+REV000204,ENR001808,STU00426,CRS0049,2,Disappointing course. Could use more examples.,25.5,2023-07-18,4,False
+REV000205,ENR000331,STU00074,CRS0086,5,,72.1,2022-06-26,5,True
+REV000206,ENR001464,STU00030,CRS0001,5,Outstanding content and delivery. Lectures were too long.,75.8,2026-01-10,4,True
+REV000207,ENR000199,STU00022,CRS0035,4,Really enjoyed this class. Good mix of theory and practice.,99.7,2023-11-10,5,True
+REV000208,ENR000612,STU00408,CRS0013,2,,50.8,2022-10-31,2,True
+REV000209,ENR000741,STU00187,CRS0041,5,Excellent course! Assignments were challenging but fair.,78.0,2022-08-01,5,True
+REV000210,ENR001094,STU00464,CRS0038,5,Great learning experience. Could use more examples.,79.8,2021-12-27,5,True
+REV000211,ENR000209,STU00086,CRS0030,5,Great learning experience. Could use more examples.,87.4,2024-01-20,2,True
+REV000212,ENR000925,STU00149,CRS0015,4,Outstanding content and delivery. Material was well organized.,73.4,2021-06-11,1,True
+REV000213,ENR001345,STU00396,CRS0062,5,Excellent course! The instructor was very knowledgeable.,81.2,2022-05-01,4,True
+REV000214,ENR001589,STU00452,CRS0010,3,Decent course. Assignments were challenging but fair.,69.1,2022-07-15,6,True
+REV000215,ENR000636,STU00115,CRS0018,1,Not what I expected. The pace was appropriate.,26.3,2026-01-10,4,True
+REV000216,ENR001788,STU00401,CRS0015,3,Decent course. Too much busy work.,68.2,2022-09-28,2,True
+REV000217,ENR001755,STU00272,CRS0013,4,,88.0,2023-12-31,1,True
+REV000218,ENR000906,STU00206,CRS0093,5,Excellent course! Learned a lot of practical skills.,78.7,2021-08-07,6,True
+REV000219,ENR000193,STU00408,CRS0004,3,Met expectations. Too much busy work.,40.8,2022-06-18,4,True
+REV000220,ENR001770,STU00019,CRS0083,2,Met expectations. Too much busy work.,50.0,2023-10-03,0,True
+REV000221,ENR001441,STU00066,CRS0075,5,Outstanding content and delivery. Learned a lot of practical skills.,90.5,2022-12-19,6,True
+REV000222,ENR000068,STU00404,CRS0040,5,Great learning experience. Learned a lot of practical skills.,81.4,2022-01-08,2,True
+REV000223,ENR000328,STU00059,CRS0082,4,Really enjoyed this class. The instructor was very knowledgeable.,90.9,2023-01-08,2,True
+REV000224,ENR001700,STU00103,CRS0022,2,It was okay. Lectures were too long.,48.3,2024-10-29,0,True
+REV000225,ENR000150,STU00094,CRS0090,3,It was okay. Not enough hands-on practice.,65.2,2021-12-31,3,False
+REV000226,ENR001261,STU00370,CRS0083,5,,77.3,2022-09-21,3,True
+REV000227,ENR000004,STU00300,CRS0040,4,It was okay. The pace was appropriate.,47.1,2023-07-10,5,False
+REV000228,ENR000247,STU00173,CRS0025,4,Highly recommend! Could use more examples.,88.4,2024-06-11,2,True
+REV000229,ENR000248,STU00471,CRS0074,1,Wouldn't recommend. The pace was appropriate.,22.1,2023-06-20,3,True
+REV000230,ENR000290,STU00171,CRS0098,4,,63.7,2023-01-25,1,True
+REV000231,ENR000378,STU00008,CRS0001,3,,63.5,2023-04-09,5,True
+REV000232,ENR000727,STU00483,CRS0068,5,Highly recommend! Assignments were challenging but fair.,85.8,2021-08-27,5,True
+REV000233,ENR001649,STU00465,CRS0015,1,,23.6,2020-10-05,4,True
+REV000234,ENR000237,STU00074,CRS0044,4,Great learning experience. Not enough hands-on practice.,87.7,2023-01-12,3,True
+REV000235,ENR001318,STU00081,CRS0045,3,It was okay. The instructor was very knowledgeable.,61.4,2022-10-14,4,True
+REV000236,ENR000476,STU00454,CRS0003,4,Highly recommend! Could use more examples.,76.1,2021-12-31,1,True
+REV000237,ENR001714,STU00329,CRS0015,4,Great learning experience. The pace was appropriate.,100.0,2023-05-06,3,True
+REV000238,ENR000590,STU00323,CRS0028,4,,52.4,2021-08-05,5,True
+REV000239,ENR001963,STU00450,CRS0076,3,Decent course. The pace was appropriate.,63.6,2023-12-15,0,True
+REV000240,ENR000597,STU00350,CRS0043,4,Decent course. The instructor was very knowledgeable.,50.0,2022-06-12,3,True
+REV000241,ENR001206,STU00025,CRS0050,5,,74.3,2024-07-17,5,True
+REV000242,ENR001524,STU00232,CRS0055,4,Average experience. The pace was appropriate.,58.0,2022-09-15,3,True
+REV000243,ENR000046,STU00397,CRS0089,5,Highly recommend! The pace was appropriate.,95.4,2024-04-13,0,True
+REV000244,ENR001365,STU00012,CRS0087,4,It was okay. The pace was appropriate.,49.8,2022-04-03,5,True
+REV000245,ENR000778,STU00046,CRS0096,5,Excellent course! Assignments were challenging but fair.,85.5,2021-12-15,4,True
+REV000246,ENR001529,STU00361,CRS0093,5,Really enjoyed this class. Too much busy work.,88.5,2024-02-09,2,True
+REV000247,ENR001324,STU00239,CRS0021,3,,66.5,2022-09-19,2,True
+REV000248,ENR000920,STU00353,CRS0090,1,,30.5,2022-04-03,3,True
+REV000249,ENR000264,STU00144,CRS0059,1,Could be much better. Assignments were challenging but fair.,29.8,2021-10-22,2,True
+REV000250,ENR000340,STU00374,CRS0045,2,It was okay. Good mix of theory and practice.,52.1,2026-01-10,4,True
+REV000251,ENR000351,STU00307,CRS0087,4,Decent course. Material was well organized.,53.1,2024-10-11,3,True
+REV000252,ENR001789,STU00418,CRS0025,5,Great learning experience. Good mix of theory and practice.,72.5,2023-08-09,3,False
+REV000253,ENR001313,STU00145,CRS0032,2,,59.8,2023-09-18,1,True
+REV000254,ENR000242,STU00352,CRS0020,5,Highly recommend! Assignments were challenging but fair.,82.0,2022-04-07,3,True
+REV000255,ENR001010,STU00077,CRS0051,4,Outstanding content and delivery. Learned a lot of practical skills.,78.9,2023-06-14,3,False
+REV000256,ENR000989,STU00155,CRS0087,2,It was okay. Learned a lot of practical skills.,53.8,2022-08-21,6,True
+REV000257,ENR001292,STU00454,CRS0039,4,Met expectations. Learned a lot of practical skills.,43.7,2021-11-19,4,True
+REV000258,ENR001223,STU00318,CRS0009,4,Outstanding content and delivery. Could use more examples.,95.1,2023-06-16,3,True
+REV000259,ENR000818,STU00333,CRS0073,4,Decent course. Learned a lot of practical skills.,60.8,2023-06-21,2,True
+REV000260,ENR000607,STU00027,CRS0024,5,Outstanding content and delivery. Lectures were too long.,76.5,2021-08-11,6,True
+REV000261,ENR001000,STU00491,CRS0002,5,Great learning experience. Learned a lot of practical skills.,100.0,2023-11-21,2,True
+REV000262,ENR000273,STU00320,CRS0076,5,Outstanding content and delivery. Too much busy work.,80.2,2022-04-05,1,False
+REV000263,ENR000513,STU00254,CRS0070,1,Wouldn't recommend. Learned a lot of practical skills.,24.3,2023-07-06,2,True
+REV000264,ENR001864,STU00277,CRS0041,4,Outstanding content and delivery. Assignments were challenging but fair.,81.2,2024-01-06,5,True
+REV000265,ENR001577,STU00157,CRS0048,4,,100.0,2023-08-20,3,True
+REV000266,ENR000405,STU00092,CRS0061,2,It was okay. Could use more examples.,68.4,2023-11-04,4,True
+REV000267,ENR001076,STU00452,CRS0096,3,Average experience. The pace was appropriate.,58.6,2022-09-08,6,False
+REV000268,ENR000786,STU00193,CRS0014,5,,85.1,2024-09-17,1,True
+REV000269,ENR001248,STU00425,CRS0006,4,,100.0,2022-09-10,3,True
+REV000270,ENR001025,STU00167,CRS0086,1,Struggled with this one. The instructor was very knowledgeable.,34.6,2023-02-14,2,False
+REV000271,ENR000145,STU00155,CRS0011,3,Decent course. Material was well organized.,48.5,2021-12-27,3,True
+REV000272,ENR001558,STU00122,CRS0098,4,Highly recommend! Material was well organized.,80.3,2021-11-08,7,True
+REV000273,ENR000976,STU00365,CRS0045,5,Great learning experience. Learned a lot of practical skills.,98.6,2021-10-03,6,True
+REV000274,ENR001901,STU00438,CRS0010,5,Highly recommend! Learned a lot of practical skills.,84.5,2021-01-04,1,True
+REV000275,ENR000254,STU00462,CRS0096,4,Highly recommend! Could use more examples.,74.3,2022-09-25,6,True
+REV000276,ENR000359,STU00303,CRS0029,3,It was okay. The pace was appropriate.,50.9,2022-09-22,3,True
+REV000277,ENR001902,STU00417,CRS0097,3,Decent course. Learned a lot of practical skills.,57.3,2023-04-27,4,True
+REV000278,ENR001247,STU00111,CRS0086,5,Really enjoyed this class. Not enough hands-on practice.,91.7,2023-06-07,8,False
+REV000279,ENR001207,STU00231,CRS0029,5,Highly recommend! The instructor was very knowledgeable.,76.7,2022-05-13,2,True
+REV000280,ENR000822,STU00165,CRS0020,4,Really enjoyed this class. Assignments were challenging but fair.,84.2,2023-06-05,6,True
+REV000281,ENR000813,STU00374,CRS0016,5,Great learning experience. Assignments were challenging but fair.,81.8,2021-09-03,5,True
+REV000282,ENR001212,STU00006,CRS0076,5,Highly recommend! The pace was appropriate.,71.5,2022-04-13,4,True
+REV000283,ENR001967,STU00283,CRS0024,2,,69.8,2022-03-18,1,True
+REV000284,ENR001836,STU00191,CRS0022,4,Excellent course! Not enough hands-on practice.,93.5,2022-03-18,2,True
+REV000285,ENR000318,STU00099,CRS0022,2,Not what I expected. Lectures were too long.,23.6,2021-11-03,2,True
+REV000286,ENR001839,STU00399,CRS0041,3,Met expectations. The pace was appropriate.,64.6,2022-11-14,3,True
+REV000287,ENR000856,STU00490,CRS0014,4,Outstanding content and delivery. Material was well organized.,77.7,2023-05-21,2,True
+REV000288,ENR000003,STU00416,CRS0020,3,Decent course. Could use more examples.,53.3,2023-11-13,2,True
+REV000289,ENR000455,STU00357,CRS0031,5,Great learning experience. Good mix of theory and practice.,72.0,2021-05-04,3,False
+REV000290,ENR000302,STU00345,CRS0085,2,,47.4,2023-02-09,9,True
+REV000291,ENR001797,STU00364,CRS0028,4,It was okay. Material was well organized.,43.3,2022-02-14,2,True
+REV000292,ENR000696,STU00177,CRS0063,4,Average experience. The instructor was very knowledgeable.,68.4,2022-09-12,4,True
+REV000293,ENR000885,STU00039,CRS0035,4,,70.9,2021-02-25,3,True
+REV000294,ENR000594,STU00244,CRS0044,4,Really enjoyed this class. Learned a lot of practical skills.,92.5,2021-09-25,1,True
+REV000295,ENR001427,STU00393,CRS0045,4,,50.0,2023-11-20,5,True
+REV000296,ENR000182,STU00379,CRS0047,3,Decent course. Not enough hands-on practice.,65.9,2024-03-17,4,False
+REV000297,ENR000135,STU00376,CRS0026,1,Struggled with this one. Lectures were too long.,20.5,2022-05-15,0,True
+REV000298,ENR001100,STU00222,CRS0021,1,Could be much better. Not enough hands-on practice.,22.5,2022-03-23,4,True
+REV000299,ENR001363,STU00225,CRS0063,5,Great learning experience. Learned a lot of practical skills.,80.4,2022-09-29,3,True
+REV000300,ENR001694,STU00085,CRS0084,3,It was okay. Could use more examples.,56.9,2021-11-12,0,True
+REV000301,ENR000996,STU00191,CRS0077,3,,44.4,2022-04-19,2,True
+REV000302,ENR001846,STU00153,CRS0028,4,,88.4,2024-10-16,6,True
+REV000303,ENR001467,STU00375,CRS0060,4,It was okay. The instructor was very knowledgeable.,48.2,2023-06-13,1,True
+REV000304,ENR000482,STU00073,CRS0090,5,Outstanding content and delivery. Assignments were challenging but fair.,82.3,2026-01-10,2,False
+REV000305,ENR001087,STU00256,CRS0077,2,,31.0,2024-04-01,1,True
+REV000306,ENR001845,STU00118,CRS0016,5,Outstanding content and delivery. Not enough hands-on practice.,77.3,2021-08-29,2,True
+REV000307,ENR000312,STU00479,CRS0008,3,,34.6,2022-02-16,2,True
+REV000308,ENR001676,STU00357,CRS0007,5,Outstanding content and delivery. Assignments were challenging but fair.,81.1,2021-08-13,1,True
+REV000309,ENR000509,STU00011,CRS0092,4,Great learning experience. Lectures were too long.,85.3,2024-03-28,4,True
+REV000310,ENR000635,STU00205,CRS0073,2,Met expectations. Too much busy work.,51.7,2022-06-05,1,True
+REV000311,ENR000267,STU00254,CRS0011,1,Not what I expected. Good mix of theory and practice.,26.2,2024-05-19,3,True
+REV000312,ENR001549,STU00242,CRS0038,4,Average experience. Too much busy work.,58.3,2023-08-21,4,True
+REV000313,ENR001165,STU00394,CRS0064,5,Outstanding content and delivery. The pace was appropriate.,75.6,2021-09-16,2,False
+REV000314,ENR000169,STU00134,CRS0013,5,Outstanding content and delivery. The pace was appropriate.,84.2,2023-08-27,4,True
+REV000315,ENR000831,STU00388,CRS0073,5,Really enjoyed this class. Material was well organized.,70.0,2024-06-12,0,True
+REV000316,ENR001184,STU00427,CRS0033,5,Excellent course! Not enough hands-on practice.,82.4,2023-11-11,3,True
+REV000317,ENR000664,STU00449,CRS0022,5,Really enjoyed this class. Learned a lot of practical skills.,85.5,2024-04-16,4,True
+REV000318,ENR001015,STU00467,CRS0002,3,,55.3,2023-11-19,2,True
+REV000319,ENR000827,STU00298,CRS0030,4,Great learning experience. Could use more examples.,83.0,2021-09-03,2,True
+REV000320,ENR000644,STU00331,CRS0010,2,Decent course. Not enough hands-on practice.,66.0,2020-11-18,0,True
+REV000321,ENR001712,STU00357,CRS0044,3,Met expectations. Lectures were too long.,64.6,2021-11-25,4,True
+REV000322,ENR000659,STU00205,CRS0053,3,Average experience. The instructor was very knowledgeable.,41.0,2021-10-25,6,True
+REV000323,ENR000288,STU00466,CRS0005,4,Great learning experience. Assignments were challenging but fair.,92.5,2022-02-11,4,True
+REV000324,ENR001824,STU00146,CRS0091,1,Disappointing course. Not enough hands-on practice.,10.9,2024-04-23,0,True
+REV000325,ENR001328,STU00044,CRS0072,3,,52.9,2023-11-10,3,False
+REV000326,ENR001954,STU00236,CRS0023,2,Average experience. Could use more examples.,69.6,2022-05-17,2,True
+REV000327,ENR001233,STU00369,CRS0037,4,Met expectations. Too much busy work.,61.6,2024-09-28,2,True
+REV000328,ENR001074,STU00076,CRS0049,3,Decent course. Assignments were challenging but fair.,56.3,2023-01-04,5,True
+REV000329,ENR000497,STU00058,CRS0004,4,Average experience. Assignments were challenging but fair.,67.7,2023-04-01,2,True
+REV000330,ENR001431,STU00309,CRS0093,5,Really enjoyed this class. Not enough hands-on practice.,73.0,2022-09-23,2,True
+REV000331,ENR001339,STU00287,CRS0032,5,Really enjoyed this class. Good mix of theory and practice.,80.2,2021-01-10,2,True
+REV000332,ENR000909,STU00005,CRS0093,2,It was okay. Could use more examples.,57.4,2021-09-14,2,True
+REV000333,ENR000017,STU00477,CRS0084,3,,64.1,2023-02-21,5,True
+REV000334,ENR001578,STU00374,CRS0002,5,Highly recommend! Material was well organized.,100.0,2026-01-10,1,True
+REV000335,ENR000454,STU00080,CRS0005,5,,72.5,2021-05-09,3,True
+REV000336,ENR000394,STU00475,CRS0003,3,It was okay. Could use more examples.,54.5,2023-04-10,4,True
+REV000337,ENR000085,STU00321,CRS0086,3,Met expectations. Too much busy work.,65.1,2026-01-10,2,True
+REV000338,ENR000941,STU00205,CRS0070,4,Met expectations. Assignments were challenging but fair.,63.9,2022-05-22,1,True
+REV000339,ENR001534,STU00035,CRS0073,5,Excellent course! The pace was appropriate.,82.3,2022-06-15,5,True
+REV000340,ENR001648,STU00478,CRS0083,3,Met expectations. Material was well organized.,60.4,2023-08-19,6,True
+REV000341,ENR001417,STU00207,CRS0039,3,Decent course. Assignments were challenging but fair.,53.7,2023-09-23,2,True
+REV000342,ENR001264,STU00272,CRS0016,5,Great learning experience. The pace was appropriate.,71.5,2024-02-22,1,True
+REV000343,ENR000456,STU00010,CRS0043,3,Average experience. Good mix of theory and practice.,54.1,2023-11-04,3,True
+REV000344,ENR001370,STU00447,CRS0077,3,,53.8,2022-08-02,3,False
+REV000345,ENR000427,STU00329,CRS0048,5,Outstanding content and delivery. Could use more examples.,95.7,2023-01-08,3,True
+REV000346,ENR000421,STU00069,CRS0045,5,,80.6,2022-11-27,2,True
+REV000347,ENR000223,STU00207,CRS0095,2,Struggled with this one. Good mix of theory and practice.,14.1,2024-02-10,3,False
+REV000348,ENR000459,STU00459,CRS0082,4,Excellent course! The instructor was very knowledgeable.,83.9,2021-08-01,4,True
+REV000349,ENR001780,STU00291,CRS0024,3,Decent course. Too much busy work.,59.9,2021-04-04,3,True
+REV000350,ENR001191,STU00471,CRS0011,4,Decent course. Lectures were too long.,70.0,2024-07-26,4,True
+REV000351,ENR001992,STU00412,CRS0010,5,Really enjoyed this class. Too much busy work.,73.3,2021-08-16,3,True
+REV000352,ENR001889,STU00423,CRS0097,4,It was okay. Assignments were challenging but fair.,49.8,2024-01-10,2,True
+REV000353,ENR001192,STU00430,CRS0053,4,Decent course. Material was well organized.,50.2,2022-07-09,2,True
+REV000354,ENR000655,STU00281,CRS0072,3,Decent course. Could use more examples.,47.2,2021-08-27,3,True
+REV000355,ENR001226,STU00213,CRS0035,5,,78.7,2024-11-02,1,True
+REV000356,ENR001561,STU00015,CRS0057,1,Could be much better. Learned a lot of practical skills.,23.7,2022-01-03,3,True
+REV000357,ENR000206,STU00279,CRS0026,3,Could be much better. The pace was appropriate.,39.1,2024-08-11,5,True
+REV000358,ENR000631,STU00169,CRS0018,5,,82.1,2022-12-04,4,True
+REV000359,ENR001764,STU00340,CRS0023,1,Disappointing course. Assignments were challenging but fair.,16.2,2024-04-05,6,True
+REV000360,ENR000048,STU00112,CRS0052,4,It was okay. Could use more examples.,61.4,2022-12-25,1,True
+REV000361,ENR000516,STU00241,CRS0003,3,,49.1,2021-11-01,3,False
+REV000362,ENR001433,STU00434,CRS0068,3,,69.3,2022-05-26,1,True
+REV000363,ENR000173,STU00498,CRS0024,5,Highly recommend! Learned a lot of practical skills.,74.3,2022-03-12,3,True
+REV000364,ENR001813,STU00494,CRS0057,5,Great learning experience. Learned a lot of practical skills.,81.0,2024-01-31,8,True
+REV000365,ENR000626,STU00304,CRS0053,4,It was okay. Could use more examples.,63.5,2022-09-28,4,True
+REV000366,ENR001918,STU00113,CRS0077,3,Decent course. The instructor was very knowledgeable.,68.7,2023-10-20,3,True
+REV000367,ENR000344,STU00306,CRS0095,4,It was okay. Could use more examples.,45.0,2022-10-30,0,True
+REV000368,ENR000252,STU00385,CRS0082,5,Outstanding content and delivery. The instructor was very knowledgeable.,100.0,2023-10-05,3,True
+REV000369,ENR001308,STU00210,CRS0071,4,Average experience. Lectures were too long.,60.0,2021-02-16,2,True
+REV000370,ENR001566,STU00288,CRS0079,5,Highly recommend! The instructor was very knowledgeable.,74.7,2024-05-04,3,True
+REV000371,ENR000734,STU00142,CRS0046,4,Average experience. Material was well organized.,40.9,2022-07-21,1,True
+REV000372,ENR000539,STU00303,CRS0002,5,Highly recommend! Could use more examples.,93.9,2023-01-01,4,True
+REV000373,ENR000694,STU00491,CRS0088,4,,56.1,2023-09-18,5,True
+REV000374,ENR000023,STU00440,CRS0094,2,Average experience. Learned a lot of practical skills.,61.5,2021-04-10,2,True
+REV000375,ENR001658,STU00187,CRS0002,3,It was okay. The pace was appropriate.,41.5,2022-01-24,7,True
+REV000376,ENR000194,STU00226,CRS0034,2,Met expectations. The pace was appropriate.,69.3,2025-01-25,2,True
+REV000377,ENR001915,STU00094,CRS0058,4,,69.4,2022-05-11,3,True
+REV000378,ENR000751,STU00355,CRS0008,4,,65.7,2024-03-19,2,False
+REV000379,ENR000883,STU00488,CRS0097,4,Really enjoyed this class. The instructor was very knowledgeable.,92.3,2022-03-02,1,True
+REV000380,ENR001483,STU00245,CRS0002,5,Outstanding content and delivery. The pace was appropriate.,72.7,2022-02-01,1,True
+REV000381,ENR000336,STU00207,CRS0029,5,Highly recommend! Assignments were challenging but fair.,72.2,2023-12-17,2,True
+REV000382,ENR000965,STU00292,CRS0053,2,Average experience. Good mix of theory and practice.,56.4,2022-04-25,6,True
+REV000383,ENR001571,STU00264,CRS0083,5,Great learning experience. Too much busy work.,91.4,2023-06-22,6,True
+REV000384,ENR001575,STU00184,CRS0031,5,Great learning experience. The instructor was very knowledgeable.,87.7,2024-10-17,1,True
+REV000385,ENR001291,STU00174,CRS0001,5,Excellent course! The instructor was very knowledgeable.,81.4,2021-10-18,2,True
+REV000386,ENR000025,STU00152,CRS0043,4,Decent course. The instructor was very knowledgeable.,40.0,2022-01-18,5,True
+REV000387,ENR001244,STU00500,CRS0081,2,Wouldn't recommend. The instructor was very knowledgeable.,0.0,2022-06-10,2,False
+REV000388,ENR001228,STU00186,CRS0065,3,Average experience. Material was well organized.,50.0,2022-04-24,3,True
+REV000389,ENR000372,STU00438,CRS0028,4,Average experience. Material was well organized.,52.6,2026-01-10,0,True
+REV000390,ENR000494,STU00222,CRS0031,5,Great learning experience. The pace was appropriate.,73.1,2021-07-19,2,True
+REV000391,ENR000510,STU00480,CRS0083,5,Great learning experience. Not enough hands-on practice.,93.5,2022-01-15,4,True
+REV000392,ENR000932,STU00147,CRS0003,3,,65.6,2024-11-08,6,True
+REV000393,ENR000571,STU00101,CRS0087,5,Outstanding content and delivery. Not enough hands-on practice.,91.0,2021-09-05,3,True
+REV000394,ENR001773,STU00105,CRS0016,4,,69.5,2023-08-15,5,True
+REV000395,ENR001371,STU00254,CRS0085,4,Decent course. Not enough hands-on practice.,47.4,2024-01-02,3,True
+REV000396,ENR001753,STU00388,CRS0050,3,Disappointing course. Learned a lot of practical skills.,26.9,2024-09-10,0,True
+REV000397,ENR001885,STU00343,CRS0059,1,Could be much better. Good mix of theory and practice.,36.6,2022-03-28,2,True
+REV000398,ENR001725,STU00397,CRS0055,3,Average experience. Could use more examples.,56.1,2024-06-05,6,True
+REV000399,ENR001393,STU00129,CRS0093,2,It was okay. Not enough hands-on practice.,53.5,2023-06-20,4,False
+REV000400,ENR001231,STU00084,CRS0060,4,Great learning experience. Lectures were too long.,81.7,2022-07-27,3,True
+REV000401,ENR000972,STU00093,CRS0083,5,Outstanding content and delivery. Assignments were challenging but fair.,74.9,2021-04-25,4,True
+REV000402,ENR000916,STU00209,CRS0021,5,Excellent course! Material was well organized.,73.0,2022-04-19,2,True
+REV000403,ENR001908,STU00023,CRS0050,4,Met expectations. The pace was appropriate.,65.9,2023-12-01,4,True
+REV000404,ENR001289,STU00062,CRS0004,4,Met expectations. The pace was appropriate.,68.3,2022-05-13,0,False
+REV000405,ENR000823,STU00001,CRS0041,4,Met expectations. The pace was appropriate.,65.3,2022-09-18,5,True
+REV000406,ENR001715,STU00140,CRS0012,5,Excellent course! Good mix of theory and practice.,80.8,2023-03-16,3,True
+REV000407,ENR001793,STU00033,CRS0029,3,Average experience. Too much busy work.,40.9,2024-02-01,1,True
+REV000408,ENR000381,STU00060,CRS0015,5,Highly recommend! The pace was appropriate.,73.6,2024-01-13,5,True
+REV000409,ENR001818,STU00316,CRS0010,3,Average experience. Lectures were too long.,62.7,2021-02-04,4,True
+REV000410,ENR000684,STU00358,CRS0042,3,Met expectations. Could use more examples.,59.6,2024-04-17,3,True
+REV000411,ENR000658,STU00338,CRS0018,2,,33.2,2024-10-15,2,True
+REV000412,ENR001155,STU00475,CRS0097,1,Wouldn't recommend. Learned a lot of practical skills.,6.4,2023-01-03,1,True
+REV000413,ENR000897,STU00468,CRS0094,2,Met expectations. Could use more examples.,65.0,2021-11-24,4,True
+REV000414,ENR000670,STU00361,CRS0005,5,Great learning experience. The pace was appropriate.,70.1,2023-10-15,2,True
+REV000415,ENR000040,STU00438,CRS0047,3,,68.5,2020-10-18,4,True
+REV000416,ENR001559,STU00033,CRS0060,3,Struggled with this one. Too much busy work.,21.2,2024-05-06,0,True
+REV000417,ENR001500,STU00070,CRS0031,5,,80.7,2021-01-01,1,True
+REV000418,ENR000363,STU00398,CRS0014,5,,73.0,2023-08-14,5,True
+REV000419,ENR000904,STU00226,CRS0068,5,Really enjoyed this class. Lectures were too long.,76.3,2024-07-20,2,True
+REV000420,ENR001869,STU00142,CRS0071,4,Average experience. Assignments were challenging but fair.,46.0,2022-05-16,3,False
+REV000421,ENR000129,STU00162,CRS0080,2,Not what I expected. The instructor was very knowledgeable.,25.4,2024-07-05,4,False
+REV000422,ENR000121,STU00448,CRS0053,5,Really enjoyed this class. Assignments were challenging but fair.,81.6,2021-05-27,3,True
+REV000423,ENR000019,STU00390,CRS0020,4,Met expectations. Assignments were challenging but fair.,66.6,2022-08-04,3,True
+REV000424,ENR001814,STU00304,CRS0086,3,Struggled with this one. Assignments were challenging but fair.,33.3,2026-01-10,2,True
+REV000425,ENR001675,STU00092,CRS0054,4,,66.8,2024-01-23,1,True
+REV000426,ENR001880,STU00002,CRS0021,5,Great learning experience. Learned a lot of practical skills.,73.6,2024-07-29,3,True
+REV000427,ENR000758,STU00356,CRS0011,4,Met expectations. Learned a lot of practical skills.,45.1,2024-03-14,6,True
+REV000428,ENR002000,STU00257,CRS0020,2,Struggled with this one. Good mix of theory and practice.,39.0,2024-04-08,4,True
+REV000429,ENR000202,STU00257,CRS0053,3,Met expectations. Learned a lot of practical skills.,59.8,2024-01-13,3,True
+REV000430,ENR001400,STU00056,CRS0038,3,,50.0,2022-10-02,3,True
+REV000431,ENR000846,STU00089,CRS0099,1,,21.1,2022-07-15,2,True
+REV000432,ENR001642,STU00302,CRS0087,5,Great learning experience. Good mix of theory and practice.,98.4,2022-09-24,2,True
+REV000433,ENR001666,STU00002,CRS0087,5,Great learning experience. The instructor was very knowledgeable.,88.5,2024-01-06,5,True
+REV000434,ENR000780,STU00345,CRS0076,4,It was okay. Not enough hands-on practice.,68.3,2022-11-15,1,True
+REV000435,ENR000742,STU00448,CRS0009,4,Met expectations. The instructor was very knowledgeable.,52.1,2022-04-16,6,True
+REV000436,ENR000397,STU00302,CRS0042,3,It was okay. Assignments were challenging but fair.,60.0,2022-09-16,2,True
+REV000437,ENR001301,STU00163,CRS0012,5,Really enjoyed this class. Assignments were challenging but fair.,71.9,2021-08-12,1,True
+REV000438,ENR001082,STU00379,CRS0005,4,Met expectations. Assignments were challenging but fair.,63.1,2023-06-28,1,True
+REV000439,ENR001066,STU00101,CRS0060,1,Not what I expected. The pace was appropriate.,12.1,2022-05-18,4,True
+REV000440,ENR001284,STU00294,CRS0015,3,It was okay. Learned a lot of practical skills.,57.7,2022-11-25,5,True
+REV000441,ENR000230,STU00474,CRS0095,3,Average experience. The instructor was very knowledgeable.,49.3,2023-02-22,2,True
+REV000442,ENR001491,STU00358,CRS0038,4,It was okay. The pace was appropriate.,45.2,2024-02-06,5,True
+REV000443,ENR001495,STU00016,CRS0019,5,Great learning experience. Too much busy work.,88.7,2023-03-10,2,True
+REV000444,ENR000777,STU00224,CRS0030,4,Outstanding content and delivery. Too much busy work.,72.6,2022-03-31,6,False
+REV000445,ENR001906,STU00044,CRS0064,1,Not what I expected. Assignments were challenging but fair.,13.3,2023-07-26,3,True
+REV000446,ENR001217,STU00154,CRS0061,5,Great learning experience. The instructor was very knowledgeable.,74.3,2023-01-11,2,True
+REV000447,ENR001406,STU00091,CRS0084,5,Excellent course! Lectures were too long.,82.2,2021-08-07,3,True
+REV000448,ENR000142,STU00281,CRS0094,3,,62.0,2022-01-18,2,True
+REV000449,ENR001429,STU00367,CRS0066,5,Great learning experience. Material was well organized.,89.8,2022-10-06,2,True
+REV000450,ENR001641,STU00361,CRS0026,3,Average experience. The pace was appropriate.,50.0,2023-11-11,5,True
+REV000451,ENR001923,STU00217,CRS0025,4,Great learning experience. Learned a lot of practical skills.,91.5,2022-09-26,1,False
+REV000452,ENR000406,STU00443,CRS0044,5,Highly recommend! Could use more examples.,78.8,2022-04-10,2,True
+REV000453,ENR000143,STU00007,CRS0008,2,,47.2,2021-08-09,2,True
+REV000454,ENR000213,STU00366,CRS0068,4,Met expectations. Lectures were too long.,67.2,2024-10-25,2,True
+REV000455,ENR001685,STU00328,CRS0086,5,Excellent course! The instructor was very knowledgeable.,76.8,2023-12-27,2,True
+REV000456,ENR001496,STU00043,CRS0072,1,Disappointing course. Assignments were challenging but fair.,39.1,2021-10-09,1,True
+REV000457,ENR000503,STU00431,CRS0080,2,Average experience. Too much busy work.,60.9,2021-08-31,1,True
+REV000458,ENR001823,STU00246,CRS0068,3,Average experience. Assignments were challenging but fair.,61.4,2021-08-20,3,True
+REV000459,ENR001203,STU00180,CRS0051,3,,68.7,2022-11-17,1,True
+REV000460,ENR001556,STU00348,CRS0083,3,It was okay. Lectures were too long.,45.7,2022-06-04,2,False
+REV000461,ENR001081,STU00297,CRS0074,3,It was okay. Material was well organized.,56.5,2023-06-27,4,True
+REV000462,ENR001277,STU00096,CRS0036,4,,70.3,2022-04-07,1,True
+REV000463,ENR001463,STU00230,CRS0098,5,,74.9,2024-10-02,1,True
+REV000464,ENR000514,STU00326,CRS0100,4,,93.6,2020-12-01,3,True
+REV000465,ENR001381,STU00339,CRS0097,4,Met expectations. The instructor was very knowledgeable.,42.4,2021-05-28,0,True
+REV000466,ENR001127,STU00086,CRS0061,5,Great learning experience. Too much busy work.,70.4,2024-01-02,3,True
+REV000467,ENR001800,STU00418,CRS0032,2,,63.9,2023-10-28,1,True
+REV000468,ENR001229,STU00087,CRS0085,4,Highly recommend! The instructor was very knowledgeable.,73.2,2021-09-14,3,True
+REV000469,ENR000527,STU00267,CRS0009,5,,92.8,2022-08-19,3,True
+REV000470,ENR001271,STU00326,CRS0077,5,Outstanding content and delivery. Learned a lot of practical skills.,73.5,2022-02-11,3,True
+REV000471,ENR001305,STU00360,CRS0038,5,Highly recommend! Too much busy work.,76.5,2022-11-27,5,True
+REV000472,ENR001255,STU00378,CRS0001,4,Great learning experience. The instructor was very knowledgeable.,82.1,2021-03-08,4,True
+REV000473,ENR001480,STU00118,CRS0074,3,It was okay. The instructor was very knowledgeable.,50.5,2022-02-01,4,True
+REV000474,ENR001498,STU00141,CRS0077,5,Highly recommend! The pace was appropriate.,70.8,2022-03-10,4,True
+REV000475,ENR000185,STU00171,CRS0091,4,It was okay. Could use more examples.,54.4,2023-03-29,3,True
+REV000476,ENR000278,STU00454,CRS0081,3,Average experience. Lectures were too long.,69.0,2022-12-06,6,True
+REV000477,ENR001225,STU00365,CRS0085,3,Decent course. The instructor was very knowledgeable.,68.0,2021-05-29,4,True
+REV000478,ENR001729,STU00399,CRS0040,3,,58.1,2022-08-27,2,True
+REV000479,ENR001785,STU00077,CRS0090,3,Met expectations. The instructor was very knowledgeable.,40.0,2023-08-31,0,False
+REV000480,ENR000709,STU00197,CRS0077,5,Really enjoyed this class. The pace was appropriate.,76.7,2022-12-04,3,True
+REV000481,ENR000386,STU00020,CRS0055,1,Not what I expected. Too much busy work.,24.3,2022-09-27,0,True
+REV000482,ENR001950,STU00245,CRS0083,5,Outstanding content and delivery. Could use more examples.,93.0,2022-02-14,7,True
+REV000483,ENR000224,STU00137,CRS0084,5,Great learning experience. Not enough hands-on practice.,83.8,2022-08-06,2,True
+REV000484,ENR001794,STU00040,CRS0033,4,Outstanding content and delivery. Good mix of theory and practice.,78.1,2023-08-07,1,True
+REV000485,ENR000136,STU00094,CRS0023,2,,43.2,2022-06-30,3,True
+REV000486,ENR001159,STU00456,CRS0082,5,,86.3,2020-12-05,2,True
+REV000487,ENR000053,STU00258,CRS0099,3,Decent course. Material was well organized.,50.7,2022-08-30,4,True
+REV000488,ENR000886,STU00496,CRS0090,5,Excellent course! Not enough hands-on practice.,88.2,2023-08-12,5,True
+REV000489,ENR000425,STU00147,CRS0088,5,,80.9,2024-12-18,2,False
+REV000490,ENR001031,STU00166,CRS0058,2,Met expectations. Learned a lot of practical skills.,54.5,2022-07-11,3,True
+REV000491,ENR000500,STU00166,CRS0020,2,,35.3,2022-06-23,0,True
+REV000492,ENR001448,STU00116,CRS0090,2,It was okay. Could use more examples.,49.6,2022-03-14,4,False
+REV000493,ENR000235,STU00307,CRS0096,2,Decent course. Learned a lot of practical skills.,63.8,2025-01-28,2,True
+REV000494,ENR001437,STU00169,CRS0087,5,Outstanding content and delivery. Not enough hands-on practice.,91.5,2021-03-13,4,True
+REV000495,ENR001148,STU00290,CRS0046,3,Decent course. Lectures were too long.,62.0,2021-08-04,3,True
+REV000496,ENR000954,STU00215,CRS0091,2,It was okay. Not enough hands-on practice.,50.2,2021-04-10,3,True
+REV000497,ENR001862,STU00250,CRS0071,4,Excellent course! Material was well organized.,80.4,2023-03-24,1,True
+REV000498,ENR000857,STU00451,CRS0020,4,It was okay. Material was well organized.,65.8,2021-05-02,3,True
+REV000499,ENR001904,STU00469,CRS0064,3,Average experience. Material was well organized.,51.8,2022-12-17,5,True
+REV000500,ENR001643,STU00163,CRS0086,4,Outstanding content and delivery. Could use more examples.,81.4,2021-09-22,1,True
+REV000501,ENR001736,STU00412,CRS0076,4,Met expectations. Learned a lot of practical skills.,67.9,2021-09-05,2,False
+REV000502,ENR001186,STU00037,CRS0026,3,Average experience. Not enough hands-on practice.,49.0,2021-05-17,1,True
+REV000503,ENR000732,STU00058,CRS0002,5,Outstanding content and delivery. Could use more examples.,89.7,2023-10-06,2,True
+REV000504,ENR001594,STU00148,CRS0100,4,Decent course. Not enough hands-on practice.,67.4,2022-05-10,3,True
+REV000505,ENR001246,STU00005,CRS0036,4,Really enjoyed this class. Could use more examples.,83.0,2021-11-26,2,True
+REV000506,ENR001085,STU00200,CRS0014,5,Outstanding content and delivery. Lectures were too long.,95.7,2022-04-21,2,True
+REV000507,ENR001548,STU00493,CRS0058,4,Decent course. Not enough hands-on practice.,69.5,2023-04-09,1,True
+REV000508,ENR001613,STU00354,CRS0094,4,Really enjoyed this class. Assignments were challenging but fair.,79.7,2023-06-29,0,True
+REV000509,ENR001214,STU00368,CRS0097,4,Highly recommend! The instructor was very knowledgeable.,78.0,2023-11-07,1,True
+REV000510,ENR001460,STU00420,CRS0025,2,Decent course. Too much busy work.,54.2,2021-06-27,1,True
+REV000511,ENR000945,STU00143,CRS0051,5,,84.9,2022-02-27,3,True
+REV000512,ENR001752,STU00423,CRS0046,5,Outstanding content and delivery. The pace was appropriate.,80.0,2023-08-15,3,True
+REV000513,ENR000561,STU00411,CRS0030,4,Excellent course! Too much busy work.,83.2,2026-01-10,0,True
+REV000514,ENR001790,STU00233,CRS0041,2,,54.8,2022-03-10,3,True
+REV000515,ENR000968,STU00328,CRS0021,4,Met expectations. Too much busy work.,57.4,2024-03-27,0,True
+REV000516,ENR001205,STU00089,CRS0064,1,Struggled with this one. Good mix of theory and practice.,29.6,2022-05-16,6,True
+REV000517,ENR000241,STU00374,CRS0044,5,,74.8,2022-08-26,3,True
+REV000518,ENR001300,STU00483,CRS0065,5,Excellent course! Learned a lot of practical skills.,93.1,2022-05-24,5,True
+REV000519,ENR001909,STU00490,CRS0098,5,,74.0,2023-07-27,5,True
+REV000520,ENR001281,STU00130,CRS0080,4,Great learning experience. Learned a lot of practical skills.,79.5,2022-03-15,3,True
+REV000521,ENR000969,STU00180,CRS0045,5,Great learning experience. The pace was appropriate.,72.4,2023-01-05,2,True
+REV000522,ENR000640,STU00294,CRS0089,5,Excellent course! Could use more examples.,78.6,2023-05-31,3,True
+REV000523,ENR000018,STU00196,CRS0079,5,Really enjoyed this class. The instructor was very knowledgeable.,72.4,2022-06-11,3,True
+REV000524,ENR001997,STU00457,CRS0093,5,Really enjoyed this class. Could use more examples.,73.3,2024-09-23,2,True
+REV000525,ENR000799,STU00376,CRS0047,1,Disappointing course. The pace was appropriate.,25.4,2021-11-03,4,True
+REV000526,ENR000460,STU00377,CRS0065,3,It was okay. Lectures were too long.,64.3,2022-11-03,2,True
+REV000527,ENR001734,STU00391,CRS0021,5,Highly recommend! Too much busy work.,81.4,2022-10-17,3,True
+REV000528,ENR000566,STU00359,CRS0080,2,Average experience. The instructor was very knowledgeable.,65.1,2022-07-18,0,True
+REV000529,ENR001476,STU00048,CRS0024,4,Decent course. Good mix of theory and practice.,50.0,2022-03-26,1,True
+REV000530,ENR000913,STU00236,CRS0041,4,Excellent course! Material was well organized.,80.1,2022-03-03,1,False
+REV000531,ENR000461,STU00100,CRS0050,5,Really enjoyed this class. Assignments were challenging but fair.,97.5,2022-06-23,1,True
+REV000532,ENR001798,STU00244,CRS0066,4,Decent course. Assignments were challenging but fair.,58.3,2021-03-01,5,True
+REV000533,ENR000031,STU00268,CRS0073,5,,94.3,2023-05-09,2,True
+REV000534,ENR000277,STU00068,CRS0035,2,,49.9,2022-05-21,7,True
+REV000535,ENR000576,STU00396,CRS0039,5,Excellent course! Not enough hands-on practice.,77.6,2021-07-12,2,True
+REV000536,ENR000722,STU00169,CRS0010,5,,79.8,2021-08-26,3,True
+REV000537,ENR000891,STU00027,CRS0061,4,It was okay. Material was well organized.,66.1,2021-10-14,3,True
+REV000538,ENR000870,STU00298,CRS0033,5,Really enjoyed this class. Good mix of theory and practice.,72.0,2022-03-28,3,True
+REV000539,ENR001772,STU00286,CRS0042,4,Outstanding content and delivery. Not enough hands-on practice.,84.3,2022-04-08,4,True
+REV000540,ENR001979,STU00271,CRS0005,3,,68.4,2023-07-02,5,True
+REV000541,ENR000295,STU00142,CRS0092,2,Decent course. Material was well organized.,53.8,2021-12-05,1,True
+REV000542,ENR000532,STU00145,CRS0098,1,,36.8,2026-01-10,2,True
+REV000543,ENR000127,STU00189,CRS0035,4,Excellent course! Good mix of theory and practice.,73.9,2021-08-29,5,True
+REV000544,ENR001470,STU00409,CRS0068,5,Outstanding content and delivery. Learned a lot of practical skills.,91.7,2024-04-10,2,True
+REV000545,ENR001279,STU00088,CRS0044,3,Decent course. Material was well organized.,69.8,2022-06-30,4,True
+REV000546,ENR000410,STU00496,CRS0066,3,It was okay. The pace was appropriate.,61.7,2023-11-08,4,True
+REV000547,ENR000826,STU00430,CRS0081,2,Average experience. Could use more examples.,49.0,2022-06-06,1,True
+REV000548,ENR000908,STU00295,CRS0079,5,Highly recommend! Good mix of theory and practice.,85.1,2023-10-06,1,True
+REV000549,ENR001991,STU00064,CRS0042,4,Excellent course! Learned a lot of practical skills.,78.0,2022-02-26,3,True
+REV000550,ENR001161,STU00378,CRS0098,3,Met expectations. Good mix of theory and practice.,67.6,2021-12-18,3,True
+REV000551,ENR000106,STU00394,CRS0062,5,,72.7,2022-01-22,2,False
+REV000552,ENR000382,STU00400,CRS0094,1,Not what I expected. The pace was appropriate.,32.4,2022-02-20,3,True
+REV000553,ENR000850,STU00320,CRS0021,4,It was okay. Assignments were challenging but fair.,64.0,2022-11-06,3,False
+REV000554,ENR001297,STU00346,CRS0039,4,Great learning experience. Could use more examples.,95.7,2024-03-29,2,True
+REV000555,ENR001059,STU00255,CRS0080,5,Great learning experience. Learned a lot of practical skills.,100.0,2021-05-21,3,True
+REV000556,ENR001304,STU00452,CRS0078,3,It was okay. Good mix of theory and practice.,69.3,2023-07-07,1,True
+REV000557,ENR000962,STU00062,CRS0044,3,Decent course. Not enough hands-on practice.,50.0,2022-02-15,1,True
+REV000558,ENR001238,STU00054,CRS0053,1,Wouldn't recommend. Lectures were too long.,8.4,2022-03-17,1,True
+REV000559,ENR000463,STU00439,CRS0075,4,Really enjoyed this class. Material was well organized.,82.3,2023-09-30,3,True
+REV000560,ENR001816,STU00097,CRS0030,1,Struggled with this one. Material was well organized.,19.8,2022-12-06,3,True
+REV000561,ENR001563,STU00213,CRS0079,5,,90.0,2025-01-29,4,True
+REV000562,ENR001430,STU00474,CRS0020,3,Met expectations. Material was well organized.,68.4,2022-12-21,3,True
+REV000563,ENR000955,STU00055,CRS0044,5,Great learning experience. The pace was appropriate.,100.0,2021-11-20,1,False
+REV000564,ENR000619,STU00140,CRS0085,4,,73.4,2023-04-23,5,True
+REV000565,ENR001702,STU00191,CRS0042,3,,59.0,2021-12-24,3,True
+REV000566,ENR001761,STU00351,CRS0036,5,Really enjoyed this class. Learned a lot of practical skills.,100.0,2023-04-18,1,True
+REV000567,ENR000483,STU00487,CRS0079,4,,41.0,2022-11-22,1,True
+REV000568,ENR001259,STU00025,CRS0094,3,It was okay. The instructor was very knowledgeable.,68.4,2026-01-10,5,True
+REV000569,ENR000401,STU00360,CRS0058,3,,67.6,2022-09-12,1,True
+REV000570,ENR000207,STU00265,CRS0075,5,Highly recommend! Good mix of theory and practice.,81.2,2022-09-09,1,True
+REV000571,ENR001057,STU00238,CRS0030,5,Outstanding content and delivery. Learned a lot of practical skills.,74.9,2022-05-16,3,True
+REV000572,ENR000604,STU00379,CRS0005,3,Average experience. Not enough hands-on practice.,58.9,2023-06-15,3,True
+REV000573,ENR001935,STU00473,CRS0052,3,Struggled with this one. Assignments were challenging but fair.,29.3,2022-09-12,3,True
+REV000574,ENR000114,STU00458,CRS0060,4,It was okay. The pace was appropriate.,43.3,2025-02-25,6,True
+REV000575,ENR000038,STU00233,CRS0081,3,,43.5,2022-04-12,8,False
+REV000576,ENR000533,STU00022,CRS0016,3,Met expectations. Good mix of theory and practice.,54.3,2026-01-10,1,True
+REV000577,ENR000834,STU00166,CRS0076,2,,26.9,2022-03-13,2,True
+REV000578,ENR000853,STU00432,CRS0056,4,Decent course. Too much busy work.,69.9,2024-03-17,1,False
+REV000579,ENR001847,STU00411,CRS0030,5,,74.4,2024-04-08,2,True
+REV000580,ENR000518,STU00498,CRS0081,5,,73.6,2022-09-28,1,True
+REV000581,ENR001740,STU00206,CRS0089,3,Average experience. The instructor was very knowledgeable.,62.0,2022-07-05,0,False
+REV000582,ENR000161,STU00272,CRS0001,3,,66.1,2024-06-27,4,True
+REV000583,ENR000022,STU00329,CRS0100,4,Excellent course! Lectures were too long.,82.0,2023-05-11,3,True
+REV000584,ENR001418,STU00315,CRS0099,3,It was okay. Too much busy work.,52.7,2023-04-17,9,True
+REV000585,ENR001426,STU00041,CRS0003,5,Outstanding content and delivery. The instructor was very knowledgeable.,86.7,2022-01-07,4,True
+REV000586,ENR000946,STU00107,CRS0022,3,Met expectations. Too much busy work.,65.5,2023-07-16,3,True
+REV000587,ENR001122,STU00311,CRS0017,5,Excellent course! Good mix of theory and practice.,91.1,2023-07-01,1,True
+REV000588,ENR001323,STU00350,CRS0058,4,Really enjoyed this class. Material was well organized.,94.6,2023-02-08,6,True
+REV000589,ENR000422,STU00252,CRS0083,5,Highly recommend! Could use more examples.,84.5,2022-05-28,3,True
+REV000590,ENR001188,STU00452,CRS0004,5,,79.4,2022-07-21,2,True
+REV000591,ENR000736,STU00264,CRS0100,5,Really enjoyed this class. Too much busy work.,92.1,2023-01-30,3,True
+REV000592,ENR001743,STU00482,CRS0025,3,Disappointing course. Could use more examples.,12.1,2021-02-04,1,True
+REV000593,ENR001626,STU00476,CRS0080,3,Decent course. Material was well organized.,57.9,2021-04-26,0,True
+REV000594,ENR001250,STU00142,CRS0036,3,,63.5,2022-03-24,1,True
+REV000595,ENR001812,STU00149,CRS0096,3,,50.0,2022-04-13,2,True
+REV000596,ENR001062,STU00338,CRS0009,5,,76.2,2026-01-10,2,True
+REV000597,ENR001424,STU00370,CRS0039,4,,77.1,2023-04-11,3,False
+REV000598,ENR000002,STU00238,CRS0024,4,It was okay. The instructor was very knowledgeable.,64.3,2022-05-02,3,True
+REV000599,ENR001871,STU00119,CRS0077,3,It was okay. Learned a lot of practical skills.,61.5,2022-03-18,1,True
+REV000600,ENR001366,STU00320,CRS0020,3,,62.4,2021-09-20,2,True
+REV000601,ENR000306,STU00043,CRS0005,2,Met expectations. The instructor was very knowledgeable.,50.0,2021-06-27,7,False
+REV000602,ENR000564,STU00015,CRS0083,5,,89.3,2021-08-26,1,False
+REV000603,ENR000368,STU00383,CRS0052,3,Met expectations. Not enough hands-on practice.,50.3,2024-11-01,2,False
+REV000604,ENR000152,STU00142,CRS0014,1,Wouldn't recommend. Not enough hands-on practice.,32.3,2022-01-27,2,True
+REV000605,ENR001802,STU00303,CRS0018,5,Highly recommend! Too much busy work.,73.5,2023-06-02,4,True
+REV000606,ENR001684,STU00273,CRS0096,4,Decent course. Could use more examples.,55.5,2021-07-25,1,True
+REV000607,ENR000047,STU00175,CRS0042,4,Outstanding content and delivery. The instructor was very knowledgeable.,81.2,2021-11-22,2,True
+REV000608,ENR000105,STU00398,CRS0014,5,Outstanding content and delivery. Good mix of theory and practice.,73.8,2023-02-26,2,True
+REV000609,ENR001252,STU00131,CRS0026,3,Wouldn't recommend. Could use more examples.,32.9,2024-01-09,3,True
+REV000610,ENR000102,STU00074,CRS0020,2,,67.8,2023-04-05,2,True
+REV000611,ENR001647,STU00235,CRS0069,4,Met expectations. Lectures were too long.,54.8,2023-08-25,3,True
+REV000612,ENR001130,STU00162,CRS0022,4,Outstanding content and delivery. Material was well organized.,70.2,2024-12-09,4,True
+REV000613,ENR000517,STU00324,CRS0007,5,Excellent course! Good mix of theory and practice.,82.2,2024-09-14,4,True
+REV000614,ENR000992,STU00289,CRS0046,5,Outstanding content and delivery. Not enough hands-on practice.,82.7,2021-06-12,3,True
+REV000615,ENR001428,STU00339,CRS0085,1,,18.1,2021-02-28,2,True
+REV000616,ENR001560,STU00148,CRS0014,1,Wouldn't recommend. The instructor was very knowledgeable.,14.0,2022-11-22,2,True
+REV000617,ENR001905,STU00101,CRS0049,3,It was okay. Assignments were challenging but fair.,54.9,2020-10-07,2,True
+REV000618,ENR000225,STU00296,CRS0072,2,Met expectations. Not enough hands-on practice.,56.8,2023-09-15,1,True
+REV000619,ENR000502,STU00171,CRS0027,2,Could be much better. Could use more examples.,31.3,2023-02-09,2,True
+REV000620,ENR001927,STU00151,CRS0010,3,,66.1,2022-04-18,1,True
+REV000621,ENR000979,STU00354,CRS0027,3,Struggled with this one. Learned a lot of practical skills.,25.6,2023-09-12,3,True
+REV000622,ENR000026,STU00220,CRS0095,4,Really enjoyed this class. Not enough hands-on practice.,89.5,2021-08-14,2,True
+REV000623,ENR000817,STU00227,CRS0039,5,,90.0,2024-10-22,3,True
+REV000624,ENR001513,STU00195,CRS0011,3,Average experience. Not enough hands-on practice.,45.9,2023-02-15,5,True
+REV000625,ENR000211,STU00223,CRS0081,3,Decent course. Learned a lot of practical skills.,66.1,2022-09-28,7,False
+REV000626,ENR001240,STU00062,CRS0024,4,Outstanding content and delivery. Could use more examples.,75.5,2021-04-13,5,True
+REV000627,ENR001023,STU00317,CRS0018,3,Met expectations. Material was well organized.,49.5,2022-07-07,6,True
+REV000628,ENR001384,STU00273,CRS0010,3,Met expectations. The instructor was very knowledgeable.,69.0,2022-05-25,6,False
+REV000629,ENR000296,STU00491,CRS0100,5,,82.4,2022-12-05,2,True
+REV000630,ENR001579,STU00264,CRS0028,3,It was okay. Not enough hands-on practice.,68.0,2023-05-06,2,True
+REV000631,ENR000544,STU00082,CRS0024,5,,93.2,2023-01-30,5,True
+REV000632,ENR001928,STU00151,CRS0064,5,Outstanding content and delivery. Learned a lot of practical skills.,73.1,2022-01-30,2,True
+REV000633,ENR001555,STU00481,CRS0066,5,Outstanding content and delivery. Too much busy work.,95.6,2023-07-30,3,True
+REV000634,ENR001037,STU00466,CRS0085,1,Not what I expected. Could use more examples.,26.6,2021-06-19,2,True
+REV000635,ENR000238,STU00069,CRS0099,5,Excellent course! Not enough hands-on practice.,86.6,2023-05-12,1,True
+REV000636,ENR001629,STU00139,CRS0006,3,,6.2,2021-07-05,3,True
+REV000637,ENR000808,STU00352,CRS0006,4,Really enjoyed this class. Material was well organized.,79.4,2022-01-04,2,True
+REV000638,ENR000749,STU00273,CRS0040,5,Outstanding content and delivery. Material was well organized.,96.2,2021-09-06,6,True
+REV000639,ENR001147,STU00482,CRS0050,5,Highly recommend! Too much busy work.,90.6,2022-02-24,4,True
+REV000640,ENR000416,STU00005,CRS0023,3,,47.3,2021-12-03,1,True
+REV000641,ENR000464,STU00042,CRS0017,4,,100.0,2023-06-10,6,True
+REV000642,ENR001137,STU00349,CRS0061,3,,46.7,2024-04-15,5,True
+REV000643,ENR001726,STU00100,CRS0059,2,,50.0,2022-08-31,5,True
+REV000644,ENR001492,STU00302,CRS0021,3,Decent course. Good mix of theory and practice.,67.9,2022-12-18,7,True
+REV000645,ENR001144,STU00261,CRS0096,5,Great learning experience. Learned a lot of practical skills.,77.1,2022-03-25,6,True
+REV000646,ENR001189,STU00314,CRS0012,3,,53.9,2022-05-02,2,True
+REV000647,ENR000475,STU00154,CRS0038,5,Outstanding content and delivery. Not enough hands-on practice.,85.5,2022-09-05,4,True
+REV000648,ENR001775,STU00174,CRS0086,4,Great learning experience. Too much busy work.,91.7,2022-01-11,2,True
+REV000649,ENR001042,STU00374,CRS0008,4,Great learning experience. Too much busy work.,98.3,2021-09-21,1,True
+REV000650,ENR001748,STU00141,CRS0020,5,,76.5,2021-08-10,4,True
+REV000651,ENR001585,STU00067,CRS0009,5,Really enjoyed this class. Good mix of theory and practice.,70.5,2024-07-15,2,True
+REV000652,ENR001047,STU00319,CRS0067,5,,73.6,2021-05-09,4,True
+REV000653,ENR000389,STU00139,CRS0067,3,It was okay. Too much busy work.,50.9,2021-06-05,3,True
+REV000654,ENR001060,STU00021,CRS0037,4,Average experience. Lectures were too long.,66.2,2022-12-31,2,True
+REV000655,ENR000232,STU00345,CRS0090,3,Decent course. Good mix of theory and practice.,49.0,2026-01-10,2,True
+REV000656,ENR000432,STU00203,CRS0022,5,Really enjoyed this class. The instructor was very knowledgeable.,70.7,2023-04-29,3,True
+REV000657,ENR001017,STU00185,CRS0088,3,Decent course. Too much busy work.,56.8,2022-09-20,5,True
+REV000658,ENR000637,STU00121,CRS0091,3,It was okay. Learned a lot of practical skills.,59.5,2022-03-07,3,True
+REV000659,ENR000233,STU00391,CRS0013,5,Outstanding content and delivery. Not enough hands-on practice.,71.8,2022-07-15,1,True
+REV000660,ENR001036,STU00087,CRS0035,5,Highly recommend! The instructor was very knowledgeable.,100.0,2021-10-11,7,True
+REV000661,ENR000179,STU00267,CRS0077,3,,56.6,2022-04-19,2,True
+REV000662,ENR001957,STU00256,CRS0052,3,Wouldn't recommend. The pace was appropriate.,22.8,2024-07-24,5,True
+REV000663,ENR000697,STU00396,CRS0021,2,,69.0,2022-05-30,3,True
+REV000664,ENR000699,STU00370,CRS0018,5,Really enjoyed this class. Too much busy work.,76.9,2022-07-02,0,True
+REV000665,ENR000729,STU00313,CRS0023,4,Great learning experience. Material was well organized.,86.4,2023-04-02,1,True
+REV000666,ENR000276,STU00050,CRS0077,4,Highly recommend! Too much busy work.,90.1,2022-07-08,6,True
+REV000667,ENR000910,STU00131,CRS0091,4,Decent course. The pace was appropriate.,45.0,2024-07-03,5,True
+REV000668,ENR001145,STU00034,CRS0086,5,,100.0,2020-12-31,2,True
+REV000669,ENR000437,STU00109,CRS0072,4,,41.5,2021-12-16,5,True
+REV000670,ENR000253,STU00335,CRS0054,5,Highly recommend! The instructor was very knowledgeable.,80.4,2023-10-06,3,True
+REV000671,ENR000744,STU00003,CRS0043,5,Highly recommend! Assignments were challenging but fair.,74.6,2020-10-28,1,True
+REV000672,ENR000620,STU00481,CRS0095,5,Highly recommend! The instructor was very knowledgeable.,84.5,2023-09-02,2,True
+REV000673,ENR000839,STU00388,CRS0026,5,,84.6,2024-10-08,5,True
+REV000674,ENR000123,STU00414,CRS0008,4,,77.5,2021-02-17,10,True
+REV000675,ENR001274,STU00178,CRS0070,5,Really enjoyed this class. Too much busy work.,80.0,2022-04-19,4,True
+REV000676,ENR001083,STU00105,CRS0063,4,Decent course. Lectures were too long.,53.9,2023-08-27,3,True
+REV000677,ENR001523,STU00314,CRS0074,4,,56.5,2021-10-01,2,True
+REV000678,ENR001944,STU00186,CRS0002,4,Outstanding content and delivery. The pace was appropriate.,83.1,2021-02-18,5,True
+REV000679,ENR000362,STU00416,CRS0005,3,Met expectations. Could use more examples.,50.4,2023-08-27,3,True
+REV000680,ENR000154,STU00049,CRS0074,3,Average experience. Not enough hands-on practice.,50.0,2024-02-29,5,True
+REV000681,ENR000240,STU00255,CRS0098,4,Highly recommend! Too much busy work.,100.0,2021-08-23,1,True
+REV000682,ENR001200,STU00420,CRS0075,5,,76.2,2022-04-22,5,True
+REV000683,ENR001746,STU00134,CRS0037,4,Average experience. Too much busy work.,48.4,2023-07-15,2,True
+REV000684,ENR000872,STU00128,CRS0089,5,Great learning experience. Good mix of theory and practice.,72.1,2022-05-28,1,True
+REV000685,ENR000605,STU00462,CRS0052,3,Average experience. The instructor was very knowledgeable.,64.6,2022-10-11,3,True
+REV000686,ENR001723,STU00432,CRS0072,4,Decent course. Good mix of theory and practice.,58.2,2024-09-10,1,True
+REV000687,ENR000991,STU00030,CRS0047,4,,76.7,2020-10-14,2,True
+REV000688,ENR001421,STU00225,CRS0091,4,Decent course. The pace was appropriate.,52.2,2021-08-12,5,True
+REV000689,ENR000113,STU00223,CRS0092,4,Decent course. Learned a lot of practical skills.,53.5,2022-03-04,1,True
+REV000690,ENR000013,STU00498,CRS0032,4,Highly recommend! Could use more examples.,78.8,2022-03-27,3,True
+REV000691,ENR001624,STU00390,CRS0020,1,Disappointing course. Could use more examples.,34.4,2023-05-17,5,True
+REV000692,ENR000200,STU00162,CRS0014,3,Struggled with this one. Lectures were too long.,37.0,2024-10-27,2,True
+REV000693,ENR000262,STU00010,CRS0029,5,Highly recommend! The pace was appropriate.,98.4,2024-02-28,2,True
+REV000694,ENR000933,STU00348,CRS0064,2,,39.3,2022-04-08,0,True
+REV000695,ENR001006,STU00255,CRS0049,5,Really enjoyed this class. The instructor was very knowledgeable.,84.4,2020-08-08,4,True
+REV000696,ENR001630,STU00193,CRS0085,2,It was okay. The pace was appropriate.,57.5,2023-12-29,6,True
+REV000697,ENR000865,STU00110,CRS0011,3,Decent course. The instructor was very knowledgeable.,66.7,2021-10-28,4,True
+REV000698,ENR001509,STU00142,CRS0035,2,,22.8,2022-06-05,0,True
+REV000699,ENR000099,STU00154,CRS0013,3,Decent course. The pace was appropriate.,55.7,2023-06-13,1,True
+REV000700,ENR000215,STU00068,CRS0019,4,,62.6,2023-04-09,3,True
+REV000701,ENR001688,STU00294,CRS0059,1,Could be much better. Assignments were challenging but fair.,37.3,2023-02-02,1,True
+REV000702,ENR000115,STU00258,CRS0070,4,Met expectations. Assignments were challenging but fair.,62.0,2022-11-07,6,True
+REV000703,ENR000793,STU00254,CRS0049,1,Disappointing course. Good mix of theory and practice.,11.2,2024-03-07,3,True
+REV000704,ENR001360,STU00264,CRS0072,2,Met expectations. Too much busy work.,64.2,2023-02-19,3,True
+REV000705,ENR001140,STU00138,CRS0005,1,Not what I expected. Could use more examples.,32.5,2022-01-03,3,True
+REV000706,ENR000689,STU00471,CRS0026,4,Highly recommend! Too much busy work.,79.6,2023-09-10,2,True
+REV000707,ENR001310,STU00255,CRS0072,5,Great learning experience. Too much busy work.,88.9,2021-05-05,2,True
+REV000708,ENR001526,STU00276,CRS0049,3,,47.9,2024-11-14,1,True
+REV000709,ENR000707,STU00465,CRS0087,3,,48.6,2020-10-19,3,True
+REV000710,ENR000292,STU00381,CRS0074,4,Average experience. Learned a lot of practical skills.,46.9,2023-02-06,3,False
+REV000711,ENR001596,STU00095,CRS0005,4,Excellent course! Material was well organized.,74.9,2021-07-05,6,True
+REV000712,ENR001718,STU00015,CRS0072,3,It was okay. Assignments were challenging but fair.,66.6,2021-08-22,5,False
+REV000713,ENR000484,STU00211,CRS0034,4,Met expectations. Good mix of theory and practice.,50.8,2022-06-07,3,False
+REV000714,ENR001946,STU00373,CRS0063,4,Average experience. The instructor was very knowledgeable.,57.3,2022-01-16,4,True
+REV000715,ENR000661,STU00494,CRS0050,4,Average experience. Not enough hands-on practice.,53.1,2023-04-24,5,True
+REV000716,ENR001891,STU00372,CRS0067,4,Met expectations. Learned a lot of practical skills.,57.6,2023-11-25,2,True
+REV000717,ENR000677,STU00246,CRS0089,4,Met expectations. The pace was appropriate.,62.3,2022-02-20,2,True
+REV000718,ENR001004,STU00312,CRS0094,4,Great learning experience. Assignments were challenging but fair.,78.8,2022-01-02,2,True
+REV000719,ENR001342,STU00492,CRS0051,2,,54.1,2023-04-28,2,True
+REV000720,ENR001166,STU00399,CRS0083,5,Excellent course! Good mix of theory and practice.,74.5,2023-03-08,1,True
+REV000721,ENR001593,STU00448,CRS0059,3,,62.1,2022-02-10,3,True
+REV000722,ENR000435,STU00228,CRS0093,5,,80.8,2026-01-10,2,True
+REV000723,ENR001938,STU00420,CRS0095,5,Highly recommend! The instructor was very knowledgeable.,79.6,2022-06-05,1,True
+REV000724,ENR001488,STU00306,CRS0046,4,Outstanding content and delivery. The pace was appropriate.,87.2,2022-10-28,2,True
+REV000725,ENR001045,STU00354,CRS0052,3,,65.4,2023-09-13,4,True
+REV000726,ENR000546,STU00077,CRS0095,2,,24.2,2023-05-07,3,True
+REV000727,ENR000341,STU00331,CRS0059,5,Really enjoyed this class. The pace was appropriate.,83.1,2026-01-10,3,True
+REV000728,ENR000229,STU00006,CRS0089,5,,87.0,2023-01-17,2,True
+REV000729,ENR000345,STU00037,CRS0096,3,It was okay. The pace was appropriate.,57.4,2021-10-26,2,True
+REV000730,ENR001457,STU00210,CRS0096,5,,73.7,2022-01-27,0,True
+REV000731,ENR001608,STU00181,CRS0025,1,Wouldn't recommend. Material was well organized.,21.3,2023-01-27,4,True
+REV000732,ENR000819,STU00076,CRS0034,5,,75.5,2023-05-21,1,False
+REV000733,ENR000259,STU00135,CRS0013,5,Excellent course! The pace was appropriate.,81.4,2022-09-07,3,True
+REV000734,ENR000219,STU00149,CRS0060,5,Highly recommend! Assignments were challenging but fair.,88.8,2022-07-17,0,True
+REV000735,ENR000398,STU00494,CRS0036,4,Met expectations. Good mix of theory and practice.,49.5,2023-11-24,3,True
+REV000736,ENR001536,STU00023,CRS0046,1,Struggled with this one. The instructor was very knowledgeable.,39.5,2024-01-04,5,True
+REV000737,ENR000430,STU00166,CRS0047,5,Outstanding content and delivery. Too much busy work.,77.8,2022-10-18,1,True
+REV000738,ENR000051,STU00207,CRS0014,2,Could be much better. Learned a lot of practical skills.,28.5,2023-11-22,6,True
+REV000739,ENR000771,STU00220,CRS0081,3,,70.0,2022-12-22,2,True
+REV000740,ENR001518,STU00401,CRS0075,4,Outstanding content and delivery. Too much busy work.,82.8,2022-11-11,2,True
+REV000741,ENR001077,STU00411,CRS0079,3,,50.0,2024-09-03,2,True
+REV000742,ENR000301,STU00401,CRS0029,4,Really enjoyed this class. Too much busy work.,77.5,2021-11-02,2,True
+REV000743,ENR001707,STU00464,CRS0046,3,It was okay. Learned a lot of practical skills.,40.2,2022-03-30,3,True
+REV000744,ENR001014,STU00194,CRS0061,4,Great learning experience. Good mix of theory and practice.,100.0,2022-02-16,1,True
+REV000745,ENR001402,STU00408,CRS0069,3,Could be much better. Material was well organized.,33.4,2022-08-21,5,True
+REV000746,ENR001090,STU00197,CRS0012,5,Great learning experience. The pace was appropriate.,71.2,2023-09-11,2,False
+REV000747,ENR000116,STU00196,CRS0001,4,It was okay. Too much busy work.,50.0,2022-09-18,5,True
+REV000748,ENR000097,STU00238,CRS0096,3,Met expectations. Not enough hands-on practice.,61.7,2022-09-11,3,True
+REV000749,ENR000089,STU00300,CRS0016,4,Decent course. Assignments were challenging but fair.,57.9,2023-03-28,4,True
+REV000750,ENR000137,STU00165,CRS0039,4,Excellent course! Could use more examples.,73.1,2023-05-15,0,True
+REV000751,ENR001533,STU00257,CRS0093,3,Average experience. The instructor was very knowledgeable.,66.8,2024-05-09,2,True
+REV000752,ENR001551,STU00357,CRS0033,3,,66.7,2021-12-31,3,True
+REV000753,ENR001012,STU00232,CRS0096,3,Met expectations. The instructor was very knowledgeable.,44.7,2022-10-01,2,True
+REV000754,ENR001989,STU00469,CRS0026,2,,6.7,2023-12-16,3,True
+REV000755,ENR000560,STU00103,CRS0005,2,,59.8,2024-07-21,4,True
+REV000756,ENR000553,STU00291,CRS0088,5,Great learning experience. Good mix of theory and practice.,74.0,2022-08-19,2,True
+REV000757,ENR001924,STU00002,CRS0013,4,Highly recommend! Learned a lot of practical skills.,85.7,2024-06-11,5,True
+REV000758,ENR000914,STU00284,CRS0081,5,,73.1,2024-01-02,3,True
+REV000759,ENR001949,STU00047,CRS0029,3,Met expectations. Learned a lot of practical skills.,41.5,2022-12-19,4,True
+REV000760,ENR000864,STU00499,CRS0087,3,Decent course. Could use more examples.,68.5,2022-06-24,1,True
+REV000761,ENR001832,STU00404,CRS0008,5,Great learning experience. Learned a lot of practical skills.,77.0,2022-06-21,3,True
+REV000762,ENR000836,STU00290,CRS0096,3,Average experience. Could use more examples.,58.7,2021-08-23,2,True
+REV000763,ENR001754,STU00070,CRS0074,5,Really enjoyed this class. Learned a lot of practical skills.,100.0,2021-07-04,2,True
+REV000764,ENR000393,STU00152,CRS0076,5,Great learning experience. Could use more examples.,83.3,2021-09-28,1,True
+REV000765,ENR000917,STU00228,CRS0065,5,Excellent course! The instructor was very knowledgeable.,74.7,2023-09-17,8,True
+REV000766,ENR001227,STU00228,CRS0057,5,,85.5,2023-01-10,2,True
+REV000767,ENR001016,STU00378,CRS0091,3,,56.7,2021-09-16,3,True
+REV000768,ENR001278,STU00166,CRS0070,1,,26.6,2022-06-05,2,True
+REV000769,ENR001505,STU00185,CRS0033,2,,39.7,2022-07-21,3,True
+REV000770,ENR001936,STU00301,CRS0024,1,Could be much better. Not enough hands-on practice.,14.5,2023-04-07,4,True
+REV000771,ENR000132,STU00370,CRS0048,5,,92.4,2022-11-11,2,True
+REV000772,ENR000829,STU00438,CRS0019,3,It was okay. The instructor was very knowledgeable.,42.3,2020-11-21,4,True
+REV000773,ENR001537,STU00415,CRS0019,2,Struggled with this one. Learned a lot of practical skills.,5.1,2022-06-30,1,False
+REV000774,ENR000350,STU00388,CRS0046,5,Outstanding content and delivery. Could use more examples.,80.0,2024-05-06,2,True
+REV000775,ENR001969,STU00104,CRS0022,3,,58.9,2021-06-01,0,True
+REV000776,ENR001053,STU00392,CRS0067,4,,75.6,2023-08-18,7,True
+REV000777,ENR001728,STU00026,CRS0060,5,Great learning experience. Too much busy work.,90.4,2022-10-15,1,True
+REV000778,ENR001293,STU00156,CRS0019,3,Decent course. Material was well organized.,52.4,2021-02-02,5,True
+REV000779,ENR000606,STU00315,CRS0058,3,Decent course. Material was well organized.,69.7,2023-03-16,3,True
+REV000780,ENR001646,STU00158,CRS0075,4,Average experience. Could use more examples.,53.4,2022-08-23,3,True
+REV000781,ENR000608,STU00062,CRS0087,2,Met expectations. Material was well organized.,64.2,2021-12-23,0,True
+REV000782,ENR000134,STU00478,CRS0074,5,Really enjoyed this class. The pace was appropriate.,100.0,2023-02-07,3,True
+REV000783,ENR000095,STU00242,CRS0078,5,,80.8,2023-05-06,3,True
+REV000784,ENR001758,STU00368,CRS0023,3,,43.0,2023-06-24,5,False
+REV000785,ENR001939,STU00353,CRS0094,1,Disappointing course. Too much busy work.,28.4,2023-03-09,4,True
+REV000786,ENR000881,STU00007,CRS0063,4,,62.7,2022-07-16,3,True
+REV000787,ENR000445,STU00167,CRS0023,3,It was okay. The pace was appropriate.,44.8,2022-09-23,5,True
+REV000788,ENR000878,STU00096,CRS0066,4,,58.0,2021-07-25,2,True
+REV000789,ENR001959,STU00014,CRS0048,5,Highly recommend! Too much busy work.,94.5,2026-01-10,1,True
+REV000790,ENR000016,STU00435,CRS0007,3,It was okay. The instructor was very knowledgeable.,55.7,2023-03-23,3,True
+REV000791,ENR001677,STU00085,CRS0034,4,It was okay. The instructor was very knowledgeable.,68.0,2022-05-28,3,True
+REV000792,ENR001208,STU00031,CRS0072,4,,62.9,2024-04-11,4,False
+REV000793,ENR001380,STU00070,CRS0080,4,It was okay. The pace was appropriate.,43.7,2021-06-15,4,True
+REV000794,ENR000921,STU00096,CRS0053,5,,100.0,2021-12-10,7,True
+REV000795,ENR001586,STU00473,CRS0007,3,Met expectations. Good mix of theory and practice.,69.4,2023-03-07,5,True
+REV000796,ENR001080,STU00384,CRS0002,5,Excellent course! Good mix of theory and practice.,78.8,2023-07-06,6,True
+REV000797,ENR000871,STU00272,CRS0049,4,It was okay. Not enough hands-on practice.,61.9,2023-08-27,3,True
+REV000798,ENR001719,STU00148,CRS0042,2,Met expectations. The instructor was very knowledgeable.,48.5,2022-12-30,3,True
+REV000799,ENR001056,STU00241,CRS0034,5,Outstanding content and delivery. Assignments were challenging but fair.,84.1,2026-01-10,2,True
+REV000800,ENR001502,STU00320,CRS0057,4,It was okay. The instructor was very knowledgeable.,61.2,2021-06-10,6,True
+REV000801,ENR000918,STU00404,CRS0043,5,Excellent course! Not enough hands-on practice.,72.4,2021-12-24,4,True
+REV000802,ENR000838,STU00194,CRS0095,5,Excellent course! Lectures were too long.,79.8,2022-06-10,3,True
+REV000803,ENR001058,STU00080,CRS0058,5,Great learning experience. Too much busy work.,94.6,2022-12-30,2,True
+REV000804,ENR001877,STU00220,CRS0045,5,Outstanding content and delivery. Good mix of theory and practice.,92.8,2022-03-07,3,True
+REV000805,ENR001835,STU00045,CRS0050,4,Really enjoyed this class. The instructor was very knowledgeable.,70.6,2022-08-12,2,True
+REV000806,ENR000210,STU00237,CRS0064,5,Outstanding content and delivery. Material was well organized.,80.4,2021-11-27,3,True
+REV000807,ENR000063,STU00117,CRS0004,2,Decent course. Learned a lot of practical skills.,57.9,2022-09-22,5,True
+REV000808,ENR001750,STU00471,CRS0075,4,Excellent course! Learned a lot of practical skills.,72.6,2023-11-06,3,True
+REV000809,ENR001029,STU00440,CRS0100,5,,83.8,2021-05-05,4,True
+REV000810,ENR001182,STU00408,CRS0012,2,Wouldn't recommend. Too much busy work.,14.1,2021-06-10,2,True
+REV000811,ENR000275,STU00321,CRS0057,5,,70.5,2022-07-02,3,True
+REV000812,ENR000346,STU00328,CRS0004,4,Met expectations. The pace was appropriate.,58.9,2023-12-15,8,True
+REV000813,ENR000595,STU00273,CRS0050,1,,39.3,2021-12-13,2,True
+REV000814,ENR000071,STU00466,CRS0050,5,Outstanding content and delivery. Good mix of theory and practice.,81.7,2022-06-23,4,True
+REV000815,ENR000712,STU00097,CRS0019,4,Met expectations. Could use more examples.,57.6,2022-07-02,5,True
+REV000816,ENR000279,STU00099,CRS0052,1,,7.8,2021-08-03,4,True
+REV000817,ENR001887,STU00488,CRS0088,2,Struggled with this one. Lectures were too long.,33.3,2022-08-08,4,True
+REV000818,ENR000390,STU00476,CRS0093,2,Could be much better. Learned a lot of practical skills.,39.1,2021-04-10,2,True
+REV000819,ENR000679,STU00233,CRS0042,3,,60.6,2021-12-25,5,True
+REV000820,ENR001258,STU00413,CRS0004,4,Really enjoyed this class. Assignments were challenging but fair.,79.4,2024-09-16,1,True
+REV000821,ENR001940,STU00032,CRS0091,5,Outstanding content and delivery. The pace was appropriate.,82.2,2020-09-27,2,True
+REV000822,ENR000369,STU00446,CRS0066,4,Outstanding content and delivery. Good mix of theory and practice.,75.1,2021-07-10,3,True
+REV000823,ENR001471,STU00109,CRS0027,1,,29.1,2022-04-09,3,True
+REV000824,ENR000942,STU00143,CRS0023,4,,50.8,2022-11-17,6,True
+REV000825,ENR000766,STU00101,CRS0027,4,,50.9,2021-03-19,5,True
+REV000826,ENR001008,STU00023,CRS0038,3,It was okay. Material was well organized.,62.0,2023-08-14,8,True
+REV000827,ENR000900,STU00168,CRS0032,4,,48.7,2023-06-01,1,True
+REV000828,ENR000512,STU00168,CRS0032,3,,46.8,2023-10-19,4,True
+REV000829,ENR001111,STU00341,CRS0090,5,,72.2,2021-12-11,6,False
+REV000830,ENR001678,STU00173,CRS0045,2,It was okay. Material was well organized.,59.4,2024-05-29,2,True
+REV000831,ENR001063,STU00071,CRS0041,4,Average experience. The pace was appropriate.,56.3,2022-02-28,5,True
+REV000832,ENR001920,STU00179,CRS0037,2,Average experience. Could use more examples.,41.0,2023-08-07,6,True
+REV000833,ENR001197,STU00160,CRS0043,4,Decent course. Material was well organized.,59.0,2021-02-10,0,True
+REV000834,ENR000550,STU00470,CRS0051,4,,59.6,2022-03-01,4,True
+REV000835,ENR000263,STU00061,CRS0002,4,Really enjoyed this class. Not enough hands-on practice.,86.7,2020-12-13,3,True
+REV000836,ENR000153,STU00264,CRS0011,3,Average experience. Learned a lot of practical skills.,41.1,2023-06-26,4,False
+REV000837,ENR001919,STU00389,CRS0019,3,It was okay. Could use more examples.,61.3,2023-02-15,2,True
+REV000838,ENR001199,STU00320,CRS0098,3,Decent course. The instructor was very knowledgeable.,55.2,2021-09-18,3,True
+REV000839,ENR000964,STU00099,CRS0019,1,Could be much better. Could use more examples.,0.0,2021-07-20,3,True
+REV000840,ENR000175,STU00125,CRS0002,3,,43.8,2023-04-27,5,True
+REV000841,ENR001383,STU00409,CRS0017,4,Outstanding content and delivery. The instructor was very knowledgeable.,98.9,2024-02-28,4,True
+REV000842,ENR000187,STU00410,CRS0022,4,,74.5,2021-01-18,2,True
+REV000843,ENR000841,STU00155,CRS0018,2,It was okay. The instructor was very knowledgeable.,57.1,2022-04-10,2,True
+REV000844,ENR001777,STU00456,CRS0068,5,Outstanding content and delivery. The pace was appropriate.,87.1,2021-02-02,2,True
+REV000845,ENR000303,STU00069,CRS0045,4,Great learning experience. The pace was appropriate.,89.3,2023-05-13,7,True
+REV000846,ENR001637,STU00115,CRS0015,2,,38.6,2022-09-19,0,True
+REV000847,ENR000466,STU00483,CRS0034,4,Excellent course! Good mix of theory and practice.,100.0,2021-06-21,1,True
+REV000848,ENR000189,STU00248,CRS0074,5,,74.9,2023-02-23,5,True
+REV000849,ENR001287,STU00333,CRS0089,1,Struggled with this one. Good mix of theory and practice.,37.9,2023-01-09,5,True
+REV000850,ENR001934,STU00188,CRS0021,4,Decent course. Assignments were challenging but fair.,69.8,2023-10-10,6,True
+REV000851,ENR001088,STU00449,CRS0033,5,,88.8,2024-02-20,5,True
+REV000852,ENR000859,STU00346,CRS0098,4,Highly recommend! The pace was appropriate.,83.4,2023-10-26,2,True
+REV000853,ENR000384,STU00497,CRS0039,5,,79.0,2021-10-20,3,True
+REV000854,ENR001239,STU00297,CRS0006,2,,59.6,2023-07-22,2,True
+REV000855,ENR000255,STU00160,CRS0099,5,Excellent course! Material was well organized.,100.0,2021-08-19,1,True
+REV000856,ENR001445,STU00043,CRS0059,2,Decent course. Too much busy work.,50.0,2022-04-22,7,True
+REV000857,ENR000388,STU00255,CRS0097,4,Really enjoyed this class. Not enough hands-on practice.,76.6,2021-05-13,1,True
+REV000858,ENR000660,STU00208,CRS0068,5,Really enjoyed this class. Too much busy work.,92.8,2023-06-13,5,True
+REV000859,ENR000181,STU00154,CRS0091,2,Decent course. The pace was appropriate.,60.5,2022-12-15,5,True
+REV000860,ENR001330,STU00358,CRS0043,3,Decent course. Assignments were challenging but fair.,40.8,2024-02-04,2,True
+REV000861,ENR000706,STU00324,CRS0017,4,,67.5,2024-08-06,4,True
+REV000862,ENR000623,STU00079,CRS0059,4,Met expectations. The instructor was very knowledgeable.,53.9,2023-06-11,4,True
+REV000863,ENR000892,STU00122,CRS0063,5,,79.5,2022-01-03,5,True
+REV000864,ENR000407,STU00238,CRS0082,4,Outstanding content and delivery. Assignments were challenging but fair.,79.1,2022-09-26,2,True
+REV000865,ENR000165,STU00472,CRS0056,2,Disappointing course. Lectures were too long.,21.4,2023-10-30,5,True
+REV000866,ENR001451,STU00276,CRS0051,3,It was okay. The instructor was very knowledgeable.,59.5,2024-07-06,1,True
+REV000867,ENR001376,STU00228,CRS0003,4,Highly recommend! Lectures were too long.,71.6,2023-05-17,2,True
+REV000868,ENR000467,STU00420,CRS0066,4,Excellent course! The instructor was very knowledgeable.,72.1,2021-08-19,5,True
+REV000869,ENR001007,STU00075,CRS0079,5,,76.0,2021-08-09,2,True
+REV000870,ENR000674,STU00067,CRS0043,5,Outstanding content and delivery. Learned a lot of practical skills.,82.5,2024-01-07,1,True
+REV000871,ENR000440,STU00104,CRS0098,4,,86.9,2021-08-09,2,True
+REV000872,ENR001303,STU00331,CRS0015,5,Outstanding content and delivery. The pace was appropriate.,98.4,2021-03-25,5,True
+REV000873,ENR000311,STU00456,CRS0039,4,,58.2,2021-11-17,3,True
+REV000874,ENR001011,STU00131,CRS0026,1,Wouldn't recommend. Good mix of theory and practice.,18.8,2024-05-03,3,True
+REV000875,ENR001446,STU00432,CRS0008,5,Highly recommend! The instructor was very knowledgeable.,85.8,2024-05-28,4,True
+REV000876,ENR000285,STU00006,CRS0038,5,Outstanding content and delivery. Too much busy work.,76.6,2022-07-22,2,True
+REV000877,ENR001103,STU00066,CRS0062,5,Outstanding content and delivery. Lectures were too long.,90.2,2022-07-17,9,True
+REV000878,ENR000426,STU00009,CRS0014,5,Highly recommend! The instructor was very knowledgeable.,77.2,2024-06-22,3,True
+REV000879,ENR001981,STU00175,CRS0090,4,Excellent course! Material was well organized.,93.2,2021-07-05,5,True
+REV000880,ENR001834,STU00327,CRS0050,4,,50.0,2023-12-28,1,True
+REV000881,ENR000861,STU00064,CRS0027,3,,46.4,2021-06-08,1,True
+REV000882,ENR001321,STU00150,CRS0081,5,Outstanding content and delivery. Could use more examples.,77.4,2022-10-31,3,True
+REV000883,ENR000577,STU00300,CRS0092,3,Not what I expected. The instructor was very knowledgeable.,4.2,2023-06-09,2,True
+REV000884,ENR001158,STU00351,CRS0092,5,Outstanding content and delivery. Too much busy work.,100.0,2024-01-09,1,True
+REV000885,ENR000515,STU00254,CRS0013,1,Could be much better. Material was well organized.,27.5,2023-09-11,4,True
+REV000886,ENR000680,STU00211,CRS0100,4,Decent course. The pace was appropriate.,50.0,2021-12-12,2,True
+REV000887,ENR001268,STU00354,CRS0091,2,Struggled with this one. Could use more examples.,38.3,2022-10-20,2,True
+REV000888,ENR000630,STU00162,CRS0014,3,,50.0,2026-01-10,1,True
+REV000889,ENR000901,STU00297,CRS0062,5,Outstanding content and delivery. Material was well organized.,100.0,2023-12-23,2,True
+REV000890,ENR000453,STU00271,CRS0049,3,,47.4,2023-10-04,1,True
+REV000891,ENR001791,STU00337,CRS0020,4,,93.0,2021-06-02,3,True
+REV000892,ENR000592,STU00312,CRS0086,2,Met expectations. Material was well organized.,54.9,2021-07-21,3,True
+REV000893,ENR001776,STU00239,CRS0003,1,Not what I expected. Not enough hands-on practice.,17.7,2022-01-02,0,True
+REV000894,ENR000756,STU00194,CRS0059,4,Excellent course! Good mix of theory and practice.,88.5,2022-06-24,0,True
+REV000895,ENR000860,STU00464,CRS0067,2,Could be much better. Learned a lot of practical skills.,28.9,2022-06-20,3,True
+REV000896,ENR001795,STU00172,CRS0039,3,Average experience. Lectures were too long.,54.2,2024-01-29,2,True
+REV000897,ENR001280,STU00313,CRS0035,5,Great learning experience. Good mix of theory and practice.,86.6,2022-11-14,2,True
+REV000898,ENR001050,STU00004,CRS0051,5,,76.8,2026-01-10,5,True
+REV000899,ENR000828,STU00210,CRS0036,5,,79.1,2021-07-13,2,True
+REV000900,ENR000880,STU00488,CRS0070,4,Highly recommend! Too much busy work.,84.8,2022-12-02,3,True
+REV000901,ENR000356,STU00472,CRS0050,2,,38.4,2022-12-28,4,True
+REV000902,ENR001477,STU00462,CRS0036,3,It was okay. Assignments were challenging but fair.,59.2,2022-10-30,3,True
+REV000903,ENR001035,STU00208,CRS0017,3,,63.8,2023-09-16,1,True
+REV000904,ENR001621,STU00024,CRS0095,4,,57.0,2024-01-26,3,True
+REV000905,ENR001068,STU00086,CRS0050,5,Highly recommend! Too much busy work.,77.8,2024-02-28,6,True
+REV000906,ENR000685,STU00248,CRS0028,5,Outstanding content and delivery. Too much busy work.,84.5,2023-07-22,2,False
+REV000907,ENR000246,STU00103,CRS0084,2,Wouldn't recommend. Good mix of theory and practice.,15.1,2024-07-30,7,True
+REV000908,ENR001101,STU00156,CRS0054,5,,74.5,2021-03-05,8,True
+REV000909,ENR001674,STU00095,CRS0047,4,Met expectations. Not enough hands-on practice.,66.0,2021-09-05,0,True
+REV000910,ENR001387,STU00081,CRS0052,4,Average experience. Lectures were too long.,51.4,2022-04-26,0,True
+REV000911,ENR001142,STU00354,CRS0050,4,Average experience. Material was well organized.,68.2,2023-01-24,5,True
+REV000912,ENR000582,STU00469,CRS0017,5,Excellent course! Assignments were challenging but fair.,88.3,2022-11-19,2,True
+REV000913,ENR000929,STU00266,CRS0053,4,Outstanding content and delivery. Not enough hands-on practice.,79.6,2024-01-29,2,True
+REV000914,ENR000177,STU00042,CRS0006,3,Met expectations. The pace was appropriate.,66.6,2023-07-06,2,False
+REV000915,ENR001215,STU00290,CRS0024,2,It was okay. Could use more examples.,44.9,2021-01-29,2,True
+REV000916,ENR001960,STU00441,CRS0025,5,Outstanding content and delivery. The instructor was very knowledgeable.,73.3,2022-06-25,5,True
+REV000917,ENR001995,STU00065,CRS0054,4,Decent course. The pace was appropriate.,69.3,2024-08-25,3,True
+REV000918,ENR000970,STU00070,CRS0062,4,Highly recommend! Lectures were too long.,79.3,2022-10-30,7,True
+REV000919,ENR001078,STU00500,CRS0025,2,Struggled with this one. Material was well organized.,36.3,2021-12-07,1,True
+REV000920,ENR000428,STU00142,CRS0100,5,Really enjoyed this class. Could use more examples.,78.1,2021-11-13,2,True
+REV000921,ENR000844,STU00048,CRS0033,2,Not what I expected. Could use more examples.,20.1,2022-08-09,3,True
+REV000922,ENR001842,STU00279,CRS0084,3,,43.1,2024-10-02,3,True
+REV000923,ENR000195,STU00021,CRS0060,3,Met expectations. Too much busy work.,59.9,2022-10-01,3,False
+REV000924,ENR001627,STU00337,CRS0049,5,Excellent course! Lectures were too long.,83.5,2022-01-08,5,True
+REV000925,ENR001738,STU00182,CRS0065,5,Highly recommend! Could use more examples.,97.2,2022-05-15,3,False
+REV000926,ENR000367,STU00330,CRS0054,5,Excellent course! The pace was appropriate.,76.2,2024-09-01,1,True
+REV000927,ENR000948,STU00281,CRS0055,5,Really enjoyed this class. The pace was appropriate.,78.9,2021-02-20,3,True
+REV000928,ENR001562,STU00415,CRS0055,3,Met expectations. Lectures were too long.,40.5,2022-12-28,4,True
+REV000929,ENR001784,STU00082,CRS0050,3,Decent course. Assignments were challenging but fair.,55.3,2023-08-01,3,False
+REV000930,ENR000787,STU00097,CRS0002,3,Decent course. Could use more examples.,44.3,2022-03-25,0,True
+REV000931,ENR000985,STU00232,CRS0070,3,Decent course. The instructor was very knowledgeable.,58.0,2022-06-24,4,True
+REV000932,ENR001209,STU00033,CRS0016,1,Struggled with this one. Good mix of theory and practice.,32.8,2024-06-07,2,True
+REV000933,ENR001865,STU00216,CRS0020,4,It was okay. The pace was appropriate.,50.0,2023-08-27,1,True
+REV000934,ENR001486,STU00084,CRS0075,5,Excellent course! Learned a lot of practical skills.,93.7,2022-03-29,2,False
+REV000935,ENR001916,STU00067,CRS0083,3,It was okay. Material was well organized.,49.5,2026-01-10,4,True
+REV000936,ENR001095,STU00010,CRS0077,4,It was okay. Too much busy work.,52.8,2024-03-15,3,True
+REV000937,ENR001739,STU00488,CRS0097,5,Highly recommend! The instructor was very knowledgeable.,75.8,2022-06-28,3,True
+REV000938,ENR001867,STU00422,CRS0085,3,It was okay. The pace was appropriate.,52.9,2021-04-03,7,True
+REV000939,ENR000308,STU00345,CRS0096,1,Disappointing course. The pace was appropriate.,37.6,2023-06-17,4,True
+REV000940,ENR000062,STU00031,CRS0082,3,It was okay. The instructor was very knowledgeable.,63.5,2024-05-27,4,True
+REV000941,ENR001152,STU00263,CRS0030,5,Really enjoyed this class. Material was well organized.,92.0,2022-03-10,6,True
+REV000942,ENR001230,STU00069,CRS0053,4,,79.8,2023-11-01,6,True
+REV000943,ENR001911,STU00083,CRS0072,4,Excellent course! The instructor was very knowledgeable.,100.0,2021-05-19,4,True
+REV000944,ENR000746,STU00368,CRS0084,5,Excellent course! The pace was appropriate.,80.2,2023-05-09,5,False
+REV000945,ENR001046,STU00468,CRS0023,5,Outstanding content and delivery. Material was well organized.,85.3,2022-07-18,2,True
+REV000946,ENR000957,STU00420,CRS0058,5,Outstanding content and delivery. Good mix of theory and practice.,89.5,2022-11-27,4,True
+REV000947,ENR001511,STU00206,CRS0094,3,,69.2,2021-05-02,5,True
+REV000948,ENR001447,STU00169,CRS0039,3,Met expectations. The pace was appropriate.,53.6,2021-05-25,3,True
+REV000949,ENR000569,STU00161,CRS0050,4,,86.9,2022-06-30,3,True
+REV000950,ENR001590,STU00096,CRS0018,5,Great learning experience. Material was well organized.,93.1,2022-12-29,1,True
+REV000951,ENR000104,STU00242,CRS0020,1,Not what I expected. Too much busy work.,39.0,2023-08-01,3,True
+REV000952,ENR001543,STU00424,CRS0088,2,Met expectations. Material was well organized.,53.1,2022-08-26,4,True
+REV000953,ENR001604,STU00124,CRS0031,4,Decent course. Not enough hands-on practice.,65.6,2022-07-30,3,True
+REV000954,ENR001703,STU00485,CRS0015,3,Met expectations. Material was well organized.,44.8,2024-06-21,3,True
+REV000955,ENR000217,STU00056,CRS0019,2,Not what I expected. Good mix of theory and practice.,26.2,2021-11-14,3,True
+REV000956,ENR000639,STU00110,CRS0089,5,Highly recommend! Material was well organized.,78.1,2022-04-24,2,True
+REV000957,ENR001892,STU00482,CRS0005,3,,52.4,2021-08-03,4,False
+REV000958,ENR000364,STU00488,CRS0088,5,Excellent course! Assignments were challenging but fair.,99.6,2022-10-31,2,True
+REV000959,ENR000458,STU00326,CRS0067,5,,80.9,2021-06-15,2,True
+REV000960,ENR001804,STU00299,CRS0076,5,Highly recommend! Learned a lot of practical skills.,99.2,2024-02-22,1,True
+REV000961,ENR000402,STU00149,CRS0083,4,Great learning experience. Lectures were too long.,84.4,2020-09-29,7,True
+REV000962,ENR000536,STU00463,CRS0018,3,Decent course. Good mix of theory and practice.,49.0,2022-12-30,2,True
+REV000963,ENR000055,STU00296,CRS0033,5,Highly recommend! Too much busy work.,84.5,2024-07-02,1,True
+REV000964,ENR000433,STU00289,CRS0071,3,Decent course. Not enough hands-on practice.,46.7,2021-04-15,2,True
+REV000965,ENR001933,STU00260,CRS0058,4,Excellent course! Not enough hands-on practice.,88.9,2022-11-25,1,True
+REV000966,ENR000379,STU00309,CRS0068,5,Outstanding content and delivery. The pace was appropriate.,85.6,2022-09-17,5,True
+REV000967,ENR000705,STU00238,CRS0059,4,,86.6,2022-06-09,4,True
+REV000968,ENR001102,STU00469,CRS0083,1,,35.0,2023-11-01,3,True
+REV000969,ENR000338,STU00468,CRS0017,4,Excellent course! Assignments were challenging but fair.,73.1,2020-10-30,5,True
+REV000970,ENR001096,STU00484,CRS0025,2,It was okay. Assignments were challenging but fair.,58.5,2023-10-31,1,True
+REV000971,ENR001686,STU00233,CRS0045,4,Met expectations. Not enough hands-on practice.,61.7,2020-10-14,1,True
+REV000972,ENR000578,STU00147,CRS0041,5,Really enjoyed this class. Not enough hands-on practice.,81.0,2024-06-01,3,True
+REV000973,ENR000315,STU00265,CRS0060,2,Decent course. Not enough hands-on practice.,44.9,2022-06-14,3,True
+REV000974,ENR001454,STU00263,CRS0100,4,Average experience. Too much busy work.,58.1,2021-06-02,2,True
+REV000975,ENR001201,STU00437,CRS0080,4,It was okay. The instructor was very knowledgeable.,51.0,2021-05-21,3,True
+REV000976,ENR001220,STU00204,CRS0035,5,Excellent course! Lectures were too long.,95.6,2023-06-17,2,True
+REV000977,ENR001110,STU00486,CRS0045,4,,51.8,2021-02-03,2,True
+REV000978,ENR001109,STU00070,CRS0056,2,It was okay. Could use more examples.,57.0,2022-11-27,5,True
+REV000979,ENR001961,STU00379,CRS0027,4,Decent course. Material was well organized.,68.8,2024-01-08,3,True
+REV000980,ENR001390,STU00160,CRS0029,2,Average experience. Material was well organized.,59.5,2022-02-10,3,True
+REV000981,ENR000526,STU00328,CRS0079,4,,78.1,2024-04-27,0,True
+REV000982,ENR000007,STU00479,CRS0008,5,Great learning experience. Not enough hands-on practice.,76.1,2022-03-08,2,True
+REV000983,ENR000409,STU00334,CRS0015,4,,100.0,2024-11-19,4,True
+REV000984,ENR001026,STU00102,CRS0013,5,Outstanding content and delivery. The pace was appropriate.,75.1,2022-11-30,6,True
+REV000985,ENR001805,STU00109,CRS0019,3,Disappointing course. The pace was appropriate.,24.4,2022-04-01,2,True
+REV000986,ENR001404,STU00233,CRS0018,1,,15.1,2022-05-03,8,True
+REV000987,ENR000995,STU00393,CRS0079,4,Average experience. Learned a lot of practical skills.,63.2,2023-09-13,4,True
+REV000988,ENR000936,STU00088,CRS0036,3,Average experience. Material was well organized.,57.9,2022-01-31,3,True
+REV000989,ENR000890,STU00251,CRS0045,5,Great learning experience. Assignments were challenging but fair.,97.3,2022-02-19,2,True
+REV000990,ENR000554,STU00349,CRS0067,2,Met expectations. The instructor was very knowledgeable.,56.1,2023-08-20,3,True
+REV000991,ENR000323,STU00178,CRS0014,4,Highly recommend! Good mix of theory and practice.,92.4,2022-06-14,3,True
+REV000992,ENR001682,STU00384,CRS0036,1,Disappointing course. The pace was appropriate.,35.2,2023-10-14,4,True
+REV000993,ENR000520,STU00487,CRS0004,2,,27.0,2022-09-09,3,True
+REV000994,ENR000944,STU00376,CRS0015,5,Really enjoyed this class. Material was well organized.,74.1,2021-12-31,6,False
+REV000995,ENR001535,STU00400,CRS0004,2,Could be much better. Too much busy work.,35.3,2022-11-17,5,True
+REV000996,ENR001606,STU00045,CRS0089,5,Excellent course! Could use more examples.,84.0,2026-01-10,3,True
+REV000997,ENR000887,STU00407,CRS0051,3,Met expectations. The instructor was very knowledgeable.,60.0,2023-10-08,3,True
+REV000998,ENR000919,STU00256,CRS0007,5,Really enjoyed this class. The instructor was very knowledgeable.,72.1,2025-02-17,3,True
+REV000999,ENR001827,STU00173,CRS0053,4,Decent course. Too much busy work.,62.5,2024-08-18,7,True
+REV001000,ENR000646,STU00045,CRS0075,4,Great learning experience. Material was well organized.,71.0,2022-10-14,4,True
+REV001001,ENR001711,STU00437,CRS0086,2,It was okay. Not enough hands-on practice.,58.5,2021-11-14,3,True
+REV001002,ENR001665,STU00294,CRS0096,4,Average experience. Learned a lot of practical skills.,58.6,2026-01-10,6,True
+REV001003,ENR001517,STU00317,CRS0037,5,Excellent course! Learned a lot of practical skills.,78.6,2021-12-24,2,True
+REV001004,ENR000522,STU00323,CRS0094,3,Decent course. Too much busy work.,54.5,2021-09-23,2,True
+REV001005,ENR001487,STU00471,CRS0041,3,It was okay. Assignments were challenging but fair.,53.7,2024-02-09,1,True
+REV001006,ENR001540,STU00368,CRS0058,5,Excellent course! Good mix of theory and practice.,89.7,2023-06-30,6,True
+REV001007,ENR001041,STU00114,CRS0095,1,Could be much better. Too much busy work.,18.5,2022-06-15,7,True
+REV001008,ENR000361,STU00284,CRS0015,5,Really enjoyed this class. Learned a lot of practical skills.,72.7,2024-09-30,5,True
+REV001009,ENR000840,STU00125,CRS0046,4,Excellent course! Not enough hands-on practice.,71.2,2023-06-05,1,True
+REV001010,ENR000070,STU00440,CRS0004,2,,64.3,2022-06-08,4,True
+REV001011,ENR001996,STU00437,CRS0093,4,,92.4,2022-02-07,0,True
+REV001012,ENR000294,STU00143,CRS0021,5,Highly recommend! Lectures were too long.,78.2,2022-11-01,2,True
+REV001013,ENR001994,STU00189,CRS0092,2,It was okay. The pace was appropriate.,70.0,2021-11-16,3,True
+REV001014,ENR000474,STU00006,CRS0071,4,,74.6,2022-08-05,2,True
+REV001015,ENR000079,STU00443,CRS0013,5,,92.5,2022-04-25,3,True
+REV001016,ENR000249,STU00410,CRS0099,4,Outstanding content and delivery. Learned a lot of practical skills.,91.4,2021-05-02,1,True
+REV001017,ENR000923,STU00060,CRS0001,4,Met expectations. Not enough hands-on practice.,61.9,2023-10-19,8,True
+REV001018,ENR001757,STU00037,CRS0023,4,Outstanding content and delivery. Lectures were too long.,90.2,2022-03-04,3,True
+REV001019,ENR000171,STU00196,CRS0085,2,Met expectations. Lectures were too long.,46.3,2022-04-17,4,True
+REV001020,ENR001623,STU00248,CRS0037,3,Met expectations. Lectures were too long.,67.1,2023-05-20,3,True
+REV001021,ENR001067,STU00039,CRS0066,3,,69.7,2021-06-14,4,True
+REV001022,ENR001338,STU00251,CRS0069,4,Outstanding content and delivery. Material was well organized.,71.0,2022-04-19,4,True
+REV001023,ENR000163,STU00161,CRS0010,5,Highly recommend! Assignments were challenging but fair.,90.8,2021-12-04,4,True
+REV001024,ENR001135,STU00395,CRS0035,3,Met expectations. Learned a lot of practical skills.,51.5,2024-11-01,2,True
+REV001025,ENR001826,STU00343,CRS0009,4,Excellent course! Lectures were too long.,88.7,2022-06-06,2,False
+REV001026,ENR000218,STU00101,CRS0002,3,Average experience. Assignments were challenging but fair.,56.1,2020-11-05,6,True
+REV001027,ENR000534,STU00487,CRS0065,3,Met expectations. Not enough hands-on practice.,62.1,2022-10-27,2,True
+REV001028,ENR000469,STU00490,CRS0065,4,Highly recommend! Learned a lot of practical skills.,78.5,2022-11-19,5,True
+REV001029,ENR000107,STU00056,CRS0068,3,,58.4,2022-07-14,0,True
+REV001030,ENR001840,STU00298,CRS0008,3,,56.1,2021-11-29,2,True
+REV001031,ENR001532,STU00200,CRS0074,4,Decent course. Too much busy work.,62.7,2021-09-14,4,True
+REV001032,ENR000353,STU00475,CRS0018,2,Struggled with this one. Material was well organized.,36.8,2023-07-01,1,True
+REV001033,ENR000008,STU00310,CRS0086,2,Not what I expected. Could use more examples.,14.5,2023-07-16,3,True
+REV001034,ENR000855,STU00207,CRS0004,1,Struggled with this one. Too much busy work.,35.3,2024-03-14,0,True
+REV001035,ENR001079,STU00482,CRS0088,4,Decent course. The instructor was very knowledgeable.,40.8,2022-06-19,4,True
+REV001036,ENR001988,STU00309,CRS0086,3,Average experience. Too much busy work.,55.5,2023-02-22,6,True
+REV001037,ENR000078,STU00164,CRS0025,4,Highly recommend! Could use more examples.,88.5,2023-10-01,6,True
+REV001038,ENR000593,STU00326,CRS0035,5,Great learning experience. Assignments were challenging but fair.,75.1,2021-02-07,2,True
+REV001039,ENR001098,STU00197,CRS0016,2,It was okay. Too much busy work.,67.4,2023-07-05,4,True
+REV001040,ENR000203,STU00255,CRS0017,5,Highly recommend! Material was well organized.,70.5,2020-09-08,1,True
+REV001041,ENR001490,STU00486,CRS0098,2,Disappointing course. Lectures were too long.,31.3,2021-12-11,2,True
+REV001042,ENR001531,STU00277,CRS0013,1,Could be much better. The pace was appropriate.,28.7,2024-05-25,5,True
+REV001043,ENR001683,STU00339,CRS0051,5,Outstanding content and delivery. The instructor was very knowledgeable.,91.0,2022-05-15,3,True
+REV001044,ENR001179,STU00149,CRS0087,5,Outstanding content and delivery. Assignments were challenging but fair.,99.2,2020-08-04,3,True
+REV001045,ENR000408,STU00088,CRS0069,3,Average experience. Lectures were too long.,64.7,2022-08-14,3,True
+REV001046,ENR000438,STU00423,CRS0012,4,Great learning experience. Lectures were too long.,75.1,2024-04-25,7,True
+REV001047,ENR001765,STU00159,CRS0020,2,Disappointing course. Material was well organized.,27.6,2021-11-01,7,False
+REV001048,ENR000575,STU00230,CRS0041,2,,46.7,2024-12-28,3,True
+REV001049,ENR001375,STU00217,CRS0004,5,,89.2,2022-10-24,2,True
+REV001050,ENR001806,STU00238,CRS0100,2,Wouldn't recommend. Could use more examples.,35.3,2022-04-24,3,True
+REV001051,ENR001679,STU00405,CRS0059,3,Average experience. Lectures were too long.,58.4,2023-01-08,2,True
+REV001052,ENR001968,STU00010,CRS0048,4,Excellent course! Too much busy work.,76.9,2024-03-21,4,True
+REV001053,ENR000641,STU00204,CRS0041,3,It was okay. The instructor was very knowledgeable.,50.0,2022-10-19,2,True
+REV001054,ENR001097,STU00143,CRS0007,4,Met expectations. Could use more examples.,65.0,2022-04-12,2,True
+REV001055,ENR000671,STU00090,CRS0087,3,Average experience. Not enough hands-on practice.,65.0,2022-06-18,5,True
+REV001056,ENR001514,STU00118,CRS0074,5,Really enjoyed this class. Learned a lot of practical skills.,93.1,2021-07-10,6,True
+REV001057,ENR001171,STU00110,CRS0014,4,Average experience. Material was well organized.,64.1,2021-11-29,7,True
+REV001058,ENR000820,STU00298,CRS0075,5,,86.2,2022-08-02,5,True
+REV001059,ENR001706,STU00172,CRS0044,2,Average experience. Not enough hands-on practice.,70.0,2024-05-11,1,True
+REV001060,ENR000412,STU00118,CRS0013,5,,84.4,2022-03-19,8,True
+REV001061,ENR000190,STU00030,CRS0014,2,,29.6,2021-11-19,5,True
+REV001062,ENR000882,STU00251,CRS0047,4,Excellent course! Too much busy work.,96.1,2021-11-05,2,True
+REV001063,ENR001831,STU00250,CRS0090,5,Outstanding content and delivery. Learned a lot of practical skills.,100.0,2023-02-13,3,True
+REV001064,ENR001876,STU00052,CRS0011,3,Met expectations. Good mix of theory and practice.,50.0,2021-04-23,2,True
+REV001065,ENR000884,STU00019,CRS0071,3,,53.4,2023-02-18,2,True
+REV001066,ENR000525,STU00200,CRS0049,3,,50.0,2020-09-16,2,True
+REV001067,ENR001286,STU00199,CRS0098,3,Average experience. Assignments were challenging but fair.,45.8,2022-06-09,2,True
+REV001068,ENR001644,STU00333,CRS0072,2,Struggled with this one. Material was well organized.,39.9,2023-08-20,3,True
+REV001069,ENR001973,STU00148,CRS0032,5,Outstanding content and delivery. The instructor was very knowledgeable.,84.4,2022-06-07,4,True
+REV001070,ENR001704,STU00152,CRS0010,4,,95.6,2021-09-11,3,True
+REV001071,ENR000184,STU00381,CRS0081,3,,60.5,2023-03-04,1,True
+REV001072,ENR001028,STU00114,CRS0069,3,Met expectations. Not enough hands-on practice.,65.9,2022-02-18,2,True
+REV001073,ENR001461,STU00406,CRS0084,5,Outstanding content and delivery. Material was well organized.,85.5,2022-06-29,3,True
+REV001074,ENR000570,STU00136,CRS0005,5,Highly recommend! The instructor was very knowledgeable.,79.7,2022-01-21,4,False
+REV001075,ENR000392,STU00012,CRS0002,5,Great learning experience. Too much busy work.,89.2,2021-07-24,5,True
+REV001076,ENR001174,STU00278,CRS0048,3,Struggled with this one. Learned a lot of practical skills.,26.9,2023-09-23,4,True
+REV001077,ENR001825,STU00470,CRS0060,4,Met expectations. The instructor was very knowledgeable.,54.2,2022-06-29,1,True
+REV001078,ENR000765,STU00102,CRS0029,3,Average experience. Could use more examples.,68.1,2021-10-18,5,True
+REV001079,ENR000812,STU00257,CRS0041,3,Decent course. The instructor was very knowledgeable.,59.4,2024-04-04,4,True
+REV001080,ENR000896,STU00348,CRS0097,5,Excellent course! Assignments were challenging but fair.,84.4,2022-09-20,2,True
+REV001081,ENR000814,STU00472,CRS0004,4,Decent course. The pace was appropriate.,45.9,2023-05-01,1,True
+REV001082,ENR001632,STU00203,CRS0035,3,,69.0,2023-01-15,4,True
+REV001083,ENR000268,STU00111,CRS0066,5,Really enjoyed this class. Too much busy work.,89.8,2023-02-06,4,True
+REV001084,ENR000139,STU00244,CRS0040,3,,63.2,2021-03-10,2,True
+REV001085,ENR001139,STU00111,CRS0016,5,Excellent course! The instructor was very knowledgeable.,73.7,2022-11-28,6,True
+REV001086,ENR001898,STU00185,CRS0099,3,It was okay. Learned a lot of practical skills.,53.4,2022-08-15,1,True
+REV001087,ENR001169,STU00239,CRS0026,1,Disappointing course. Learned a lot of practical skills.,15.2,2022-02-18,2,True
+REV001088,ENR000144,STU00331,CRS0082,5,Excellent course! Good mix of theory and practice.,76.2,2021-04-17,4,True
+REV001089,ENR001237,STU00138,CRS0091,2,,1.8,2022-01-14,4,False
+REV001090,ENR000298,STU00224,CRS0057,3,,66.6,2021-11-03,3,True
+REV001091,ENR000196,STU00397,CRS0046,5,,70.7,2023-12-04,3,True
+REV001092,ENR001439,STU00441,CRS0074,2,Decent course. Learned a lot of practical skills.,69.8,2022-04-01,5,True
+REV001093,ENR001070,STU00227,CRS0012,3,It was okay. The pace was appropriate.,40.3,2024-08-02,2,False
+REV001094,ENR000027,STU00302,CRS0036,4,Decent course. Too much busy work.,68.2,2022-02-20,1,True
+REV001095,ENR001320,STU00116,CRS0086,4,Really enjoyed this class. Lectures were too long.,95.8,2021-09-01,5,True
+REV001096,ENR000618,STU00184,CRS0049,3,Average experience. Could use more examples.,57.7,2024-11-28,0,True
+REV001097,ENR001479,STU00092,CRS0012,4,,86.0,2023-06-03,3,True
+REV001098,ENR001651,STU00005,CRS0082,5,Highly recommend! Learned a lot of practical skills.,81.3,2021-04-07,3,True
+REV001099,ENR001344,STU00181,CRS0023,4,,43.1,2022-10-18,1,True
+REV001100,ENR000801,STU00466,CRS0069,4,Highly recommend! Too much busy work.,94.8,2022-05-26,2,True
+REV001101,ENR000216,STU00240,CRS0054,2,,57.4,2020-08-27,6,True
+REV001102,ENR000436,STU00378,CRS0086,5,Excellent course! Could use more examples.,96.7,2021-01-09,5,True
+REV001103,ENR001680,STU00128,CRS0068,4,It was okay. Too much busy work.,65.7,2020-10-21,1,True
+REV001104,ENR000325,STU00253,CRS0003,4,Outstanding content and delivery. Lectures were too long.,73.4,2021-04-10,2,True
+REV001105,ENR001235,STU00015,CRS0075,4,Great learning experience. Not enough hands-on practice.,76.4,2026-01-10,3,True
+REV001106,ENR001340,STU00276,CRS0008,4,,80.0,2024-08-21,5,True
+REV001107,ENR001872,STU00226,CRS0025,3,Met expectations. Too much busy work.,40.5,2024-02-25,3,True
+REV001108,ENR000926,STU00109,CRS0035,2,Average experience. Assignments were challenging but fair.,49.7,2022-02-03,1,True
+REV001109,ENR001442,STU00097,CRS0057,2,Disappointing course. Lectures were too long.,13.6,2022-05-13,2,True
+REV001110,ENR000036,STU00160,CRS0044,2,It was okay. The pace was appropriate.,67.8,2022-03-14,4,True
+REV001111,ENR001388,STU00437,CRS0048,5,Highly recommend! Too much busy work.,75.9,2022-02-06,4,True
+REV001112,ENR001484,STU00168,CRS0053,2,Average experience. Could use more examples.,53.4,2023-08-21,3,False
+REV001113,ENR001710,STU00360,CRS0004,4,Really enjoyed this class. Not enough hands-on practice.,78.2,2022-11-03,1,True
+REV001114,ENR000092,STU00314,CRS0079,4,Outstanding content and delivery. The instructor was very knowledgeable.,78.7,2022-02-22,4,True
+REV001115,ENR000647,STU00240,CRS0024,4,Met expectations. Lectures were too long.,49.6,2020-05-31,2,True
+REV001116,ENR001458,STU00097,CRS0051,4,Average experience. Learned a lot of practical skills.,50.0,2022-09-29,5,True
+REV001117,ENR000975,STU00362,CRS0061,3,,58.7,2021-09-13,7,True
+REV001118,ENR000058,STU00173,CRS0027,2,,58.7,2024-06-24,5,False
+REV001119,ENR000768,STU00061,CRS0018,4,Outstanding content and delivery. Lectures were too long.,92.8,2022-12-12,3,True
+REV001120,ENR001154,STU00005,CRS0075,2,Decent course. Learned a lot of practical skills.,68.7,2022-12-26,3,True
+REV001121,ENR000192,STU00198,CRS0091,4,Average experience. Not enough hands-on practice.,61.5,2020-10-01,6,True
+REV001122,ENR000858,STU00469,CRS0062,3,Average experience. Lectures were too long.,52.8,2023-09-16,5,True
+REV001123,ENR000006,STU00343,CRS0050,3,Met expectations. Material was well organized.,58.2,2022-07-22,3,True
+REV001124,ENR000326,STU00337,CRS0052,3,Average experience. Learned a lot of practical skills.,50.0,2022-02-27,6,True
+REV001125,ENR000100,STU00451,CRS0023,2,Wouldn't recommend. Learned a lot of practical skills.,36.6,2021-10-27,6,True
+REV001126,ENR000396,STU00129,CRS0045,4,,69.3,2023-02-05,5,True
+REV001127,ENR000994,STU00215,CRS0041,4,Really enjoyed this class. Could use more examples.,77.2,2022-01-10,1,True
+REV001128,ENR000126,STU00302,CRS0059,4,,46.6,2022-04-02,2,True
+REV001129,ENR001270,STU00130,CRS0001,4,Outstanding content and delivery. The pace was appropriate.,100.0,2022-03-12,0,True
+REV001130,ENR000506,STU00372,CRS0015,3,,61.2,2023-03-31,1,True
+REV001131,ENR000690,STU00199,CRS0019,1,Not what I expected. The instructor was very knowledgeable.,28.8,2022-02-01,2,True
+REV001132,ENR001403,STU00070,CRS0021,5,Excellent course! Assignments were challenging but fair.,74.1,2022-10-18,2,True
+REV001133,ENR000147,STU00165,CRS0096,2,Met expectations. Learned a lot of practical skills.,58.6,2023-08-13,4,True
+REV001134,ENR000868,STU00274,CRS0045,3,Met expectations. Too much busy work.,68.5,2026-01-10,1,True
+REV001135,ENR000033,STU00320,CRS0099,4,Excellent course! Not enough hands-on practice.,100.0,2021-07-09,1,True
+REV001136,ENR000589,STU00337,CRS0035,5,,100.0,2021-05-20,2,True
+REV001137,ENR001870,STU00343,CRS0007,4,Really enjoyed this class. Good mix of theory and practice.,74.4,2021-08-31,0,True
+REV001138,ENR001299,STU00492,CRS0079,4,Outstanding content and delivery. Too much busy work.,71.7,2023-07-18,2,True
+REV001139,ENR001118,STU00061,CRS0039,5,Really enjoyed this class. Too much busy work.,100.0,2021-07-05,4,True
+REV001140,ENR001693,STU00420,CRS0054,4,,89.2,2021-03-23,4,True
+REV001141,ENR001162,STU00096,CRS0041,5,Outstanding content and delivery. The pace was appropriate.,92.8,2022-05-07,1,True
+REV001142,ENR001273,STU00121,CRS0082,5,Excellent course! Material was well organized.,90.2,2021-07-06,3,True
+REV001143,ENR001232,STU00162,CRS0024,2,,42.3,2024-06-22,2,True
+REV001144,ENR001104,STU00183,CRS0093,5,Really enjoyed this class. Lectures were too long.,92.3,2023-05-08,3,True
+REV001145,ENR001256,STU00383,CRS0081,5,,73.7,2024-11-19,4,True
+REV001146,ENR000468,STU00139,CRS0075,5,Really enjoyed this class. Lectures were too long.,73.0,2022-04-28,3,True
+REV001147,ENR001357,STU00409,CRS0056,3,,42.1,2024-07-30,0,True
+REV001148,ENR001976,STU00176,CRS0100,2,Met expectations. Material was well organized.,64.1,2021-11-12,4,True
+REV001149,ENR000376,STU00469,CRS0058,2,Average experience. Assignments were challenging but fair.,66.9,2023-04-08,5,False
+REV001150,ENR001469,STU00241,CRS0073,5,,76.7,2022-06-18,7,False
+REV001151,ENR001466,STU00070,CRS0095,4,Decent course. Lectures were too long.,50.1,2022-07-15,5,True
+REV001152,ENR001276,STU00408,CRS0045,3,Wouldn't recommend. Good mix of theory and practice.,33.1,2020-10-09,2,True
+REV001153,ENR001112,STU00060,CRS0037,3,Met expectations. Material was well organized.,46.5,2024-05-29,3,True

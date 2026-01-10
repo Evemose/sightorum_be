@@ -1,10 +1,7 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.AttributeLocation;
-import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
-import com.rorm.metamodel.Root;
-import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
@@ -68,40 +65,40 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
     @BeforeAll
     static void setupMetamodel() {
         // Address (no dependencies)
-        addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"));
-        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"));
-        addressStreet = new BasicAttribute("street", new AttributeLocation("addresses", "street"));
-        var addressRoot = new Root("addresses", List.of(addressId, addressCity, addressStreet));
+        addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"), new DataType.NumericType(19, 0));
+        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"), new DataType.StringType());
+        addressStreet = new BasicAttribute("street", new AttributeLocation("addresses", "street"), new DataType.StringType());
+        var addressRoot = new Root("addresses", List.of(addressId, addressCity, addressStreet), IdDescriptor.longId("addresses"));
 
         // Profile (depends on Address)
-        profileId = new BasicAttribute("id", new AttributeLocation("profiles", "id"));
-        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"));
+        profileId = new BasicAttribute("id", new AttributeLocation("profiles", "id"), new DataType.NumericType(19, 0));
+        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"), new DataType.StringType());
         profileAddress = new SingularReferenceAttribute("address", addressRoot,
             new JoinTableMapping(new AttributeLocation("profiles", "address_id"), "id"));
-        var profileRoot = new Root("profiles", List.of(profileId, profileBio, profileAddress));
+        var profileRoot = new Root("profiles", List.of(profileId, profileBio, profileAddress), IdDescriptor.longId("profiles"));
 
         // User (depends on Profile)
-        userId = new BasicAttribute("id", new AttributeLocation("users", "id"));
-        userName = new BasicAttribute("name", new AttributeLocation("users", "name"));
-        userEmail = new BasicAttribute("email", new AttributeLocation("users", "email"));
+        userId = new BasicAttribute("id", new AttributeLocation("users", "id"), new DataType.NumericType(19, 0));
+        userName = new BasicAttribute("name", new AttributeLocation("users", "name"), new DataType.StringType());
+        userEmail = new BasicAttribute("email", new AttributeLocation("users", "email"), new DataType.StringType());
         userProfile = new SingularReferenceAttribute("profile", profileRoot,
             new JoinTableMapping(new AttributeLocation("users", "profile_id"), "id"));
-        userRoot = new Root("users", List.of(userId, userName, userEmail, userProfile));
+        userRoot = new Root("users", List.of(userId, userName, userEmail, userProfile), IdDescriptor.longId("users"));
 
         // Order (depends on User)
-        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
-        orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"));
+        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
+        orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"), new DataType.NumericType(10, 2));
         orderUser = new SingularReferenceAttribute("user", userRoot,
             new JoinTableMapping(new AttributeLocation("orders", "user_id"), "id"));
-        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderUser));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderUser), IdDescriptor.longId("orders"));
 
         // OrderItem (depends on Order)
-        orderItemId = new BasicAttribute("id", new AttributeLocation("order_items", "id"));
-        orderItemProductName = new BasicAttribute("product_name", new AttributeLocation("order_items", "product_name"));
-        orderItemQuantity = new BasicAttribute("quantity", new AttributeLocation("order_items", "quantity"));
+        orderItemId = new BasicAttribute("id", new AttributeLocation("order_items", "id"), new DataType.NumericType(19, 0));
+        orderItemProductName = new BasicAttribute("product_name", new AttributeLocation("order_items", "product_name"), new DataType.StringType());
+        orderItemQuantity = new BasicAttribute("quantity", new AttributeLocation("order_items", "quantity"), new DataType.NumericType(10, 0));
         orderItemOrder = new SingularReferenceAttribute("order", orderRoot,
             new JoinTableMapping(new AttributeLocation("order_items", "order_id"), "id"));
-        orderItemRoot = new Root("order_items", List.of(orderItemId, orderItemProductName, orderItemQuantity, orderItemOrder));
+        orderItemRoot = new Root("order_items", List.of(orderItemId, orderItemProductName, orderItemQuantity, orderItemOrder), IdDescriptor.longId("order_items"));
     }
 
     static Stream<Arguments> statsTestCases() {

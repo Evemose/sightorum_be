@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 class CompositeAttributeHandler implements AttributeDetectionHandler {
 
     private final Set<String> availableRootNames;
+    private final Set<String> rootSingularNames;
     private final NamingStyle namingStyle;
     private final Map<String, SchemaOverride> overrideMap;
 
@@ -19,9 +20,21 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
         List<SchemaOverride> overrides
     ) {
         this.availableRootNames = availableRootNames;
+        this.rootSingularNames = availableRootNames.stream()
+            .map(this::toSingular)
+            .collect(Collectors.toSet());
         this.namingStyle = namingStyle;
         this.overrideMap = overrides.stream()
             .collect(Collectors.toMap(SchemaOverride::attributeName, Function.identity()));
+    }
+
+    private String toSingular(String plural) {
+        // Simple singularization - just remove trailing 's' if present
+        // This handles common cases like courses -> course, students -> student
+        if (plural.endsWith("s") && plural.length() > 1) {
+            return plural.substring(0, plural.length() - 1);
+        }
+        return plural;
     }
 
     @Override
@@ -42,6 +55,7 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
         return columnNames.stream()
             .map(this::extractPrefixAndColumn)
             .flatMap(Optional::stream)
+            .filter(entry -> !rootSingularNames.contains(entry.getKey())) // Skip root singular prefixes
             .collect(Collectors.groupingBy(
                 Map.Entry::getKey,
                 LinkedHashMap::new,
@@ -120,7 +134,7 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
                 var subAttrName = NamingStyle.toCamelCase(new String[]{suffix});
                 return Map.entry(
                     subAttrName,
-                    (DetectedAttribute) new DetectedAttribute.Basic(subAttrName, column)
+                    (DetectedAttribute) new DetectedAttribute.Basic(subAttrName, column, null)
                 );
             })
             .collect(Collectors.toMap(

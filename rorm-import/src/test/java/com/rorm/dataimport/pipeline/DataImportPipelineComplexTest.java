@@ -1,5 +1,6 @@
 package com.rorm.dataimport.pipeline;
 
+import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,8 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class DataImportPipelineComplexTest extends AbstractImportTest {
@@ -45,7 +48,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(userSource, orderSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -79,7 +82,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -115,7 +118,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -159,7 +162,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -188,8 +191,8 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
     }
 
     @Test
-    @DisplayName("rejects file with invalid id format")
-    void rejectInvalidIdFormat() throws Exception {
+    @DisplayName("rejects invalid values when ID type is explicitly numeric")
+    void rejectInvalidNumericIdFormat() throws Exception {
         var csvFile = tempDir.resolve("mixed_ids.csv");
         Files.writeString(csvFile, """
             id,name
@@ -198,23 +201,25 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
             3,Third
             """);
 
+        // Explicitly force NumericType for the ID column
+        var overrides = List.<SchemaOverride>of(
+            new SchemaOverride.IdAttributeOverride("id", "id", new com.rorm.metamodel.DataType.NumericType(19, 0))
+        );
+
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of("mixed_ids", overrides),
             ";"
         );
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
-        var result = dataImportPipeline.importData(request);
 
-        // Import should fail - no rows imported
-        assertThat(result.totalRowsImported()).isEqualTo(0);
-
-        // Verify the job failed due to invalid ID
-        var executions = jobExplorer.findJobInstancesByJobName("import-job-mixed_ids-*", 0, 10);
-        assertThat(executions).isNotEmpty();
+        // The import should throw an exception when encountering invalid numeric ID
+        assertThatThrownBy(() -> dataImportPipeline.importData(request))
+            .hasRootCauseInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Invalid numeric ID");
 
         dataSource.close();
     }
@@ -233,7 +238,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -265,13 +270,13 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         // Import with chunk size 10
         var dataSource1 = new CsvDataSource(csvFile);
-        var modelSpace1 = modelSpaceDetector.detectModelSpace(List.of(dataSource1), List.of(), ";");
+        var modelSpace1 = modelSpaceDetector.detectModelSpace(List.of(dataSource1), Map.of(), ";");
         var schema1 = "chunk_10_" + System.currentTimeMillis();
         var request1 = new ImportRequest(schema1, List.of(dataSource1), modelSpace1, 10);
 
         // Import with chunk size 25
         var dataSource2 = new CsvDataSource(csvFile);
-        var modelSpace2 = modelSpaceDetector.detectModelSpace(List.of(dataSource2), List.of(), ";");
+        var modelSpace2 = modelSpaceDetector.detectModelSpace(List.of(dataSource2), Map.of(), ";");
         var schema2 = "chunk_25_" + System.currentTimeMillis();
         var request2 = new ImportRequest(schema2, List.of(dataSource2), modelSpace2, 25);
 
@@ -298,4 +303,54 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
             dataSource2.close();
         }
     }
+
+    @Test
+    @DisplayName("imports references to roots with String ID type")
+    void importReferencesWithStringIdType() throws Exception {
+        // Create categories with String IDs
+        var categoriesFile = tempDir.resolve("categories.csv");
+        Files.writeString(categoriesFile, """
+            id,name
+            CAT-001,Electronics
+            CAT-002,Books
+            CAT-003,Clothing
+            """);
+
+        // Create products referencing categories
+        var productsFile = tempDir.resolve("products.csv");
+        Files.writeString(productsFile, """
+            name,category_id,price
+            Laptop,CAT-001,999.99
+            Novel,CAT-002,19.99
+            T-Shirt,CAT-003,29.99
+            """);
+
+        var categorySource = new CsvDataSource(categoriesFile);
+        var productSource = new CsvDataSource(productsFile);
+
+        // The system should automatically detect String type for category IDs
+        var modelSpace = modelSpaceDetector.detectModelSpace(
+            List.of(categorySource, productSource),
+            Map.of(),
+            ";"
+        );
+
+        var schema = getSchemaName();
+        var request = new ImportRequest(schema, List.of(categorySource, productSource), modelSpace);
+        var result = dataImportPipeline.importData(request);
+
+        assertThat(result.totalRowsImported()).isEqualTo(6); // 3 categories + 3 products
+
+        // Verify data was imported correctly with proper FK relationships
+        var productCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM %s.%s WHERE category_id = ?".formatted(schema, "products"),
+            Integer.class,
+            "CAT-001"
+        );
+        assertThat(productCount).isEqualTo(1);
+
+        categorySource.close();
+        productSource.close();
+    }
+
 }

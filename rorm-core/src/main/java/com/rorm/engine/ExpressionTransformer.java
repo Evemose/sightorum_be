@@ -1,9 +1,7 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.AttributeLocation;
 import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
-import com.rorm.metamodel.DataType.NumericType;
 import com.rorm.metamodel.ReferenceAttribute;
 import com.rorm.query.*;
 import com.rorm.query.Expression.*;
@@ -70,8 +68,7 @@ class ExpressionTransformer {
     Path extendReferencePathIfNeeded(Path path) {
         if (path.target() instanceof ReferenceAttribute refAttr) {
             var targetRoot = refAttr.targetRoot();
-            var syntheticId = new BasicAttribute("id", new AttributeLocation(targetRoot.primaryTableName(), "id"), new NumericType(19, 0));
-            return new Path(syntheticId, path);
+            return new Path(targetRoot.idDescriptor().idAttribute(), path);
         }
         return path;
     }

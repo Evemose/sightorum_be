@@ -1,6 +1,7 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.attribute.DetectedAttribute;
+import com.rorm.dataimport.pipeline.SchemaDetector.DetectedSchema;
 import com.rorm.metamodel.*;
 import org.springframework.stereotype.Component;
 
@@ -16,33 +17,41 @@ import java.util.stream.Collectors;
 @Component
 class MetamodelConverter {
 
+    private static HashMap<String, Root> createMutableRootMap(DetectedSchema detectedSchema) {
+        var rootMap = new HashMap<String, Root>();
+
+        for (var detectedRoot : detectedSchema.roots().values()) {
+            var rootName = detectedRoot.name();
+            var idColumn = detectedRoot.idColumn();
+            var idDescriptor = new IdDescriptor(new BasicAttribute(
+                idColumn.attributeName(),
+                new AttributeLocation(rootName, idColumn.columnName()),
+                idColumn.dataType()
+            ));
+            rootMap.put(rootName, new Root(rootName, new ArrayList<>(), idDescriptor));
+        }
+        return rootMap;
+    }
+
     /**
      * Converts detected schema to ModelSpace.
      */
-    public ModelSpace convertToModelSpace(SchemaDetector.DetectedSchema detectedSchema) {
-        var detectedAttributes = detectedSchema.detectedAttributes();
-        var columnDataTypes = detectedSchema.columnDataTypes();
-        var typeOverrides = detectedSchema.typeOverrides();
+    public ModelSpace convertToModelSpace(DetectedSchema detectedSchema) {
+        var rootMap = createMutableRootMap(detectedSchema);
 
-        // Create mutable Root objects with mutable attribute lists
-        var rootMap = new HashMap<String, Root>();
-        for (var rootName : detectedAttributes.keySet()) {
-            rootMap.put(rootName, new Root(rootName, new ArrayList<>()));
-        }
-
-        // Convert attributes and populate mutable lists
-        for (var entry : detectedAttributes.entrySet()) {
-            var rootName = entry.getKey();
-            var attrs = entry.getValue();
-            var types = columnDataTypes.getOrDefault(rootName, Map.of());
-            var attributes = convertToAttributes(attrs, rootName, rootMap, types, typeOverrides);
+        for (var detectedRoot : detectedSchema.roots().values()) {
+            var rootName = detectedRoot.name();
+            var attributes = convertToAttributes(
+                detectedRoot.attributes(),
+                rootName,
+                rootMap
+            );
             rootMap.get(rootName).attributes().addAll(attributes);
         }
 
-        // Freeze roots by replacing mutable lists with immutable ones
         return new ModelSpace(
             rootMap.values().stream()
-                .map(root -> new Root(root.primaryTableName(), List.copyOf(root.attributes())))
+                .map(root -> new Root(root.primaryTableName(), List.copyOf(root.attributes()), root.idDescriptor()))
                 .collect(Collectors.toUnmodifiableSet())
         );
     }
@@ -50,50 +59,32 @@ class MetamodelConverter {
     private List<Attribute> convertToAttributes(
         Map<String, DetectedAttribute> detectedAttributes,
         String tableName,
-        Map<String, Root> rootMap,
-        Map<String, DataType> columnDataTypes,
-        Map<String, DataType> typeOverrides
+        Map<String, Root> rootMap
     ) {
         return detectedAttributes.values().stream()
-            .map(detected -> convertAttribute(detected, tableName, rootMap, columnDataTypes, typeOverrides))
+            .map(detected -> convertAttribute(detected, tableName, rootMap))
             .toList();
     }
 
     private Attribute convertAttribute(
         DetectedAttribute detected,
         String tableName,
-        Map<String, Root> rootMap,
-        Map<String, DataType> columnDataTypes,
-        Map<String, DataType> typeOverrides
+        Map<String, Root> rootMap
     ) {
         return switch (detected) {
-            case DetectedAttribute.Basic basic -> {
-                // Priority: 1) explicit override, 2) detected type from column data, 3) fallback to string
-                var dataType = typeOverrides.getOrDefault(
-                    basic.name(),
-                    columnDataTypes.getOrDefault(basic.columnName(), new DataType.StringType())
-                );
-                yield new BasicAttribute(
-                    basic.name(),
-                    new AttributeLocation(tableName, basic.columnName()),
-                    dataType
-                );
-            }
-            case DetectedAttribute.Collection collection -> {
-                // Priority: 1) explicit override, 2) detected type from column data, 3) fallback to string
-                var elementType = typeOverrides.getOrDefault(
-                    collection.name(),
-                    columnDataTypes.getOrDefault(collection.columnName(), new DataType.StringType())
-                );
-                yield new CollectionAttribute(
-                    collection.name(),
-                    tableName,
-                    new CollectionAttribute.BasicElement(
-                        new AttributeLocation(tableName, collection.columnName()),
-                        elementType
-                    )
-                );
-            }
+            case DetectedAttribute.Basic basic -> new BasicAttribute(
+                basic.name(),
+                new AttributeLocation(tableName, basic.columnName()),
+                basic.dataType() != null ? basic.dataType() : new DataType.StringType()
+            );
+            case DetectedAttribute.Collection collection -> new CollectionAttribute(
+                collection.name(),
+                tableName,
+                new CollectionAttribute.BasicElement(
+                    new AttributeLocation(tableName, collection.columnName()),
+                    collection.elementType() != null ? collection.elementType() : new DataType.StringType()
+                )
+            );
             case DetectedAttribute.SingularReference ref -> {
                 var targetRoot = rootMap.get(ref.targetRootName());
                 if (targetRoot == null) {
@@ -118,7 +109,7 @@ class MetamodelConverter {
             }
             case DetectedAttribute.Composite composite -> {
                 var subAttributes = composite.subAttributes().values().stream()
-                    .map(sub -> convertAttribute(sub, tableName, rootMap, columnDataTypes, typeOverrides))
+                    .map(sub -> convertAttribute(sub, tableName, rootMap))
                     .collect(Collectors.toSet());
                 yield new CompositeAttribute(composite.name(), subAttributes);
             }

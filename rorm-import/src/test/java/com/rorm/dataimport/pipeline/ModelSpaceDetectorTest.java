@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
@@ -45,7 +46,7 @@ class ModelSpaceDetectorTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -83,7 +84,7 @@ class ModelSpaceDetectorTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -125,7 +126,7 @@ class ModelSpaceDetectorTest {
 
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(userSource, orderSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -158,7 +159,7 @@ class ModelSpaceDetectorTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            overrides,
+            Map.of("products", overrides),
             ";"
         );
 
@@ -181,7 +182,7 @@ class ModelSpaceDetectorTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 

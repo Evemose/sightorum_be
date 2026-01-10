@@ -63,46 +63,46 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         // Build roots in order of dependencies (no circular refs in this test model)
 
         // Address (no dependencies)
-        addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"));
-        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"));
-        addressCountry = new BasicAttribute("country", new AttributeLocation("addresses", "country"));
-        addressRoot = new Root("addresses", List.of(addressId, addressCity, addressCountry));
+        addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"), new DataType.NumericType(19, 0));
+        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"), new DataType.StringType());
+        addressCountry = new BasicAttribute("country", new AttributeLocation("addresses", "country"), new DataType.StringType());
+        addressRoot = new Root("addresses", List.of(addressId, addressCity, addressCountry), IdDescriptor.longId("addresses"));
 
         // Profile (depends on Address)
-        profileId = new BasicAttribute("id", new AttributeLocation("profiles", "id"));
-        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"));
+        profileId = new BasicAttribute("id", new AttributeLocation("profiles", "id"), new DataType.NumericType(19, 0));
+        profileBio = new BasicAttribute("bio", new AttributeLocation("profiles", "bio"), new DataType.StringType());
         profileAddress = new SingularReferenceAttribute("address", addressRoot,
             new JoinTableMapping(new AttributeLocation("profiles", "address_id"), "id"));
-        socialLinksTwitter = new BasicAttribute("twitter", new AttributeLocation("profiles", "twitter"));
-        socialLinksLinkedin = new BasicAttribute("linkedin", new AttributeLocation("profiles", "linkedin"));
+        socialLinksTwitter = new BasicAttribute("twitter", new AttributeLocation("profiles", "twitter"), new DataType.StringType());
+        socialLinksLinkedin = new BasicAttribute("linkedin", new AttributeLocation("profiles", "linkedin"), new DataType.StringType());
         profileSocialLinks = new CompositeAttribute("socialLinks", Set.of(socialLinksTwitter, socialLinksLinkedin));
-        profileRoot = new Root("profiles", List.of(profileId, profileBio, profileAddress, profileSocialLinks));
+        profileRoot = new Root("profiles", List.of(profileId, profileBio, profileAddress, profileSocialLinks), IdDescriptor.longId("profiles"));
 
         // Order (will be completed after Customer for circular ref)
-        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
-        orderNumber = new BasicAttribute("number", new AttributeLocation("orders", "number"));
-        orderAmount = new BasicAttribute("amount", new AttributeLocation("orders", "amount"));
-        orderTagElement = new BasicElement(new AttributeLocation("order_tags", "tag"));
+        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
+        orderNumber = new BasicAttribute("number", new AttributeLocation("orders", "number"), new DataType.StringType());
+        orderAmount = new BasicAttribute("amount", new AttributeLocation("orders", "amount"), new DataType.NumericType(10, 2));
+        orderTagElement = new BasicElement(new AttributeLocation("order_tags", "tag"), new DataType.StringType());
         orderTags = new CollectionAttribute("tags", "order_tags", orderTagElement);
 
         // Customer (depends on Profile, Order)
-        customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"));
-        customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"));
-        customerEmail = new BasicAttribute("email", new AttributeLocation("customers", "email"));
+        customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"), new DataType.NumericType(19, 0));
+        customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"), new DataType.StringType());
+        customerEmail = new BasicAttribute("email", new AttributeLocation("customers", "email"), new DataType.StringType());
         customerProfile = new SingularReferenceAttribute("profile", profileRoot,
             new JoinTableMapping(new AttributeLocation("customers", "profile_id"), "id"));
 
         // Create orderRoot first without orderCustomer to break circular dependency
-        orderRoot = new Root("orders", List.of(orderId, orderNumber, orderAmount, orderTags));
+        orderRoot = new Root("orders", List.of(orderId, orderNumber, orderAmount, orderTags), IdDescriptor.longId("orders"));
 
         // Now create customerOrders pointing to orderRoot (OneToMany mappedBy - FK on orders table)
         customerOrders = new PluralReferenceAttribute("orders", orderRoot, new InverseRootTableColumn("customer_id"));
-        customerRoot = new Root("customers", List.of(customerId, customerName, customerEmail, customerProfile, customerOrders));
+        customerRoot = new Root("customers", List.of(customerId, customerName, customerEmail, customerProfile, customerOrders), IdDescriptor.longId("customers"));
 
         // Create orderCustomer pointing to customerRoot and rebuild orderRoot
         orderCustomer = new SingularReferenceAttribute("customer", customerRoot,
             new JoinTableMapping(new AttributeLocation("orders", "customer_id"), "id"));
-        orderRoot = new Root("orders", List.of(orderId, orderNumber, orderAmount, orderCustomer, orderTags));
+        orderRoot = new Root("orders", List.of(orderId, orderNumber, orderAmount, orderCustomer, orderTags), IdDescriptor.longId("orders"));
     }
 
     @Override

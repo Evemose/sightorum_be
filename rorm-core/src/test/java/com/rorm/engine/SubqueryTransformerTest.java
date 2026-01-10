@@ -52,24 +52,24 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
     @BeforeAll
     static void setupMetamodel() {
         // Customer root
-        customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"));
-        customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"));
-        customerEmail = new BasicAttribute("email", new AttributeLocation("customers", "email"));
+        customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"), new DataType.NumericType(19, 0));
+        customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"), new DataType.StringType());
+        customerEmail = new BasicAttribute("email", new AttributeLocation("customers", "email"), new DataType.StringType());
 
         // Order root (forward declaration for circular reference)
-        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
-        orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"));
-        orderCustomerId = new BasicAttribute("customer_id", new AttributeLocation("orders", "customer_id"));
+        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
+        orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"), new DataType.NumericType(10, 2));
+        orderCustomerId = new BasicAttribute("customer_id", new AttributeLocation("orders", "customer_id"), new DataType.NumericType(19, 0));
 
         // Order item root
-        itemId = new BasicAttribute("id", new AttributeLocation("order_items", "id"));
-        itemName = new BasicAttribute("name", new AttributeLocation("order_items", "name"));
-        itemPrice = new BasicAttribute("price", new AttributeLocation("order_items", "price"));
-        itemOrderId = new BasicAttribute("order_id", new AttributeLocation("order_items", "order_id"));
+        itemId = new BasicAttribute("id", new AttributeLocation("order_items", "id"), new DataType.NumericType(19, 0));
+        itemName = new BasicAttribute("name", new AttributeLocation("order_items", "name"), new DataType.StringType());
+        itemPrice = new BasicAttribute("price", new AttributeLocation("order_items", "price"), new DataType.NumericType(10, 2));
+        itemOrderId = new BasicAttribute("order_id", new AttributeLocation("order_items", "order_id"), new DataType.NumericType(19, 0));
 
         // Create roots (order first for references)
-        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId));
-        orderItemRoot = new Root("order_items", List.of(itemId, itemName, itemPrice, itemOrderId));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId), IdDescriptor.longId("orders"));
+        orderItemRoot = new Root("order_items", List.of(itemId, itemName, itemPrice, itemOrderId), IdDescriptor.longId("order_items"));
 
         // Set up references
         orderCustomer = new SingularReferenceAttribute("customer", null,
@@ -82,19 +82,19 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
         customerOrders = new PluralReferenceAttribute("orders", orderRoot,
             new InverseRootTableColumn("customer_id"));
 
-        customerRoot = new Root("customers", List.of(customerId, customerName, customerEmail, customerOrders));
+        customerRoot = new Root("customers", List.of(customerId, customerName, customerEmail, customerOrders), IdDescriptor.longId("customers"));
 
         // Update orderCustomer to reference customerRoot
         orderCustomer = new SingularReferenceAttribute("customer", customerRoot,
             new JoinTableMapping(new AttributeLocation("orders", "customer_id"), "id"));
 
         // Recreate orderRoot with customer reference
-        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId, orderCustomer));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId, orderCustomer), IdDescriptor.longId("orders"));
 
         // Update itemOrder to reference updated orderRoot
         itemOrder = new SingularReferenceAttribute("order", orderRoot,
             new JoinTableMapping(new AttributeLocation("order_items", "order_id"), "id"));
-        orderItemRoot = new Root("order_items", List.of(itemId, itemName, itemPrice, itemOrderId, itemOrder));
+        orderItemRoot = new Root("order_items", List.of(itemId, itemName, itemPrice, itemOrderId, itemOrder), IdDescriptor.longId("order_items"));
     }
 
     @Override

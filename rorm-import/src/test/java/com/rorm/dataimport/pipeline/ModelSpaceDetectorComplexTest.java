@@ -4,6 +4,8 @@ import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
 import com.rorm.dataimport.type.DataTypeDetector;
+import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.CompositeAttribute;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -13,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,6 +34,66 @@ class ModelSpaceDetectorComplexTest {
     private ModelSpaceDetector modelSpaceDetector;
 
     @Test
+    @DisplayName("applies type overrides to nested composite attributes")
+    void applyNestedCompositeTypeOverrides() throws Exception {
+        var csvFile = tempDir.resolve("students.csv");
+        Files.writeString(csvFile, """
+            name,home_address_street,home_address_city,home_address_zip,work_address_street,work_address_city
+            John,123 Main,Boston,02101,456 Work St,Cambridge
+            """);
+
+        // Create nested overrides for home address zip (nested in home address composite)
+        var homeAddressNestedOverrides = List.<SchemaOverride>of(
+            new SchemaOverride.BasicAttributeOverride("zip", new com.rorm.metamodel.DataType.StringType())
+        );
+
+        var overrides = List.<SchemaOverride>of(
+            new SchemaOverride.CompositeAttributeOverride(
+                "homeAddress",
+                List.of("home_address_street", "home_address_city", "home_address_zip"),
+                homeAddressNestedOverrides
+            ),
+            new SchemaOverride.CompositeAttributeOverride(
+                "workAddress",
+                List.of("work_address_street", "work_address_city"),
+                List.of()
+            )
+        );
+
+        var dataSource = new CsvDataSource(csvFile);
+        var modelSpace = modelSpaceDetector.detectModelSpace(
+            List.of(dataSource),
+            Map.of("students", overrides),
+            ";"
+        );
+
+        var root = modelSpace.roots().stream()
+            .filter(r -> r.primaryTableName().equals("students"))
+            .findFirst()
+            .orElseThrow();
+
+        // Verify composite attributes were created
+        var homeAddress = root.attributes().stream()
+            .filter(a -> a.name().equals("homeAddress"))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(homeAddress).isInstanceOf(CompositeAttribute.class);
+        var homeComposite = (CompositeAttribute) homeAddress;
+
+        // Verify the zip attribute has StringType (from override)
+        var zipAttr = homeComposite.attributes().stream()
+            .filter(a -> a.name().equals("zip"))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(zipAttr).isInstanceOf(BasicAttribute.class);
+        assertThat(((BasicAttribute) zipAttr).dataType()).isInstanceOf(com.rorm.metamodel.DataType.StringType.class);
+
+        dataSource.close();
+    }
+
+    @Test
     @DisplayName("detects composite attributes from prefixed columns")
     void detectCompositeAttributes() throws Exception {
         var csvFile = tempDir.resolve("customers.csv");
@@ -43,7 +106,7 @@ class ModelSpaceDetectorComplexTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -75,7 +138,7 @@ class ModelSpaceDetectorComplexTest {
 
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(userSource, orderSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -114,7 +177,7 @@ class ModelSpaceDetectorComplexTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            overrides,
+            Map.of("customers", overrides),
             ";"
         );
 
@@ -149,7 +212,7 @@ class ModelSpaceDetectorComplexTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            overrides,
+            Map.of("customers", overrides),
             ";"
         );
 
@@ -182,7 +245,7 @@ class ModelSpaceDetectorComplexTest {
         var userSource = new CsvDataSource(usersFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(orderSource, userSource),
-            overrides,
+            Map.of("orders", overrides),
             ";"
         );
 
@@ -209,7 +272,7 @@ class ModelSpaceDetectorComplexTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            overrides,
+            Map.of("products", overrides),
             ";"
         );
 
@@ -231,7 +294,7 @@ class ModelSpaceDetectorComplexTest {
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            List.of(),
+            Map.of(),
             ";"
         );
 
@@ -260,14 +323,15 @@ class ModelSpaceDetectorComplexTest {
                 "profile",
                 "user_profiles",
                 List.of("profile_id", "profile_bio", "profile_avatar"),
-                nestedOverrides
+                nestedOverrides,
+                "profile_id"  // Explicit ID column for OneToOneRoot
             )
         );
 
         var dataSource = new CsvDataSource(csvFile);
         var modelSpace = modelSpaceDetector.detectModelSpace(
             List.of(dataSource),
-            overrides,
+            Map.of("users", overrides),
             ";"
         );
 

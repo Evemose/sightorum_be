@@ -52,41 +52,41 @@ class JoinCollectorTest {
     @BeforeAll
     static void setupMetamodel() {
         // Address root
-        addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"));
-        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"));
-        addressRoot = new Root("addresses", List.of(addressId, addressCity));
+        addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"), new DataType.NumericType(19, 0));
+        addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"), new DataType.StringType());
+        addressRoot = new Root("addresses", List.of(addressId, addressCity), IdDescriptor.longId("addresses"));
 
         // Customer root
-        customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"));
-        customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"));
+        customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"), new DataType.NumericType(19, 0));
+        customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"), new DataType.StringType());
         customerAddress = new SingularReferenceAttribute("address", addressRoot,
             new JoinTableMapping(new AttributeLocation("customers", "address_id"), "id"));
 
         // Order root
-        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
-        orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"));
-        orderCustomerId = new BasicAttribute("customer_id", new AttributeLocation("orders", "customer_id"));
+        orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
+        orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"), new DataType.NumericType(10, 2));
+        orderCustomerId = new BasicAttribute("customer_id", new AttributeLocation("orders", "customer_id"), new DataType.NumericType(19, 0));
 
         // Temporarily create orderRoot without customer reference
-        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId), IdDescriptor.longId("orders"));
 
         // Order item root
-        itemId = new BasicAttribute("id", new AttributeLocation("order_items", "id"));
-        itemPrice = new BasicAttribute("price", new AttributeLocation("order_items", "price"));
-        itemOrderId = new BasicAttribute("order_id", new AttributeLocation("order_items", "order_id"));
+        itemId = new BasicAttribute("id", new AttributeLocation("order_items", "id"), new DataType.NumericType(19, 0));
+        itemPrice = new BasicAttribute("price", new AttributeLocation("order_items", "price"), new DataType.NumericType(10, 2));
+        itemOrderId = new BasicAttribute("order_id", new AttributeLocation("order_items", "order_id"), new DataType.NumericType(19, 0));
         itemOrder = new SingularReferenceAttribute("order", orderRoot,
             new JoinTableMapping(new AttributeLocation("order_items", "order_id"), "id"));
-        orderItemRoot = new Root("order_items", List.of(itemId, itemPrice, itemOrderId, itemOrder));
+        orderItemRoot = new Root("order_items", List.of(itemId, itemPrice, itemOrderId, itemOrder), IdDescriptor.longId("order_items"));
 
         // Customer with orders reference
         customerOrders = new PluralReferenceAttribute("orders", orderRoot,
             new InverseRootTableColumn("customer_id"));
-        customerRoot = new Root("customers", List.of(customerId, customerName, customerAddress, customerOrders));
+        customerRoot = new Root("customers", List.of(customerId, customerName, customerAddress, customerOrders), IdDescriptor.longId("customers"));
 
         // Update orderCustomer and orderRoot
         orderCustomer = new SingularReferenceAttribute("customer", customerRoot,
             new JoinTableMapping(new AttributeLocation("orders", "customer_id"), "id"));
-        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId, orderCustomer));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId, orderCustomer), IdDescriptor.longId("orders"));
     }
 
     private Set<QueryContext.JoinInfo> collectJoins(Query query) {

@@ -11,7 +11,8 @@ public sealed interface SchemaOverride permits
     SchemaOverride.SingularReferenceOverride,
     SchemaOverride.PluralReferenceOverride,
     SchemaOverride.CollectionAttributeOverride,
-    SchemaOverride.OneToOneRootOverride {
+    SchemaOverride.OneToOneRootOverride,
+    SchemaOverride.IdAttributeOverride {
 
     String attributeName();
 
@@ -51,7 +52,15 @@ public sealed interface SchemaOverride permits
         String attributeName,
         String targetRootName,
         List<String> subAttributeColumns,
-        List<SchemaOverride> nestedOverrides
+        List<SchemaOverride> nestedOverrides,
+        @Nullable String idColumn
+    ) implements SchemaOverride {
+    }
+
+    record IdAttributeOverride(
+        String attributeName,
+        String columnName,
+        @Nullable DataType dataType
     ) implements SchemaOverride {
     }
 }

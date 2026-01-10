@@ -36,19 +36,19 @@ class SchemaGenerator {
         var qualifiedTableName = "%s.%s".formatted(schemaName, root.primaryTableName());
         var columnDefinitions = new ArrayList<String>();
 
-        // Check if any attribute already defines an "id" column
-        var hasIdColumn = root.attributes().stream()
-            .anyMatch(attr -> attr instanceof BasicAttribute basic &&
-                              basic.location().column().equalsIgnoreCase("id"));
+        var idDescriptor = root.idDescriptor();
+        columnDefinitions.add("%s %s PRIMARY KEY".formatted(
+            idDescriptor.columnName(),
+            mapIdTypeToSql(idDescriptor.dataType())
+        ));
 
-        // Add id column as primary key only if not already defined
-        if (!hasIdColumn) {
-            columnDefinitions.add("id BIGINT PRIMARY KEY");
-        }
-
-        // Add columns for each attribute
         for (var attribute : root.attributes()) {
-            columnDefinitions.addAll(generateColumnDefinitions(attribute, hasIdColumn));
+            // Skip ID attribute if it matches the IdDescriptor column to avoid duplicate column definition
+            if (attribute instanceof BasicAttribute basic &&
+                basic.location().column().equals(idDescriptor.columnName())) {
+                continue;
+            }
+            columnDefinitions.addAll(generateColumnDefinitions(attribute));
         }
 
         return "CREATE TABLE %s (%s)".formatted(
@@ -57,19 +57,11 @@ class SchemaGenerator {
         );
     }
 
-    private List<String> generateColumnDefinitions(Attribute attribute, boolean hasExplicitIdColumn) {
+    private List<String> generateColumnDefinitions(Attribute attribute) {
         return switch (attribute) {
-            case BasicAttribute basic -> {
-                var columnDef = "%s %s".formatted(
-                    basic.location().column(),
-                    mapDataTypeToSql(basic.dataType())
-                );
-                // If this is an id column and we have an explicit id, add PRIMARY KEY constraint
-                if (hasExplicitIdColumn && basic.location().column().equalsIgnoreCase("id")) {
-                    columnDef += " PRIMARY KEY";
-                }
-                yield List.of(columnDef);
-            }
+            case BasicAttribute basic -> List.of(
+                "%s %s".formatted(basic.location().column(), mapDataTypeToSql(basic.dataType()))
+            );
             case CollectionAttribute collection -> switch (collection.elementType()) {
                 case CollectionAttribute.BasicElement basicElement -> List.of(
                     "%s %s".formatted(
@@ -77,34 +69,46 @@ class SchemaGenerator {
                         mapDataTypeToSql(basicElement.dataType())
                     )
                 );
-                case CollectionAttribute.CompositeElement _ ->
-                    // Composite elements in collections don't create simple columns
-                    List.of();
+                case CollectionAttribute.CompositeElement _ -> List.of();
             };
             case CompositeAttribute composite -> {
                 var columns = new ArrayList<String>();
                 for (var subAttribute : composite.attributes()) {
-                    columns.addAll(generateColumnDefinitions(subAttribute, hasExplicitIdColumn));
+                    columns.addAll(generateColumnDefinitions(subAttribute));
                 }
                 yield columns;
             }
             case SingularReferenceAttribute ref -> switch (ref.mappingStrategy()) {
                 case ReferenceAttribute.InverseRootTableColumn(var columnName) -> List.of(
-                    "%s BIGINT".formatted(columnName)
+                    "%s %s".formatted(columnName, mapIdTypeToSql(ref.targetRoot().idDescriptor().dataType()))
                 );
-                case ReferenceAttribute.JoinTableMapping _ ->
-                    // Join tables are separate, not columns
-                    List.of();
+                case ReferenceAttribute.JoinTableMapping _ -> List.of();
             };
-            case PluralReferenceAttribute _ ->
-                // Plural references don't create columns in this table
-                List.of();
+            case PluralReferenceAttribute _ -> List.of();
         };
     }
 
-    /**
-     * Maps DataType to SQL type.
-     */
+    private String generateJoinTableDdl(
+        String schemaName,
+        Root ownerRoot,
+        Root targetRoot,
+        ReferenceAttribute.JoinTableMapping mapping
+    ) {
+        var joinTableName = "%s.%s".formatted(schemaName, mapping.joinColumnLocation().table());
+        var ownerColumnName = mapping.joinColumnLocation().column();
+        var targetColumnName = mapping.inverseJoinColumnName();
+        var ownerIdType = mapIdTypeToSql(ownerRoot.idDescriptor().dataType());
+        var targetIdType = mapIdTypeToSql(targetRoot.idDescriptor().dataType());
+
+        return "CREATE TABLE %s (%s %s, %s %s, PRIMARY KEY (%s, %s))".formatted(
+            joinTableName,
+            ownerColumnName, ownerIdType,
+            targetColumnName, targetIdType,
+            ownerColumnName,
+            targetColumnName
+        );
+    }
+
     private String mapDataTypeToSql(DataType dataType) {
         return switch (dataType) {
             case DataType.NumericType numeric -> {
@@ -168,22 +172,19 @@ class SchemaGenerator {
         }
     }
 
-    private String generateJoinTableDdl(
-        String schemaName,
-        Root ownerRoot,
-        Root targetRoot,
-        ReferenceAttribute.JoinTableMapping mapping
-    ) {
-        var joinTableName = "%s.%s".formatted(schemaName, mapping.joinColumnLocation().table());
-        var ownerColumnName = mapping.joinColumnLocation().column();
-        var targetColumnName = mapping.inverseJoinColumnName();
-
-        return "CREATE TABLE %s (%s BIGINT, %s BIGINT, PRIMARY KEY (%s, %s))".formatted(
-            joinTableName,
-            ownerColumnName,
-            targetColumnName,
-            ownerColumnName,
-            targetColumnName
-        );
+    private String mapIdTypeToSql(DataType dataType) {
+        return switch (dataType) {
+            case DataType.NumericType numeric -> {
+                if (numeric.precision() <= 4) {
+                    yield "SMALLINT";
+                } else if (numeric.precision() <= 9) {
+                    yield "INTEGER";
+                } else {
+                    yield "BIGINT";
+                }
+            }
+            case DataType.StringType _ -> "VARCHAR(255)";
+            default -> throw new IllegalArgumentException("Unsupported ID type: " + dataType);
+        };
     }
 }

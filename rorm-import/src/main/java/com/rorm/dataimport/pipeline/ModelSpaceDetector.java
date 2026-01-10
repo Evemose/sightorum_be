@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Orchestrates schema detection and metamodel conversion.
@@ -20,10 +21,10 @@ public class ModelSpaceDetector {
 
     public ModelSpace detectModelSpace(
         List<ImportDataSource> dataSources,
-        List<SchemaOverride> overrides,
+        Map<String, List<SchemaOverride>> overridesByRoot,
         String defaultListSeparator
     ) {
-        var detectedSchema = schemaDetector.detectSchema(dataSources, overrides, defaultListSeparator);
+        var detectedSchema = schemaDetector.detectSchema(dataSources, overridesByRoot, defaultListSeparator);
         return metamodelConverter.convertToModelSpace(detectedSchema);
     }
 }

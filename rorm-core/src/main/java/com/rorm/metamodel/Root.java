@@ -5,7 +5,8 @@ import java.util.Objects;
 
 public record Root(
     String primaryTableName,
-    List<Attribute> attributes
+    List<Attribute> attributes,
+    IdDescriptor idDescriptor
 ) {
 
     @Override

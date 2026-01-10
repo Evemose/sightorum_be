@@ -1,8 +1,7 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.source.ImportDataSource;
-import com.rorm.metamodel.BasicAttribute;
-import com.rorm.metamodel.DataType;
+import com.rorm.metamodel.Root;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.StepExecution;
@@ -14,8 +13,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,8 +32,7 @@ public class DataImportPipeline {
 
         var totalRows = 0L;
         for (var dataSource : request.dataSources()) {
-            var columnNames = dataSource.getColumnNames();
-            var rowCount = executeImportJob(request, dataSource, columnNames);
+            var rowCount = executeImportJob(request, dataSource);
             totalRows += rowCount;
         }
 
@@ -54,19 +50,14 @@ public class DataImportPipeline {
         }
     }
 
-    private long executeImportJob(
-        ImportRequest request,
-        ImportDataSource dataSource,
-        List<String> columnNames
-    ) throws Exception {
+    private long executeImportJob(ImportRequest request, ImportDataSource dataSource) throws Exception {
         var reader = new DataSourceItemReader(dataSource);
-        var columnTypes = extractColumnTypes(request.modelSpace(), dataSource.getRootName(), columnNames);
+        var root = findRoot(request.modelSpace(), dataSource.getRootName());
         var writer = new DatabaseItemWriter(
             jdbcTemplate,
             request.targetSchema(),
-            dataSource.getRootName(),
-            columnNames,
-            columnTypes
+            root,
+            root.idDescriptor()
         );
 
         var step = new StepBuilder("import-" + dataSource.getRootName(), jobRepository)
@@ -81,30 +72,30 @@ public class DataImportPipeline {
             .build();
 
         var execution = jobLauncher.run(job, new JobParameters());
+
+        // Check if the job failed and propagate any exceptions
+        if (execution.getStatus().isUnsuccessful()) {
+            var failureExceptions = execution.getAllFailureExceptions();
+            if (!failureExceptions.isEmpty()) {
+                var rootCause = failureExceptions.getFirst();
+                if (rootCause instanceof RuntimeException re) {
+                    throw re;
+                }
+                throw new RuntimeException("Import job failed", rootCause);
+            }
+            throw new RuntimeException("Import job failed with status: " + execution.getStatus());
+        }
+
         return execution.getStepExecutions().stream()
             .mapToLong(StepExecution::getWriteCount)
             .sum();
     }
 
-    private Map<String, DataType> extractColumnTypes(
-        com.rorm.metamodel.ModelSpace modelSpace,
-        String rootName,
-        List<String> columnNames
-    ) {
-        var root = modelSpace.roots().stream()
+    private Root findRoot(com.rorm.metamodel.ModelSpace modelSpace, String rootName) {
+        return modelSpace.roots().stream()
             .filter(r -> r.primaryTableName().equals(rootName))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Root not found: " + rootName));
-
-        var columnTypes = new HashMap<String, DataType>();
-        for (var attribute : root.attributes()) {
-            if (attribute instanceof BasicAttribute basic) {
-                var columnName = basic.location().column();
-                if (columnNames.contains(columnName)) {
-                    columnTypes.put(columnName, basic.dataType());
-                }
-            }
-        }
-        return columnTypes;
     }
+
 }

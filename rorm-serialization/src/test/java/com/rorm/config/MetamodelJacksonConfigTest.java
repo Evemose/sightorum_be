@@ -33,7 +33,7 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("BasicAttribute includes @type")
         void basicAttributeIncludesType() throws Exception {
-            var attr = new BasicAttribute("id", new AttributeLocation("users", "id"));
+            var attr = new BasicAttribute("id", new AttributeLocation("users", "id"), new DataType.NumericType(19, 0));
 
             var json = objectMapper.writeValueAsString(attr);
 
@@ -43,7 +43,7 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("SingularReferenceAttribute includes @type")
         void singularReferenceAttributeIncludesType() throws Exception {
-            var targetRoot = new Root("addresses", List.of());
+            var targetRoot = new Root("addresses", List.of(), IdDescriptor.longId("addresses"));
             var attr = new SingularReferenceAttribute("address", targetRoot,
                 new JoinTableMapping(new AttributeLocation("users", "address_id"), "id"));
 
@@ -57,7 +57,7 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("PluralReferenceAttribute includes @type")
         void pluralReferenceAttributeIncludesType() throws Exception {
-            var targetRoot = new Root("orders", List.of());
+            var targetRoot = new Root("orders", List.of(), IdDescriptor.longId("orders"));
             var attr = new PluralReferenceAttribute("orders", targetRoot,
                 new InverseRootTableColumn("customer_id"));
 
@@ -72,7 +72,7 @@ class MetamodelJacksonConfigTest {
         @DisplayName("CollectionAttribute with BasicElement includes @type")
         void collectionAttributeWithBasicElementIncludesType() throws Exception {
             var attr = new CollectionAttribute("tags", "user_tags",
-                new BasicElement(new AttributeLocation("user_tags", "tag")));
+                new BasicElement(new AttributeLocation("user_tags", "tag"), new DataType.StringType()));
 
             var json = objectMapper.writeValueAsString(attr);
 
@@ -84,8 +84,8 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("CompositeAttribute includes @type")
         void compositeAttributeIncludesType() throws Exception {
-            var street = new BasicAttribute("street", new AttributeLocation("users", "street"));
-            var city = new BasicAttribute("city", new AttributeLocation("users", "city"));
+            var street = new BasicAttribute("street", new AttributeLocation("users", "street"), new DataType.StringType());
+            var city = new BasicAttribute("city", new AttributeLocation("users", "city"), new DataType.StringType());
             var attr = new CompositeAttribute("address", Set.of(street, city));
 
             var json = objectMapper.writeValueAsString(attr);
@@ -101,7 +101,7 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("BasicAttribute round-trips correctly")
         void basicAttributeRoundTrips() throws Exception {
-            var original = new BasicAttribute("id", new AttributeLocation("users", "id"));
+            var original = new BasicAttribute("id", new AttributeLocation("users", "id"), new DataType.NumericType(19, 0));
 
             var json = objectMapper.writeValueAsString(original);
             var deserialized = objectMapper.readValue(json, BasicAttribute.class);
@@ -112,9 +112,9 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("Root with basic attributes round-trips correctly")
         void rootWithBasicAttributesRoundTrips() throws Exception {
-            var id = new BasicAttribute("id", new AttributeLocation("users", "id"));
-            var name = new BasicAttribute("name", new AttributeLocation("users", "name"));
-            var original = new Root("users", List.of(id, name));
+            var id = new BasicAttribute("id", new AttributeLocation("users", "id"), new DataType.NumericType(19, 0));
+            var name = new BasicAttribute("name", new AttributeLocation("users", "name"), new DataType.StringType());
+            var original = new Root("users", List.of(id, name), IdDescriptor.longId("users"));
 
             var json = objectMapper.writeValueAsString(original);
             var deserialized = objectMapper.readValue(json, Root.class);
@@ -129,13 +129,13 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("Root with singular reference round-trips correctly")
         void rootWithSingularReferenceRoundTrips() throws Exception {
-            var addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"));
-            var addressRoot = new Root("addresses", List.of(addressId));
+            var addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"), new DataType.NumericType(19, 0));
+            var addressRoot = new Root("addresses", List.of(addressId), IdDescriptor.longId("addresses"));
 
-            var userId = new BasicAttribute("id", new AttributeLocation("users", "id"));
+            var userId = new BasicAttribute("id", new AttributeLocation("users", "id"), new DataType.NumericType(19, 0));
             var address = new SingularReferenceAttribute("address", addressRoot,
                 new JoinTableMapping(new AttributeLocation("users", "address_id"), "id"));
-            var original = new Root("users", List.of(userId, address));
+            var original = new Root("users", List.of(userId, address), IdDescriptor.longId("users"));
 
             var json = objectMapper.writeValueAsString(original);
             var deserialized = objectMapper.readValue(json, Root.class);
@@ -157,13 +157,13 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("Root with plural reference round-trips correctly")
         void rootWithPluralReferenceRoundTrips() throws Exception {
-            var orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
-            var orderRoot = new Root("orders", List.of(orderId));
+            var orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
+            var orderRoot = new Root("orders", List.of(orderId), IdDescriptor.longId("orders"));
 
-            var customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"));
+            var customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"), new DataType.NumericType(19, 0));
             var orders = new PluralReferenceAttribute("orders", orderRoot,
                 new InverseRootTableColumn("customer_id"));
-            var original = new Root("customers", List.of(customerId, orders));
+            var original = new Root("customers", List.of(customerId, orders), IdDescriptor.longId("customers"));
 
             var json = objectMapper.writeValueAsString(original);
             var deserialized = objectMapper.readValue(json, Root.class);
@@ -184,8 +184,8 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("CollectionAttribute with CompositeElement round-trips correctly")
         void collectionAttributeWithCompositeElementRoundTrips() throws Exception {
-            var product = new BasicAttribute("product", new AttributeLocation("order_items", "product"));
-            var quantity = new BasicAttribute("quantity", new AttributeLocation("order_items", "quantity"));
+            var product = new BasicAttribute("product", new AttributeLocation("order_items", "product"), new DataType.StringType());
+            var quantity = new BasicAttribute("quantity", new AttributeLocation("order_items", "quantity"), new DataType.NumericType(10, 2));
             var original = new CollectionAttribute("items", "order_items",
                 new CompositeElement(Set.of(product, quantity)));
 
@@ -205,11 +205,11 @@ class MetamodelJacksonConfigTest {
         @Test
         @DisplayName("ModelSpace round-trips correctly")
         void modelSpaceRoundTrips() throws Exception {
-            var userId = new BasicAttribute("id", new AttributeLocation("users", "id"));
-            var userRoot = new Root("users", List.of(userId));
+            var userId = new BasicAttribute("id", new AttributeLocation("users", "id"), new DataType.NumericType(19, 0));
+            var userRoot = new Root("users", List.of(userId), IdDescriptor.longId("users"));
 
-            var orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
-            var orderRoot = new Root("orders", List.of(orderId));
+            var orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
+            var orderRoot = new Root("orders", List.of(orderId), IdDescriptor.longId("orders"));
 
             var original = new ModelSpace(Set.of(userRoot, orderRoot));
 
@@ -230,21 +230,21 @@ class MetamodelJacksonConfigTest {
         @DisplayName("Bidirectional reference uses identity for second occurrence")
         void bidirectionalReferenceUsesIdentity() throws Exception {
             // Customer -> Orders -> Customer (circular)
-            var customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"));
-            var orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"));
+            var customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"), new DataType.NumericType(19, 0));
+            var orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
 
             // Create customer root first (will add orders later)
-            var customerRoot = new Root("customers", List.of(customerId));
+            var customerRoot = new Root("customers", List.of(customerId), IdDescriptor.longId("customers"));
 
             // Order references customer
             var orderCustomer = new SingularReferenceAttribute("customer", customerRoot,
                 new JoinTableMapping(new AttributeLocation("orders", "customer_id"), "id"));
-            var orderRoot = new Root("orders", List.of(orderId, orderCustomer));
+            var orderRoot = new Root("orders", List.of(orderId, orderCustomer), IdDescriptor.longId("orders"));
 
             // Customer references orders (circular back)
             var customerOrders = new PluralReferenceAttribute("orders", orderRoot,
                 new InverseRootTableColumn("customer_id"));
-            var fullCustomerRoot = new Root("customers", List.of(customerId, customerOrders));
+            var fullCustomerRoot = new Root("customers", List.of(customerId, customerOrders), IdDescriptor.longId("customers"));
 
             var json = objectMapper.writeValueAsString(fullCustomerRoot);
 

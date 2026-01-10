@@ -50,6 +50,7 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
             case SchemaOverride.CollectionAttributeOverride coll ->
                 processCollectionOverride(coll, columnNames, claimedColumns);
             case SchemaOverride.OneToOneRootOverride oneToOne -> processOneToOneRootOverride(oneToOne, claimedColumns);
+            case SchemaOverride.IdAttributeOverride _ -> Optional.empty();
         };
     }
 
@@ -61,7 +62,7 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
         return findColumnForAttribute(basic.attributeName(), columnNames)
             .map(column -> {
                 claimedColumns.add(column);
-                return new DetectedAttribute.Basic(basic.attributeName(), column);
+                return new DetectedAttribute.Basic(basic.attributeName(), column, null);
             });
     }
 
@@ -112,7 +113,8 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
                 return new DetectedAttribute.Collection(
                     coll.attributeName(),
                     column,
-                    Objects.requireNonNullElse(coll.separator(), defaultListSeparator)
+                    Objects.requireNonNullElse(coll.separator(), defaultListSeparator),
+                    null
                 );
             });
     }

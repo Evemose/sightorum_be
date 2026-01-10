@@ -1,5 +1,8 @@
 package com.rorm.dataimport.attribute;
 
+import com.rorm.metamodel.DataType;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 
 public sealed interface DetectedAttribute permits
@@ -14,7 +17,8 @@ public sealed interface DetectedAttribute permits
 
     record Basic(
         String name,
-        String columnName
+        String columnName,
+        @Nullable DataType dataType
     ) implements DetectedAttribute {
     }
 
@@ -41,7 +45,8 @@ public sealed interface DetectedAttribute permits
     record Collection(
         String name,
         String columnName,
-        String separator
+        String separator,
+        @Nullable DataType elementType
     ) implements DetectedAttribute {
     }
 

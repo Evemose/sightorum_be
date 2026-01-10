@@ -21,7 +21,7 @@ class SchemaGeneratorTest {
         var root = new Root("users", List.of(
             new BasicAttribute("name", new AttributeLocation("users", "name"), new DataType.StringType()),
             new BasicAttribute("age", new AttributeLocation("users", "age"), new DataType.NumericType(3, 0))
-        ));
+        ), IdDescriptor.longId("users"));
 
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
@@ -40,7 +40,7 @@ class SchemaGeneratorTest {
             new BasicAttribute("medium", new AttributeLocation("numbers", "medium"), new DataType.NumericType(8, 0)),
             new BasicAttribute("large", new AttributeLocation("numbers", "large"), new DataType.NumericType(15, 0)),
             new BasicAttribute("decimal", new AttributeLocation("numbers", "decimal"), new DataType.NumericType(10, 2))
-        ));
+        ), IdDescriptor.longId("numbers"));
 
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
@@ -59,7 +59,7 @@ class SchemaGeneratorTest {
                 new BasicAttribute("street", new AttributeLocation("users", "address_street"), new DataType.StringType()),
                 new BasicAttribute("city", new AttributeLocation("users", "address_city"), new DataType.StringType())
             ))
-        ));
+        ), IdDescriptor.longId("users"));
 
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
@@ -71,14 +71,14 @@ class SchemaGeneratorTest {
     @Test
     @DisplayName("generates foreign key column for singular reference with InverseRootTableColumn")
     void generateSingularReferenceColumn() {
-        var targetRoot = new Root("orders", List.of());
+        var targetRoot = new Root("orders", List.of(), IdDescriptor.longId("orders"));
         var root = new Root("users", List.of(
             new SingularReferenceAttribute(
                 "order",
                 targetRoot,
                 new ReferenceAttribute.InverseRootTableColumn("order_id")
             )
-        ));
+        ), IdDescriptor.longId("users"));
 
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root, targetRoot)));
 
@@ -91,7 +91,7 @@ class SchemaGeneratorTest {
     @Test
     @DisplayName("generates join table for reference with JoinTableMapping")
     void generateJoinTable() {
-        var targetRoot = new Root("roles", List.of());
+        var targetRoot = new Root("roles", List.of(), IdDescriptor.longId("roles"));
         var ownerRoot = new Root("users", List.of(
             new PluralReferenceAttribute(
                 "roles",
@@ -101,7 +101,7 @@ class SchemaGeneratorTest {
                     "role_id"
                 )
             )
-        ));
+        ), IdDescriptor.longId("users"));
 
         var modelSpace = new ModelSpace(Set.of(ownerRoot, targetRoot));
         var ddls = generator.generateAllTablesDdl("test_schema", modelSpace);
@@ -110,11 +110,13 @@ class SchemaGeneratorTest {
             .filter(ddl -> ddl.contains("user_roles"))
             .findFirst();
 
-        assertThat(joinTableDdl).isPresent();
-        assertThat(joinTableDdl.get()).contains("CREATE TABLE test_schema.user_roles");
-        assertThat(joinTableDdl.get()).contains("user_id BIGINT");
-        assertThat(joinTableDdl.get()).contains("role_id BIGINT");
-        assertThat(joinTableDdl.get()).contains("PRIMARY KEY (user_id, role_id)");
+        assertThat(joinTableDdl)
+            .isPresent()
+            .get(STRING)
+            .contains("CREATE TABLE test_schema.user_roles")
+            .contains("user_id BIGINT")
+            .contains("role_id BIGINT")
+            .contains("PRIMARY KEY (user_id, role_id)");
     }
 
     @Test
@@ -122,7 +124,7 @@ class SchemaGeneratorTest {
     void generateAllTables() {
         var roleRoot = new Root("roles", List.of(
             new BasicAttribute("name", new AttributeLocation("roles", "name"), new DataType.StringType())
-        ));
+        ), IdDescriptor.longId("roles"));
 
         var userRoot = new Root("users", List.of(
             new BasicAttribute("name", new AttributeLocation("users", "name"), new DataType.StringType()),
@@ -134,7 +136,7 @@ class SchemaGeneratorTest {
                     "role_id"
                 )
             )
-        ));
+        ), IdDescriptor.longId("users"));
 
         var modelSpace = new ModelSpace(Set.of(userRoot, roleRoot));
         var ddls = generator.generateAllTablesDdl("test_schema", modelSpace);
@@ -157,7 +159,7 @@ class SchemaGeneratorTest {
             new BasicAttribute("timezone_col", new AttributeLocation("types", "timezone_col"), new DataType.TimezoneType()),
             new BasicAttribute("day_col", new AttributeLocation("types", "day_col"), new DataType.DayOfWeekType()),
             new BasicAttribute("enum_col", new AttributeLocation("types", "enum_col"), new DataType.EnumType(new String[]{"A", "B"}))
-        ));
+        ), IdDescriptor.longId("types"));
 
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
@@ -170,5 +172,68 @@ class SchemaGeneratorTest {
             .contains("timezone_col TEXT")
             .contains("day_col TEXT")
             .contains("enum_col TEXT");
+    }
+
+    @Test
+    @DisplayName("generates VARCHAR primary key for string ID type")
+    void generateStringIdPrimaryKey() {
+        var root = new Root("products", List.of(
+            new BasicAttribute("name", new AttributeLocation("products", "name"), new DataType.StringType())
+        ), IdDescriptor.stringId("products"));
+
+        var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
+
+        assertThat(ddl).singleElement(STRING)
+            .contains("id VARCHAR(255) PRIMARY KEY");
+    }
+
+    @Test
+    @DisplayName("generates FK type matching target root ID type")
+    void generateForeignKeyMatchingTargetIdType() {
+        var targetRoot = new Root("categories", List.of(), IdDescriptor.stringId("categories"));
+        var ownerRoot = new Root("products", List.of(
+            new SingularReferenceAttribute(
+                "category",
+                targetRoot,
+                new ReferenceAttribute.InverseRootTableColumn("category_id")
+            )
+        ), IdDescriptor.longId("products"));
+
+        var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(ownerRoot, targetRoot)));
+
+        var productsDdl = ddl.stream()
+            .filter(d -> d.contains("test_schema.products"))
+            .findFirst();
+
+        assertThat(productsDdl).isPresent()
+            .get(STRING)
+            .contains("category_id VARCHAR(255)");
+    }
+
+    @Test
+    @DisplayName("generates join table with mixed ID types")
+    void generateJoinTableWithMixedIdTypes() {
+        var roleRoot = new Root("roles", List.of(), IdDescriptor.stringId("roles"));
+        var userRoot = new Root("users", List.of(
+            new PluralReferenceAttribute(
+                "roles",
+                roleRoot,
+                new ReferenceAttribute.JoinTableMapping(
+                    new AttributeLocation("user_roles", "user_id"),
+                    "role_id"
+                )
+            )
+        ), IdDescriptor.longId("users"));
+
+        var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(userRoot, roleRoot)));
+
+        var joinTableDdl = ddl.stream()
+            .filter(d -> d.contains("user_roles"))
+            .findFirst();
+
+        assertThat(joinTableDdl).isPresent()
+            .get(STRING)
+            .contains("user_id BIGINT")
+            .contains("role_id VARCHAR(255)");
     }
 }

@@ -25,8 +25,8 @@ class CompositeAttributeBuilder {
         var prefix = extractCommonPrefix(columns);
         var prefixPartCount = prefix.map(s -> namingStyle.split(s).length).orElse(0);
 
-        // Process nested overrides first
         if (nestedOverrides != null) {
+            validateNestedOverrides(nestedOverrides);
             nestedOverrides.stream()
                 .map(override -> processNestedOverride(override, columns, claimedColumns, prefix.orElse(null)))
                 .flatMap(Optional::stream)
@@ -39,7 +39,7 @@ class CompositeAttributeBuilder {
             .forEach(col -> {
                 claimedColumns.add(col);
                 var name = extractAttributeName(col, prefixPartCount);
-                subAttrs.putIfAbsent(name, new DetectedAttribute.Basic(name, col));
+                subAttrs.putIfAbsent(name, new DetectedAttribute.Basic(name, col, null));
             });
 
         return subAttrs;
@@ -80,6 +80,22 @@ class CompositeAttributeBuilder {
         return NamingStyle.toCamelCase(Arrays.copyOfRange(parts, prefixPartCount, parts.length));
     }
 
+    private void validateNestedOverrides(@Nullable List<SchemaOverride> nestedOverrides) {
+        if (nestedOverrides == null) {
+            return;
+        }
+
+        for (var override : nestedOverrides) {
+            if (override instanceof SchemaOverride.OneToOneRootOverride) {
+                throw new IllegalArgumentException(
+                    "OneToOneRootOverride cannot be nested within another composite structure. " +
+                    "OneToOneRoot creates a separate root entity and should be defined at the top level. " +
+                    "Found nested OneToOneRootOverride: " + override.attributeName()
+                );
+            }
+        }
+    }
+
     private Optional<DetectedAttribute> processNestedOverride(
         SchemaOverride override,
         List<String> columns,
@@ -89,7 +105,7 @@ class CompositeAttributeBuilder {
         return switch (override) {
             case SchemaOverride.BasicAttributeOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
-                    .map(col -> new DetectedAttribute.Basic(o.attributeName(), col));
+                    .map(col -> new DetectedAttribute.Basic(o.attributeName(), col, null));
             case SchemaOverride.SingularReferenceOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
                     .map(col -> new DetectedAttribute.SingularReference(o.attributeName(), col, o.targetRootName()));
@@ -99,14 +115,21 @@ class CompositeAttributeBuilder {
             case SchemaOverride.CollectionAttributeOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
                     .map(col -> new DetectedAttribute.Collection(
-                        o.attributeName(), col, Objects.requireNonNullElse(o.separator(), defaultListSeparator)));
-            case SchemaOverride.CompositeAttributeOverride o -> Optional.of(new DetectedAttribute.Composite(
-                o.attributeName(),
-                buildSubAttributes(o.subAttributeColumns(), o.nestedOverrides(), claimedColumns)));
-            case SchemaOverride.OneToOneRootOverride o -> Optional.of(new DetectedAttribute.OneToOneRoot(
-                o.attributeName(),
-                o.targetRootName(),
-                buildSubAttributes(o.subAttributeColumns(), o.nestedOverrides(), claimedColumns)));
+                        o.attributeName(), col, Objects.requireNonNullElse(o.separator(), defaultListSeparator), null));
+            case SchemaOverride.CompositeAttributeOverride o -> {
+                validateNestedOverrides(o.nestedOverrides());
+                yield Optional.of(new DetectedAttribute.Composite(
+                    o.attributeName(),
+                    buildSubAttributes(o.subAttributeColumns(), o.nestedOverrides(), claimedColumns)));
+            }
+            case SchemaOverride.OneToOneRootOverride o -> {
+                validateNestedOverrides(o.nestedOverrides());
+                yield Optional.of(new DetectedAttribute.OneToOneRoot(
+                    o.attributeName(),
+                    o.targetRootName(),
+                    buildSubAttributes(o.subAttributeColumns(), o.nestedOverrides(), claimedColumns)));
+            }
+            case SchemaOverride.IdAttributeOverride _ -> Optional.empty();
         };
     }
 
