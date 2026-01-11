@@ -10,6 +10,7 @@ import java.util.List;
 public sealed interface Expression permits
     Path,
     FunctionCall,
+    Aggregation,
     WindowFunction,
     Literal,
     BinaryExpression,
@@ -21,6 +22,13 @@ public sealed interface Expression permits
     record FunctionCall(
         String functionName,
         List<Expression> arguments
+    ) implements Expression {
+    }
+
+    record Aggregation(
+        String functionName,
+        List<Expression> arguments,
+        boolean distinct
     ) implements Expression {
     }
 

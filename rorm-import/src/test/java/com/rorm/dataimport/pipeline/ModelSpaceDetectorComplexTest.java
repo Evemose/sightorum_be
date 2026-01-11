@@ -4,8 +4,13 @@ import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
 import com.rorm.dataimport.type.DataTypeDetector;
+import com.rorm.metamodel.AttributeLocation;
 import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.CollectionAttribute;
+import com.rorm.metamodel.CollectionAttribute.BasicElement;
 import com.rorm.metamodel.CompositeAttribute;
+import com.rorm.metamodel.DataType.NumericType;
+import com.rorm.metamodel.DataType.StringType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -44,7 +49,7 @@ class ModelSpaceDetectorComplexTest {
 
         // Create nested overrides for home address zip (nested in home address composite)
         var homeAddressNestedOverrides = List.<SchemaOverride>of(
-            new SchemaOverride.BasicAttributeOverride("zip", new com.rorm.metamodel.DataType.StringType())
+            new SchemaOverride.BasicAttributeOverride("zip", new StringType())
         );
 
         var overrides = List.<SchemaOverride>of(
@@ -88,7 +93,7 @@ class ModelSpaceDetectorComplexTest {
             .orElseThrow();
 
         assertThat(zipAttr).isInstanceOf(BasicAttribute.class);
-        assertThat(((BasicAttribute) zipAttr).dataType()).isInstanceOf(com.rorm.metamodel.DataType.StringType.class);
+        assertThat(((BasicAttribute) zipAttr).dataType()).isInstanceOf(StringType.class);
 
         dataSource.close();
     }
@@ -197,7 +202,7 @@ class ModelSpaceDetectorComplexTest {
             """);
 
         var nestedOverrides = List.<SchemaOverride>of(
-            new SchemaOverride.BasicAttributeOverride("street", new com.rorm.metamodel.DataType.StringType()),
+            new SchemaOverride.BasicAttributeOverride("street", new StringType()),
             new SchemaOverride.BasicAttributeOverride("zipCode", new com.rorm.metamodel.DataType.NumericType(10, 0))
         );
 
@@ -261,7 +266,7 @@ class ModelSpaceDetectorComplexTest {
     void applyCollectionOverride() throws Exception {
         var csvFile = tempDir.resolve("products.csv");
         Files.writeString(csvFile, """
-            name,tags,categories
+            name,tags,category
             Laptop,electronics|computers|hardware,tech
             """);
 
@@ -277,7 +282,18 @@ class ModelSpaceDetectorComplexTest {
         );
 
         var root = modelSpace.roots().iterator().next();
-        assertThat(root.attributes()).hasSize(3);
+        assertThat(root.attributes())
+            .hasSize(4)
+            .containsExactlyInAnyOrder(
+                new BasicAttribute("id", new AttributeLocation("products", "id"), new NumericType(19, 0)),
+                new BasicAttribute("name", new AttributeLocation("products", "name"), new StringType()),
+                new BasicAttribute("category", new AttributeLocation("products", "category"), new StringType()),
+                new CollectionAttribute(
+                    "tags",
+                    "products",
+                    new BasicElement(new AttributeLocation("products", "tags"), new StringType())
+                )
+            );
 
         dataSource.close();
     }
@@ -315,7 +331,7 @@ class ModelSpaceDetectorComplexTest {
             """);
 
         var nestedOverrides = List.<SchemaOverride>of(
-            new SchemaOverride.BasicAttributeOverride("bio", new com.rorm.metamodel.DataType.StringType())
+            new SchemaOverride.BasicAttributeOverride("bio", new StringType())
         );
 
         var overrides = List.<SchemaOverride>of(

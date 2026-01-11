@@ -4,7 +4,7 @@ import com.rorm.dataimport.type.TypeParser;
 import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.IdDescriptor;
-import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
+import com.rorm.metamodel.ReferenceAttribute.SameTableColumn;
 import com.rorm.metamodel.SingularReferenceAttribute;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
@@ -45,9 +45,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
                 var colName = basic.location().column();
                 columns.add(colName);
                 types.put(colName, basic.dataType());
-            } else if (attr instanceof SingularReferenceAttribute(
-                _, var targetRoot, InverseRootTableColumn(var colName)
-            )) {
+            } else if (attr instanceof SingularReferenceAttribute(_, var targetRoot, SameTableColumn(var colName))) {
                 columns.add(colName);
                 types.put(colName, targetRoot.idDescriptor().dataType());
             }

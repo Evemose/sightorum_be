@@ -100,7 +100,7 @@ class MetamodelConverter {
                 yield new SingularReferenceAttribute(
                     ref.name(),
                     targetRoot,
-                    new ReferenceAttribute.InverseRootTableColumn(ref.columnName())
+                    new ReferenceAttribute.SameTableColumn(ref.columnName())
                 );
             }
             case DetectedAttribute.PluralReference ref -> {
@@ -111,7 +111,7 @@ class MetamodelConverter {
                 yield new PluralReferenceAttribute(
                     ref.name(),
                     targetRoot,
-                    new ReferenceAttribute.InverseRootTableColumn(ref.columnName())
+                    new ReferenceAttribute.SameTableColumn(ref.columnName())
                 );
             }
             case DetectedAttribute.Composite composite -> {

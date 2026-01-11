@@ -46,10 +46,12 @@ class ExpressionTransformer {
             case Path path -> resolvePath(path);
             case Literal(var value) -> inline(value);
             case FunctionCall(var name, var args) -> transformFunctionCall(name, args);
+            case Aggregation(var name, var args, var distinct) -> transformAggregation(name, args, distinct);
             case WindowFunction(var name, var args, var spec) -> transformWindowFunction(name, args, spec);
             case BinaryExpression(var left, var op, var right) -> transformBinary(left, op, right);
             case UnaryExpression(var op, var operand) -> transformUnary(op, operand);
-            case TernaryExpression(var first, var op, var second, var third) -> transformTernary(first, op, second, third);
+            case TernaryExpression(var first, var op, var second, var third) ->
+                transformTernary(first, op, second, third);
             case Subquery(var query) -> subqueryTransformer.transform(query);
             case OuterRef(var depth, var path) -> resolveOuterRef(depth, path);
         };
@@ -93,21 +95,48 @@ class ExpressionTransformer {
         return function(name, Object.class, argFields);
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Field<?> transformAggregation(String name, List<Expression> args, boolean distinct) {
+        return switch (name.toUpperCase()) {
+            case "COUNT" -> {
+                if (args.isEmpty() || (args.size() == 1 && args.getFirst() instanceof Literal(
+                    var val
+                ) && "*".equals(val))) {
+                    yield distinct ? countDistinct(asterisk()) : count(asterisk());
+                } else {
+                    var field = transform(args.getFirst());
+                    yield distinct ? countDistinct(field) : count(field);
+                }
+            }
+            case "SUM" -> {
+                var field = (Field) transform(args.getFirst());
+                yield distinct ? sumDistinct(field) : sum(field);
+            }
+            case "AVG" -> {
+                var field = (Field) transform(args.getFirst());
+                yield distinct ? avgDistinct(field) : avg(field);
+            }
+            case "MIN" -> {
+                var field = (Field) transform(args.getFirst());
+                yield distinct ? minDistinct(field) : min(field);
+            }
+            case "MAX" -> {
+                var field = (Field) transform(args.getFirst());
+                yield distinct ? maxDistinct(field) : max(field);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported aggregation function: " + name);
+        };
+    }
+
     @SuppressWarnings("unchecked")
     private Field<?> transformWindowFunction(String name, List<Expression> args, WindowSpec spec) {
         var argFields = args.stream().map(this::transform).toArray(Field[]::new);
-        var partitionFields = spec.partitionBy() != null && !spec.partitionBy().isEmpty()
-            ? spec.partitionBy().stream().map(this::transform).toArray(Field[]::new)
-            : null;
-        var orderFields = spec.orderBy() != null && !spec.orderBy().isEmpty()
-            ? spec.orderBy().stream().map(ob -> {
-                var f = transform(ob.expression());
-                return ob.ascending() ? f.asc() : f.desc();
-            }).toArray(SortField[]::new)
-            : null;
+        var partitionFields = transformPartitionFields(spec);
+        var orderFields = transformOrderFields(spec);
 
         return switch (name.toLowerCase()) {
-            case "count" -> applyWindowSpec(count(argFields.length > 0 ? argFields[0] : asterisk()), partitionFields, orderFields);
+            case "count" ->
+                applyWindowSpec(count(argFields.length > 0 ? argFields[0] : asterisk()), partitionFields, orderFields);
             case "sum" -> applyWindowSpec(sum(argFields[0]), partitionFields, orderFields);
             case "avg" -> applyWindowSpec(avg(argFields[0]), partitionFields, orderFields);
             case "min" -> applyWindowSpec(min(argFields[0]), partitionFields, orderFields);
@@ -115,8 +144,85 @@ class ExpressionTransformer {
             case "row_number" -> applyWindowSpec(rowNumber(), partitionFields, orderFields);
             case "rank" -> applyWindowSpec(rank(), partitionFields, orderFields);
             case "dense_rank" -> applyWindowSpec(denseRank(), partitionFields, orderFields);
+            case "lag" -> transformLagFunction(args, argFields, partitionFields, orderFields);
+            case "lead" -> transformLeadFunction(args, argFields, partitionFields, orderFields);
+            case "first_value" -> applyWindowSpec(firstValue(argFields[0]), partitionFields, orderFields);
+            case "last_value" -> applyWindowSpec(lastValue(argFields[0]), partitionFields, orderFields);
+            case "nth_value" -> {
+                if (argFields.length >= 2) {
+                    int n = extractIntValue(args.get(1));
+                    yield applyWindowSpec(nthValue(argFields[0], n), partitionFields, orderFields);
+                }
+                throw new IllegalArgumentException("NTH_VALUE requires 2 arguments");
+            }
+            case "ntile" -> {
+                if (argFields.length >= 1) {
+                    int buckets = extractIntValue(args.getFirst());
+                    yield applyWindowSpec(ntile(buckets), partitionFields, orderFields);
+                }
+                throw new IllegalArgumentException("NTILE requires 1 argument");
+            }
+            case "percent_rank" -> applyWindowSpec(percentRank(), partitionFields, orderFields);
+            case "cume_dist" -> applyWindowSpec(cumeDist(), partitionFields, orderFields);
             default -> throw new UnsupportedOperationException("Unsupported window function: " + name);
         };
+    }
+
+    private Field<?>[] transformPartitionFields(WindowSpec spec) {
+        return spec.partitionBy() != null && !spec.partitionBy().isEmpty()
+            ? spec.partitionBy().stream().map(this::transform).toArray(Field[]::new)
+            : null;
+    }
+
+    private SortField<?>[] transformOrderFields(WindowSpec spec) {
+        return spec.orderBy() != null && !spec.orderBy().isEmpty() ?
+            spec.orderBy().stream().map(ob -> {
+                var f = transform(ob.expression());
+                return ob.ascending() ? f.asc() : f.desc();
+            }).toArray(SortField[]::new)
+            : null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Field<?> transformLagFunction(List<Expression> args, Field<?>[] argFields, Field<?>[] partitionFields, SortField<?>[] orderFields) {
+        if (argFields.length == 1) {
+            return applyWindowSpec(lag(argFields[0]), partitionFields, orderFields);
+        } else if (argFields.length == 2) {
+            int offset = extractIntValue(args.get(1));
+            return applyWindowSpec(lag(argFields[0], offset), partitionFields, orderFields);
+        } else if (argFields.length == 3) {
+            int offset = extractIntValue(args.get(1));
+            var defaultValue = (Field<Void>) argFields[2];
+            return applyWindowSpec(
+                // this cast is needed to select the correct overload
+                lag((Field<Void>) argFields[0], inline(offset), defaultValue),
+                partitionFields,
+                orderFields
+            );
+        } else {
+            throw new IllegalArgumentException("LAG requires 1 - 3 arguments");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Field<?> transformLeadFunction(List<Expression> args, Field<?>[] argFields, Field<?>[] partitionFields, SortField<?>[] orderFields) {
+        if (argFields.length == 1) {
+            return applyWindowSpec(lead(argFields[0]), partitionFields, orderFields);
+        } else if (argFields.length == 2) {
+            int offset = extractIntValue(args.get(1));
+            return applyWindowSpec(lead(argFields[0], offset), partitionFields, orderFields);
+        } else if (argFields.length == 3) {
+            int offset = extractIntValue(args.get(1));
+            var defaultValue = (Field<Void>) argFields[2];
+            return applyWindowSpec(
+                // this cast is needed to select the correct overload
+                lead((Field<Void>) argFields[0], inline(offset), defaultValue),
+                partitionFields,
+                orderFields
+            );
+        } else {
+            throw new IllegalArgumentException("LEAD requires 1 - 3 arguments");
+        }
     }
 
     private <T> Field<?> applyWindowSpec(WindowOverStep<T> func, Field<?>[] partition, SortField<?>[] order) {
@@ -128,6 +234,13 @@ class ExpressionTransformer {
             return func.over().orderBy(order);
         }
         return func.over();
+    }
+
+    private int extractIntValue(Expression expr) {
+        if (expr instanceof Literal(Number value)) {
+            return value.intValue();
+        }
+        throw new IllegalArgumentException("Expected integer literal, got: " + expr);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

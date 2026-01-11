@@ -16,8 +16,10 @@ import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import org.jooq.DSLContext;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 
@@ -33,21 +35,29 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Test class for executing queries using QueryBuilder and derived metamodel
  * with comprehensive value verification.
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
     @Autowired
     private QueryTransformer queryTransformer;
-
     @Autowired
     private DSLContext dslContext;
+    private TestDataContext ctx;
 
-    // ==================== DATA SETUP HELPER METHODS ====================
+    CoursesDataIntegrationQueriesTest() {
+        super(true);
+    }
+
+    @BeforeAll
+    void setupData() throws Exception {
+        super.setupTestSchema();
+        ctx = setupTestData();
+    }
 
     @Test
     @DisplayName("Query 1: Select specific student by ID")
-    void testSelectStudentById() throws Exception {
-        var ctx = setupTestData();
+    void testSelectStudentById() {
 
         // The ID is now properly included in attributes, so we can find it normally
         var studentId = findAttribute(ctx.studentsRoot, "student_id");
@@ -100,8 +110,6 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
             dataSources, studentsRoot, coursesRoot, enrollmentsRoot, reviewsRoot
         );
     }
-
-    // ==================== SIMPLE QUERIES ====================
 
     private BasicAttribute findAttribute(Root root, String name) {
         return root.attributes().stream()
@@ -167,16 +175,14 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
             .orElseThrow(() -> new IllegalArgumentException("Root not found: " + name));
     }
 
-    // ==================== MEDIUM COMPLEXITY QUERIES (WITH JOINS) ====================
-
     private java.nio.file.Path loadResourceFile(String resourcePath) throws IOException {
         return new ClassPathResource(resourcePath).getFile().toPath();
     }
 
+    // TODO: joins
     @Test
     @DisplayName("Query 2: Count students with scholarship")
-    void testCountStudentsWithScholarship() throws Exception {
-        var ctx = setupTestData();
+    void testCountStudentsWithScholarship() {
 
         var studentScholarship = findAttribute(ctx.studentsRoot, "has_scholarship");
 
@@ -203,14 +209,12 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
     @Test
     @DisplayName("Query 3: Students from specific countries with ordering and limit")
-    void testStudentsFromSpecificCountries() throws Exception {
-        var ctx = setupTestData();
+    void testStudentsFromSpecificCountries() {
 
         var studentCountry = findAttribute(ctx.studentsRoot, "country");
         var studentName = findAttribute(ctx.studentsRoot, "name");
 
-        // Query for students from USA, Canada, UK
-        // Data analysis shows: only 2 students (David Hughes and Patrick Thornton, both from Canada)
+        // only 2 students (David Hughes and Patrick Thornton, both from Canada)
         var query = Query.builder()
             .from(ctx.studentsRoot)
             .selector(new RootSelector(ctx.studentsRoot, false))
@@ -223,30 +227,23 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
             .limit(5L)
             .build();
 
-        // Debug: Print the generated SQL
         var sql = queryTransformer.transform(query);
         System.out.println("Generated SQL for Query 3: " + sql.getSQL());
         var result = sql.fetch();
 
-        // Only 2 students from these countries in the test data
         assertThat(result).hasSize(2);
 
-        // Verify they are sorted alphabetically (David Hughes, Patrick Thornton)
         var names = result.stream().map(r -> (String) r.get("name")).toList();
         assertThat(names).containsExactly("David Hughes", "Patrick Thornton");
 
-        // Verify both are from Canada
         result.forEach(record -> assertThat(record.get("country")).isEqualTo("Canada"));
 
         ctx.cleanUp();
     }
 
-    // ==================== COMPLEX QUERIES ====================
-
     @Test
     @DisplayName("Query 4: High achieving students (GPA > 3.5) with custom selector")
-    void testHighAchievingStudents() throws Exception {
-        var ctx = setupTestData();
+    void testHighAchievingStudents() {
 
         var studentName = findAttribute(ctx.studentsRoot, "name");
         var studentEmail = findAttribute(ctx.studentsRoot, "email");
@@ -270,10 +267,8 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
         var result = queryTransformer.transform(query).fetch();
 
-        // Data analysis shows exactly 93 students with GPA > 3.5
         assertThat(result).hasSize(93);
 
-        // Verify all have GPA > 3.5 and are sorted descending
         Double previousGpa = null;
         for (var record : result) {
             var gpa = record.get("gpa", Double.class);
@@ -292,12 +287,10 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
     @Test
     @DisplayName("Query 5: Enrollments with high attendance rate")
-    void testEnrollmentsWithHighAttendance() throws Exception {
-        var ctx = setupTestData();
+    void testEnrollmentsWithHighAttendance() {
 
         var enrollmentAttendanceRate = findAttribute(ctx.enrollmentsRoot, "attendance_rate");
 
-        // No limit - verify all 1078 enrollments with attendance >= 95%
         var query = Query.builder()
             .from(ctx.enrollmentsRoot)
             .selector(new RootSelector(ctx.enrollmentsRoot, false))
@@ -310,10 +303,8 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
         var result = queryTransformer.transform(query).fetch();
 
-        // Data analysis shows exactly 1078 enrollments with attendance >= 95%
         assertThat(result).hasSize(1078);
 
-        // Verify all have attendance >= 95%
         for (var record : result) {
             var attendance = record.get("attendance_rate", Double.class);
             assertThat(attendance).isGreaterThanOrEqualTo(95.0);
@@ -324,8 +315,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
     @Test
     @DisplayName("Query 6: Courses by specific instructor")
-    void testCoursesByInstructor() throws Exception {
-        var ctx = setupTestData();
+    void testCoursesByInstructor() {
 
         var courseName = findAttribute(ctx.coursesRoot, "course_name");
         var courseSubject = findAttribute(ctx.coursesRoot, "subject");
@@ -357,8 +347,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
     @Test
     @DisplayName("Query 7: Completed enrollments with high grades (>= 90)")
-    void testCompletedEnrollmentsWithHighGrades() throws Exception {
-        var ctx = setupTestData();
+    void testCompletedEnrollmentsWithHighGrades() {
 
         var enrollmentGrade = findAttribute(ctx.enrollmentsRoot, "final_grade");
         var enrollmentCompleted = findAttribute(ctx.enrollmentsRoot, "completed");
@@ -382,17 +371,15 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
             .build();
 
         var result = queryTransformer.transform(query).fetch();
-        // Verify exact count of high achievers
         var highAchievers = result.size();
-        assertThat(highAchievers).isEqualTo(857); // All enrollments with grade >= 90 and completed=true
+        assertThat(highAchievers).isEqualTo(857);
 
         ctx.cleanUp();
     }
 
     @Test
     @DisplayName("Query 8: Reviews with rating between 4 and 5")
-    void testReviewsWithSpecificRatingRange() throws Exception {
-        var ctx = setupTestData();
+    void testReviewsWithSpecificRatingRange() {
 
         var reviewRating = findAttribute(ctx.reviewsRoot, "rating");
 
@@ -409,7 +396,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
         var result = queryTransformer.transform(query).fetch();
         // Verify exact count and rating range
-        assertThat(result.size()).isEqualTo(664); // Reviews with rating 4 or 5
+        assertThat(result.size()).isEqualTo(664);
         for (var record : result) {
             var rating = record.get("rating", Integer.class);
             assertThat(rating).isBetween(4, 5);
@@ -420,14 +407,12 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
     @Test
     @DisplayName("Query 9: Complex filter with age, GPA, and scholarship conditions")
-    void testComplexFilterWithMultipleConditions() throws Exception {
-        var ctx = setupTestData();
+    void testComplexFilterWithMultipleConditions() {
 
         var studentAge = findAttribute(ctx.studentsRoot, "age");
         var studentGpa = findAttribute(ctx.studentsRoot, "prior_gpa");
         var studentScholarship = findAttribute(ctx.studentsRoot, "has_scholarship");
 
-        // No limit - verify all 209 students matching complex filter
         var query = Query.builder()
             .from(ctx.studentsRoot)
             .selector(new RootSelector(ctx.studentsRoot, false))
@@ -457,22 +442,17 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
         var result = queryTransformer.transform(query).fetch();
 
-        // Data analysis shows exactly 209 students match: age >= 21 AND (GPA > 3.0 OR has_scholarship)
         assertThat(result).hasSize(209);
 
-        // Verify complex condition and ordering
         Integer previousAge = null;
         for (var record : result) {
             var age = record.get("age", Integer.class);
             var gpa = record.get("prior_gpa", Double.class);
             var scholarship = record.get("has_scholarship", Boolean.class);
 
-            // Verify age condition
             assertThat(age).isGreaterThanOrEqualTo(21);
-            // Verify GPA OR scholarship condition
             assertThat(gpa > 3.0 || Boolean.TRUE.equals(scholarship)).isTrue();
 
-            // Verify ordering (descending age)
             if (previousAge != null) {
                 assertThat(age).isLessThanOrEqualTo(previousAge);
             }
@@ -488,13 +468,11 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
     @Test
     @DisplayName("Query 10: Email pattern matching with LIKE operator")
-    void testEmailPatternMatching() throws Exception {
-        var ctx = setupTestData();
+    void testEmailPatternMatching() {
 
         var studentName = findAttribute(ctx.studentsRoot, "name");
         var studentEmail = findAttribute(ctx.studentsRoot, "email");
 
-        // No limit - verify all 146 students with @example.com email
         var query = Query.builder()
             .from(ctx.studentsRoot)
             .selector(new MultiExprSelector(Set.of(
@@ -510,10 +488,8 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
         var result = queryTransformer.transform(query).fetch();
 
-        // Data analysis shows exactly 146 students with @example.com email
         assertThat(result).hasSize(146);
 
-        // Verify all emails match pattern
         for (var record : result) {
             var email = record.get("email", String.class);
             assertThat(email).isNotNull().isNotEmpty();

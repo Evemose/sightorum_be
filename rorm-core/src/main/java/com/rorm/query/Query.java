@@ -4,7 +4,9 @@ import com.rorm.metamodel.Root;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.SequencedSet;
 
 @Builder
@@ -15,7 +17,7 @@ public record Query(
     @Nullable Expression where,
     @Nullable GroupBy groupBy,
     @Nullable Expression having,
-    @Nullable OrderBy orderBy,
+    @Nullable List<OrderBy> orderBy,
     @Nullable Long limit,
     @Nullable Long offset
 ) {
@@ -23,5 +25,30 @@ public record Query(
     public static class QueryBuilder {
         @SuppressWarnings("FieldMayBeFinal")
         private SequencedSet<Join> joins = new LinkedHashSet<>();
+        private final List<Expression> groupByExpressions = new ArrayList<>();
+        private final List<OrderBy> orderByList = new ArrayList<>();
+
+        public QueryBuilder groupBy(GroupBy groupBy) {
+            if (groupBy != null) {
+                this.groupByExpressions.addAll(groupBy.expressions());
+            }
+            return this;
+        }
+
+        public QueryBuilder orderBy(OrderBy orderBy) {
+            if (orderBy != null) {
+                this.orderByList.add(orderBy);
+            }
+            return this;
+        }
+
+        public Query build() {
+            GroupBy finalGroupBy = null;
+            if (!groupByExpressions.isEmpty()) {
+                finalGroupBy = new GroupBy(List.copyOf(groupByExpressions));
+            }
+            List<OrderBy> finalOrderBy = orderByList.isEmpty() ? null : List.copyOf(orderByList);
+            return new Query(from, selector, joins, where, finalGroupBy, having, finalOrderBy, limit, offset);
+        }
     }
 }

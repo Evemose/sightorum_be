@@ -28,13 +28,13 @@ class JoinCollector {
             collectFromExpression(query.where(), depth, joins);
         }
         if (query.groupBy() != null) {
-            collectFromExpression(query.groupBy().expression(), depth, joins);
+            query.groupBy().expressions().forEach(e -> collectFromExpression(e, depth, joins));
         }
         if (query.having() != null) {
             collectFromExpression(query.having(), depth, joins);
         }
         if (query.orderBy() != null) {
-            collectFromExpression(query.orderBy().expression(), depth, joins);
+            query.orderBy().forEach(ob -> collectFromExpression(ob.expression(), depth, joins));
         }
     }
 
@@ -73,6 +73,7 @@ class JoinCollector {
                 });
             }
             case FunctionCall(_, var args) -> args.forEach(arg -> collectFromExpression(arg, depth, joins));
+            case Aggregation(_, var args, _) -> args.forEach(arg -> collectFromExpression(arg, depth, joins));
             case WindowFunction(_, var args, var spec) -> {
                 args.forEach(arg -> collectFromExpression(arg, depth, joins));
                 if (spec.partitionBy() != null) {

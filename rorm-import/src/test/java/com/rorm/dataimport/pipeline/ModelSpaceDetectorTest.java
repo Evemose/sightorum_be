@@ -4,7 +4,11 @@ import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
 import com.rorm.dataimport.type.DataTypeDetector;
+import com.rorm.metamodel.Attribute;
+import com.rorm.metamodel.AttributeLocation;
 import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.DataType.NumericType;
+import com.rorm.metamodel.DataType.StringType;
 import com.rorm.metamodel.Root;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,7 +58,7 @@ class ModelSpaceDetectorTest {
 
         var root = modelSpace.roots().iterator().next();
         assertThat(root.primaryTableName()).isEqualTo("users");
-        assertThat(root.attributes()).hasSize(3);
+        assertThat(root.attributes()).hasSize(4);
 
         var attributes = root.attributes().stream()
             .map(BasicAttribute.class::cast)
@@ -62,11 +66,11 @@ class ModelSpaceDetectorTest {
 
         assertThat(attributes)
             .extracting(BasicAttribute::name)
-            .containsExactlyInAnyOrder("name", "email", "age");
+            .containsExactlyInAnyOrder("name", "email", "age", "id");
 
         assertThat(attributes)
             .extracting(attr -> attr.location().column())
-            .containsExactlyInAnyOrder("name", "email", "age");
+            .containsExactlyInAnyOrder("name", "email", "age", "id");
 
         dataSource.close();
     }
@@ -96,12 +100,12 @@ class ModelSpaceDetectorTest {
             .toList();
 
         assertThat(attributes)
-            .extracting(BasicAttribute::name)
-            .containsExactlyInAnyOrder("productName", "unitPrice", "stockQuantity");
+            .extracting(Attribute::name)
+            .containsExactlyInAnyOrder("id", "productName", "unitPrice", "stockQuantity");
 
         assertThat(attributes)
             .extracting(attr -> attr.location().column())
-            .containsExactlyInAnyOrder("product_name", "unit_price", "stock_quantity");
+            .containsExactlyInAnyOrder("id", "product_name", "unit_price", "stock_quantity");
 
         dataSource.close();
     }
@@ -152,8 +156,8 @@ class ModelSpaceDetectorTest {
             """);
 
         var overrides = List.<SchemaOverride>of(
-            new SchemaOverride.BasicAttributeOverride("price", new com.rorm.metamodel.DataType.NumericType(10, 2)),
-            new SchemaOverride.BasicAttributeOverride("quantity", new com.rorm.metamodel.DataType.NumericType(10, 0))
+            new SchemaOverride.BasicAttributeOverride("price", new NumericType(10, 2)),
+            new SchemaOverride.BasicAttributeOverride("quantity", new NumericType(10, 0))
         );
 
         var dataSource = new CsvDataSource(csvFile);
@@ -163,10 +167,33 @@ class ModelSpaceDetectorTest {
             ";"
         );
 
-        // Note: Currently BasicAttribute doesn't store type, only location
-        // This test verifies that overrides are processed without error
         var root = modelSpace.roots().iterator().next();
-        assertThat(root.attributes()).hasSize(3);
+        assertThat(root.attributes())
+            .hasSize(4)
+            .filteredOn(BasicAttribute.class::isInstance)
+            .map(BasicAttribute.class::cast)
+            .containsExactlyInAnyOrder(
+                new BasicAttribute(
+                    "name",
+                    new AttributeLocation("products", "name"),
+                    new StringType()
+                ),
+                new BasicAttribute(
+                    "price",
+                    new AttributeLocation("products", "price"),
+                    new NumericType(10, 2)
+                ),
+                new BasicAttribute(
+                    "quantity",
+                    new AttributeLocation("products", "quantity"),
+                    new NumericType(10, 0)
+                ),
+                new BasicAttribute(
+                    "id",
+                    new AttributeLocation("products", "id"),
+                    new NumericType(19, 0)
+                )
+            );
 
         dataSource.close();
     }
@@ -188,7 +215,10 @@ class ModelSpaceDetectorTest {
 
         var root = modelSpace.roots().iterator().next();
         assertThat(root.primaryTableName()).isEqualTo("empty");
-        assertThat(root.attributes()).hasSize(2);
+        assertThat(root.attributes())
+            .hasSize(3)
+            .extracting(Attribute::name)
+            .containsExactlyInAnyOrder("name", "email", "id");
 
         dataSource.close();
     }

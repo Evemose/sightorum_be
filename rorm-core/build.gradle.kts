@@ -14,10 +14,11 @@ dependencies {
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
 
-    testFixturesImplementation("org.jooq:jooq")
-    testFixturesImplementation("org.junit.jupiter:junit-jupiter")
-    testFixturesImplementation("org.testcontainers:junit-jupiter")
-    testFixturesImplementation("org.testcontainers:postgresql")
+    testFixturesApi("org.jooq:jooq")
+    testFixturesApi("org.junit.jupiter:junit-jupiter")
+    testFixturesApi("org.testcontainers:junit-jupiter")
+    testFixturesApi("org.testcontainers:postgresql")
+    testFixturesApi("org.springframework.boot:spring-boot-testcontainers")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core")

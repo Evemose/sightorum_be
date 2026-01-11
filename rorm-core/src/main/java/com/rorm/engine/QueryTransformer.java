@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.*;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Set;
 
 import static org.jooq.impl.DSL.noCondition;
@@ -93,7 +94,10 @@ public class QueryTransformer {
             result = ((SelectWhereStep<?>) result).where((Condition) expr.transform(where));
         }
         if (groupBy != null) {
-            result = ((SelectGroupByStep<?>) result).groupBy(expr.transform(groupBy.expression()));
+            var groupByFields = groupBy.expressions().stream()
+                .map(expr::transform)
+                .toArray(org.jooq.GroupField[]::new);
+            result = ((SelectGroupByStep<?>) result).groupBy(groupByFields);
         }
         if (having != null) {
             result = ((SelectHavingStep<?>) result).having((Condition) expr.transform(having));
@@ -101,12 +105,17 @@ public class QueryTransformer {
         return result;
     }
 
-    private Select<?> applyOrderBy(Select<?> query, OrderBy orderBy) {
-        if (orderBy == null) {
+    private Select<?> applyOrderBy(Select<?> query, List<OrderBy> orderByList) {
+        if (orderByList == null || orderByList.isEmpty()) {
             return query;
         }
-        var field = expr.transform(orderBy.expression());
-        return ((SelectOrderByStep<?>) query).orderBy(orderBy.ascending() ? field.asc() : field.desc());
+        var orderByFields = orderByList.stream()
+            .map(ob -> {
+                var field = expr.transform(ob.expression());
+                return ob.ascending() ? field.asc() : field.desc();
+            })
+            .toArray(org.jooq.SortField[]::new);
+        return ((SelectOrderByStep<?>) query).orderBy(orderByFields);
     }
 
     private Select<?> applyPagination(Select<?> query, Long limit, Long offset) {

@@ -1,6 +1,7 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.metamodel.*;
+import com.rorm.metamodel.ReferenceAttribute.SameTableColumn;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -79,10 +80,11 @@ class SchemaGenerator {
                 yield columns;
             }
             case SingularReferenceAttribute ref -> switch (ref.mappingStrategy()) {
-                case ReferenceAttribute.InverseRootTableColumn(var columnName) -> List.of(
+                case ReferenceAttribute.InverseRootTableColumn _, ReferenceAttribute.JoinTableMapping _ -> List.of();
+                // FIXME
+                case SameTableColumn(var columnName) -> List.of(
                     "%s %s".formatted(columnName, mapIdTypeToSql(ref.targetRoot().idDescriptor().dataType()))
                 );
-                case ReferenceAttribute.JoinTableMapping _ -> List.of();
             };
             case PluralReferenceAttribute _ -> List.of();
         };

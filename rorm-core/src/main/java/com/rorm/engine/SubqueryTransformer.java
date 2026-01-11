@@ -44,7 +44,10 @@ class SubqueryTransformer {
 
         Select<?> result = conditionStep;
         if (query.groupBy() != null) {
-            var groupStep = conditionStep.groupBy(expr.transform(query.groupBy().expression()));
+            var groupByFields = query.groupBy().expressions().stream()
+                .map(expr::transform)
+                .toArray(GroupField[]::new);
+            var groupStep = conditionStep.groupBy(groupByFields);
             result = groupStep;
             if (query.having() != null) {
                 result = groupStep.having((Condition) expr.transform(query.having()));

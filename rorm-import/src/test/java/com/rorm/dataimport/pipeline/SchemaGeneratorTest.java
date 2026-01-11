@@ -4,6 +4,7 @@ import com.rorm.metamodel.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -69,14 +70,14 @@ class SchemaGeneratorTest {
     }
 
     @Test
-    @DisplayName("generates foreign key column for singular reference with InverseRootTableColumn")
+    @DisplayName("generates foreign key column for singular reference with SameTableColumn")
     void generateSingularReferenceColumn() {
         var targetRoot = new Root("orders", List.of(), IdDescriptor.longId("orders"));
         var root = new Root("users", List.of(
             new SingularReferenceAttribute(
                 "order",
                 targetRoot,
-                new ReferenceAttribute.InverseRootTableColumn("order_id")
+                new ReferenceAttribute.SameTableColumn("order_id")
             )
         ), IdDescriptor.longId("users"));
 
@@ -86,6 +87,36 @@ class SchemaGeneratorTest {
             .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("create table test_schema.users"))
             .singleElement(STRING)
             .contains("order_id BIGINT");
+    }
+
+    @Test
+    @DisplayName("generates foreign key column for singular reference with SameTableColumn")
+    void generateSingularReferenceInverseColumn() {
+        var targetRoot = new Root("orders", new ArrayList<>(), IdDescriptor.longId("orders"));
+        var root = new Root("users", List.of(
+            new SingularReferenceAttribute(
+                "order",
+                targetRoot,
+                new ReferenceAttribute.InverseRootTableColumn("order_id")
+            )
+        ), IdDescriptor.longId("users"));
+        targetRoot.attributes().add(new SingularReferenceAttribute(
+            "user",
+            root,
+            new ReferenceAttribute.SameTableColumn("user_id")
+        ));
+
+        var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root, targetRoot)));
+
+        assertThat(ddl)
+            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("create table test_schema.orders"))
+            .singleElement(STRING)
+            .contains("user_id BIGINT");
+
+        assertThat(ddl)
+            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("create table test_schema.users"))
+            .singleElement(STRING)
+            .doesNotContain("order_id BIGINT");
     }
 
     @Test
@@ -195,7 +226,7 @@ class SchemaGeneratorTest {
             new SingularReferenceAttribute(
                 "category",
                 targetRoot,
-                new ReferenceAttribute.InverseRootTableColumn("category_id")
+                new ReferenceAttribute.SameTableColumn("category_id")
             )
         ), IdDescriptor.longId("products"));
 
