@@ -109,14 +109,6 @@ class ExpressionTransformer implements TransformContext {
         return handler.transform(args, spec, this);
     }
 
-    @Override
-    public int extractInt(Expression expr) {
-        if (expr instanceof Literal(Number value)) {
-            return value.intValue();
-        }
-        throw new IllegalArgumentException("Expected integer literal, got: " + expr);
-    }
-
     private Field<?> transformBinary(Expression left, String op, Expression right) {
         var handler = handlerRegistry.getBinaryOperator(op);
         return handler.transform(left, right, this);

@@ -1,7 +1,6 @@
 package com.rorm.engine.handler;
 
 import com.rorm.engine.handler.operator.ternary.BetweenOperator;
-import com.rorm.engine.handler.operator.ternary.NotBetweenOperator;
 
 /**
  * Marker interface for built-in ternary operator handlers.
@@ -10,6 +9,5 @@ import com.rorm.engine.handler.operator.ternary.NotBetweenOperator;
  * For custom operators, implement {@link CustomTernaryOperatorHandler} instead.
  */
 public sealed interface BuiltInTernaryOperatorHandler extends TernaryOperatorHandler permits
-    BetweenOperator,
-    NotBetweenOperator {
+    BetweenOperator {
 }

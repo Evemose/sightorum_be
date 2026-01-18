@@ -7,7 +7,6 @@ public sealed interface Operator permits
 
     enum UnaryOperator implements Operator {
         IS_NULL,
-        IS_NOT_NULL,
         IS_TRUE,
         IS_FALSE,
         NEGATE,
@@ -16,15 +15,12 @@ public sealed interface Operator permits
 
     enum BinaryOperator implements Operator {
         EQUALS,
-        NOT_EQUALS,
         GREATER_THAN,
         GREATER_THAN_OR_EQUAL,
         LESS_THAN,
         LESS_THAN_OR_EQUAL,
         LIKE,
-        NOT_LIKE,
         IN,
-        NOT_IN,
         ADD,
         SUBTRACT,
         MULTIPLY,
@@ -35,7 +31,6 @@ public sealed interface Operator permits
     }
 
     enum TernaryOperator implements Operator {
-        BETWEEN,
-        NOT_BETWEEN
+        BETWEEN
     }
 }

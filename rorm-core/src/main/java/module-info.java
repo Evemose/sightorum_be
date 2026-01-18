@@ -4,6 +4,8 @@ open module rorm.rorm.core {
     requires org.jspecify;
     requires spring.context;
     requires spring.boot.autoconfigure;
+    requires spring.core;
+    requires spring.beans;
 
     exports com.rorm.query;
     exports com.rorm.engine;

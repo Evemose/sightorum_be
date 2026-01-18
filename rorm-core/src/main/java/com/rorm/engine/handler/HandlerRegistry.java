@@ -22,7 +22,7 @@ public class HandlerRegistry {
     private final Map<String, BinaryOperatorHandler> binaryOperators;
     private final Map<String, TernaryOperatorHandler> ternaryOperators;
 
-    HandlerRegistry(
+    public HandlerRegistry(
         Map<String, FunctionHandler> functions,
         Map<String, AggregationHandler> aggregations,
         Map<String, WindowFunctionHandler> windowFunctions,
@@ -38,14 +38,6 @@ public class HandlerRegistry {
         this.ternaryOperators = Map.copyOf(ternaryOperators);
     }
 
-    /**
-     * Creates a registry with all built-in handlers.
-     *
-     * @return a registry with standard handlers
-     */
-    public static HandlerRegistry withBuiltIns() {
-        return builder().withBuiltIns().build();
-    }
 
     /**
      * Creates a new builder for constructing a HandlerRegistry.
@@ -203,15 +195,6 @@ public class HandlerRegistry {
         private final Map<String, BinaryOperatorHandler> binaryOperators = new HashMap<>();
         private final Map<String, TernaryOperatorHandler> ternaryOperators = new HashMap<>();
 
-        /**
-         * Registers all built-in handlers.
-         *
-         * @return this builder
-         */
-        public HandlerRegistryBuilder withBuiltIns() {
-            BuiltInHandlers.registerAll(this);
-            return this;
-        }
 
         /**
          * Registers multiple function handlers.

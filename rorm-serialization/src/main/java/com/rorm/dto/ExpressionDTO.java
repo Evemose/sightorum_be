@@ -88,13 +88,20 @@ public sealed interface ExpressionDTO permits
         QueryDTO.WindowSpecDTO windowSpec
     ) implements ExpressionDTO {}
 
-    @JsonClassDescription("Binary expression with left operand, operator, and right operand")
+    @JsonClassDescription("""
+        Binary expression with left operand, operator, and right operand.
+        
+        For negated comparison operators, use the NOT unary operator combined with the positive operator:
+        - Instead of NOT_EQUALS: use NOT(EQUALS(...))
+        - Instead of NOT_LIKE: use NOT(LIKE(...))
+        - Instead of NOT_IN: use NOT(IN(...))
+        """)
     record BinaryExpressionDTO(
         @JsonPropertyDescription("Left-hand side expression.")
         @JsonProperty(required = true)
         ExpressionDTO left,
 
-        @JsonPropertyDescription("Binary operator: EQUALS, NOT_EQUALS, GREATER_THAN, LESS_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, LIKE, NOT_LIKE, IN, NOT_IN, AND, OR, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO")
+        @JsonPropertyDescription("Binary operator: EQUALS, GREATER_THAN, LESS_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, LIKE, IN, AND, OR, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO")
         @JsonProperty(required = true)
         BinaryOperator operator,
 
@@ -114,13 +121,18 @@ public sealed interface ExpressionDTO permits
         ExpressionDTO operand
     ) implements ExpressionDTO {}
 
-    @JsonClassDescription("Ternary expression for BETWEEN operations")
+    @JsonClassDescription("""
+        Ternary expression for BETWEEN operations.
+        
+        For NOT BETWEEN, use the NOT unary operator combined with BETWEEN:
+        - Instead of NOT_BETWEEN: use NOT(BETWEEN(value, lower, upper))
+        """)
     record TernaryExpressionDTO(
         @JsonPropertyDescription("The expression to test.")
         @JsonProperty(required = true)
         ExpressionDTO first,
 
-        @JsonPropertyDescription("Ternary operator: BETWEEN, NOT_BETWEEN")
+        @JsonPropertyDescription("Ternary operator: BETWEEN")
         @JsonProperty(required = true)
         TernaryOperator operator,
 

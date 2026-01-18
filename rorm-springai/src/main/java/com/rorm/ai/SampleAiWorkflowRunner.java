@@ -113,11 +113,8 @@ public class SampleAiWorkflowRunner {
             }
 
             var sampleQuestions = new String[]{
-                "What tables are available in the database?",
-                "What are the top 5 courses by enrollment count?",
-                "Tell me one interesting numeric insight about this dataset.",
-                "Tell me one interesting categorical insight about this dataset.",
-                "Tell me one interesting temporal insight about this dataset."
+                "Just for the sake of testing, try executing a really complex query. " +
+                "If error is due to serialization, inspect whether you are wrong or system is. If premier, fix and retry",
             };
 
             log.info("\n[Running Sample AI Queries]");

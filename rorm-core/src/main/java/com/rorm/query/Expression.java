@@ -98,8 +98,8 @@ public sealed interface Expression permits
             return new BinaryExpression(left, op.identifier(), right);
         }
 
-        public static BinaryExpression ne(Expression left, Expression right) {
-            return of(left, StandardOperator.Binary.NOT_EQUALS, right);
+        public static UnaryExpression ne(Expression left, Expression right) {
+            return UnaryExpression.not(eq(left, right));
         }
 
         public static BinaryExpression gt(Expression left, Expression right) {
@@ -198,8 +198,8 @@ public sealed interface Expression permits
             return new TernaryExpression(first, op.identifier(), second, third);
         }
 
-        public static TernaryExpression notBetween(Expression value, Expression low, Expression high) {
-            return of(value, StandardOperator.Ternary.NOT_BETWEEN, low, high);
+        public static UnaryExpression notBetween(Expression value, Expression low, Expression high) {
+            return UnaryExpression.not(between(value, low, high));
         }
     }
 

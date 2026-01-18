@@ -1,20 +1,48 @@
 package com.rorm.engine;
 
-import com.rorm.engine.handler.HandlerRegistry;
+import com.rorm.engine.handler.*;
 import org.jooq.DSLContext;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @AutoConfiguration
+@ComponentScan(
+    basePackages = "com.rorm.engine.handler",
+    includeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {
+        FunctionHandler.class,
+        AggregationHandler.class,
+        WindowFunctionHandler.class,
+        UnaryOperatorHandler.class,
+        BinaryOperatorHandler.class,
+        TernaryOperatorHandler.class
+    })
+)
 public class RormCoreAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    HandlerRegistry handlerRegistry() {
-        return HandlerRegistry.builder()
-            .withBuiltIns()
-            .build();
+    HandlerRegistry handlerRegistry(
+        List<FunctionHandler> functionHandlers,
+        List<AggregationHandler> aggregationHandlers,
+        List<WindowFunctionHandler> windowFunctionHandlers,
+        List<UnaryOperatorHandler> unaryOperatorHandlers,
+        List<BinaryOperatorHandler> binaryOperatorHandlers,
+        List<TernaryOperatorHandler> ternaryOperatorHandlers
+    ) {
+        return new HandlerRegistry(
+            functionHandlers.stream().collect(Collectors.toMap(FunctionHandler::name, h -> h)),
+            aggregationHandlers.stream().collect(Collectors.toMap(AggregationHandler::name, h -> h)),
+            windowFunctionHandlers.stream().collect(Collectors.toMap(WindowFunctionHandler::name, h -> h)),
+            unaryOperatorHandlers.stream().collect(Collectors.toMap(UnaryOperatorHandler::name, h -> h)),
+            binaryOperatorHandlers.stream().collect(Collectors.toMap(BinaryOperatorHandler::name, h -> h)),
+            ternaryOperatorHandlers.stream().collect(Collectors.toMap(TernaryOperatorHandler::name, h -> h))
+        );
     }
 
     @Bean

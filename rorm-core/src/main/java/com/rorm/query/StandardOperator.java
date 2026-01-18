@@ -2,7 +2,6 @@ package com.rorm.query;
 
 import com.rorm.engine.handler.operator.binary.*;
 import com.rorm.engine.handler.operator.ternary.BetweenOperator;
-import com.rorm.engine.handler.operator.ternary.NotBetweenOperator;
 import com.rorm.engine.handler.operator.unary.*;
 
 /**
@@ -46,19 +45,24 @@ public sealed interface StandardOperator {
 
     /**
      * Standard binary operators (two operands).
+     * <p>
+     * Note: For negated operators (NOT EQUALS, NOT LIKE, NOT IN), use the NOT unary operator
+     * combined with the positive operator instead. For example:
+     * <ul>
+     *   <li>Instead of NOT_EQUALS: use NOT(EQUALS(...))</li>
+     *   <li>Instead of NOT_LIKE: use NOT(LIKE(...))</li>
+     *   <li>Instead of NOT_IN: use NOT(IN(...))</li>
+     * </ul>
      */
     enum Binary implements StandardOperator {
         // Comparison
         EQUALS(EqualsOperator.NAME),
-        NOT_EQUALS(NotEqualsOperator.NAME),
         GREATER_THAN(GreaterThanOperator.NAME),
         GREATER_THAN_OR_EQUAL(GreaterThanOrEqualOperator.NAME),
         LESS_THAN(LessThanOperator.NAME),
         LESS_THAN_OR_EQUAL(LessThanOrEqualOperator.NAME),
         LIKE(LikeOperator.NAME),
-        NOT_LIKE(NotLikeOperator.NAME),
         IN(InOperator.NAME),
-        NOT_IN(NotInOperator.NAME),
 
         // Arithmetic
         ADD(AddOperator.NAME),
@@ -85,10 +89,12 @@ public sealed interface StandardOperator {
 
     /**
      * Standard ternary operators (three operands).
+     * <p>
+     * Note: For NOT BETWEEN, use the NOT unary operator combined with BETWEEN instead.
+     * For example: NOT(BETWEEN(value, lower, upper))
      */
     enum Ternary implements StandardOperator {
-        BETWEEN(BetweenOperator.NAME),
-        NOT_BETWEEN(NotBetweenOperator.NAME);
+        BETWEEN(BetweenOperator.NAME);
 
         private final String identifier;
 

@@ -11,15 +11,12 @@ import com.rorm.engine.handler.operator.binary.*;
 public sealed interface BuiltInBinaryOperatorHandler extends BinaryOperatorHandler permits
     // Comparison operators
     EqualsOperator,
-    NotEqualsOperator,
     GreaterThanOperator,
     GreaterThanOrEqualOperator,
     LessThanOperator,
     LessThanOrEqualOperator,
     LikeOperator,
-    NotLikeOperator,
     InOperator,
-    NotInOperator,
     // Arithmetic operators
     AddOperator,
     SubtractOperator,
