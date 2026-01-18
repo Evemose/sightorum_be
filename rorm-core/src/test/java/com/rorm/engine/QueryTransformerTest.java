@@ -1,17 +1,13 @@
 package com.rorm.engine;
 
+import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.TernaryExpression;
 import com.rorm.query.Expression.UnaryExpression;
-import com.rorm.query.Operator.BinaryOperator;
-import com.rorm.query.Operator.UnaryOperator;
-import com.rorm.query.OrderBy;
-import com.rorm.query.Path;
-import com.rorm.query.Query;
-import com.rorm.query.SelectedExpression;
+import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
@@ -99,7 +95,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
 
     private static Arguments simpleSelectAll() {
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
             .build();
         return Arguments.of("Simple SELECT ALL", query, "select", (Consumer<Result<Record>>) result -> assertThat(result)
@@ -114,9 +110,9 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithWhereEquals() {
         var namePath = new Path(userName, null);
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
-            .where(new BinaryExpression(namePath, BinaryOperator.EQUALS, new Literal("Alice")))
+            .where(new BinaryExpression(namePath, StandardOperator.Binary.EQUALS.identifier(), new Literal("Alice")))
             .build();
 
         return Arguments.of("SELECT with WHERE equals", query, "where", (Consumer<Result<Record>>) result -> assertThat(result)
@@ -128,9 +124,9 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithWhereLike() {
         var emailPath = new Path(userEmail, null);
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
-            .where(new BinaryExpression(emailPath, BinaryOperator.LIKE, new Literal("%test.com")))
+            .where(new BinaryExpression(emailPath, StandardOperator.Binary.LIKE.identifier(), new Literal("%test.com")))
             .build();
 
         return Arguments.of("SELECT with WHERE LIKE", query, "like", (Consumer<Result<Record>>) result -> assertThat(result)
@@ -142,9 +138,9 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithWhereIsNull() {
         var emailPath = new Path(userEmail, null);
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
-            .where(new UnaryExpression(UnaryOperator.IS_NOT_NULL, emailPath))
+            .where(new UnaryExpression(StandardOperator.Unary.IS_NOT_NULL.identifier(), emailPath))
             .build();
 
         return Arguments.of("SELECT with WHERE IS NOT NULL", query, "is not null", (Consumer<Result<Record>>) result -> assertThat(result)
@@ -157,7 +153,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithManyToOneJoin() {
         var bioPath = new Path(profileBio, new Path(userProfile, null));
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new SingleExprSelector(bioPath, false, null))
             .build();
 
@@ -171,7 +167,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
         var cityPath = new Path(addressCity, new Path(profileAddress, new Path(userProfile, null)));
 
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new SingleExprSelector(cityPath, false, null))
             .build();
 
@@ -184,9 +180,9 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithWhereAndJoin() {
         var bioPath = new Path(profileBio, new Path(userProfile, null));
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
-            .where(new BinaryExpression(bioPath, BinaryOperator.EQUALS, new Literal("Software Engineer")))
+            .where(new BinaryExpression(bioPath, StandardOperator.Binary.EQUALS.identifier(), new Literal("Software Engineer")))
             .build();
 
         return Arguments.of("SELECT with WHERE and JOIN", query, "left outer join", (Consumer<Result<Record>>) result -> assertThat(result)
@@ -197,7 +193,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
 
     private static Arguments selectDistinct() {
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, true))
             .build();
         return Arguments.of("SELECT DISTINCT", query, "select distinct", (Consumer<Result<Record>>) result -> assertThat(result)
@@ -209,7 +205,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectSingleExpression() {
         var namePath = new Path(userName, null);
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new SingleExprSelector(namePath, false, null))
             .build();
 
@@ -224,7 +220,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
         var emailPath = new Path(userEmail, null);
 
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(namePath, null),
                 new SelectedExpression(emailPath, null)
@@ -245,13 +241,13 @@ class QueryTransformerTest extends AbstractPostgresTest {
         var namePath = new Path(userName, null);
         var emailPath = new Path(userEmail, null);
 
-        var namePredicate = new BinaryExpression(namePath, BinaryOperator.EQUALS, new Literal("Alice"));
-        var emailPredicate = new BinaryExpression(emailPath, BinaryOperator.LIKE, new Literal("%test.com"));
+        var namePredicate = new BinaryExpression(namePath, StandardOperator.Binary.EQUALS.identifier(), new Literal("Alice"));
+        var emailPredicate = new BinaryExpression(emailPath, StandardOperator.Binary.LIKE.identifier(), new Literal("%test.com"));
 
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
-            .where(new BinaryExpression(namePredicate, BinaryOperator.AND, emailPredicate))
+            .where(new BinaryExpression(namePredicate, StandardOperator.Binary.AND.identifier(), emailPredicate))
             .build();
 
         return Arguments.of("SELECT with composite AND predicate", query, "and", (Consumer<Result<Record>>) result ->
@@ -265,13 +261,13 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithBinaryExpressionOr() {
         var namePath = new Path(userName, null);
 
-        var alicePredicate = new BinaryExpression(namePath, BinaryOperator.EQUALS, new Literal("Alice"));
-        var bobPredicate = new BinaryExpression(namePath, BinaryOperator.EQUALS, new Literal("Bob"));
+        var alicePredicate = new BinaryExpression(namePath, StandardOperator.Binary.EQUALS.identifier(), new Literal("Alice"));
+        var bobPredicate = new BinaryExpression(namePath, StandardOperator.Binary.EQUALS.identifier(), new Literal("Bob"));
 
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
-            .where(new BinaryExpression(alicePredicate, BinaryOperator.OR, bobPredicate))
+            .where(new BinaryExpression(alicePredicate, StandardOperator.Binary.OR.identifier(), bobPredicate))
             .build();
 
         return Arguments.of("SELECT with composite OR predicate", query, "or", (Consumer<Result<Record>>) result ->
@@ -285,9 +281,9 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithBetween() {
         var idPath = new Path(userId, null);
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
-            .where(new TernaryExpression(idPath, com.rorm.query.Operator.TernaryOperator.BETWEEN,
+            .where(new TernaryExpression(idPath, StandardOperator.Ternary.BETWEEN.identifier(),
                 new Literal(1L), new Literal(2L)))
             .build();
 
@@ -300,7 +296,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithOrderByAsc() {
         var namePath = new Path(userName, null);
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
             .orderBy(new OrderBy(namePath, true))
             .build();
@@ -314,7 +310,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
     private static Arguments selectWithOrderByDesc() {
         var namePath = new Path(userName, null);
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
             .orderBy(new OrderBy(namePath, false))
             .build();
@@ -327,7 +323,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
 
     private static Arguments selectWithLimit() {
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
             .limit(1L)
             .build();
@@ -339,7 +335,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
 
     private static Arguments selectWithOffset() {
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
             .offset(1L)
             .build();
@@ -351,7 +347,7 @@ class QueryTransformerTest extends AbstractPostgresTest {
 
     private static Arguments selectWithLimitAndOffset() {
         var query = Query.builder()
-            .from(userRoot)
+            .from(AliasedRoot.of(userRoot))
             .selector(new RootSelector(userRoot, false))
             .limit(1L)
             .offset(1L)
@@ -368,7 +364,8 @@ class QueryTransformerTest extends AbstractPostgresTest {
         var schemaName = "test_" + UUID.randomUUID().toString().replace("-", "_");
 
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        var expressionTransformer = new ExpressionTransformer();
+        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
 
         dsl.execute("create schema " + schemaName);

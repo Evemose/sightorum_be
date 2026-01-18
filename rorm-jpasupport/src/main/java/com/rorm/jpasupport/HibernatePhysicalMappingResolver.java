@@ -11,11 +11,7 @@ import org.hibernate.metamodel.mapping.*;
 import org.hibernate.metamodel.mapping.internal.ToOneAttributeMapping;
 import org.hibernate.persister.collection.AbstractCollectionPersister;
 import org.hibernate.persister.entity.EntityPersister;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.stereotype.Component;
 
-@Component
-@ConditionalOnClass(SessionFactoryImplementor.class)
 public class HibernatePhysicalMappingResolver implements JpaPhysicalMappingResolver {
 
     private final MappingMetamodel mappingMetamodel;

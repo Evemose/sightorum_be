@@ -9,15 +9,12 @@ import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import lombok.RequiredArgsConstructor;
 import org.jooq.*;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
 
 import static org.jooq.impl.DSL.noCondition;
-import static org.jooq.impl.DSL.table;
 
-@Component
 @RequiredArgsConstructor
 public class QueryTransformer {
 
@@ -32,7 +29,7 @@ public class QueryTransformer {
     private Select<?> doTransform(Query query) {
         var ctx = expr.ctx();
         Select<?> result = buildSelect(query.selector(), ctx).from(ctx.rootTable());
-        result = applyJoins(result, collectAllJoins(query), query.joins());
+        result = applyJoins(result, collectAllJoins(query), query.joins(), ctx);
         result = applyFilters(result, query.where(), query.groupBy(), query.having());
         result = applyOrderBy(result, query.orderBy());
         return applyPagination(result, query.limit(), query.offset());
@@ -64,21 +61,23 @@ public class QueryTransformer {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private Select<?> applyJoins(Select<?> query, Set<QueryContext.JoinInfo> autoJoins, Set<Join> explicitJoins) {
+    private Select<?> applyJoins(Select<?> query, Set<QueryContext.JoinInfo> autoJoins, Set<Join> explicitJoins, QueryContext ctx) {
         var result = query;
 
+        for (var join : explicitJoins) {
+            var joinedRootInfo = ctx.getOrRegisterJoinedRoot(join.aliasedRoot());
+            var condition = join.onCondition() != null
+                ? (Condition) expr.transform(join.onCondition())
+                : noCondition();
+            result = applyExplicitJoin((SelectJoinStep<?>) result, joinedRootInfo.table(), join.joinType(), condition);
+        }
+
+        // Apply automatic joins from path navigation (reference attributes)
         for (var join : autoJoins) {
             if (join.leftJoinColumn() != null && join.rightJoinColumn() != null) {
                 result = ((SelectJoinStep<?>) result).leftJoin(join.table())
                     .on(join.leftJoinColumn().eq((Field) join.rightJoinColumn()));
             }
-        }
-
-        for (var join : explicitJoins) {
-            var condition = join.onCondition() != null
-                ? (Condition) expr.transform(join.onCondition())
-                : noCondition();
-            result = applyExplicitJoin((SelectJoinStep<?>) result, join.joinType(), condition);
         }
 
         return result;
@@ -114,7 +113,7 @@ public class QueryTransformer {
                 var field = expr.transform(ob.expression());
                 return ob.ascending() ? field.asc() : field.desc();
             })
-            .toArray(org.jooq.SortField[]::new);
+            .toArray(org.jooq.SortField<?>[]::new);
         return ((SelectOrderByStep<?>) query).orderBy(orderByFields);
     }
 
@@ -129,12 +128,12 @@ public class QueryTransformer {
         return result;
     }
 
-    private Select<?> applyExplicitJoin(SelectJoinStep<?> step, JoinType type, Condition condition) {
+    private Select<?> applyExplicitJoin(SelectJoinStep<?> step, Table<?> joinTable, JoinType type, Condition condition) {
         return switch (type) {
-            case INNER -> step.innerJoin(table("explicit")).on(condition);
-            case LEFT -> step.leftJoin(table("explicit")).on(condition);
-            case RIGHT -> step.rightJoin(table("explicit")).on(condition);
-            case CROSS -> step.crossJoin(table("explicit"));
+            case INNER -> step.innerJoin(joinTable).on(condition);
+            case LEFT -> step.leftJoin(joinTable).on(condition);
+            case RIGHT -> step.rightJoin(joinTable).on(condition);
+            case CROSS -> step.crossJoin(joinTable);
         };
     }
 }

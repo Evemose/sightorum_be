@@ -1,11 +1,8 @@
 package com.rorm.dataimport.naming;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Collection;
 import java.util.EnumSet;
 
-@Component
 public class NamingStyleDetector {
 
     public NamingStyle detect(Collection<String> propertyNames) {

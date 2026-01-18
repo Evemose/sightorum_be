@@ -1,7 +1,8 @@
 package com.rorm.query;
 
-import com.rorm.metamodel.Root;
+import com.rorm.metamodel.AliasedRoot;
 import lombok.Builder;
+import lombok.With;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -9,9 +10,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.SequencedSet;
 
+@With
 @Builder
 public record Query(
-    Root from,
+    AliasedRoot from,
     Selector selector,
     SequencedSet<Join> joins,
     @Nullable Expression where,
@@ -21,6 +23,16 @@ public record Query(
     @Nullable Long limit,
     @Nullable Long offset
 ) {
+
+    public Query {
+        if (joins == null) {
+            joins = new LinkedHashSet<>();
+        }
+        if (orderBy == null) {
+            orderBy = List.of();
+        }
+    }
+
     @SuppressWarnings("unused")
     public static class QueryBuilder {
         @SuppressWarnings("FieldMayBeFinal")

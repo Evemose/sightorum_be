@@ -7,11 +7,9 @@ import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import lombok.RequiredArgsConstructor;
 import org.jooq.*;
-import org.springframework.stereotype.Component;
 
 import static org.jooq.impl.DSL.*;
 
-@Component
 @RequiredArgsConstructor
 class SubqueryTransformer {
 

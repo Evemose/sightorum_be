@@ -25,6 +25,7 @@ repositories {
 }
 
 extra["springModulithVersion"] = "1.4.6"
+extra["springAiVersion"] = "1.0.0"
 val jspecifyVersion = "1.0.0"
 
 subprojects {
@@ -42,6 +43,7 @@ subprojects {
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.9")
             mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.6")
+            mavenBom("org.springframework.ai:spring-ai-bom:1.0.0")
         }
     }
 
@@ -68,6 +70,7 @@ dependencies {
     implementation(project(":rorm-core"))
     implementation(project(":rorm-jpasupport"))
     implementation(project(":rorm-serialization"))
+    implementation(project(":rorm-springai"))
 
     implementation("org.springframework.boot:spring-boot-starter")
 

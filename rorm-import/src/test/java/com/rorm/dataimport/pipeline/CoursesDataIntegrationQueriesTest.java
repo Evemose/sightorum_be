@@ -4,14 +4,13 @@ import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
 import com.rorm.dataimport.source.ImportDataSource;
 import com.rorm.engine.QueryTransformer;
+import com.rorm.metamodel.AliasedRoot;
 import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.Root;
 import com.rorm.query.*;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
-import com.rorm.query.Operator.BinaryOperator;
-import com.rorm.query.Operator.TernaryOperator;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
@@ -63,11 +62,11 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var studentId = findAttribute(ctx.studentsRoot, "student_id");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new RootSelector(ctx.studentsRoot, false))
             .where(new BinaryExpression(
                 new Path(studentId, null),
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("STU00001")
             ))
             .build();
@@ -187,7 +186,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var studentScholarship = findAttribute(ctx.studentsRoot, "has_scholarship");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new SingleExprSelector(
                 new FunctionCall("count", List.of(new Path(studentScholarship, null))),
                 false,
@@ -195,7 +194,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
             ))
             .where(new BinaryExpression(
                 new Path(studentScholarship, null),
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal(true)
             ))
             .build();
@@ -216,11 +215,11 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
         // only 2 students (David Hughes and Patrick Thornton, both from Canada)
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new RootSelector(ctx.studentsRoot, false))
             .where(new BinaryExpression(
                 new Path(studentCountry, null),
-                BinaryOperator.IN,
+                StandardOperator.Binary.IN.identifier(),
                 new Literal(List.of("USA", "Canada", "UK"))  // List of countries
             ))
             .orderBy(new OrderBy(new Path(studentName, null), true))
@@ -251,7 +250,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
 
         // No limit - verify all 93 students with GPA > 3.5
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentName, null), "student_name"),
                 new SelectedExpression(new Path(studentGpa, null), "gpa"),
@@ -259,7 +258,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
             ), false))
             .where(new BinaryExpression(
                 new Path(studentGpa, null),
-                BinaryOperator.GREATER_THAN,
+                StandardOperator.Binary.GREATER_THAN.identifier(),
                 new Literal(3.5)
             ))
             .orderBy(new OrderBy(new Path(studentGpa, null), false))
@@ -292,11 +291,11 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var enrollmentAttendanceRate = findAttribute(ctx.enrollmentsRoot, "attendance_rate");
 
         var query = Query.builder()
-            .from(ctx.enrollmentsRoot)
+            .from(AliasedRoot.of(ctx.enrollmentsRoot))
             .selector(new RootSelector(ctx.enrollmentsRoot, false))
             .where(new BinaryExpression(
                 new Path(enrollmentAttendanceRate, null),
-                BinaryOperator.GREATER_THAN_OR_EQUAL,
+                StandardOperator.Binary.GREATER_THAN_OR_EQUAL.identifier(),
                 new Literal(95.0)
             ))
             .build();
@@ -323,7 +322,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var courseInstructor = findAttribute(ctx.coursesRoot, "instructor_name");
 
         var query = Query.builder()
-            .from(ctx.coursesRoot)
+            .from(AliasedRoot.of(ctx.coursesRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(courseName, null), "course"),
                 new SelectedExpression(new Path(courseSubject, null), "subject"),
@@ -331,7 +330,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
             ), false))
             .where(new BinaryExpression(
                 new Path(courseInstructor, null),
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("Dawn Ellis")
             ))
             .build();
@@ -353,18 +352,18 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var enrollmentCompleted = findAttribute(ctx.enrollmentsRoot, "completed");
 
         var query = Query.builder()
-            .from(ctx.enrollmentsRoot)
+            .from(AliasedRoot.of(ctx.enrollmentsRoot))
             .selector(new RootSelector(ctx.enrollmentsRoot, false))
             .where(new BinaryExpression(
                 new BinaryExpression(
                     new Path(enrollmentGrade, null),
-                    BinaryOperator.GREATER_THAN_OR_EQUAL,
+                    StandardOperator.Binary.GREATER_THAN_OR_EQUAL.identifier(),
                     new Literal(90.0)
                 ),
-                BinaryOperator.AND,
+                StandardOperator.Binary.AND.identifier(),
                 new BinaryExpression(
                     new Path(enrollmentCompleted, null),
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     new Literal(true)
                 )
             ))
@@ -384,11 +383,11 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var reviewRating = findAttribute(ctx.reviewsRoot, "rating");
 
         var query = Query.builder()
-            .from(ctx.reviewsRoot)
+            .from(AliasedRoot.of(ctx.reviewsRoot))
             .selector(new RootSelector(ctx.reviewsRoot, false))
             .where(new Expression.TernaryExpression(
                 new Path(reviewRating, null),
-                TernaryOperator.BETWEEN,
+                StandardOperator.Ternary.BETWEEN.identifier(),
                 new Literal(4),
                 new Literal(5)
             ))
@@ -414,25 +413,25 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var studentScholarship = findAttribute(ctx.studentsRoot, "has_scholarship");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new RootSelector(ctx.studentsRoot, false))
             .where(new BinaryExpression(
                 new BinaryExpression(
                     new Path(studentAge, null),
-                    BinaryOperator.GREATER_THAN_OR_EQUAL,
+                    StandardOperator.Binary.GREATER_THAN_OR_EQUAL.identifier(),
                     new Literal(21)
                 ),
-                BinaryOperator.AND,
+                StandardOperator.Binary.AND.identifier(),
                 new BinaryExpression(
                     new BinaryExpression(
                         new Path(studentGpa, null),
-                        BinaryOperator.GREATER_THAN,
+                        StandardOperator.Binary.GREATER_THAN.identifier(),
                         new Literal(3.0)
                     ),
-                    BinaryOperator.OR,
+                    StandardOperator.Binary.OR.identifier(),
                     new BinaryExpression(
                         new Path(studentScholarship, null),
-                        BinaryOperator.EQUALS,
+                        StandardOperator.Binary.EQUALS.identifier(),
                         new Literal(true)
                     )
                 )
@@ -474,14 +473,14 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var studentEmail = findAttribute(ctx.studentsRoot, "email");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentName, null), "name"),
                 new SelectedExpression(new Path(studentEmail, null), "email")
             ), false))
             .where(new BinaryExpression(
                 new Path(studentEmail, null),
-                BinaryOperator.LIKE,
+                StandardOperator.Binary.LIKE.identifier(),
                 new Literal("%@example.com")
             ))
             .build();

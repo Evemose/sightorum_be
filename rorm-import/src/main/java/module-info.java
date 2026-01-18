@@ -1,7 +1,7 @@
 import org.jspecify.annotations.NullMarked;
 
 @NullMarked
-open module module_name {
+open module rorm.rorm.dataimport {
     requires com.fasterxml.jackson.databind;
     requires com.fasterxml.jackson.dataformat.csv;
     requires static lombok;
@@ -13,6 +13,7 @@ open module module_name {
     requires org.jspecify;
     requires spring.batch.core;
     requires spring.core;
+    requires spring.boot.autoconfigure;
 
     exports com.rorm.dataimport.override;
     exports com.rorm.dataimport.pipeline;

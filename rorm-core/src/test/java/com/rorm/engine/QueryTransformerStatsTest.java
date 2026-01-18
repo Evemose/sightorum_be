@@ -1,5 +1,6 @@
 package com.rorm.engine;
 
+import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.query.Expression.BinaryExpression;
@@ -7,7 +8,6 @@ import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.WindowFunction;
 import com.rorm.query.*;
-import com.rorm.query.Operator.BinaryOperator;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import com.rorm.testutil.AbstractPostgresTest;
@@ -125,7 +125,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
     private static Arguments countAllOrders() {
         var countExpr = new FunctionCall("count", List.of(new Path(orderId, null)));
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(countExpr, false, "order_count"))
             .build();
         return Arguments.of("COUNT all orders", query, (Consumer<Result<Record>>) result -> assertThat(result)
@@ -138,7 +138,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
     private static Arguments sumOrderTotals() {
         var sumExpr = new FunctionCall("sum", List.of(new Path(orderTotal, null)));
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(sumExpr, false, "total_sum"))
             .build();
         return Arguments.of("SUM of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
@@ -152,7 +152,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
     private static Arguments avgOrderTotal() {
         var avgExpr = new FunctionCall("avg", List.of(new Path(orderTotal, null)));
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(avgExpr, false, "avg_total"))
             .build();
         return Arguments.of("AVG of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
@@ -166,7 +166,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
     private static Arguments maxOrderTotal() {
         var maxExpr = new FunctionCall("max", List.of(new Path(orderTotal, null)));
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(maxExpr, false, "max_total"))
             .build();
         return Arguments.of("MAX of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
@@ -180,7 +180,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
     private static Arguments minOrderTotal() {
         var minExpr = new FunctionCall("min", List.of(new Path(orderTotal, null)));
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(minExpr, false, "min_total"))
             .build();
         return Arguments.of("MIN of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
@@ -196,7 +196,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         var countExpr = new FunctionCall("count", List.of(new Path(orderId, null)));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(userIdPath, "user_id"),
                 new SelectedExpression(countExpr, "order_count")
@@ -218,12 +218,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
 
         var havingCondition = new BinaryExpression(
             sumExpr,
-            BinaryOperator.GREATER_THAN,
+            StandardOperator.Binary.GREATER_THAN.identifier(),
             new Literal(new BigDecimal("150.00"))
         );
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(userIdPath, "user_id"),
                 new SelectedExpression(sumExpr, "total_sum")
@@ -244,7 +244,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         var avgExpr = new FunctionCall("avg", List.of(new Path(orderItemQuantity, null)));
 
         var query = Query.builder()
-            .from(orderItemRoot)
+            .from(AliasedRoot.of(orderItemRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(productPath, "product"),
                 new SelectedExpression(avgExpr, "avg_quantity")
@@ -268,12 +268,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
 
         var whereCondition = new BinaryExpression(
             userNamePath,
-            BinaryOperator.EQUALS,
+            StandardOperator.Binary.EQUALS.identifier(),
             new Literal("Alice")
         );
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(countExpr, false, "order_count"))
             .where(whereCondition)
             .build();
@@ -290,7 +290,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         var sumExpr = new FunctionCall("sum", List.of(new Path(orderTotal, null)));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(cityPath, "city"),
                 new SelectedExpression(sumExpr, "total_sum")
@@ -316,12 +316,12 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
 
         var havingCondition = new BinaryExpression(
             countExpr,
-            BinaryOperator.GREATER_THAN_OR_EQUAL,
+            StandardOperator.Binary.GREATER_THAN_OR_EQUAL.identifier(),
             new Literal(2L)
         );
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(userNamePath, "user_name"),
                 new SelectedExpression(countExpr, "order_count"),
@@ -354,7 +354,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         );
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(orderIdPath, "order_id"),
                 new SelectedExpression(userIdPath, "user_id"),
@@ -377,7 +377,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         );
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(totalPath, "total"),
                 new SelectedExpression(rankWindow, "rank")
@@ -404,7 +404,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         );
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(orderIdPath, "order_id"),
                 new SelectedExpression(userIdPath, "user_id"),
@@ -422,7 +422,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         var totalPath = new Path(orderTotal, null);
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(totalPath, false, "order_total"))
             .build();
         return Arguments.of("Expression with alias", query, (Consumer<Result<Record>>) result -> assertThat(result)
@@ -441,7 +441,7 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         var sumExpr = new FunctionCall("sum", List.of(new Path(orderTotal, null)));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(userIdPath, "user_id"),
                 new SelectedExpression(countExpr, "order_count"),
@@ -467,7 +467,8 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
         var schemaName = "test_" + UUID.randomUUID().toString().replace("-", "_");
 
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        var expressionTransformer = new ExpressionTransformer();
+        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
 
         dsl.execute("create schema " + schemaName);

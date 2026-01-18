@@ -5,6 +5,10 @@ open module rorm.rorm.serialization {
     requires spring.boot.autoconfigure;
     requires spring.context;
     requires spring.web;
+    requires org.mapstruct;
+    requires static lombok;
+    requires org.jspecify;
 
-    exports com.rorm.config;
+    exports com.rorm.dto;
+    exports com.rorm.mapper;
 }

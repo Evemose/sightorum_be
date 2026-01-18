@@ -11,7 +11,6 @@ import com.rorm.dataimport.type.NullCoalescingStrategy;
 import com.rorm.metamodel.DataType;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
-import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,7 +18,6 @@ import java.util.stream.Collectors;
 /**
  * Detects schema structure from data sources: attributes, types, and overrides.
  */
-@Component
 @RequiredArgsConstructor
 class SchemaDetector {
 

@@ -1,5 +1,6 @@
 package com.rorm.engine;
 
+import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.query.Expression.Aggregation;
 import com.rorm.query.Expression.Literal;
@@ -37,7 +38,8 @@ class WindowFunctionTest {
     @BeforeEach
     void setUp() {
         var dslContext = DSL.using(SQLDialect.POSTGRES);
-        var expressionTransformer = new ExpressionTransformer();
+        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         queryTransformer = new QueryTransformer(
             dslContext,
             expressionTransformer,
@@ -49,7 +51,7 @@ class WindowFunctionTest {
     @DisplayName("LAG with 1 argument")
     void testLagSingleArgument() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -78,7 +80,7 @@ class WindowFunctionTest {
     @DisplayName("LAG with 2 arguments (offset)")
     void testLagWithOffset() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -106,7 +108,7 @@ class WindowFunctionTest {
     @DisplayName("LAG with 3 arguments (offset and default)")
     void testLagWithOffsetAndDefault() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -135,7 +137,7 @@ class WindowFunctionTest {
     @DisplayName("LEAD with 1 argument")
     void testLeadSingleArgument() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -163,7 +165,7 @@ class WindowFunctionTest {
     @DisplayName("LEAD with 3 arguments (offset and default)")
     void testLeadWithOffsetAndDefault() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -192,7 +194,7 @@ class WindowFunctionTest {
     @DisplayName("FIRST_VALUE window function")
     void testFirstValue() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -222,7 +224,7 @@ class WindowFunctionTest {
     @DisplayName("LAST_VALUE window function")
     void testLastValue() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -250,7 +252,7 @@ class WindowFunctionTest {
     @DisplayName("NTH_VALUE window function")
     void testNthValue() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -279,7 +281,7 @@ class WindowFunctionTest {
     @DisplayName("NTILE window function")
     void testNtile() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -308,7 +310,7 @@ class WindowFunctionTest {
     @DisplayName("PERCENT_RANK window function")
     void testPercentRank() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -337,7 +339,7 @@ class WindowFunctionTest {
     @DisplayName("CUME_DIST window function")
     void testCumeDist() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -365,7 +367,7 @@ class WindowFunctionTest {
     @DisplayName("Multiple window functions in one query")
     void testMultipleWindowFunctions() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -416,7 +418,7 @@ class WindowFunctionTest {
     @DisplayName("Aggregation with DISTINCT flag - COUNT DISTINCT")
     void testCountDistinct() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -438,7 +440,7 @@ class WindowFunctionTest {
     @DisplayName("Aggregation with DISTINCT flag - SUM DISTINCT")
     void testSumDistinct() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -458,7 +460,7 @@ class WindowFunctionTest {
     @DisplayName("Aggregation with DISTINCT flag - AVG DISTINCT")
     void testAvgDistinct() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(
@@ -478,7 +480,7 @@ class WindowFunctionTest {
     @DisplayName("Regular aggregation without DISTINCT flag")
     void testRegularAggregation() {
         var query = Query.builder()
-            .from(testRoot)
+            .from(AliasedRoot.of(testRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(field1, null), "field1"),
                 new SelectedExpression(

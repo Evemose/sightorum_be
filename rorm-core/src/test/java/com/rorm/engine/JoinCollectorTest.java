@@ -1,12 +1,12 @@
 package com.rorm.engine;
 
+import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
-import com.rorm.query.Operator.BinaryOperator;
 import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
@@ -46,7 +46,8 @@ class JoinCollectorTest {
     private static SingularReferenceAttribute customerAddress;
     private static PluralReferenceAttribute customerOrders;
 
-    private final ExpressionTransformer expr = new ExpressionTransformer();
+    private final HandlerRegistry handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+    private final ExpressionTransformer expr = new ExpressionTransformer(handlerRegistry);
     private final JoinCollector joinCollector = new JoinCollector(expr);
 
     @BeforeAll
@@ -103,7 +104,7 @@ class JoinCollectorTest {
         @DisplayName("No joins needed for root-level attributes")
         void noJoinsForRootAttributes() {
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerId, null), "id"),
@@ -126,7 +127,7 @@ class JoinCollectorTest {
             var cityPath = new Path(addressCity, addressPath);
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),
@@ -155,7 +156,7 @@ class JoinCollectorTest {
             var totalPath = new Path(orderTotal, ordersPath);
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),
@@ -179,7 +180,7 @@ class JoinCollectorTest {
             var namePath = new Path(customerName, customerPath);
 
             var query = Query.builder()
-                .from(orderItemRoot)
+                .from(AliasedRoot.of(orderItemRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(itemPrice, null), "price"),
@@ -207,9 +208,9 @@ class JoinCollectorTest {
             var cityPath = new Path(addressCity, addressPath);
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new SingleExprSelector(new Path(customerName, null), false, "name"))
-                .where(new BinaryExpression(cityPath, BinaryOperator.EQUALS, new Literal("NYC")))
+                .where(new BinaryExpression(cityPath, StandardOperator.Binary.EQUALS.identifier(), new Literal("NYC")))
                 .build();
 
             assertThat(collectJoins(query))
@@ -228,21 +229,21 @@ class JoinCollectorTest {
             // SELECT name FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE total > 100)
             // The orders path is at depth 1, should not be collected for outer query
             var inSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(new Path(orderCustomerId, null), false, null))
                 .where(new BinaryExpression(
                     new Path(orderTotal, null),
-                    BinaryOperator.GREATER_THAN,
+                    StandardOperator.Binary.GREATER_THAN.identifier(),
                     new Literal(new BigDecimal("100"))
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new SingleExprSelector(new Path(customerName, null), false, "name"))
                 .where(new BinaryExpression(
                     new Path(customerId, null),
-                    BinaryOperator.IN,
+                    StandardOperator.Binary.IN.identifier(),
                     inSubquery
                 ))
                 .build();
@@ -262,19 +263,19 @@ class JoinCollectorTest {
             var outerCustomerId = new OuterRef(1, customerIdPath);
 
             var countSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(
                     new FunctionCall("COUNT", List.of(new Literal("*"))),
                     false, null))
                 .where(new BinaryExpression(
                     new Path(orderCustomerId, null),
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     outerCustomerId
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),
@@ -303,17 +304,17 @@ class JoinCollectorTest {
 
             // Inner subquery references order.id
             var innerSubquery = new Subquery(Query.builder()
-                .from(orderItemRoot)
+                .from(AliasedRoot.of(orderItemRoot))
                 .selector(new SingleExprSelector(new Literal(1), false, null))
                 .where(new BinaryExpression(
                     new Path(itemOrderId, null),
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     new OuterRef(1, orderIdPath)
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(new Path(orderId, null), false, "id"))
                 .where(new FunctionCall("EXISTS", List.of(innerSubquery)))
                 .build();
@@ -336,17 +337,17 @@ class JoinCollectorTest {
             var outerCustomerName = new OuterRef(1, customerNamePath);
 
             var existsSubquery = new Subquery(Query.builder()
-                .from(orderItemRoot)
+                .from(AliasedRoot.of(orderItemRoot))
                 .selector(new SingleExprSelector(new Literal(1), false, null))
                 .where(new BinaryExpression(
                     outerCustomerName,
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     new Literal("Alice")
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(new Path(orderId, null), false, "id"))
                 .where(new FunctionCall("EXISTS", List.of(existsSubquery)))
                 .build();
@@ -379,18 +380,18 @@ class JoinCollectorTest {
 
             // Innermost subquery with OuterRef(2) to customer's address
             var itemsSubquery = new Subquery(Query.builder()
-                .from(orderItemRoot)
+                .from(AliasedRoot.of(orderItemRoot))
                 .selector(new SingleExprSelector(new Literal(1), false, null))
                 .where(new BinaryExpression(
                     new BinaryExpression(
                         new Path(itemOrderId, null),
-                        BinaryOperator.EQUALS,
+                        StandardOperator.Binary.EQUALS.identifier(),
                         new OuterRef(1, orderIdPath)  // depth=1
                     ),
-                    BinaryOperator.AND,
+                    StandardOperator.Binary.AND.identifier(),
                     new BinaryExpression(
                         new OuterRef(2, cityPath),  // depth=2, customer's address.city
-                        BinaryOperator.EQUALS,
+                        StandardOperator.Binary.EQUALS.identifier(),
                         new Literal("NYC")
                     )
                 ))
@@ -398,21 +399,21 @@ class JoinCollectorTest {
 
             // Middle subquery
             var ordersSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(new Literal(1), false, null))
                 .where(new BinaryExpression(
                     new BinaryExpression(
                         new Path(orderCustomerId, null),
-                        BinaryOperator.EQUALS,
+                        StandardOperator.Binary.EQUALS.identifier(),
                         new OuterRef(1, customerIdPath)  // depth=1
                     ),
-                    BinaryOperator.AND,
+                    StandardOperator.Binary.AND.identifier(),
                     new FunctionCall("EXISTS", List.of(itemsSubquery))
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new SingleExprSelector(new Path(customerName, null), false, "name"))
                 .where(new FunctionCall("EXISTS", List.of(ordersSubquery)))
                 .build();

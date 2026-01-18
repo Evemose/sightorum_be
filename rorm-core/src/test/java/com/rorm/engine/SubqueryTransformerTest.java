@@ -1,12 +1,12 @@
 package com.rorm.engine;
 
+import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
-import com.rorm.query.Operator.BinaryOperator;
 import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
@@ -99,7 +99,8 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
 
     @Override
     protected void afterDatabaseSetup() {
-        var expressionTransformer = new ExpressionTransformer();
+        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         var joinCollector = new JoinCollector(expressionTransformer);
         var subqueryTransformer = new SubqueryTransformer(expressionTransformer, joinCollector);
         expressionTransformer.setSubqueryTransformer(subqueryTransformer);
@@ -157,14 +158,14 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
         void scalarSubqueryInSelect() {
             // SELECT name, (SELECT AVG(total) FROM orders) as avg_total FROM customers
             var avgSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(
                     new FunctionCall("AVG", List.of(new Path(orderTotal, null))),
                     false, null))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),
@@ -187,24 +188,24 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
         void subqueryInWhereClause() {
             // SELECT name FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE total > 200)
             var inSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(new Path(orderCustomerId, null), false, null))
                 .where(new BinaryExpression(
                     new Path(orderTotal, null),
-                    BinaryOperator.GREATER_THAN,
+                    StandardOperator.Binary.GREATER_THAN.identifier(),
                     new Literal(new BigDecimal("200"))
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(new SelectedExpression(new Path(customerName, null), "name")),
                     false
                 ))
                 .where(new BinaryExpression(
                     new Path(customerId, null),
-                    BinaryOperator.IN,
+                    StandardOperator.Binary.IN.identifier(),
                     inSubquery
                 ))
                 .orderBy(OrderBy.asc(new Path(customerName, null)))
@@ -221,24 +222,24 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
         void subqueryWithInOperator() {
             // SELECT name FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE total > 100)
             var inSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(new Path(orderCustomerId, null), false, null))
                 .where(new BinaryExpression(
                     new Path(orderTotal, null),
-                    BinaryOperator.GREATER_THAN,
+                    StandardOperator.Binary.GREATER_THAN.identifier(),
                     new Literal(new BigDecimal("100"))
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(new SelectedExpression(new Path(customerName, null), "name")),
                     false
                 ))
                 .where(new BinaryExpression(
                     new Path(customerId, null),
-                    BinaryOperator.IN,
+                    StandardOperator.Binary.IN.identifier(),
                     inSubquery
                 ))
                 .orderBy(OrderBy.asc(new Path(customerName, null)))
@@ -263,19 +264,19 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
             var outerCustomerId = new OuterRef(1, customerIdPath);
 
             var countSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(
                     new FunctionCall("COUNT", List.of(new Literal("*"))),
                     false, null))
                 .where(new BinaryExpression(
                     new Path(orderCustomerId, null),
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     outerCustomerId
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),
@@ -304,19 +305,19 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
             var outerCustomerId = new OuterRef(1, customerIdPath);
 
             var maxSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(
                     new FunctionCall("MAX", List.of(new Path(orderTotal, null))),
                     false, null))
                 .where(new BinaryExpression(
                     new Path(orderCustomerId, null),
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     outerCustomerId
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),
@@ -353,38 +354,38 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
 
             // Innermost subquery: SELECT order_id FROM order_items WHERE price > 100
             var itemsSubquery = new Subquery(Query.builder()
-                .from(orderItemRoot)
+                .from(AliasedRoot.of(orderItemRoot))
                 .selector(new SingleExprSelector(new Path(itemOrderId, null), false, null))
                 .where(new BinaryExpression(
                     new Path(itemPrice, null),
-                    BinaryOperator.GREATER_THAN,
+                    StandardOperator.Binary.GREATER_THAN.identifier(),
                     new Literal(new BigDecimal("100"))
                 ))
                 .build());
 
             // Middle subquery: SELECT COUNT(*) FROM orders WHERE customer_id = c.id AND id IN (...)
             var ordersSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(
                     new FunctionCall("COUNT", List.of(new Literal("*"))),
                     false, null))
                 .where(new BinaryExpression(
                     new BinaryExpression(
                         new Path(orderCustomerId, null),
-                        BinaryOperator.EQUALS,
+                        StandardOperator.Binary.EQUALS.identifier(),
                         new OuterRef(1, customerIdPath)  // depth=1, references customer.id
                     ),
-                    BinaryOperator.AND,
+                    StandardOperator.Binary.AND.identifier(),
                     new BinaryExpression(
                         new Path(orderId, null),
-                        BinaryOperator.IN,
+                        StandardOperator.Binary.IN.identifier(),
                         itemsSubquery
                     )
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),
@@ -423,32 +424,32 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
 
             // Innermost subquery: SELECT SUM(price) FROM order_items WHERE order_id = o.id
             var itemsSumSubquery = new Subquery(Query.builder()
-                .from(orderItemRoot)
+                .from(AliasedRoot.of(orderItemRoot))
                 .selector(new SingleExprSelector(
                     new FunctionCall("SUM", List.of(new Path(itemPrice, null))),
                     false, null))
                 .where(new BinaryExpression(
                     new Path(itemOrderId, null),
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     new OuterRef(1, orderIdPath)  // depth=1, references order.id
                 ))
                 .build());
 
             // Middle subquery: SELECT SUM(...) FROM orders WHERE customer_id = c.id
             var ordersSubquery = new Subquery(Query.builder()
-                .from(orderRoot)
+                .from(AliasedRoot.of(orderRoot))
                 .selector(new SingleExprSelector(
                     new FunctionCall("SUM", List.of(itemsSumSubquery)),
                     false, null))
                 .where(new BinaryExpression(
                     new Path(orderCustomerId, null),
-                    BinaryOperator.EQUALS,
+                    StandardOperator.Binary.EQUALS.identifier(),
                     new OuterRef(1, customerIdPath)  // depth=1, references customer.id
                 ))
                 .build());
 
             var query = Query.builder()
-                .from(customerRoot)
+                .from(AliasedRoot.of(customerRoot))
                 .selector(new MultiExprSelector(
                     Set.of(
                         new SelectedExpression(new Path(customerName, null), "name"),

@@ -1,5 +1,6 @@
 package com.rorm.engine;
 
+import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
 import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
@@ -8,7 +9,6 @@ import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.*;
-import com.rorm.query.Operator.BinaryOperator;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
@@ -167,7 +167,8 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         dsl.execute("insert into order_tags (order_id, tag) values (3, 'urgent')");
         dsl.execute("insert into order_tags (order_id, tag) values (3, 'international')");
 
-        var expressionTransformer = new ExpressionTransformer();
+        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
     }
 
@@ -177,11 +178,11 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var profileBioPath = new Path(profileBio, new Path(customerProfile, null));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new RootSelector(customerRoot, false))
             .where(new BinaryExpression(
                 profileBioPath,
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("Software Engineer")
             ))
             .build();
@@ -203,11 +204,11 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 new Path(customerProfile, null)));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new RootSelector(customerRoot, false))
             .where(new BinaryExpression(
                 addressCityPath,
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("London")
             ))
             .build();
@@ -227,7 +228,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var profileBioPath = new Path(profileBio, new Path(customerProfile, null));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new SingleExprSelector(profileBioPath, false, "bio"))
             .build();
 
@@ -249,7 +250,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var countExpr = new FunctionCall("COUNT", List.of(new Literal("*")));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(customerIdPath, "customer_id"),
@@ -286,7 +287,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var profileBioPath = new Path(profileBio, new Path(customerProfile, null));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new RootSelector(customerRoot, false))
             .orderBy(OrderBy.asc(profileBioPath))
             .build();
@@ -306,7 +307,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var countExpr = new FunctionCall("COUNT", List.of(new Literal("*")));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(customerIdPath, "customer_id"),
@@ -317,7 +318,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
             .groupBy(new GroupBy(customerIdPath))
             .having(new BinaryExpression(
                 countExpr,
-                BinaryOperator.GREATER_THAN,
+                StandardOperator.Binary.GREATER_THAN.identifier(),
                 new Literal(1)
             ))
             .build();
@@ -342,7 +343,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var maxNameExpr = new FunctionCall("MAX", List.of(customerNamePath));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(maxNameExpr, false, "max_customer_name"))
             .build();
 
@@ -363,7 +364,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var substringExpr = new FunctionCall("SUBSTRING", List.of(lowerExpr, new Literal(1), new Literal(4)));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new SingleExprSelector(substringExpr, false, "email_prefix"))
             .build();
 
@@ -386,22 +387,22 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
 
         var bioCondition = new BinaryExpression(
             profileBioPath,
-            BinaryOperator.EQUALS,
+            StandardOperator.Binary.EQUALS.identifier(),
             new Literal("Software Engineer")
         );
 
         var cityCondition = new BinaryExpression(
             addressCityPath,
-            BinaryOperator.EQUALS,
+            StandardOperator.Binary.EQUALS.identifier(),
             new Literal("New York")
         );
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new RootSelector(customerRoot, false))
             .where(new BinaryExpression(
                 bioCondition,
-                BinaryOperator.AND,
+                StandardOperator.Binary.AND.identifier(),
                 cityCondition
             ))
             .build();
@@ -424,7 +425,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 new Path(customerProfile, null)));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(new Path(customerName, null), "name"),
@@ -459,7 +460,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var maxNameExpr = new FunctionCall("MAX", List.of(customerNamePath));
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(customerIdPath, "customer_id"),
@@ -497,11 +498,11 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 new Path(customerProfile, null)));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new RootSelector(customerRoot, false))
             .where(new BinaryExpression(
                 twitterPath,
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("@john_dev")
             ))
             .build();
@@ -524,7 +525,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 new Path(customerProfile, null)));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(new Path(customerName, null), "name"),
@@ -560,7 +561,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 new Path(customerProfile, null)));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new RootSelector(customerRoot, false))
             .orderBy(OrderBy.asc(linkedinPath))
             .build();
@@ -585,18 +586,18 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
 
         var countCondition = new BinaryExpression(
             countExpr,
-            BinaryOperator.GREATER_THAN,
+            StandardOperator.Binary.GREATER_THAN.identifier(),
             new Literal(1)
         );
 
         var sumCondition = new BinaryExpression(
             sumExpr,
-            BinaryOperator.GREATER_THAN,
+            StandardOperator.Binary.GREATER_THAN.identifier(),
             new Literal(200.0)
         );
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(customerIdPath, "customer_id"),
@@ -609,7 +610,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
             .groupBy(new GroupBy(customerIdPath))
             .having(new BinaryExpression(
                 countCondition,
-                BinaryOperator.AND,
+                StandardOperator.Binary.AND.identifier(),
                 sumCondition
             ))
             .build();
@@ -638,7 +639,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var orderCustomerNamePath = new Path(customerName, orderCustomerPath);
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(new Path(customerName, null), "name"),
@@ -662,11 +663,11 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var customerNamePath = new Path(customerName, orderCustomerPath);
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new RootSelector(customerRoot, false))
             .where(new BinaryExpression(
                 customerNamePath,
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("John Doe")
             ))
             .build();
@@ -685,7 +686,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
                 new Path(customerProfile, null)));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(new Path(customerName, null), "name"),
@@ -695,7 +696,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
             ))
             .where(new BinaryExpression(
                 addressCityPath,
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("New York")
             ))
             .build();
@@ -718,7 +719,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var tagPath = new Path(orderTagElement, tagsPath);
 
         var query = Query.builder()
-            .from(orderRoot)
+            .from(AliasedRoot.of(orderRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(new Path(orderNumber, null), "order_number"),
@@ -728,7 +729,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
             ))
             .where(new BinaryExpression(
                 tagPath,
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("urgent")
             ))
             .build();
@@ -750,7 +751,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var tagPath = new Path(orderTagElement, tagsPath);
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(new Path(customerName, null), "name"),
@@ -760,7 +761,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
             ))
             .where(new BinaryExpression(
                 tagPath,
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("international")
             ))
             .build();
@@ -778,7 +779,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
         var countExpr = new FunctionCall("COUNT", List.of(ordersPath));
 
         var query = Query.builder()
-            .from(customerRoot)
+            .from(AliasedRoot.of(customerRoot))
             .selector(new MultiExprSelector(
                 Set.of(
                     new SelectedExpression(new Path(customerId, null), "customer_id"),

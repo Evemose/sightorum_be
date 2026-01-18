@@ -2,7 +2,6 @@ package com.rorm.dataimport.pipeline;
 
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.SameTableColumn;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +9,6 @@ import java.util.List;
 /**
  * Generates SQL schema DDL from metamodel.
  */
-@Component
 class SchemaGenerator {
 
     /**

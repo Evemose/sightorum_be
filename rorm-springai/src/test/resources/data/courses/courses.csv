@@ -1,0 +1,101 @@
+course_id,course_name,subject,difficulty_level,difficulty_score,estimated_hours,instructor_name,instructor_quality_score,max_students,has_prerequisites,is_online,course_fee,created_date
+CRS0001,Mathematics 381,Mathematics,Intermediate,3.21,42.0,Dawn Ellis,5.5,30,False,False,124.39,2020-12-02
+CRS0002,Art 248,Art,Beginner,1.23,37.0,Kimberly Smith,8.5,50,False,False,335.05,2019-04-23
+CRS0003,Economics 245,Economics,Beginner,0.79,25.0,Cynthia Chapman,4.2,100,False,True,252.4,2020-12-17
+CRS0004,Mathematics 184,Mathematics,Intermediate,3.32,45.0,Jason Miller,4.4,30,False,True,650.59,2021-10-09
+CRS0005,Art 433,Art,Beginner,1.34,30.0,Dana Kelley,4.3,30,False,False,481.8,2021-02-04
+CRS0006,Physics 301,Physics,Intermediate,5.29,47.0,Kristin Bryan,,20,False,False,305.23,2019-06-24
+CRS0007,History 519,History,Expert,8.57,76.0,Charles Delgado,6.3,20,True,False,839.22,2020-05-22
+CRS0008,Mathematics 113,Mathematics,Intermediate,5.91,44.0,Scott Estrada,7.8,20,False,False,583.98,2020-09-11
+CRS0009,Psychology 456,Psychology,Beginner,0.91,35.0,Elizabeth Knapp,8.3,50,False,True,285.44,2021-07-16
+CRS0010,Art 447,Art,Intermediate,3.54,40.0,Jason Thompson,,200,False,False,495.79,2019-03-11
+CRS0011,Economics 532,Economics,Expert,9.91,78.0,Lisa Holt,2.6,100,True,True,484.95,2020-04-19
+CRS0012,Chemistry 315,Chemistry,Expert,9.61,83.0,Rachel Thompson,7.7,30,True,False,505.5,2020-02-06
+CRS0013,Art 435,Art,Intermediate,4.2,46.0,Kent Huynh,,20,False,False,111.28,2021-11-04
+CRS0014,Physics 559,Physics,Expert,8.84,83.0,Edwin Richardson,6.8,20,True,False,106.76,2021-06-12
+CRS0015,Mathematics 336,Mathematics,Advanced,7.05,59.0,Barry Simmons,6.6,50,True,False,412.51,2020-04-26
+CRS0016,Mathematics 188,Mathematics,Beginner,0.97,30.0,Eileen Taylor,5.9,50,False,True,301.18,2021-02-23
+CRS0017,Literature 176,Literature,Beginner,1.28,32.0,Denise Rose,3.2,100,False,True,274.53,2019-07-23
+CRS0018,Literature 458,Literature,Advanced,7.27,64.0,Melissa Salazar,7.9,200,True,True,847.57,2021-09-16
+CRS0019,Art 508,Art,Intermediate,5.86,43.0,Nicholas Fuller,3.8,200,False,True,211.72,2019-03-31
+CRS0020,Art 287,Art,Advanced,6.16,57.0,Mrs. Melissa Peck,8.7,200,True,True,179.79,2020-04-14
+CRS0021,Computer Science 560,Computer Science,Intermediate,5.23,46.0,Mrs. Lisa Stewart,6.6,50,False,True,170.15,2021-11-22
+CRS0022,Chemistry 214,Chemistry,Advanced,7.23,67.0,Whitney Gomez,9.4,30,True,False,375.18,2019-06-28
+CRS0023,Mathematics 376,Mathematics,Advanced,7.83,59.0,Justin Stone,4.7,50,True,True,403.38,2021-07-12
+CRS0024,Economics 523,Economics,Beginner,2.52,27.0,Katherine White,7.5,50,False,True,498.46,2019-06-17
+CRS0025,Psychology 254,Psychology,Beginner,2.06,35.0,Michelle Krause,,30,False,False,203.25,2019-06-22
+CRS0026,Art 114,Art,Expert,10.22,75.0,Alexander Garrett,7.0,100,True,True,443.82,2020-09-17
+CRS0027,Mathematics 196,Mathematics,Intermediate,5.27,53.0,Ryan Marsh,5.3,30,False,True,517.96,2019-02-08
+CRS0028,Physics 536,Physics,Intermediate,3.9,49.0,Mrs. Felicia Castro DDS,8.4,20,False,True,321.88,2020-03-19
+CRS0029,Mathematics 469,Mathematics,Beginner,2.05,28.0,Curtis Campbell,7.2,30,False,True,277.84,2021-06-06
+CRS0030,History 460,History,Intermediate,3.49,43.0,Elizabeth Hunter,7.7,20,False,True,87.12,2021-06-21
+CRS0031,Mathematics 362,Mathematics,Beginner,2.87,23.0,Aaron Jennings,7.1,50,False,True,556.05,2019-07-16
+CRS0032,Psychology 441,Psychology,Intermediate,4.17,43.0,Nathaniel Gilbert,9.0,30,False,True,141.65,2019-04-10
+CRS0033,Economics 344,Economics,Advanced,6.75,62.0,Christopher Rivera,8.8,50,True,True,532.22,2021-07-03
+CRS0034,Economics 364,Economics,Intermediate,4.82,47.0,Michael Hendricks,9.2,20,False,True,305.89,2019-10-28
+CRS0035,Mathematics 445,Mathematics,Intermediate,5.19,41.0,Maria Olson,8.5,30,False,False,608.34,2020-08-04
+CRS0036,Mathematics 110,Mathematics,Intermediate,4.41,48.0,Stephanie Herrera,9.6,30,False,True,426.99,2021-03-24
+CRS0037,Chemistry 476,Chemistry,Intermediate,5.41,48.0,Richard Gutierrez,2.5,20,False,True,549.3,2020-05-13
+CRS0038,Art 149,Art,Intermediate,4.03,45.0,Sandy Evans,7.9,50,False,False,513.79,2020-11-22
+CRS0039,Psychology 548,Psychology,Intermediate,3.57,47.0,Emily Herrera,6.0,200,False,True,246.73,2020-11-10
+CRS0040,Mathematics 110,Mathematics,Beginner,2.73,35.0,Michael Marsh,9.3,200,False,True,66.52,2020-05-27
+CRS0041,Psychology 416,Psychology,Intermediate,4.87,39.0,Heather Montes,7.8,20,False,True,643.37,2021-06-26
+CRS0042,Psychology 422,Psychology,Beginner,1.52,29.0,Andre Terrell,,100,False,True,85.06,2021-03-03
+CRS0043,Psychology 593,Psychology,Beginner,1.84,29.0,Sarah Duncan,6.8,20,False,True,226.76,2020-01-01
+CRS0044,Chemistry 502,Chemistry,Intermediate,6.45,43.0,Kurt Hancock,7.5,30,False,True,504.12,2021-07-05
+CRS0045,Chemistry 474,Chemistry,Beginner,2.44,36.0,Michele Edwards,6.3,100,False,True,490.51,2019-06-07
+CRS0046,History 115,History,Intermediate,4.77,50.0,Jason Crawford,7.3,20,False,True,360.33,2020-03-28
+CRS0047,Biology 452,Biology,Intermediate,3.89,40.0,Jesse Sampson,7.2,100,False,True,80.19,2019-04-16
+CRS0048,Economics 563,Economics,Intermediate,6.13,39.0,Eric Rodriguez,8.7,30,False,True,784.32,2019-10-05
+CRS0049,Biology 197,Biology,Intermediate,4.85,44.0,Paula Gentry,7.5,100,False,True,135.38,2019-12-14
+CRS0050,Mathematics 261,Mathematics,Beginner,3.46,30.0,Alexander Webb,8.6,50,False,True,461.23,2021-08-12
+CRS0051,Literature 280,Literature,Beginner,2.56,25.0,Cheryl Mclean,5.3,30,False,False,499.94,2021-06-22
+CRS0052,Art 205,Art,Advanced,8.18,53.0,Kelly Rowe,7.9,20,True,True,778.79,2021-02-11
+CRS0053,Physics 590,Physics,Intermediate,5.48,44.0,Shane Short,4.4,20,False,True,418.44,2020-12-28
+CRS0054,Biology 299,Biology,Beginner,1.7,38.0,Megan Anderson,7.0,200,False,True,446.5,2020-03-28
+CRS0055,Computer Science 142,Computer Science,Intermediate,7.19,48.0,Julia Reeves,9.5,200,False,True,179.04,2019-06-29
+CRS0056,Physics 573,Physics,Advanced,7.18,55.0,April Randolph,4.1,200,True,True,527.01,2021-10-30
+CRS0057,Literature 317,Literature,Intermediate,6.15,45.0,Linda Miller,4.4,100,False,False,431.99,2019-08-30
+CRS0058,History 467,History,Beginner,2.03,25.0,Angel Meyer,8.7,100,False,True,287.44,2021-11-25
+CRS0059,History 231,History,Beginner,1.43,35.0,Emily Lane,7.3,200,False,True,449.08,2021-07-15
+CRS0060,History 450,History,Advanced,8.96,53.0,Steven Flores,7.4,50,True,True,827.91,2021-08-18
+CRS0061,Psychology 376,Psychology,Intermediate,4.93,42.0,Donald Flores,4.2,50,False,True,339.0,2021-01-08
+CRS0062,Art 406,Art,Beginner,2.59,33.0,Bruce Hernandez,8.1,20,False,True,370.13,2021-09-30
+CRS0063,Economics 471,Economics,Intermediate,6.23,50.0,Adrian Dean,4.9,200,False,True,458.38,2021-09-25
+CRS0064,Economics 233,Economics,Intermediate,4.96,46.0,Christine Bell,5.9,100,False,True,473.16,2021-03-09
+CRS0065,Economics 433,Economics,Beginner,0.8,32.0,Charles Bush,8.9,100,False,True,375.65,2021-10-19
+CRS0066,Chemistry 572,Chemistry,Beginner,1.86,26.0,David Jones,6.8,100,False,False,282.31,2020-02-09
+CRS0067,Physics 187,Physics,Beginner,3.11,39.0,Gina Wallace,4.3,200,False,True,528.17,2019-10-13
+CRS0068,Art 431,Art,Beginner,2.6,40.0,John Lowe,3.9,200,False,True,387.24,2019-06-28
+CRS0069,Literature 513,Literature,Beginner,3.07,28.0,Anthony Simmons,6.8,50,False,True,293.44,2021-10-14
+CRS0070,Computer Science 586,Computer Science,Beginner,1.43,39.0,Kyle Watkins,6.3,100,False,True,479.37,2021-09-26
+CRS0071,Physics 121,Physics,Intermediate,4.68,48.0,Melissa Jensen,7.7,20,False,False,498.14,2019-09-22
+CRS0072,Chemistry 311,Chemistry,Advanced,6.13,59.0,Robert Marquez,7.8,30,True,True,127.27,2021-01-09
+CRS0073,Literature 492,Literature,Beginner,2.85,33.0,Kim Beltran,8.7,200,False,True,203.51,2021-07-08
+CRS0074,Computer Science 451,Computer Science,Beginner,2.53,31.0,Julie Anderson,6.0,30,False,True,477.48,2021-01-04
+CRS0075,Art 554,Art,Beginner,3.56,26.0,Tamara Mcdonald,5.0,200,False,False,165.03,2021-11-20
+CRS0076,Literature 428,Literature,Intermediate,2.93,50.0,Michael Mckinney,5.9,200,False,True,194.35,2019-06-12
+CRS0077,Economics 400,Economics,Advanced,6.3,53.0,David Walker,5.6,50,True,True,805.87,2021-02-02
+CRS0078,Psychology 116,Psychology,Intermediate,4.67,42.0,Lisa Durham,8.2,50,False,False,103.5,2019-09-11
+CRS0079,Computer Science 491,Computer Science,Advanced,6.84,68.0,Michael Ortega,7.9,30,True,True,154.2,2021-01-27
+CRS0080,Mathematics 131,Mathematics,Advanced,7.04,57.0,Sonya Chavez,4.6,50,True,False,177.85,2020-10-18
+CRS0081,Art 550,Art,Intermediate,4.33,40.0,John Bell,4.6,200,False,False,554.02,2021-10-26
+CRS0082,Mathematics 195,Mathematics,Beginner,1.72,32.0,Christopher Tate,7.7,20,False,True,149.99,2020-09-22
+CRS0083,Literature 535,Literature,Intermediate,4.6,50.0,Bethany Garcia,5.9,200,False,True,475.82,2019-05-04
+CRS0084,Chemistry 385,Chemistry,Intermediate,5.6,46.0,Rebecca Nguyen,8.3,50,False,True,217.27,2019-08-22
+CRS0085,Literature 357,Literature,Intermediate,4.56,43.0,Rebecca Patel,8.5,20,False,True,717.48,2020-08-17
+CRS0086,Computer Science 299,Computer Science,Intermediate,4.14,42.0,Jason Oliver,7.6,100,False,True,426.27,2020-06-12
+CRS0087,Literature 264,Literature,Advanced,7.31,54.0,Valerie Reyes,8.4,20,True,True,862.18,2019-09-18
+CRS0088,Chemistry 272,Chemistry,Intermediate,3.82,45.0,Robert Garza,5.0,30,False,True,562.48,2021-08-16
+CRS0089,Art 374,Art,Intermediate,4.57,39.0,Jessica Cobb,5.8,50,False,True,250.32,2021-12-08
+CRS0090,Physics 404,Physics,Intermediate,4.83,39.0,Cynthia Bates,7.2,20,False,False,521.65,2019-04-23
+CRS0091,Physics 161,Physics,Intermediate,5.78,35.0,Timothy Andrews,6.7,200,False,True,363.35,2020-07-05
+CRS0092,Biology 197,Biology,Advanced,5.97,57.0,Mr. Joel Peters,7.2,20,True,True,768.51,2019-10-14
+CRS0093,Literature 128,Literature,Intermediate,5.56,55.0,Casey Blanchard,8.5,20,False,True,136.54,2019-07-21
+CRS0094,Psychology 307,Psychology,Intermediate,5.23,56.0,Brian Cervantes,6.3,100,False,True,683.73,2020-12-18
+CRS0095,Art 445,Art,Advanced,7.27,65.0,Jamie Snyder,,100,True,True,399.03,2021-04-09
+CRS0096,Art 434,Art,Intermediate,6.52,37.0,Ann Montoya,8.0,200,False,False,401.1,2021-03-30
+CRS0097,Physics 420,Physics,Beginner,1.63,26.0,Stephanie Fields,7.6,100,False,False,350.24,2020-03-13
+CRS0098,Art 151,Art,Intermediate,5.29,48.0,Charles Hernandez,6.0,200,False,True,472.2,2020-09-26
+CRS0099,Chemistry 507,Chemistry,Beginner,1.64,26.0,Jean Lane,5.8,100,False,True,295.27,2020-11-23
+CRS0100,Biology 587,Biology,Beginner,2.5,25.0,Michael Stewart,8.7,20,False,True,583.37,2020-02-02

@@ -3,7 +3,6 @@ package com.rorm.dataimport.pipeline;
 import com.rorm.dataimport.attribute.DetectedAttribute;
 import com.rorm.dataimport.pipeline.SchemaDetector.DetectedSchema;
 import com.rorm.metamodel.*;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,7 +13,6 @@ import java.util.stream.Collectors;
 /**
  * Converts detected schema to metamodel (Roots and Attributes).
  */
-@Component
 class MetamodelConverter {
 
     private static HashMap<String, Root> createMutableRootMap(DetectedSchema detectedSchema) {

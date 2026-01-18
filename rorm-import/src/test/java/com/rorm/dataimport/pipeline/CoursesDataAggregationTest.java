@@ -4,17 +4,13 @@ import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
 import com.rorm.dataimport.source.ImportDataSource;
 import com.rorm.engine.QueryTransformer;
-import com.rorm.metamodel.Attribute;
-import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.SameTableColumn;
-import com.rorm.metamodel.Root;
-import com.rorm.metamodel.SingularReferenceAttribute;
 import com.rorm.query.Expression.Aggregation;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.WindowFunction;
 import com.rorm.query.*;
-import com.rorm.query.Operator.BinaryOperator;
 import com.rorm.query.Selector.MultiExprSelector;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeAll;
@@ -137,7 +133,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentCountry = findAttribute(ctx.studentsRoot, "country");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentCountry, null), "country"),
                 new SelectedExpression(
@@ -193,7 +189,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentCountry = findAttribute(ctx.studentsRoot, "country");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentCountry, null), "country"),
                 new SelectedExpression(
@@ -204,7 +200,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
             .groupBy(new GroupBy(new Path(studentCountry, null)))
             .having(new BinaryExpression(
                 new Aggregation("COUNT", List.of(new Literal("*")), false),
-                BinaryOperator.GREATER_THAN,
+                StandardOperator.Binary.GREATER_THAN.identifier(),
                 new Literal(3)
             ))
             .build();
@@ -226,7 +222,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentGpa = findAttribute(ctx.studentsRoot, "prior_gpa");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentCountry, null), "country"),
                 new SelectedExpression(
@@ -249,7 +245,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
             .groupBy(new GroupBy(new Path(studentCountry, null)))
             .having(new BinaryExpression(
                 new Aggregation("COUNT", List.of(new Literal("*")), false),
-                BinaryOperator.GREATER_THAN_OR_EQUAL,
+                StandardOperator.Binary.GREATER_THAN_OR_EQUAL.identifier(),
                 new Literal(5)
             ))
             .orderBy(new OrderBy(
@@ -297,7 +293,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentCountry = findAttribute(ctx.studentsRoot, "country");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentName, null), "name"),
                 new SelectedExpression(new Path(studentCountry, null), "country"),
@@ -316,7 +312,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
             ), false))
             .where(new BinaryExpression(
                 new Path(studentCountry, null),
-                BinaryOperator.IN,
+                StandardOperator.Binary.IN.identifier(),
                 new Literal(List.of("Canada", "Mexico", "Brazil"))
             ))
             .orderBy(new OrderBy(new Path(studentCountry, null), true))
@@ -353,7 +349,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var courseName = findAttribute(ctx.coursesRoot, "course_name");
 
         var query = Query.builder()
-            .from(ctx.coursesRoot)
+            .from(AliasedRoot.of(ctx.coursesRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(courseName, null), "course_name"),
                 new SelectedExpression(
@@ -419,7 +415,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentGpa = findAttribute(ctx.studentsRoot, "prior_gpa");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentCountry, null), "country"),
                 new SelectedExpression(new Path(studentScholarship, null), "has_scholarship"),
@@ -437,13 +433,13 @@ class CoursesDataAggregationTest extends AbstractImportTest {
             .having(new BinaryExpression(
                 new BinaryExpression(
                     new Aggregation("COUNT", List.of(new Literal("*")), false),
-                    BinaryOperator.GREATER_THAN,
+                    StandardOperator.Binary.GREATER_THAN.identifier(),
                     new Literal(3)
                 ),
-                BinaryOperator.AND,
+                StandardOperator.Binary.AND.identifier(),
                 new BinaryExpression(
                     new Aggregation("AVG", List.of(new Path(studentGpa, null)), false),
-                    BinaryOperator.GREATER_THAN,
+                    StandardOperator.Binary.GREATER_THAN.identifier(),
                     new Literal(2.5)
                 )
             ))
@@ -475,7 +471,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var estimatedHours = findAttribute(ctx.coursesRoot, "estimated_hours");
 
         var query = Query.builder()
-            .from(ctx.coursesRoot)
+            .from(AliasedRoot.of(ctx.coursesRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(courseName, null), "course_name"),
                 new SelectedExpression(new Path(estimatedHours, null), "estimated_hours"),
@@ -535,7 +531,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var estimatedHours = findAttribute(ctx.coursesRoot, "estimated_hours");
 
         var query = Query.builder()
-            .from(ctx.coursesRoot)
+            .from(AliasedRoot.of(ctx.coursesRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(courseName, null), "course_name"),
                 new SelectedExpression(new Path(estimatedHours, null), "estimated_hours"),
@@ -594,7 +590,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentName = findAttribute(ctx.studentsRoot, "name");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentName, null), "name"),
                 new SelectedExpression(new Path(studentCountry, null), "country"),
@@ -624,7 +620,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
             ), false))
             .where(new BinaryExpression(
                 new Path(studentCountry, null),
-                BinaryOperator.IN,
+                StandardOperator.Binary.IN.identifier(),
                 new Literal(List.of("Canada", "Mexico"))
             ))
             .orderBy(new OrderBy(new Path(studentCountry, null), true))
@@ -659,7 +655,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var estimatedHours = findAttribute(ctx.coursesRoot, "estimated_hours");
 
         var query = Query.builder()
-            .from(ctx.coursesRoot)
+            .from(AliasedRoot.of(ctx.coursesRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(courseName, null), "course_name"),
                 new SelectedExpression(new Path(estimatedHours, null), "estimated_hours"),
@@ -702,7 +698,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentGpa = findAttribute(ctx.studentsRoot, "prior_gpa");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentName, null), "name"),
                 new SelectedExpression(new Path(studentGpa, null), "gpa"),
@@ -739,7 +735,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var studentCountry = findAttribute(ctx.studentsRoot, "country");
 
         var query = Query.builder()
-            .from(ctx.studentsRoot)
+            .from(AliasedRoot.of(ctx.studentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(studentName, null), "name"),
                 new SelectedExpression(new Path(studentCountry, null), "country"),
@@ -769,7 +765,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
             ), false))
             .where(new BinaryExpression(
                 new Path(studentCountry, null),
-                BinaryOperator.EQUALS,
+                StandardOperator.Binary.EQUALS.identifier(),
                 new Literal("Canada")
             ))
             .orderBy(new OrderBy(new Path(studentGpa, null), false))
@@ -807,7 +803,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
         var enrollmentCourse = findAttribute(ctx.enrollmentsRoot, "course_id");
 
         var query = Query.builder()
-            .from(ctx.enrollmentsRoot)
+            .from(AliasedRoot.of(ctx.enrollmentsRoot))
             .selector(new MultiExprSelector(Set.of(
                 new SelectedExpression(new Path(enrollmentCourse, null), "course_id"),
                 new SelectedExpression(
@@ -822,7 +818,7 @@ class CoursesDataAggregationTest extends AbstractImportTest {
             .groupBy(new GroupBy(new Path(enrollmentCourse, null)))
             .having(new BinaryExpression(
                 new Aggregation("COUNT", List.of(new Path(enrollmentStudent, null)), true),
-                BinaryOperator.GREATER_THAN,
+                StandardOperator.Binary.GREATER_THAN.identifier(),
                 new Literal(5)
             ))
             .orderBy(new OrderBy(

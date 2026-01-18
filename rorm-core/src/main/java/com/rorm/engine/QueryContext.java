@@ -7,6 +7,7 @@ import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
 import com.rorm.metamodel.ReferenceAttribute.SameTableColumn;
 import com.rorm.query.Path;
+import lombok.Getter;
 import org.jooq.Field;
 import org.jooq.Table;
 import org.jspecify.annotations.Nullable;
@@ -20,6 +21,7 @@ import static org.jooq.impl.DSL.*;
 final class QueryContext {
 
     private final Map<Path, JoinInfo> joinRegistry = new HashMap<>();
+    private final Map<String, JoinedRootInfo> aliasRegistry = new HashMap<>();
     private final Table<?> rootTable;
     private final Root root;
     private final @Nullable QueryContext parent;
@@ -27,21 +29,37 @@ final class QueryContext {
     private int aliasCounter = 0;
 
     QueryContext(Root root) {
-        this(root, null, 0);
+        this(AliasedRoot.of(root));
     }
 
-    QueryContext(Root root, @Nullable QueryContext parent, int depth) {
+    QueryContext(AliasedRoot from) {
+        this(from, null, 0);
+    }
+
+    QueryContext(AliasedRoot from, @Nullable QueryContext parent, int depth) {
         if (depth < 0) {
             throw new IllegalArgumentException("Depth cannot be negative");
         }
-        this.root = root;
+        this.root = from.root();
         this.depth = depth;
         this.parent = parent;
-        this.rootTable = table(name(root.primaryTableName())).as(generateAlias());
+        this.rootTable = table(name(from.root().primaryTableName())).as(generateAlias());
+
+        // Register the from alias
+        var info = new JoinedRootInfo(from, rootTable);
+        aliasRegistry.put(from.alias(), info);
+    }
+
+    private String generateAlias() {
+        return "t" + depth + "_" + aliasCounter++;
+    }
+
+    QueryContext nested(AliasedRoot root) {
+        return new QueryContext(root, this, depth + 1);
     }
 
     QueryContext nested(Root root) {
-        return new QueryContext(root, this, depth + 1);
+        return new QueryContext(AliasedRoot.of(root), this, depth + 1);
     }
 
     QueryContext ancestor(int levels) {
@@ -74,6 +92,11 @@ final class QueryContext {
 
     private JoinInfo createJoin(Path path) {
         if (path.parent() == null) {
+            // Check if this is a JoinedRoot at the base
+            if (path.target() instanceof AliasedRoot aliasedRoot) {
+                var info = getOrRegisterJoinedRoot(aliasedRoot);
+                return new JoinInfo(info.table(), aliasedRoot.root().primaryTableName(), null, null);
+            }
             return new JoinInfo(rootTable, root.primaryTableName(), null, null);
         }
 
@@ -81,6 +104,11 @@ final class QueryContext {
         var parentTarget = path.parent().target();
 
         return switch (parentTarget) {
+            case AliasedRoot aliasedRoot -> {
+                // JoinedRoot acts as a new root context for the path
+                var info = getOrRegisterJoinedRoot(aliasedRoot);
+                yield new JoinInfo(info.table(), aliasedRoot.root().primaryTableName(), null, null);
+            }
             case SingularReferenceAttribute ref -> handleSingularReference(parentJoinInfo, ref);
             case PluralReferenceAttribute ref -> handlePluralReference(parentJoinInfo, ref);
             case CollectionAttribute col -> handleCollection(parentJoinInfo, col);
@@ -147,9 +175,69 @@ final class QueryContext {
             field(name(joined.getName(), fkColumn)));
     }
 
-    private String generateAlias() {
-        return "t" + depth + "_" + aliasCounter++;
+    /**
+     * Gets or registers a JoinedRoot.
+     * If already registered, returns the existing info; otherwise registers it.
+     *
+     * @param aliasedRoot the joined root to get or register
+     * @return the JoinedRootInfo for the joined root
+     */
+    JoinedRootInfo getOrRegisterJoinedRoot(AliasedRoot aliasedRoot) {
+        var existing = aliasRegistry.get(aliasedRoot.alias());
+        if (existing != null) {
+            if (!existing.aliasedRoot().root().equals(aliasedRoot.root())) {
+                throw new DuplicateAliasException(aliasedRoot.alias(),
+                    existing.aliasedRoot().root().primaryTableName(),
+                    aliasedRoot.root().primaryTableName());
+            }
+            return existing;
+        }
+        return registerJoinedRoot(aliasedRoot);
+    }
+
+    /**
+     * Registers a JoinedRoot with its alias.
+     * If the alias is already registered, throws an exception.
+     *
+     * @param aliasedRoot the joined root to register
+     * @return the JoinInfo for the registered joined root
+     * @throws DuplicateAliasException if the alias is already registered
+     */
+    JoinedRootInfo registerJoinedRoot(AliasedRoot aliasedRoot) {
+        var alias = aliasedRoot.alias();
+        var existing = aliasRegistry.get(alias);
+        if (existing != null) {
+            throw new DuplicateAliasException(alias, existing.aliasedRoot().root().primaryTableName(),
+                aliasedRoot.root().primaryTableName());
+        }
+
+        var targetTable = aliasedRoot.root().primaryTableName();
+        var aliasedTable = table(name(targetTable)).as(generateAlias());
+        var info = new JoinedRootInfo(aliasedRoot, aliasedTable);
+        aliasRegistry.put(alias, info);
+        return info;
     }
 
     record JoinInfo(Table<?> table, String actualTableName, Field<?> leftJoinColumn, Field<?> rightJoinColumn) {}
+
+    record JoinedRootInfo(AliasedRoot aliasedRoot, Table<?> table) {}
+
+    /**
+     * Exception thrown when a duplicate alias is detected during registration.
+     */
+    @Getter
+    static class DuplicateAliasException extends RuntimeException {
+        private final String alias;
+        private final String existingRootTable;
+        private final String newRootTable;
+
+        DuplicateAliasException(String alias, String existingRootTable, String newRootTable) {
+            super("Duplicate alias '%s' detected: already used for table '%s', cannot be used for table '%s'"
+                .formatted(alias, existingRootTable, newRootTable));
+            this.alias = alias;
+            this.existingRootTable = existingRootTable;
+            this.newRootTable = newRootTable;
+        }
+
+    }
 }
