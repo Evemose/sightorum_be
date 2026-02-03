@@ -1,6 +1,5 @@
 package com.rorm.engine;
 
-import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.Literal;
@@ -9,6 +8,7 @@ import com.rorm.query.Join.JoinType;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import com.rorm.testutil.AbstractPostgresTest;
+import com.rorm.testutil.TestHandlerRegistry;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.Result;
@@ -67,7 +67,7 @@ class JoinedRootQueryTest extends AbstractPostgresTest {
         var schemaName = "test_" + UUID.randomUUID().toString().replace("-", "_");
 
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
 

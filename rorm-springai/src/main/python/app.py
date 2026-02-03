@@ -1,0 +1,386 @@
+"""
+FastAPI application using pure dependency injection.
+
+All components are instantiated through the DI container.
+No manual instantiation or global state.
+"""
+
+import asyncio
+import json
+import logging
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime
+from dependency_injector.wiring import inject, Provide
+from fastapi import FastAPI, Depends, HTTPException
+
+from config.settings import Settings
+from core.container import (ApplicationContainer)
+from dto import TrainingRequest
+from service.prediction_service import PredictionService
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+# ========== Application Lifespan ==========
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Manage application lifecycle with DI container."""
+    # Initialize container
+    container = ApplicationContainer()
+    container.wire(modules=[__name__])
+
+    logger.info("Starting ML Training Service")
+    logger.info("DI container initialized")
+
+    # Start pipeline nodes
+    training_node = container.training_node()
+    tuning_node = container.tuning_node()
+
+    training_task = asyncio.create_task(training_node.start())
+    tuning_task = asyncio.create_task(tuning_node.start())
+
+    logger.info("Pipeline nodes started")
+
+    try:
+        yield {"container": container}
+    finally:
+        # Cleanup
+        logger.info("Shutting down ML Training Service")
+
+        await training_node.stop()
+        await tuning_node.stop()
+
+        training_task.cancel()
+        tuning_task.cancel()
+
+        try:
+            await asyncio.gather(training_task, tuning_task, return_exceptions=True)
+        except asyncio.CancelledError:
+            pass
+
+        await container.shutdown_resources()
+        logger.info("Service stopped")
+
+
+# ========== FastAPI Application ==========
+
+
+def create_app() -> FastAPI:
+    """Create and configure FastAPI application."""
+    app = FastAPI(
+        title="ML Training Service",
+        description="Distributed ML model training with hyperparameter tuning",
+        version="2.0.0",
+        lifespan=lifespan
+    )
+
+    # Add routes
+    _add_training_routes(app)
+    _add_prediction_routes(app)
+    _add_unsupervised_routes(app)
+    _add_info_routes(app)
+
+    return app
+
+
+# ========== Training Routes ==========
+
+
+def _add_training_routes(app: FastAPI):
+    """Add training-related routes."""
+
+    @app.post("/train", response_model=dict, tags=["Training"])
+    @inject
+    async def train(
+            request: TrainingRequest,
+            event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
+            config: Settings = Depends(Provide[ApplicationContainer.config])
+    ):
+        """
+        Train ML model (async via processing).
+
+        Returns training_id immediately. Monitor progress via events
+        on channels: ml_training.events and ml_training.<training_id>
+        """
+        training_id = str(uuid.uuid4())
+
+        # Publish to training processing
+        request_data = {
+            "model_type": request.model_type,
+            "model_name": request.model_name,
+            "datasource": {
+                "sql": request.datasource.sql,
+                "bind_variables": request.datasource.bind_variables or {}
+            },
+            "target_column": request.target_column,
+            "feature_columns": request.feature_columns,
+            "model_params": request.model_params or {}
+        }
+
+        await event_publisher.add_to_stream(
+            config.pipeline.streams.training_requests,
+            {
+                "message_type": "training_request",
+                "payload": json.dumps({
+                    "training_id": training_id,
+                    "request_data": request_data
+                }),
+                "metadata": json.dumps({}),
+                "timestamp": datetime.now().isoformat(),
+                "retry_count": "0"
+            }
+        )
+
+        return {
+            "status": "accepted",
+            "training_id": training_id,
+            "message": "Training request queued successfully"
+        }
+
+    @app.post("/tune-and-train", response_model=dict, tags=["Training"])
+    @inject
+    async def tune_and_train(
+            request: TrainingRequest,
+            param_space: dict,
+            tuning_config: dict | None = None,
+            event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
+            config: Settings = Depends(Provide[ApplicationContainer.config])
+    ):
+        """
+        Tune hyperparameters and train model.
+
+        Param space format:
+        {
+            "param_name": {
+                "type": "int"|"float"|"categorical"|"loguniform",
+                "low": value, "high": value,  # for int/float
+                "choices": [...]  # for categorical
+            }
+        }
+
+        Tuning config:
+        {
+            "n_trials": 50,
+            "max_tuning_time": 300,
+            "metric": "auto"
+        }
+        """
+        training_id = str(uuid.uuid4())
+
+        # Publish to tuning processing
+        request_data = {
+            "model_type": request.model_type,
+            "model_name": request.model_name,
+            "datasource": {
+                "sql": request.datasource.sql,
+                "bind_variables": request.datasource.bind_variables or {}
+            },
+            "target_column": request.target_column,
+            "feature_columns": request.feature_columns
+        }
+
+        await event_publisher.add_to_stream(
+            config.pipeline.streams.tuning_requests,
+            {
+                "message_type": "tuning_request",
+                "payload": json.dumps({
+                    "training_id": training_id,
+                    "request_data": request_data,
+                    "param_space": param_space,
+                    "tuning_config": tuning_config or {}
+                }),
+                "metadata": json.dumps({}),
+                "timestamp": datetime.now().isoformat(),
+                "retry_count": "0"
+            }
+        )
+
+        return {
+            "status": "accepted",
+            "training_id": training_id,
+            "message": "Hyperparameter tuning request queued successfully"
+        }
+
+
+# ========== Prediction Routes ==========
+
+
+def _add_prediction_routes(app: FastAPI):
+    """Add prediction-related routes."""
+
+    @app.post("/predict/{model_uuid}", response_model=dict, tags=["Prediction"])
+    @inject
+    async def predict(
+            model_uuid: str,
+            input_data: dict | list[dict],
+            prediction_service: PredictionService = Depends(Provide[ApplicationContainer.prediction_service])
+    ):
+        """Make predictions using trained model."""
+        return prediction_service.predict(model_uuid, input_data)
+
+    @app.get("/models/supervised", response_model=list, tags=["Models"])
+    @inject
+    async def list_models(
+            db_storage=Depends(Provide[ApplicationContainer.db_storage])
+    ):
+        """List all trained supervised models."""
+        return db_storage.list_supervised_models()
+
+    @app.get("/models/supervised/{model_uuid}", response_model=dict, tags=["Models"])
+    @inject
+    async def get_model_info(
+            model_uuid: str,
+            prediction_service: PredictionService = Depends(Provide[ApplicationContainer.prediction_service])
+    ):
+        """Get model metadata."""
+        return prediction_service.get_model_info(model_uuid)
+
+    @app.delete("/models/supervised/{model_uuid}", response_model=dict, tags=["Models"])
+    @inject
+    async def delete_model(
+            model_uuid: str,
+            db_storage=Depends(Provide[ApplicationContainer.db_storage])
+    ):
+        """Delete trained model."""
+        deleted = db_storage.delete_supervised_model(model_uuid)
+        return {
+            "deleted": deleted,
+            "model_uuid": model_uuid
+        }
+
+
+# ========== Unsupervised Results Routes ==========
+
+
+def _add_unsupervised_routes(app: FastAPI):
+    """Add unsupervised model results routes."""
+
+    @app.get("/results/unsupervised", response_model=list, tags=["Unsupervised Results"])
+    @inject
+    async def list_unsupervised_results(
+            limit: int = 100,
+            db_storage=Depends(Provide[ApplicationContainer.db_storage])
+    ):
+        """
+        List all unsupervised model results.
+
+        Returns a list of result tables with metadata including:
+        - results_uuid: Unique identifier for the results
+        - table_name: Database table name
+        - row_count: Number of rows in the results
+        - size: Table size on disk
+        - created_at: When the results were created
+        """
+        return db_storage.list_unsupervised_results(limit=limit)
+
+    @app.get("/results/unsupervised/{results_uuid}", response_model=dict, tags=["Unsupervised Results"])
+    @inject
+    async def get_unsupervised_results(
+            results_uuid: str,
+            limit: int = 1000,
+            offset: int = 0,
+            db_storage=Depends(Provide[ApplicationContainer.db_storage])
+    ):
+        """
+        Get unsupervised model results by UUID.
+
+        Args:
+            results_uuid: UUID of the results table
+            limit: Maximum number of rows to return (default: 1000, max: 10000)
+            offset: Number of rows to skip for pagination (default: 0)
+
+        Returns:
+            Dictionary containing:
+            - results_uuid: The results UUID
+            - total_rows: Total number of rows in the table
+            - returned_rows: Number of rows in this response
+            - limit: The limit used
+            - offset: The offset used
+            - data: Array of result rows
+        """
+        if limit > 10000:
+            limit = 10000
+
+        results = db_storage.get_unsupervised_results(
+            results_uuid=results_uuid,
+            limit=limit,
+            offset=offset
+        )
+
+        if results is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unsupervised results not found for UUID: {results_uuid}"
+            )
+
+        return results
+
+    @app.delete("/results/unsupervised/{results_uuid}", response_model=dict, tags=["Unsupervised Results"])
+    @inject
+    async def delete_unsupervised_results(
+            results_uuid: str,
+            db_storage=Depends(Provide[ApplicationContainer.db_storage])
+    ):
+        """
+        Delete unsupervised model results.
+
+        This will drop the entire results table from the database.
+        This action cannot be undone.
+        """
+        deleted = db_storage.delete_unsupervised_results(results_uuid)
+
+        if not deleted:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unsupervised results not found for UUID: {results_uuid}"
+            )
+
+        return {
+            "deleted": True,
+            "results_uuid": results_uuid,
+            "message": "Unsupervised results deleted successfully"
+        }
+
+
+# ========== Info Routes ==========
+
+
+def _add_info_routes(app: FastAPI):
+    """Add informational routes."""
+
+    @app.get("/", tags=["Info"])
+    async def root():
+        """Service information."""
+        return {
+            "service": "ML Training Service",
+            "version": "2.0.0",
+            "status": "running",
+            "architecture": "pipeline-based with DI"
+        }
+
+    @app.get("/models", response_model=list, tags=["Info"])
+    @inject
+    async def list_available_models(
+            registry=Depends(Provide[ApplicationContainer.model_registry])
+    ):
+        """List all available model types."""
+        return registry.list_models()
+
+    @app.get("/health", tags=["Info"])
+    async def health_check():
+        """Health check endpoint."""
+        return {"status": "healthy"}
+
+
+# ========== Application Instance ==========
+
+
+app = create_app()

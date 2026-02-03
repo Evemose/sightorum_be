@@ -1,0 +1,391 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>121</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="WARNING" attribute_key="INFO_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved attribute reference 'sql' for class 'TrainingRequest'</description>
+        <highlighted_element>sql</highlighted_element>
+        <language>Python</language>
+        <offset>31</offset>
+        <length>3</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>122</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="WARNING" attribute_key="INFO_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved attribute reference 'bind_variables' for class 'TrainingRequest'</description>
+        <highlighted_element>bind_variables</highlighted_element>
+        <language>Python</language>
+        <offset>42</offset>
+        <length>14</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>187</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="WARNING" attribute_key="INFO_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved attribute reference 'sql' for class 'TrainingRequest'</description>
+        <highlighted_element>sql</highlighted_element>
+        <language>Python</language>
+        <offset>31</offset>
+        <length>3</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>188</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="WARNING" attribute_key="INFO_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved attribute reference 'bind_variables' for class 'TrainingRequest'</description>
+        <highlighted_element>bind_variables</highlighted_element>
+        <language>Python</language>
+        <offset>42</offset>
+        <length>14</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/events/publisher.py</file>
+        <line>94</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/events/publisher.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Function 'redis.from_url(
+            self.redis_url,
+            encoding=&quot;utf-8&quot;,
+            decode_responses=True
+            )' neither declared as 'async' nor with 'Awaitable' as return type
+        </description>
+        <highlighted_element>redis.from_url( self.redis_url, encoding=&quot;utf-8&quot;, de...</highlighted_element>
+        <language>Python</language>
+        <offset>33</offset>
+        <length>133</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>3</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'task_queue'</description>
+        <highlighted_element>task_queue</highlighted_element>
+        <language>Python</language>
+        <offset>6</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>3</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'TrainingTaskQueue'</description>
+        <highlighted_element>TrainingTaskQueue</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>17</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>3</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'QueuedTask'</description>
+        <highlighted_element>QueuedTask</highlighted_element>
+        <language>Python</language>
+        <offset>43</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>3</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'TaskStatus'</description>
+        <highlighted_element>TaskStatus</highlighted_element>
+        <language>Python</language>
+        <offset>55</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>4</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'consumer'</description>
+        <highlighted_element>consumer</highlighted_element>
+        <language>Python</language>
+        <offset>6</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>4</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'QueueConsumer'</description>
+        <highlighted_element>QueueConsumer</highlighted_element>
+        <language>Python</language>
+        <offset>22</offset>
+        <length>13</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'retry_policy'</description>
+        <highlighted_element>retry_policy</highlighted_element>
+        <language>Python</language>
+        <offset>6</offset>
+        <length>12</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'RetryPolicy'</description>
+        <highlighted_element>RetryPolicy</highlighted_element>
+        <language>Python</language>
+        <offset>26</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'FailureType'</description>
+        <highlighted_element>FailureType</highlighted_element>
+        <language>Python</language>
+        <offset>39</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>8</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'TrainingTaskQueue'</description>
+        <highlighted_element>TrainingTaskQueue</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>17</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>9</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'QueuedTask'</description>
+        <highlighted_element>QueuedTask</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>10</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'TaskStatus'</description>
+        <highlighted_element>TaskStatus</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>11</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'QueueConsumer'</description>
+        <highlighted_element>QueueConsumer</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>13</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>12</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'RetryPolicy'</description>
+        <highlighted_element>RetryPolicy</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/__init__.py</file>
+        <line>13</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'FailureType'</description>
+        <highlighted_element>FailureType</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/pipeline_node.py</file>
+        <line>116</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/pipeline_node.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Function 'redis.from_url(
+            self.redis_url,
+            encoding=&quot;utf-8&quot;,
+            decode_responses=True
+            )' neither declared as 'async' nor with 'Awaitable' as return type
+        </description>
+        <highlighted_element>redis.from_url( self.redis_url, encoding=&quot;utf-8&quot;, decode_respons...
+        </highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>117</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/__init__.py</file>
+        <line>2</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'async_training'</description>
+        <highlighted_element>async_training</highlighted_element>
+        <language>Python</language>
+        <offset>6</offset>
+        <length>14</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/__init__.py</file>
+        <line>2</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'AsyncTrainingOrchestrator'</description>
+        <highlighted_element>AsyncTrainingOrchestrator</highlighted_element>
+        <language>Python</language>
+        <offset>28</offset>
+        <length>25</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/__init__.py</file>
+        <line>3</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'async_training_queued'</description>
+        <highlighted_element>async_training_queued</highlighted_element>
+        <language>Python</language>
+        <offset>6</offset>
+        <length>21</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/__init__.py</file>
+        <line>3</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'QueuedTrainingOrchestrator'</description>
+        <highlighted_element>QueuedTrainingOrchestrator</highlighted_element>
+        <language>Python</language>
+        <offset>35</offset>
+        <length>26</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/__init__.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'AsyncTrainingOrchestrator'</description>
+        <highlighted_element>AsyncTrainingOrchestrator</highlighted_element>
+        <language>Python</language>
+        <offset>31</offset>
+        <length>25</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/__init__.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/__init__.py"/>
+        <problem_class id="PyUnresolvedReferencesInspection" severity="ERROR" attribute_key="ERRORS_ATTRIBUTES">
+            Unresolved references
+        </problem_class>
+        <description>Unresolved reference 'QueuedTrainingOrchestrator'</description>
+        <highlighted_element>QueuedTrainingOrchestrator</highlighted_element>
+        <language>Python</language>
+        <offset>60</offset>
+        <length>26</length>
+    </problem>
+</problems>

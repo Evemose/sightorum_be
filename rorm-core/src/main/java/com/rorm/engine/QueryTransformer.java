@@ -23,7 +23,14 @@ public class QueryTransformer {
     private final JoinCollector joinCollector;
 
     public Select<?> transform(Query query) {
-        return expr.withContext(new QueryContext(query.from()), () -> doTransform(query));
+        return transform(query, null);
+    }
+
+    public Select<?> transform(Query query, String schema) {
+        var context = schema != null
+            ? new QueryContext(query.from(), schema)
+            : new QueryContext(query.from());
+        return expr.withContext(context, () -> doTransform(query));
     }
 
     private Select<?> doTransform(Query query) {

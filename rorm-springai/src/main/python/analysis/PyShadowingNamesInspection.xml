@@ -1,0 +1,100 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>223</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing
+            names from outer scopes
+        </problem_class>
+        <description>Shadows name 'datasource' from outer scope</description>
+        <highlighted_element>datasource</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>240</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing
+            names from outer scopes
+        </problem_class>
+        <description>Shadows name 'datasource' from outer scope</description>
+        <highlighted_element>datasource</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>77</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing
+            names from outer scopes
+        </problem_class>
+        <description>Shadows name 'app' from outer scope</description>
+        <highlighted_element>app</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>3</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>95</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing
+            names from outer scopes
+        </problem_class>
+        <description>Shadows name 'app' from outer scope</description>
+        <highlighted_element>app</highlighted_element>
+        <language>Python</language>
+        <offset>25</offset>
+        <length>3</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>220</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing
+            names from outer scopes
+        </problem_class>
+        <description>Shadows name 'app' from outer scope</description>
+        <highlighted_element>app</highlighted_element>
+        <language>Python</language>
+        <offset>27</offset>
+        <length>3</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>267</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing
+            names from outer scopes
+        </problem_class>
+        <description>Shadows name 'app' from outer scope</description>
+        <highlighted_element>app</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>3</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>258</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing
+            names from outer scopes
+        </problem_class>
+        <description>Shadows name 'loop' from outer scope</description>
+        <highlighted_element>loop</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>4</length>
+    </problem>
+</problems>

@@ -1,0 +1,42 @@
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: rorm-valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    command: valkey-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "valkey-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
+  ml-service:
+    build:
+      context: ./rorm-springai/src/main/python
+      dockerfile: Dockerfile
+    container_name: rorm-ml-service
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_HOST=host.docker.internal
+      - DATABASE_PORT=5444
+      - DATABASE_DATABASE=mydatabase
+      - DATABASE_USER=myuser
+      - DATABASE_PASSWORD=mypassword
+      - REDIS_URL=redis://host.docker.internal:6379
+    depends_on:
+      valkey:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ml-models:/app/trained_models
+    restart: on-failure
+
+volumes:
+  valkey-data:
+  ml-models:

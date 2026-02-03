@@ -4,6 +4,7 @@ import com.rorm.dataimport.source.CsvDataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,31 +18,34 @@ class DataImportPipelineTest extends AbstractImportTest {
 
     @TempDir
     Path tempDir;
+    @Autowired
+    private MetamodelConverter metamodelConverter;
 
     @Test
     @DisplayName("imports single CSV file with basic columns")
     void importSingleFile() throws Exception {
         var csvFile = tempDir.resolve("users.csv");
         Files.writeString(csvFile, """
-            name,email,age
-            Alice,alice@example.com,30
-            Bob,bob@example.com,25
-            Charlie,charlie@example.com,35
+            id,name,email,age
+            1,Alice,alice@example.com,30
+            2,Bob,bob@example.com,25
+            3,Charlie,charlie@example.com,35
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.targetSchema()).isEqualTo(schema);
         assertThat(result.totalRowsImported()).isEqualTo(3);
+        var modelSpace = metamodelConverter.convertToModelSpace(detectionResult);
         assertThat(result.modelSpace()).isEqualTo(modelSpace);
 
         // Verify data in database
@@ -77,14 +81,14 @@ class DataImportPipelineTest extends AbstractImportTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(2);
@@ -110,21 +114,21 @@ class DataImportPipelineTest extends AbstractImportTest {
     void importGeneratesSequentialIds() throws Exception {
         var csvFile = tempDir.resolve("categories.csv");
         Files.writeString(csvFile, """
-            name,description
-            Electronics,Electronic devices
-            Books,Physical and digital books
-            Clothing,Apparel and accessories
+            id,name,description
+            1,Electronics,Electronic devices
+            2,Books,Physical and digital books
+            3,Clothing,Apparel and accessories
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
         dataImportPipeline.importData(request);
 
         var ids = jdbcTemplate.queryForList(
@@ -146,14 +150,14 @@ class DataImportPipelineTest extends AbstractImportTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(0);
@@ -177,14 +181,14 @@ class DataImportPipelineTest extends AbstractImportTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var newSchema = "import_test_" + System.currentTimeMillis();
-        var request = new ImportRequest(newSchema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(newSchema, List.of(dataSource), detectionResult);
 
         try {
             dataImportPipeline.importData(request);
@@ -207,20 +211,20 @@ class DataImportPipelineTest extends AbstractImportTest {
     void importWithNullValues() throws Exception {
         var csvFile = tempDir.resolve("users.csv");
         Files.writeString(csvFile, """
-            name,email,phone
-            Alice,alice@example.com,
-            Bob,,555-1234
+            id,name,email,phone
+            1,Alice,alice@example.com,
+            2,Bob,,555-1234
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
         dataImportPipeline.importData(request);
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.users ORDER BY id".formatted(schema));

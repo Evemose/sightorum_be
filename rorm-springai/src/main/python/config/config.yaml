@@ -1,0 +1,43 @@
+database:
+  host: localhost
+  port: 5444
+  database: mydatabase
+  user: myuser
+  password: mypassword
+  min_connections: 1
+  max_connections: 10
+
+datasource:
+  query_timeout_seconds: 30
+  explain_analyze_timeout_seconds: 5
+  # Soft limit: use lazy evaluation when estimated memory exceeds this (2GB default)
+  lazy_materialization_threshold_bytes: 2147483648
+  # Hard limit: refuse completely when estimated memory exceeds this (16GB default)
+  absolute_max_bytes: 17179869184
+  max_concurrent_queries: 5
+  throttle_wait_seconds: 300
+
+storage:
+  models_directory: ./trained_models
+  create_if_missing: true
+
+redis:
+  url: redis://localhost:6379
+
+tuning:
+  max_tuning_time_seconds: 300  # System-wide max tuning time
+  default_n_trials: 50
+  default_metric: auto  # auto, or specific metric name
+
+pipeline:
+  streams:
+    tuning_requests: ml_training:tuning_requests
+    training_requests: ml_training:training_requests
+    training_results: ml_training:training_results
+  consumer_groups:
+    tuning: tuning_workers
+    training: training_workers
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

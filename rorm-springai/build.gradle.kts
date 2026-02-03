@@ -15,6 +15,7 @@ repositories {
 }
 
 val springAiVersion = "1.0.0"
+val hypersistenceVersion = "3.14.1"
 
 dependencies {
     api(project(":rorm-core"))
@@ -26,6 +27,11 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-json")
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("io.hypersistence:hypersistence-utils-hibernate-63:$hypersistenceVersion")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
 
     compileOnly("org.jspecify:jspecify")
     compileOnly("org.projectlombok:lombok")
@@ -35,6 +41,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testRuntimeOnly("org.springframework.boot:spring-boot-docker-compose")
     testRuntimeOnly("org.postgresql:postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testCompileOnly("org.projectlombok:lombok")

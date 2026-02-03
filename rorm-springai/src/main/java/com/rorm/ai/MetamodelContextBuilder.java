@@ -15,8 +15,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MetamodelContextBuilder {
 
-    private final boolean includeLocationDetails;
-
     public String buildContext(ModelSpace modelSpace) {
         var sb = new StringBuilder();
         sb.append("# Database Schema\n\n");
@@ -91,21 +89,13 @@ public class MetamodelContextBuilder {
             case SingularReferenceAttribute ref -> describeSingularReference(ref, indent);
             case PluralReferenceAttribute ref -> describePluralReference(ref, indent);
             case CollectionAttribute coll -> describeCollection(coll, indent);
-            default -> indent + "- " + attr.name() + " (unknown type)\n";
         };
     }
 
     private String describeBasicAttribute(BasicAttribute attr, String indent) {
-        var sb = new StringBuilder();
-        sb.append(indent).append("- **").append(attr.name()).append("**: ")
-            .append(describeDataType(attr.dataType()));
-
-        if (includeLocationDetails && attr.location() != null) {
-            sb.append(" [").append(attr.location().table())
-                .append(".").append(attr.location().column()).append("]");
-        }
-        sb.append("\n");
-        return sb.toString();
+        return indent + "- **" + attr.name() + "**: " +
+               describeDataType(attr.dataType()) +
+               "\n";
     }
 
     private String describeCompositeAttribute(CompositeAttribute attr, String indent) {
@@ -142,13 +132,13 @@ public class MetamodelContextBuilder {
             case NumericType n -> n.scale() > 0
                 ? "decimal(" + n.precision() + "," + n.scale() + ")"
                 : "integer";
-            case StringType ignored -> "string";
-            case BooleanType ignored -> "boolean";
-            case DateType ignored -> "date";
-            case TimeType ignored -> "time";
-            case TimezoneType ignored -> "timezone";
-            case DateTimeType ignored -> "datetime";
-            case DayOfWeekType ignored -> "day of week";
+            case StringType _ -> "string";
+            case BooleanType _ -> "boolean";
+            case DateType _ -> "date";
+            case TimeType _ -> "time";
+            case TimezoneType _ -> "timezone";
+            case DateTimeType _ -> "datetime";
+            case DayOfWeekType _ -> "day of week";
             case EnumType e -> "enum(" + String.join(", ", e.values()) + ")";
             case ListType l -> "list of " + describeDataType(l.elementType());
         };

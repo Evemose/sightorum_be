@@ -1,0 +1,1133 @@
+### Base URL
+@baseUrl = http://localhost:8000
+@databaseConnection = mydatabase.public.yellow_tripdata_2015_01
+
+### ============================================
+### CLASSIFICATION MODELS
+### ============================================
+
+### 1. Logistic Regression Classifier
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "logistic_regression",
+  "model_name": "yellow_taxi_logistic",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, fare_amount, payment_type FROM yellow_tripdata_2015_01 WHERE payment_type IS NOT NULL LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": "payment_type",
+  "feature_columns": [
+    "passenger_count",
+    "fare_amount"
+  ],
+  "model_params": {
+    "C": 1.0,
+    "penalty": "l2",
+    "solver": "lbfgs",
+    "max_iter": 1000
+  }
+}
+
+### 2. Random Forest Classifier
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "random_forest_classifier",
+  "model_name": "yellow_taxi_rf_classifier",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount, payment_type FROM yellow_tripdata_2015_01 WHERE payment_type IS NOT NULL LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": "payment_type",
+  "feature_columns": [
+    "passenger_count",
+    "fare_amount",
+    "tip_amount"
+  ],
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "min_samples_split": 2,
+    "random_state": 42
+  }
+}
+
+### 3. SVM Classifier
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "svm_classifier",
+  "model_name": "yellow_taxi_svm",
+  "datasource": {
+    "sql": "SELECT passenger_count, fare_amount, payment_type FROM yellow_tripdata_2015_01 WHERE payment_type IS NOT NULL LIMIT 1000",
+    "bind_variables": {}
+  },
+  "target_column": "payment_type",
+  "feature_columns": [
+    "passenger_count",
+    "fare_amount"
+  ],
+  "model_params": {
+    "C": 1.0,
+    "kernel": "rbf",
+    "probability": true
+  }
+}
+
+### 4. LightGBM Classifier
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "lgbm_classifier",
+  "model_name": "yellow_taxi_lgbm_classifier",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount, tolls_amount, payment_type FROM yellow_tripdata_2015_01 WHERE payment_type IS NOT NULL LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": "payment_type",
+  "feature_columns": [
+    "passenger_count",
+    "fare_amount",
+    "tip_amount",
+    "tolls_amount"
+  ],
+  "model_params": {
+    "n_estimators": 100,
+    "learning_rate": 0.1,
+    "max_depth": -1
+  }
+}
+
+### ============================================
+### REGRESSION MODELS
+### ============================================
+
+### 5. Linear Regression
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "linear_regression",
+  "model_name": "yellow_taxi_linear_reg",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": "fare_amount",
+  "feature_columns": [
+    "passenger_count",
+    "trip_distance"
+  ],
+  "model_params": {
+    "fit_intercept": true
+  }
+}
+
+### 6. Ridge Regression
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "ridge_regression",
+  "model_name": "yellow_taxi_ridge",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": "fare_amount",
+  "feature_columns": [
+    "passenger_count",
+    "trip_distance"
+  ],
+  "model_params": {
+    "alpha": 1.0,
+    "fit_intercept": true,
+    "solver": "auto"
+  }
+}
+
+### 7. Random Forest Regressor
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "random_forest_regressor",
+  "model_name": "yellow_taxi_rf_regressor",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, tip_amount, tolls_amount, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": "fare_amount",
+  "feature_columns": [
+    "passenger_count",
+    "trip_distance",
+    "tip_amount",
+    "tolls_amount"
+  ],
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "random_state": 42
+  }
+}
+
+### 8. LightGBM Regressor
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "lgbm_regressor",
+  "model_name": "yellow_taxi_lgbm_regressor",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, tip_amount, tolls_amount, extra, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": "fare_amount",
+  "feature_columns": [
+    "passenger_count",
+    "trip_distance",
+    "tip_amount",
+    "tolls_amount",
+    "extra"
+  ],
+  "model_params": {
+    "n_estimators": 100,
+    "learning_rate": 0.1,
+    "max_depth": -1
+  }
+}
+
+### ============================================
+### CLUSTERING MODELS
+### ============================================
+
+### 9. K-Means Clustering
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "kmeans",
+  "model_name": "yellow_taxi_kmeans",
+  "datasource": {
+    "sql": "SELECT pickup_longitude, pickup_latitude, dropoff_longitude, dropoff_latitude FROM yellow_tripdata_2015_01 WHERE pickup_longitude IS NOT NULL AND pickup_latitude IS NOT NULL LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "pickup_longitude",
+    "pickup_latitude",
+    "dropoff_longitude",
+    "dropoff_latitude"
+  ],
+  "model_params": {
+    "n_clusters": 8,
+    "init": "k-means++",
+    "n_init": 10,
+    "random_state": 42
+  }
+}
+
+### 10. DBSCAN Clustering
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "dbscan",
+  "model_name": "yellow_taxi_dbscan",
+  "datasource": {
+    "sql": "SELECT pickup_longitude, pickup_latitude FROM yellow_tripdata_2015_01 WHERE pickup_longitude IS NOT NULL AND pickup_latitude IS NOT NULL LIMIT 2000",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "pickup_longitude",
+    "pickup_latitude"
+  ],
+  "model_params": {
+    "eps": 0.01,
+    "min_samples": 5,
+    "metric": "euclidean"
+  }
+}
+
+### 11. Agglomerative Clustering
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "agglomerative",
+  "model_name": "yellow_taxi_agglomerative",
+  "datasource": {
+    "sql": "SELECT fare_amount, tip_amount, trip_distance FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 2000",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "fare_amount",
+    "tip_amount",
+    "trip_distance"
+  ],
+  "model_params": {
+    "n_clusters": 5,
+    "linkage": "ward",
+    "metric": "euclidean"
+  }
+}
+
+### ============================================
+### DIMENSIONALITY REDUCTION MODELS
+### ============================================
+
+### 12. PCA
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "pca",
+  "model_name": "yellow_taxi_pca",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount, tolls_amount, extra, mta_tax, total_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "passenger_count",
+    "trip_distance",
+    "fare_amount",
+    "tip_amount",
+    "tolls_amount",
+    "extra",
+    "mta_tax",
+    "total_amount"
+  ],
+  "model_params": {
+    "n_components": 3,
+    "whiten": false,
+    "svd_solver": "auto"
+  }
+}
+
+### 13. t-SNE
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "tsne",
+  "model_name": "yellow_taxi_tsne",
+  "datasource": {
+    "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 1000",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "passenger_count",
+    "trip_distance",
+    "fare_amount",
+    "tip_amount"
+  ],
+  "model_params": {
+    "n_components": 2,
+    "perplexity": 30.0,
+    "n_iter": 1000,
+    "init": "pca"
+  }
+}
+
+### ============================================
+### TEMPORAL MODELS
+### ============================================
+
+### 14. ARIMA
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "arima",
+  "model_name": "yellow_taxi_arima",
+  "datasource": {
+    "sql": "SELECT fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 ORDER BY tpep_pickup_datetime LIMIT 500",
+    "bind_variables": {}
+  },
+  "target_column": "fare_amount",
+  "feature_columns": [],
+  "model_params": {
+    "order_p": 1,
+    "order_d": 1,
+    "order_q": 1,
+    "trend": "n"
+  }
+}
+
+### 15. SARIMAX
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "sarimax",
+  "model_name": "yellow_taxi_sarimax",
+  "datasource": {
+    "sql": "SELECT fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 ORDER BY tpep_pickup_datetime LIMIT 500",
+    "bind_variables": {}
+  },
+  "target_column": "fare_amount",
+  "feature_columns": [],
+  "model_params": {
+    "order_p": 1,
+    "order_d": 1,
+    "order_q": 1,
+    "seasonal_p": 1,
+    "seasonal_d": 1,
+    "seasonal_q": 1,
+    "seasonal_period": 7
+  }
+}
+
+### ============================================
+### ASSOCIATION MODELS
+### ============================================
+
+### 16. Apriori
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "apriori",
+  "model_name": "yellow_taxi_apriori",
+  "datasource": {
+    "sql": "SELECT CONCAT( 'passengers_', CAST(passenger_count AS VARCHAR), ',',  'payment_', CAST(payment_type AS VARCHAR), ',',  'rate_', rate_code_id ) as items FROM yellow_tripdata_2015_01 WHERE passenger_count IS NOT NULL",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "items"
+  ],
+  "model_params": {
+    "min_support": 0.1,
+    "min_confidence": 0.5,
+    "input_format": "transactions",
+    "transaction_column": "items"
+  }
+}
+
+### 17. FP-Growth
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "fpgrowth",
+  "model_name": "yellow_taxi_fpgrowth",
+  "datasource": {
+    "sql": "SELECT CONCAT( 'passengers_', CAST(passenger_count AS VARCHAR), ',',  'payment_', CAST(payment_type AS VARCHAR), ',',  'rate_', rate_code_id ) as items FROM yellow_tripdata_2015_01 WHERE passenger_count IS NOT NULL",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "items"
+  ],
+  "model_params": {
+    "min_support": 0.1,
+    "min_confidence": 0.5,
+    "input_format": "transactions",
+    "transaction_column": "items"
+  }
+}
+
+### 18. Eclat
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "eclat",
+  "model_name": "yellow_taxi_eclat",
+  "datasource": {
+    "sql": "SELECT CONCAT( 'passengers_', CAST(passenger_count AS VARCHAR), ',',  'payment_', CAST(payment_type AS VARCHAR), ',',  'rate_', rate_code_id ) as items FROM yellow_tripdata_2015_01 WHERE passenger_count IS NOT NULL",
+    "bind_variables": {}
+  },
+  "target_column": null,
+  "feature_columns": [
+    "items"
+  ],
+  "model_params": {
+    "min_support": 0.15,
+    "min_confidence": 0.7,
+    "input_format": "transactions",
+    "transaction_column": "items"
+  }
+}
+
+
+### ============================================
+### HYPERPARAMETER TUNING + TRAINING REQUESTS
+### ============================================
+
+### 19. Tune Logistic Regression Classifier
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "logistic_regression",
+    "model_name": "yellow_taxi_logistic_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, fare_amount, payment_type FROM yellow_tripdata_2015_01 WHERE payment_type IS NOT NULL LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": "payment_type",
+    "feature_columns": [
+      "passenger_count",
+      "fare_amount"
+    ]
+  },
+  "param_space": {
+    "C": {
+      "type": "loguniform",
+      "low": 0.001,
+      "high": 10.0
+    },
+    "penalty": {
+      "type": "categorical",
+      "choices": [
+        "l1",
+        "l2",
+        "elasticnet"
+      ]
+    },
+    "solver": {
+      "type": "categorical",
+      "choices": [
+        "lbfgs",
+        "liblinear",
+        "saga"
+      ]
+    },
+    "max_iter": {
+      "type": "int",
+      "low": 100,
+      "high": 2000
+    }
+  },
+  "tuning_config": {
+    "n_trials": 30,
+    "max_tuning_time": 180,
+    "metric": "f1_score"
+  }
+}
+
+### 20. Tune Random Forest Classifier
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "random_forest_classifier",
+    "model_name": "yellow_taxi_rf_classifier_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount, payment_type FROM yellow_tripdata_2015_01 WHERE payment_type IS NOT NULL LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": "payment_type",
+    "feature_columns": [
+      "passenger_count",
+      "fare_amount",
+      "tip_amount"
+    ]
+  },
+  "param_space": {
+    "n_estimators": {
+      "type": "int",
+      "low": 50,
+      "high": 300
+    },
+    "max_depth": {
+      "type": "int",
+      "low": 3,
+      "high": 20
+    },
+    "min_samples_split": {
+      "type": "int",
+      "low": 2,
+      "high": 20
+    },
+    "min_samples_leaf": {
+      "type": "int",
+      "low": 1,
+      "high": 10
+    },
+    "max_features": {
+      "type": "categorical",
+      "choices": [
+        "sqrt",
+        "log2",
+        null
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 40,
+    "max_tuning_time": 240,
+    "metric": "auto"
+  }
+}
+
+### 21. Tune LightGBM Classifier
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "lgbm_classifier",
+    "model_name": "yellow_taxi_lgbm_classifier_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount, tolls_amount, payment_type FROM yellow_tripdata_2015_01 WHERE payment_type IS NOT NULL LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": "payment_type",
+    "feature_columns": [
+      "passenger_count",
+      "fare_amount",
+      "tip_amount",
+      "tolls_amount"
+    ]
+  },
+  "param_space": {
+    "n_estimators": {
+      "type": "int",
+      "low": 50,
+      "high": 300
+    },
+    "learning_rate": {
+      "type": "loguniform",
+      "low": 0.001,
+      "high": 0.5
+    },
+    "max_depth": {
+      "type": "int",
+      "low": 3,
+      "high": 15
+    },
+    "num_leaves": {
+      "type": "int",
+      "low": 20,
+      "high": 150
+    },
+    "min_child_samples": {
+      "type": "int",
+      "low": 5,
+      "high": 100
+    },
+    "subsample": {
+      "type": "float",
+      "low": 0.5,
+      "high": 1.0
+    },
+    "colsample_bytree": {
+      "type": "float",
+      "low": 0.5,
+      "high": 1.0
+    }
+  },
+  "tuning_config": {
+    "n_trials": 50,
+    "max_tuning_time": 300,
+    "metric": "accuracy"
+  }
+}
+
+### 22. Tune Linear Regression
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "linear_regression",
+    "model_name": "yellow_taxi_linear_reg_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": "fare_amount",
+    "feature_columns": [
+      "passenger_count",
+      "trip_distance"
+    ]
+  },
+  "param_space": {
+    "fit_intercept": {
+      "type": "categorical",
+      "choices": [
+        true,
+        false
+      ]
+    },
+    "positive": {
+      "type": "categorical",
+      "choices": [
+        true,
+        false
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 10,
+    "max_tuning_time": 60,
+    "metric": "mse"
+  }
+}
+
+### 23. Tune Ridge Regression
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "ridge_regression",
+    "model_name": "yellow_taxi_ridge_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": "fare_amount",
+    "feature_columns": [
+      "passenger_count",
+      "trip_distance"
+    ]
+  },
+  "param_space": {
+    "alpha": {
+      "type": "loguniform",
+      "low": 0.001,
+      "high": 100.0
+    },
+    "fit_intercept": {
+      "type": "categorical",
+      "choices": [
+        true,
+        false
+      ]
+    },
+    "solver": {
+      "type": "categorical",
+      "choices": [
+        "auto",
+        "svd",
+        "cholesky",
+        "lsqr",
+        "saga"
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 25,
+    "max_tuning_time": 120,
+    "metric": "r2"
+  }
+}
+
+### 24. Tune Random Forest Regressor
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "random_forest_regressor",
+    "model_name": "yellow_taxi_rf_regressor_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, tip_amount, tolls_amount, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": "fare_amount",
+    "feature_columns": [
+      "passenger_count",
+      "trip_distance",
+      "tip_amount",
+      "tolls_amount"
+    ]
+  },
+  "param_space": {
+    "n_estimators": {
+      "type": "int",
+      "low": 50,
+      "high": 300
+    },
+    "max_depth": {
+      "type": "int",
+      "low": 5,
+      "high": 30
+    },
+    "min_samples_split": {
+      "type": "int",
+      "low": 2,
+      "high": 20
+    },
+    "min_samples_leaf": {
+      "type": "int",
+      "low": 1,
+      "high": 10
+    },
+    "max_features": {
+      "type": "categorical",
+      "choices": [
+        "sqrt",
+        "log2",
+        1.0
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 40,
+    "max_tuning_time": 240,
+    "metric": "rmse"
+  }
+}
+
+### 25. Tune LightGBM Regressor
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "lgbm_regressor",
+    "model_name": "yellow_taxi_lgbm_regressor_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, tip_amount, tolls_amount, extra, fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": "fare_amount",
+    "feature_columns": [
+      "passenger_count",
+      "trip_distance",
+      "tip_amount",
+      "tolls_amount",
+      "extra"
+    ]
+  },
+  "param_space": {
+    "n_estimators": {
+      "type": "int",
+      "low": 50,
+      "high": 500
+    },
+    "learning_rate": {
+      "type": "loguniform",
+      "low": 0.001,
+      "high": 0.3
+    },
+    "max_depth": {
+      "type": "int",
+      "low": 3,
+      "high": 20
+    },
+    "num_leaves": {
+      "type": "int",
+      "low": 20,
+      "high": 200
+    },
+    "min_child_samples": {
+      "type": "int",
+      "low": 10,
+      "high": 100
+    },
+    "subsample": {
+      "type": "float",
+      "low": 0.6,
+      "high": 1.0
+    },
+    "colsample_bytree": {
+      "type": "float",
+      "low": 0.6,
+      "high": 1.0
+    },
+    "reg_alpha": {
+      "type": "loguniform",
+      "low": 1e-8,
+      "high": 10.0
+    },
+    "reg_lambda": {
+      "type": "loguniform",
+      "low": 1e-8,
+      "high": 10.0
+    }
+  },
+  "tuning_config": {
+    "n_trials": 50,
+    "max_tuning_time": 300,
+    "metric": "auto"
+  }
+}
+
+### 26. Tune K-Means Clustering
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "kmeans",
+    "model_name": "yellow_taxi_kmeans_tuned",
+    "datasource": {
+      "sql": "SELECT pickup_longitude, pickup_latitude, dropoff_longitude, dropoff_latitude FROM yellow_tripdata_2015_01 WHERE pickup_longitude IS NOT NULL AND pickup_latitude IS NOT NULL LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": null,
+    "feature_columns": [
+      "pickup_longitude",
+      "pickup_latitude",
+      "dropoff_longitude",
+      "dropoff_latitude"
+    ]
+  },
+  "param_space": {
+    "n_clusters": {
+      "type": "int",
+      "low": 3,
+      "high": 15
+    },
+    "init": {
+      "type": "categorical",
+      "choices": [
+        "k-means++",
+        "random"
+      ]
+    },
+    "n_init": {
+      "type": "int",
+      "low": 5,
+      "high": 20
+    },
+    "max_iter": {
+      "type": "int",
+      "low": 100,
+      "high": 500
+    }
+  },
+  "tuning_config": {
+    "n_trials": 30,
+    "max_tuning_time": 180,
+    "metric": "silhouette_score"
+  }
+}
+
+### 27. Tune DBSCAN Clustering
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "dbscan",
+    "model_name": "yellow_taxi_dbscan_tuned",
+    "datasource": {
+      "sql": "SELECT pickup_longitude, pickup_latitude FROM yellow_tripdata_2015_01 WHERE pickup_longitude IS NOT NULL AND pickup_latitude IS NOT NULL LIMIT 2000",
+      "bind_variables": {}
+    },
+    "target_column": null,
+    "feature_columns": [
+      "pickup_longitude",
+      "pickup_latitude"
+    ]
+  },
+  "param_space": {
+    "eps": {
+      "type": "float",
+      "low": 0.001,
+      "high": 0.1
+    },
+    "min_samples": {
+      "type": "int",
+      "low": 3,
+      "high": 20
+    },
+    "metric": {
+      "type": "categorical",
+      "choices": [
+        "euclidean",
+        "manhattan",
+        "cosine"
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 35,
+    "max_tuning_time": 200,
+    "metric": "auto"
+  }
+}
+
+### 28. Tune PCA
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "pca",
+    "model_name": "yellow_taxi_pca_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount, tolls_amount, extra, mta_tax, total_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 5000",
+      "bind_variables": {}
+    },
+    "target_column": null,
+    "feature_columns": [
+      "passenger_count",
+      "trip_distance",
+      "fare_amount",
+      "tip_amount",
+      "tolls_amount",
+      "extra",
+      "mta_tax",
+      "total_amount"
+    ]
+  },
+  "param_space": {
+    "n_components": {
+      "type": "int",
+      "low": 2,
+      "high": 6
+    },
+    "whiten": {
+      "type": "categorical",
+      "choices": [
+        true,
+        false
+      ]
+    },
+    "svd_solver": {
+      "type": "categorical",
+      "choices": [
+        "auto",
+        "full",
+        "arpack",
+        "randomized"
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 20,
+    "max_tuning_time": 120,
+    "metric": "auto"
+  }
+}
+
+### 29. Tune t-SNE
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "tsne",
+    "model_name": "yellow_taxi_tsne_tuned",
+    "datasource": {
+      "sql": "SELECT passenger_count, trip_distance, fare_amount, tip_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 LIMIT 1000",
+      "bind_variables": {}
+    },
+    "target_column": null,
+    "feature_columns": [
+      "passenger_count",
+      "trip_distance",
+      "fare_amount",
+      "tip_amount"
+    ]
+  },
+  "param_space": {
+    "n_components": {
+      "type": "int",
+      "low": 2,
+      "high": 3
+    },
+    "perplexity": {
+      "type": "float",
+      "low": 5.0,
+      "high": 50.0
+    },
+    "learning_rate": {
+      "type": "loguniform",
+      "low": 10.0,
+      "high": 1000.0
+    },
+    "n_iter": {
+      "type": "int",
+      "low": 250,
+      "high": 2000
+    },
+    "init": {
+      "type": "categorical",
+      "choices": [
+        "pca",
+        "random"
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 25,
+    "max_tuning_time": 180,
+    "metric": "auto"
+  }
+}
+
+### 30. Tune ARIMA (Time Series)
+POST {{baseUrl}}/tune-and-train
+Content-Type: application/json
+
+{
+  "request": {
+    "model_type": "arima",
+    "model_name": "yellow_taxi_arima_tuned",
+    "datasource": {
+      "sql": "SELECT fare_amount FROM yellow_tripdata_2015_01 WHERE fare_amount > 0 ORDER BY tpep_pickup_datetime LIMIT 500",
+      "bind_variables": {}
+    },
+    "target_column": "fare_amount"
+  },
+  "param_space": {
+    "order_p": {
+      "type": "int",
+      "low": 0,
+      "high": 5
+    },
+    "order_d": {
+      "type": "int",
+      "low": 0,
+      "high": 2
+    },
+    "order_q": {
+      "type": "int",
+      "low": 0,
+      "high": 5
+    },
+    "trend": {
+      "type": "categorical",
+      "choices": [
+        "n",
+        "c",
+        "t",
+        "ct"
+      ]
+    }
+  },
+  "tuning_config": {
+    "n_trials": 30,
+    "max_tuning_time": 200,
+    "metric": "auto"
+  }
+}
+
+### ============================================
+### UTILITY ENDPOINTS
+### ============================================
+
+### List all available model types
+GET {{baseUrl}}/models
+
+### List all trained models
+GET {{baseUrl}}/models/supervised
+
+### Health check
+GET {{baseUrl}}/health
+
+### List all unsupervised results
+GET {{baseUrl}}/results/unsupervised
+
+### Get unsupervised model result by ID
+GET {{baseUrl}}/results/unsupervised/caf0dd71-54a5-49f4-ac11-11c67ad2c408

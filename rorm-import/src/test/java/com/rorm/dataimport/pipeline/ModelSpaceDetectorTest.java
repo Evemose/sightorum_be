@@ -36,6 +36,8 @@ class ModelSpaceDetectorTest {
     Path tempDir;
     @Autowired
     private ModelSpaceDetector modelSpaceDetector;
+    @Autowired
+    private MetamodelConverter metamodelConverter;
 
     @Test
     @DisplayName("detects single root with basic string attributes")
@@ -48,11 +50,11 @@ class ModelSpaceDetectorTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var modelSpace = metamodelConverter.convertToModelSpace(modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
-        );
+        ));
 
         assertThat(modelSpace.roots()).hasSize(1);
 
@@ -86,11 +88,11 @@ class ModelSpaceDetectorTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var modelSpace = metamodelConverter.convertToModelSpace(modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
-        );
+        ));
 
         var root = modelSpace.roots().iterator().next();
         assertThat(root.primaryTableName()).isEqualTo("products");
@@ -128,11 +130,11 @@ class ModelSpaceDetectorTest {
         var userSource = new CsvDataSource(usersFile);
         var orderSource = new CsvDataSource(ordersFile);
 
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var modelSpace = metamodelConverter.convertToModelSpace(modelSpaceDetector.detect(
             List.of(userSource, orderSource),
             Map.of(),
             ";"
-        );
+        ));
 
         assertThat(modelSpace.roots()).hasSize(2);
 
@@ -161,11 +163,11 @@ class ModelSpaceDetectorTest {
         );
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var modelSpace = metamodelConverter.convertToModelSpace(modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of("products", overrides),
             ";"
-        );
+        ));
 
         var root = modelSpace.roots().iterator().next();
         assertThat(root.attributes())
@@ -207,11 +209,11 @@ class ModelSpaceDetectorTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var modelSpace = metamodelConverter.convertToModelSpace(modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
-        );
+        ));
 
         var root = modelSpace.roots().iterator().next();
         assertThat(root.primaryTableName()).isEqualTo("empty");

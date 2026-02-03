@@ -3,21 +3,17 @@ package com.rorm.ai.tools;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.RormAiProperties;
+import com.rorm.ai.RormToolContext;
 import com.rorm.dto.QueryDTO;
-import com.rorm.engine.QueryTransformer;
+import com.rorm.fetcher.Fetcher;
 import com.rorm.mapper.QueryMapper;
-import com.rorm.metamodel.ModelSpace;
 import com.rorm.query.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.Record;
-import org.jooq.Result;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,12 +21,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class QueryExecutionTool {
 
-    private final QueryTransformer queryTransformer;
-    private final DSLContext dsl;
+    private final Fetcher fetcher;
     private final ObjectMapper objectMapper;
     private final RormAiProperties properties;
     private final QueryMapper queryMapper;
-    private final ModelSpace modelSpace;
 
     @Tool(
         name = "executeQuery",
@@ -43,29 +37,34 @@ public class QueryExecutionTool {
     public String executeQuery(
         @ToolParam(
             description = "The query to execute. Must conform to the Query schema with proper from/selector/where/etc structure."
-        ) QueryDTO queryDTO
+        ) QueryDTO queryDTO,
+        ToolContext toolContext
     ) {
         try {
             log.info("Got query: {}", queryDTO);
+            // Extract context
+            var context = RormToolContext.from(toolContext);
+            var modelSpace = context.modelSpace();
+
             // Convert DTO to Query entity
             var query = queryMapper.toEntity(queryDTO, modelSpace);
 
             // Apply limit cap
             var effectiveQuery = applyLimitCap(query);
 
-            var jooqQuery = queryTransformer.transform(effectiveQuery);
-            var sql = jooqQuery.getSQL();
+            log.info("Executing query");
 
-            log.info("Executing SQL: {}", sql);
-
-            @SuppressWarnings("unchecked")
-            Result<Record> results = (Result<Record>) dsl.fetch(jooqQuery);
+            var results = fetcher.queryForType(effectiveQuery, () -> {
+                @SuppressWarnings("unchecked")
+                var clazz = (Class<Map<String, Object>>) (Class<?>) Map.class;
+                return clazz;
+            });
 
             var response = new QueryResponse(
                 true,
-                sql,
+                "Query executed successfully",
                 results.size(),
-                formatResults(results),
+                results,
                 null
             );
 
@@ -86,22 +85,11 @@ public class QueryExecutionTool {
         return query;
     }
 
-    private List<Map<String, Object>> formatResults(Result<Record> results) {
-        List<Map<String, Object>> formatted = new ArrayList<>();
-        for (Record record : results) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            for (var field : record.fields()) {
-                row.put(field.getName(), record.get(field));
-            }
-            formatted.add(row);
-        }
-        return formatted;
-    }
 
     private String errorResponse(String message) {
         try {
             return objectMapper.writeValueAsString(new QueryResponse(false, null, 0, null, message));
-        } catch (JsonProcessingException e) {
+        } catch (JsonProcessingException _) {
             return "{\"success\":false,\"error\":\"" + message.replace("\"", "\\\"") + "\"}";
         }
     }

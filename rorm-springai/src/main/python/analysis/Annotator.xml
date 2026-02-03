@@ -1,0 +1,16 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>270</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="Annotator" severity="ERROR" attribute_key="WRONG_REFERENCES_ATTRIBUTES">Annotator
+        </problem_class>
+        <hints/>
+        <description>'async with' outside async function #loc</description>
+        <highlighted_element>async</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>5</length>
+    </problem>
+</problems>

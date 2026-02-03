@@ -43,6 +43,8 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
     @Autowired
     private DSLContext dslContext;
     private TestDataContext ctx;
+    @Autowired
+    private MetamodelConverter metamodelConverter;
 
     CoursesDataIntegrationQueriesTest() {
         super(true);
@@ -88,14 +90,14 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         // Import complete dataset first
         var dataSources = loadAllDataSources();
         var overridesByRoot = createAllOverrides();
-        var modelSpace = modelSpaceDetector.detectModelSpace(dataSources, overridesByRoot, ",");
+        var detectionResult = modelSpaceDetector.detect(dataSources, overridesByRoot, ",");
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, dataSources, modelSpace);
+        var request = new ImportRequest(schema, dataSources, detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(8753);
 
-        // Get the roots from the imported model space
+        var modelSpace = metamodelConverter.convertToModelSpace(detectionResult);
         var roots = modelSpace.roots();
         Root studentsRoot = findRoot(roots, "students");
         Root coursesRoot = findRoot(roots, "courses");

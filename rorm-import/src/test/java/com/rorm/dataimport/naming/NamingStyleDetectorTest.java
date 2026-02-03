@@ -54,16 +54,6 @@ class NamingStyleDetectorTest {
     }
 
     @Test
-    @DisplayName("throws exception when no consistent style is found")
-    void throwsExceptionWhenInconsistent() {
-        var properties = List.of("firstName", "last_name", "EmailAddress");
-
-        assertThatThrownBy(() -> detector.detect(properties))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("No consistent naming style detected");
-    }
-
-    @Test
     @DisplayName("throws exception when property list is empty")
     void throwsExceptionWhenEmpty() {
         assertThatThrownBy(() -> detector.detect(List.of()))

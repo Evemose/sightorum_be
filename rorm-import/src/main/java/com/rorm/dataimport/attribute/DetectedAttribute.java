@@ -1,5 +1,6 @@
 package com.rorm.dataimport.attribute;
 
+import com.rorm.dataimport.pipeline.SourceMapping;
 import com.rorm.metamodel.DataType;
 import org.jspecify.annotations.Nullable;
 
@@ -17,7 +18,7 @@ public sealed interface DetectedAttribute permits
 
     record Basic(
         String name,
-        String columnName,
+        SourceMapping source,
         @Nullable DataType dataType
     ) implements DetectedAttribute {
     }
@@ -30,21 +31,23 @@ public sealed interface DetectedAttribute permits
 
     record SingularReference(
         String name,
-        String columnName,
-        String targetRootName
+        SourceMapping source,
+        String targetRootName,
+        @Nullable DataType dataType
     ) implements DetectedAttribute {
     }
 
     record PluralReference(
         String name,
-        String columnName,
-        String targetRootName
+        SourceMapping source,
+        String targetRootName,
+        @Nullable DataType dataType
     ) implements DetectedAttribute {
     }
 
     record Collection(
         String name,
-        String columnName,
+        SourceMapping source,
         String separator,
         @Nullable DataType elementType
     ) implements DetectedAttribute {

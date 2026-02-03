@@ -1,6 +1,5 @@
 package com.rorm.engine;
 
-import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
@@ -11,6 +10,7 @@ import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import com.rorm.testutil.AbstractPostgresTest;
+import com.rorm.testutil.TestHandlerRegistry;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -99,7 +99,7 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
 
     @Override
     protected void afterDatabaseSetup() {
-        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         var joinCollector = new JoinCollector(expressionTransformer);
         var subqueryTransformer = new SubqueryTransformer(expressionTransformer, joinCollector);

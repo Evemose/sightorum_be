@@ -1,7 +1,6 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.attribute.DetectedAttribute;
-import com.rorm.dataimport.pipeline.SchemaDetector.DetectedSchema;
 import com.rorm.metamodel.*;
 
 import java.util.ArrayList;
@@ -13,9 +12,9 @@ import java.util.stream.Collectors;
 /**
  * Converts detected schema to metamodel (Roots and Attributes).
  */
-class MetamodelConverter {
+public class MetamodelConverter {
 
-    private static HashMap<String, Root> createMutableRootMap(DetectedSchema detectedSchema) {
+    private HashMap<String, Root> createMutableRootMap(DetectedSchema detectedSchema) {
         var rootMap = new HashMap<String, Root>();
 
         for (var detectedRoot : detectedSchema.roots().values()) {
@@ -79,14 +78,14 @@ class MetamodelConverter {
         return switch (detected) {
             case DetectedAttribute.Basic basic -> new BasicAttribute(
                 basic.name(),
-                new AttributeLocation(tableName, basic.columnName()),
+                new AttributeLocation(tableName, basic.source().sourceColumn()),
                 basic.dataType() != null ? basic.dataType() : new DataType.StringType()
             );
             case DetectedAttribute.Collection collection -> new CollectionAttribute(
                 collection.name(),
                 tableName,
                 new CollectionAttribute.BasicElement(
-                    new AttributeLocation(tableName, collection.columnName()),
+                    new AttributeLocation(tableName, collection.source().sourceColumn()),
                     collection.elementType() != null ? collection.elementType() : new DataType.StringType()
                 )
             );
@@ -98,7 +97,7 @@ class MetamodelConverter {
                 yield new SingularReferenceAttribute(
                     ref.name(),
                     targetRoot,
-                    new ReferenceAttribute.SameTableColumn(ref.columnName())
+                    new ReferenceAttribute.SameTableColumn(ref.source().sourceColumn())
                 );
             }
             case DetectedAttribute.PluralReference ref -> {
@@ -109,7 +108,7 @@ class MetamodelConverter {
                 yield new PluralReferenceAttribute(
                     ref.name(),
                     targetRoot,
-                    new ReferenceAttribute.SameTableColumn(ref.columnName())
+                    new ReferenceAttribute.SameTableColumn(ref.source().sourceColumn())
                 );
             }
             case DetectedAttribute.Composite composite -> {

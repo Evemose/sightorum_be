@@ -39,6 +39,8 @@ class CoursesDataAggregationTest extends AbstractImportTest {
     @Autowired
     private org.jooq.DSLContext dslContext;
     private TestDataContext ctx;
+    @Autowired
+    private MetamodelConverter metamodelConverter;
 
     CoursesDataAggregationTest() {
         super(true);
@@ -53,13 +55,14 @@ class CoursesDataAggregationTest extends AbstractImportTest {
     private TestDataContext setupTestData() throws Exception {
         var dataSources = loadAllDataSources();
         var overridesByRoot = createAllOverrides();
-        var modelSpace = modelSpaceDetector.detectModelSpace(dataSources, overridesByRoot, ",");
+        var detectionResult = modelSpaceDetector.detect(dataSources, overridesByRoot, ",");
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, dataSources, modelSpace);
+        var request = new ImportRequest(schema, dataSources, detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(8753);
 
+        var modelSpace = metamodelConverter.convertToModelSpace(detectionResult);
         var roots = modelSpace.roots();
         var studentsRoot = findRoot(roots, "students");
         var coursesRoot = findRoot(roots, "courses");

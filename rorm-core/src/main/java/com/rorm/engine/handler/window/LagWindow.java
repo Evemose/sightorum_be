@@ -35,7 +35,10 @@ public final class LagWindow extends AbstractWindowFunction {
         } else if (argFields.length == 2) {
             int offset = ctx.extractInt(args.get(1));
             return applyWindowSpec(DSL.lag(argFields[0], offset), partition, order);
+        } else if (argFields.length == 3) {
+            int offset = ctx.extractInt(args.get(1));
+            return applyWindowSpec(DSL.lag(argFields[0], offset, (Field) argFields[2]), partition, order);
         }
-        throw new IllegalArgumentException("LAG requires 1-2 arguments");
+        throw new IllegalArgumentException("LAG requires 1-3 arguments");
     }
 }

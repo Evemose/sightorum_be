@@ -1,0 +1,65 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>162</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="PyDictCreationInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Dictionary
+            creation can be rewritten by dictionary literal
+        </problem_class>
+        <description>This dictionary creation could be rewritten as a dictionary literal</description>
+        <highlighted_element>metrics = { &quot;r2_score&quot;: float(r2_score(y_np, predictions)), &quot;mse&quot;:
+            float(mea...
+        </highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>455</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/random_forest.py</file>
+        <line>120</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/random_forest.py"/>
+        <problem_class id="PyDictCreationInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Dictionary
+            creation can be rewritten by dictionary literal
+        </problem_class>
+        <description>This dictionary creation could be rewritten as a dictionary literal</description>
+        <highlighted_element>metrics: dict[str, Any] = { &quot;r2_score&quot;: float(r2_score(y_np, predictions)), ...
+        </highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>360</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>142</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="PyDictCreationInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Dictionary
+            creation can be rewritten by dictionary literal
+        </problem_class>
+        <description>This dictionary creation could be rewritten as a dictionary literal</description>
+        <highlighted_element>metrics: dict[str, Any] = { &quot;order&quot;: {&quot;p&quot;: order[0], &quot;d&quot;:
+            order[1], &quot;q&quot;: order[2]}, ...
+        </highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>495</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>184</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="PyDictCreationInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Dictionary
+            creation can be rewritten by dictionary literal
+        </problem_class>
+        <description>This dictionary creation could be rewritten as a dictionary literal</description>
+        <highlighted_element>metrics: dict[str, Any] = { &quot;order&quot;: {&quot;p&quot;: order[0], &quot;d&quot;:
+            order[1], &quot;q&quot;: order[2]}, ...
+        </highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>514</length>
+    </problem>
+</problems>

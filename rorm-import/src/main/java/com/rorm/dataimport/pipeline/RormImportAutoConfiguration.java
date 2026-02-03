@@ -4,11 +4,22 @@ import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.type.DataTypeDetector;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.util.Optional;
 
 @AutoConfiguration
 public class RormImportAutoConfiguration {
@@ -45,8 +56,8 @@ public class RormImportAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    ModelSpaceDetector modelSpaceDetector(SchemaDetector schemaDetector, MetamodelConverter metamodelConverter) {
-        return new ModelSpaceDetector(schemaDetector, metamodelConverter);
+    ModelSpaceDetector modelSpaceDetector(SchemaDetector schemaDetector) {
+        return new ModelSpaceDetector(schemaDetector);
     }
 
     @Bean
@@ -56,8 +67,27 @@ public class RormImportAutoConfiguration {
         JobLauncher jobLauncher,
         JobRepository jobRepository,
         PlatformTransactionManager transactionManager,
-        SchemaGenerator schemaGenerator
+        @ImportTaskExecutor Optional<TaskExecutor> importTaskExecutor,
+        ObjectProvider<TaskExecutor> defaultTaskExecutor,
+        SchemaGenerator schemaGenerator,
+        MetamodelConverter metamodelConverter,
+        TransactionTemplate transactionTemplate
     ) {
-        return new DataImportPipeline(jdbcTemplate, jobLauncher, jobRepository, transactionManager, schemaGenerator);
+        return new DataImportPipeline(
+            jdbcTemplate,
+            jobLauncher,
+            jobRepository,
+            transactionManager,
+            schemaGenerator,
+            importTaskExecutor.orElseGet(() -> defaultTaskExecutor.getIfUnique(SimpleAsyncTaskExecutor::new)),
+            metamodelConverter,
+            transactionTemplate
+        );
+    }
+
+    @Qualifier
+    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD, ElementType.TYPE})
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface ImportTaskExecutor {
     }
 }

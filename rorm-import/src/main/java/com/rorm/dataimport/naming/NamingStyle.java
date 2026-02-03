@@ -60,4 +60,11 @@ public enum NamingStyle {
     private static String capitalize(String str) {
         return str.isEmpty() ? str : Character.toUpperCase(str.charAt(0)) + str.substring(1);
     }
+
+    public String forceAdjust(String s) {
+        var matchingStyle = Arrays.stream(NamingStyle.values())
+            .filter(style -> style.matches(s))
+            .findFirst();
+        return matchingStyle.map(style -> this.join(style.split(s))).orElse(s);
+    }
 }

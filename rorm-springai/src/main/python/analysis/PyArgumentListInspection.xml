@@ -1,0 +1,16 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/throttler.py</file>
+        <line>133</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/throttler.py"/>
+        <problem_class id="PyArgumentListInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Incorrect
+            call arguments
+        </problem_class>
+        <description>Parameter 'self' unfilled</description>
+        <highlighted_element>)</highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>1</length>
+    </problem>
+</problems>

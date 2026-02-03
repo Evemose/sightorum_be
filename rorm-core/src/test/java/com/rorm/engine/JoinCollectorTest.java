@@ -1,6 +1,5 @@
 package com.rorm.engine;
 
-import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.InverseRootTableColumn;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
@@ -10,6 +9,7 @@ import com.rorm.query.Expression.Literal;
 import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
+import com.rorm.testutil.TestHandlerRegistry;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,12 +46,16 @@ class JoinCollectorTest {
     private static SingularReferenceAttribute customerAddress;
     private static PluralReferenceAttribute customerOrders;
 
-    private final HandlerRegistry handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
-    private final ExpressionTransformer expr = new ExpressionTransformer(handlerRegistry);
-    private final JoinCollector joinCollector = new JoinCollector(expr);
+    private static ExpressionTransformer expr;
+    private static JoinCollector joinCollector;
 
     @BeforeAll
     static void setupMetamodel() {
+
+        var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
+        expr = new ExpressionTransformer(handlerRegistry);
+        joinCollector = new JoinCollector(expr);
+
         // Address root
         addressId = new BasicAttribute("id", new AttributeLocation("addresses", "id"), new DataType.NumericType(19, 0));
         addressCity = new BasicAttribute("city", new AttributeLocation("addresses", "city"), new DataType.StringType());

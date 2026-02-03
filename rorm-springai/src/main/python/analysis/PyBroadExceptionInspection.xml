@@ -1,0 +1,72 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>180</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="PyBroadExceptionInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Unclear
+            exception clauses
+        </problem_class>
+        <description>Too broad exception clause</description>
+        <highlighted_element>Exception</highlighted_element>
+        <language>Python</language>
+        <offset>15</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>228</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="PyBroadExceptionInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Unclear
+            exception clauses
+        </problem_class>
+        <description>Too broad exception clause</description>
+        <highlighted_element>Exception</highlighted_element>
+        <language>Python</language>
+        <offset>15</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/pipeline_node.py</file>
+        <line>295</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/pipeline_node.py"/>
+        <problem_class id="PyBroadExceptionInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Unclear
+            exception clauses
+        </problem_class>
+        <description>Too broad exception clause</description>
+        <highlighted_element>Exception</highlighted_element>
+        <language>Python</language>
+        <offset>15</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/training_node.py</file>
+        <line>181</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/training_node.py"/>
+        <problem_class id="PyBroadExceptionInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Unclear
+            exception clauses
+        </problem_class>
+        <description>Too broad exception clause</description>
+        <highlighted_element>Exception</highlighted_element>
+        <language>Python</language>
+        <offset>19</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>261</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="PyBroadExceptionInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Unclear
+            exception clauses
+        </problem_class>
+        <description>Too broad exception clause</description>
+        <highlighted_element>Exception</highlighted_element>
+        <language>Python</language>
+        <offset>19</offset>
+        <length>9</length>
+    </problem>
+</problems>

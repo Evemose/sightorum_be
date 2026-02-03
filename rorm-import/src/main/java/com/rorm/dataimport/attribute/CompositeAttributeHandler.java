@@ -2,6 +2,7 @@ package com.rorm.dataimport.attribute;
 
 import com.rorm.dataimport.naming.NamingStyle;
 import com.rorm.dataimport.override.SchemaOverride;
+import com.rorm.dataimport.pipeline.SourceMapping;
 
 import java.util.*;
 import java.util.function.Function;
@@ -13,28 +14,32 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
     private final Set<String> rootSingularNames;
     private final NamingStyle namingStyle;
     private final Map<String, SchemaOverride> overrideMap;
+    private final String dataSourceName;
 
     CompositeAttributeHandler(
         Set<String> availableRootNames,
         NamingStyle namingStyle,
-        List<SchemaOverride> overrides
+        List<SchemaOverride> overrides,
+        String dataSourceName
     ) {
         this.availableRootNames = availableRootNames;
         this.rootSingularNames = availableRootNames.stream()
-            .map(this::toSingular)
+            .map(NameUtils::singularize)
             .collect(Collectors.toSet());
         this.namingStyle = namingStyle;
         this.overrideMap = overrides.stream()
-            .collect(Collectors.toMap(SchemaOverride::attributeName, Function.identity()));
-    }
-
-    private String toSingular(String plural) {
-        // Simple singularization - just remove trailing 's' if present
-        // This handles common cases like courses -> course, students -> student
-        if (plural.endsWith("s") && plural.length() > 1) {
-            return plural.substring(0, plural.length() - 1);
-        }
-        return plural;
+            .collect(
+                Collectors.toMap(
+                    SchemaOverride::attributeName,
+                    Function.identity(),
+                    (a, _) -> {
+                        throw new IllegalArgumentException(
+                            "Duplicate override for attribute: " + a.attributeName()
+                        );
+                    }
+                )
+            );
+        this.dataSourceName = dataSourceName;
     }
 
     @Override
@@ -132,9 +137,10 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
                 var parts = namingStyle.split(column);
                 var suffix = parts[parts.length - 1];
                 var subAttrName = NamingStyle.toCamelCase(new String[]{suffix});
+                var source = new SourceMapping(dataSourceName, column);
                 return Map.entry(
                     subAttrName,
-                    (DetectedAttribute) new DetectedAttribute.Basic(subAttrName, column, null)
+                    (DetectedAttribute) new DetectedAttribute.Basic(subAttrName, source, null)
                 );
             })
             .collect(Collectors.toMap(

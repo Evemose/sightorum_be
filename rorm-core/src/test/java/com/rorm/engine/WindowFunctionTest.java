@@ -1,12 +1,12 @@
 package com.rorm.engine;
 
-import com.rorm.engine.handler.HandlerRegistry;
 import com.rorm.metamodel.*;
 import com.rorm.query.Expression.Aggregation;
 import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.WindowFunction;
 import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
+import com.rorm.testutil.TestHandlerRegistry;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,7 +38,7 @@ class WindowFunctionTest {
     @BeforeEach
     void setUp() {
         var dslContext = DSL.using(SQLDialect.POSTGRES);
-        var handlerRegistry = HandlerRegistry.builder().withBuiltIns().build();
+        var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
         queryTransformer = new QueryTransformer(
             dslContext,

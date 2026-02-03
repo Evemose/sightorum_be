@@ -1,6 +1,7 @@
 package com.rorm.dataimport.attribute;
 
 import com.rorm.dataimport.naming.NamingStyle;
+import com.rorm.dataimport.pipeline.SourceMapping;
 
 import java.util.HashSet;
 import java.util.List;
@@ -10,9 +11,11 @@ import java.util.Set;
 class BasicAttributeHandler implements AttributeDetectionHandler {
 
     private final NamingStyle namingStyle;
+    private final String dataSourceName;
 
-    BasicAttributeHandler(NamingStyle namingStyle) {
+    BasicAttributeHandler(NamingStyle namingStyle, String dataSourceName) {
         this.namingStyle = namingStyle;
+        this.dataSourceName = dataSourceName;
     }
 
     @Override
@@ -21,7 +24,8 @@ class BasicAttributeHandler implements AttributeDetectionHandler {
         columnNames.forEach(column -> {
             var parts = namingStyle.split(column);
             var attrName = NamingStyle.toCamelCase(parts);
-            result.put(attrName, new DetectedAttribute.Basic(attrName, column, null));
+            var source = new SourceMapping(dataSourceName, column);
+            result.put(attrName, new DetectedAttribute.Basic(attrName, source, null));
         });
         return claimedColumns;
     }

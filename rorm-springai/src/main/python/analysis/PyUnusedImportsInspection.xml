@@ -1,0 +1,287 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>17</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;from psycopg import sql&lt;/code&gt;</description>
+        <highlighted_element>from psycopg import sql</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>23</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/throttler.py</file>
+        <line>11</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/throttler.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;asynccontextmanager&lt;/code&gt;</description>
+        <highlighted_element>asynccontextmanager</highlighted_element>
+        <language>Python</language>
+        <offset>39</offset>
+        <length>19</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;import numpy as np&lt;/code&gt;</description>
+        <highlighted_element>import numpy as np</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>18</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>10</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;TrainedModel&lt;/code&gt;</description>
+        <highlighted_element>TrainedModel</highlighted_element>
+        <language>Python</language>
+        <offset>48</offset>
+        <length>12</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>149</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;import pandas as pd&lt;/code&gt;</description>
+        <highlighted_element>import pandas as pd</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>19</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>4</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;from itertools import combinations&lt;/code&gt;</description>
+        <highlighted_element>from itertools import combinations</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>34</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>6</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;import numpy as np&lt;/code&gt;</description>
+        <highlighted_element>import numpy as np</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>18</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;import numpy as np&lt;/code&gt;</description>
+        <highlighted_element>import numpy as np</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>18</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>143</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;import pandas as pd&lt;/code&gt;</description>
+        <highlighted_element>import pandas as pd</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>19</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/base.py</file>
+        <line>12</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/base.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;Type&lt;/code&gt;</description>
+        <highlighted_element>Type</highlighted_element>
+        <language>Python</language>
+        <offset>34</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/dimensionality/tsne.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/dimensionality/tsne.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;import numpy as np&lt;/code&gt;</description>
+        <highlighted_element>import numpy as np</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>18</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/registry.py</file>
+        <line>8</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/registry.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;Optional&lt;/code&gt;</description>
+        <highlighted_element>Optional</highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>5</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;Callable&lt;/code&gt;</description>
+        <highlighted_element>Callable</highlighted_element>
+        <language>Python</language>
+        <offset>40</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>9</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="INFO_ATTRIBUTES">Unused
+            imports
+        </problem_class>
+        <description>'optuna' in the try block with 'except ImportError' should also be defined in the except block
+        </description>
+        <highlighted_element>optuna</highlighted_element>
+        <language>Python</language>
+        <offset>11</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>10</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="INFO_ATTRIBUTES">Unused
+            imports
+        </problem_class>
+        <description>'MedianPruner' in the try block with 'except ImportError' should also be defined in the except
+            block
+        </description>
+        <highlighted_element>MedianPruner</highlighted_element>
+        <language>Python</language>
+        <offset>31</offset>
+        <length>12</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>11</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="INFO_ATTRIBUTES">Unused
+            imports
+        </problem_class>
+        <description>'TPESampler' in the try block with 'except ImportError' should also be defined in the except
+            block
+        </description>
+        <highlighted_element>TPESampler</highlighted_element>
+        <language>Python</language>
+        <offset>32</offset>
+        <length>10</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/training_service.py</file>
+        <line>8</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/training_service.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;from datetime import datetime&lt;/code&gt;</description>
+        <highlighted_element>from datetime import datetime</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>29</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/training_service.py</file>
+        <line>16</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/training_service.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;DatasourceError&lt;/code&gt;</description>
+        <highlighted_element>DatasourceError</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>15</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/service/training_service.py</file>
+        <line>17</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/service/training_service.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;ModelNotFoundError&lt;/code&gt;</description>
+        <highlighted_element>ModelNotFoundError</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>18</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/storage/file_storage.py</file>
+        <line>8</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/storage/file_storage.py"/>
+        <problem_class id="PyUnusedImportsInspection" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">
+            Unused imports
+        </problem_class>
+        <description>Unused import statement &lt;code&gt;import os&lt;/code&gt;</description>
+        <highlighted_element>import os</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>9</length>
+    </problem>
+</problems>

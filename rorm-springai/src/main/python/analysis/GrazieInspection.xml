@@ -1,0 +1,223 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>19</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'eclat' is an imported foreign name or expression, which originally has a diacritic.</description>
+        <highlighted_element>eclat</highlighted_element>
+        <language>Python</language>
+        <offset>40</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>164</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>Multiple space</description>
+        <highlighted_element/>
+        <language>Python</language>
+        <offset>44</offset>
+        <length>2</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/app.py</file>
+        <line>165</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/app.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>Multiple space</description>
+        <highlighted_element/>
+        <language>Python</language>
+        <offset>32</offset>
+        <length>2</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>128</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>Probably a preposition is missing after 'Attempts'.</description>
+        <highlighted_element>Attempts EXPLAIN</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>16</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>134</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>Probably a preposition is missing after 'Try'.</description>
+        <highlighted_element>Try EXPLAIN</highlighted_element>
+        <language>Python</language>
+        <offset>10</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/events/publisher.py</file>
+        <line>112</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/events/publisher.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'message' usually goes with an article</description>
+        <highlighted_element>message</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/events/publisher.py</file>
+        <line>132</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/events/publisher.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'channel' usually goes with an article</description>
+        <highlighted_element>general channel</highlighted_element>
+        <language>Python</language>
+        <offset>26</offset>
+        <length>15</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>1</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'Eclat' is an imported foreign name or expression, which originally has a diacritic.</description>
+        <highlighted_element>Eclat</highlighted_element>
+        <language>Python</language>
+        <offset>3</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>19</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'Eclat' is an imported foreign name or expression, which originally has a diacritic.</description>
+        <highlighted_element>Eclat</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>131</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'Eclat' is an imported foreign name or expression, which originally has a diacritic.</description>
+        <highlighted_element>Eclat</highlighted_element>
+        <language>Python</language>
+        <offset>28</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>148</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'Eclat' is an imported foreign name or expression, which originally has a diacritic.</description>
+        <highlighted_element>Eclat</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>214</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>'Eclat' is an imported foreign name or expression, which originally has a diacritic.</description>
+        <highlighted_element>Eclat</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py</file>
+        <line>76</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>The adjective &quot;Euclidean&quot; is typically capitalized.</description>
+        <highlighted_element>euclidean</highlighted_element>
+        <language>Python</language>
+        <offset>39</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>32</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>A determiner may be missing.</description>
+        <highlighted_element>forwards best</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>13</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>77</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>Did you mean fewer? The noun &quot;retries&quot; is countable.</description>
+        <highlighted_element>Less</highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>97</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>A determiner may be missing.</description>
+        <highlighted_element>with best</highlighted_element>
+        <language>Python</language>
+        <offset>20</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>150</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar
+        </problem_class>
+        <description>A determiner may be missing.</description>
+        <highlighted_element>with best</highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>9</length>
+    </problem>
+</problems>

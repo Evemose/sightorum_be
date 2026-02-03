@@ -1,0 +1,1953 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>15</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>76</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>18</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'sarimax'</description>
+        <highlighted_element>sarimax</highlighted_element>
+        <language>Python</language>
+        <offset>33</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>73</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>166</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>27</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>178</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>27</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>188</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'sarimax'</description>
+        <highlighted_element>sarimax</highlighted_element>
+        <language>Python</language>
+        <offset>27</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/__init__.py</file>
+        <line>200</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>63</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>63</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>90</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>69</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>69</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>95</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>77</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'sarimax'</description>
+        <highlighted_element>sarimax</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>77</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'sarimax'</description>
+        <highlighted_element>sarimax</highlighted_element>
+        <language>Python</language>
+        <offset>81</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>204</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>9</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>208</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>9</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/core/container.py</file>
+        <line>212</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/core/container.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'sarimax'</description>
+        <highlighted_element>sarimax</highlighted_element>
+        <language>Python</language>
+        <offset>9</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/__init__.py</file>
+        <line>7</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/__init__.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>5</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>2</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>0</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>44</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>6</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>46</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>64</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>19</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>207</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py</file>
+        <line>289</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/datasource/sql_datasource.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>20</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/dto/requests.py</file>
+        <line>122</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/dto/requests.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/dto/requests.py</file>
+        <line>126</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/dto/requests.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>18</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>23</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>52</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>68</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>71</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>85</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>91</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>50</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>148</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>48</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>170</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>34</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>171</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>181</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>38</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>254</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>262</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>269</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Itemset'</description>
+        <highlighted_element>Itemset</highlighted_element>
+        <language>Python</language>
+        <offset>10</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>271</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>271</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>49</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>272</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>279</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>280</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>25</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>282</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>39</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>302</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>302</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>45</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>317</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>20</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>322</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>326</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>22</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>330</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>331</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>336</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>32</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>353</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>353</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>41</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py</file>
+        <line>377</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/apriori.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>34</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>21</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'tidsets'</description>
+        <highlighted_element>tidsets</highlighted_element>
+        <language>Python</language>
+        <offset>39</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>24</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>56</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>72</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>71</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>89</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>95</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>50</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>148</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>46</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>167</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>34</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>169</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>178</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>38</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>216</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'tidsets'</description>
+        <highlighted_element>tidsets</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>222</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'tidsets'</description>
+        <highlighted_element>tidsets</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>227</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>19</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>229</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'tids'</description>
+        <highlighted_element>tids</highlighted_element>
+        <language>Python</language>
+        <offset>22</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>234</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>53</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>239</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>242</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>243</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>245</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>19</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>246</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>20</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>248</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>257</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'tidset'</description>
+        <highlighted_element>tidset</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>266</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>20</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>270</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>270</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'tidset'</description>
+        <highlighted_element>tidset</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>272</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>49</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>313</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>322</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>330</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>330</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>49</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>331</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>337</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>338</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>25</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>339</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>36</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>355</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py</file>
+        <line>355</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/eclat.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>45</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>49</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>54</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colnames'</description>
+        <highlighted_element>colnames</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>66</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>71</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>83</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>89</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>50</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>142</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>50</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>161</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>34</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>162</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>165</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colnames'</description>
+        <highlighted_element>colnames</highlighted_element>
+        <language>Python</language>
+        <offset>41</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>172</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>38</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>240</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>249</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>24</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>257</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>257</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>49</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>258</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemset'</description>
+        <highlighted_element>itemset</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>264</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>265</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>25</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>266</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'itemsets'</description>
+        <highlighted_element>itemsets</highlighted_element>
+        <language>Python</language>
+        <offset>36</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>282</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py</file>
+        <line>282</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/association/fpgrowth.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'consequents'</description>
+        <highlighted_element>consequents</highlighted_element>
+        <language>Python</language>
+        <offset>45</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py</file>
+        <line>23</line>
+        <module>python</module>
+        <entry_point TYPE="file"
+                     FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py</file>
+        <line>42</line>
+        <module>python</module>
+        <entry_point TYPE="file"
+                     FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colsample'</description>
+        <highlighted_element>colsample</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py</file>
+        <line>42</line>
+        <module>python</module>
+        <entry_point TYPE="file"
+                     FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bytree'</description>
+        <highlighted_element>bytree</highlighted_element>
+        <language>Python</language>
+        <offset>23</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py</file>
+        <line>99</line>
+        <module>python</module>
+        <entry_point TYPE="file"
+                     FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colsample'</description>
+        <highlighted_element>colsample</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py</file>
+        <line>99</line>
+        <module>python</module>
+        <entry_point TYPE="file"
+                     FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bytree'</description>
+        <highlighted_element>bytree</highlighted_element>
+        <language>Python</language>
+        <offset>23</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py</file>
+        <line>159</line>
+        <module>python</module>
+        <entry_point TYPE="file"
+                     FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colsample'</description>
+        <highlighted_element>colsample</highlighted_element>
+        <language>Python</language>
+        <offset>37</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py</file>
+        <line>159</line>
+        <module>python</module>
+        <entry_point TYPE="file"
+                     FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/lgbm_classifier.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bytree'</description>
+        <highlighted_element>bytree</highlighted_element>
+        <language>Python</language>
+        <offset>47</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py</file>
+        <line>37</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lbfgs'</description>
+        <highlighted_element>lbfgs</highlighted_element>
+        <language>Python</language>
+        <offset>23</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py</file>
+        <line>62</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lbfgs'</description>
+        <highlighted_element>lbfgs</highlighted_element>
+        <language>Python</language>
+        <offset>28</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py</file>
+        <line>63</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lbfgs'</description>
+        <highlighted_element>lbfgs</highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>5</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py</file>
+        <line>63</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/classification/logistic.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'cholesky'</description>
+        <highlighted_element>cholesky</highlighted_element>
+        <language>Python</language>
+        <offset>71</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py</file>
+        <line>98</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'calinski'</description>
+        <highlighted_element>calinski</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py</file>
+        <line>98</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'harabasz'</description>
+        <highlighted_element>harabasz</highlighted_element>
+        <language>Python</language>
+        <offset>30</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py</file>
+        <line>101</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/agglomerative.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bouldin'</description>
+        <highlighted_element>bouldin</highlighted_element>
+        <language>Python</language>
+        <offset>28</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/dbscan.py</file>
+        <line>112</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/dbscan.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'calinski'</description>
+        <highlighted_element>calinski</highlighted_element>
+        <language>Python</language>
+        <offset>25</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/dbscan.py</file>
+        <line>112</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/dbscan.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'harabasz'</description>
+        <highlighted_element>harabasz</highlighted_element>
+        <language>Python</language>
+        <offset>34</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/kmeans.py</file>
+        <line>113</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/kmeans.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'calinski'</description>
+        <highlighted_element>calinski</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/kmeans.py</file>
+        <line>113</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/kmeans.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'harabasz'</description>
+        <highlighted_element>harabasz</highlighted_element>
+        <language>Python</language>
+        <offset>30</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/clustering/kmeans.py</file>
+        <line>116</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/clustering/kmeans.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bouldin'</description>
+        <highlighted_element>bouldin</highlighted_element>
+        <language>Python</language>
+        <offset>28</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>23</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'lgbm'</description>
+        <highlighted_element>lgbm</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>42</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colsample'</description>
+        <highlighted_element>colsample</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>42</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bytree'</description>
+        <highlighted_element>bytree</highlighted_element>
+        <language>Python</language>
+        <offset>23</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>98</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colsample'</description>
+        <highlighted_element>colsample</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>98</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bytree'</description>
+        <highlighted_element>bytree</highlighted_element>
+        <language>Python</language>
+        <offset>23</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>151</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'colsample'</description>
+        <highlighted_element>colsample</highlighted_element>
+        <language>Python</language>
+        <offset>37</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>151</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bytree'</description>
+        <highlighted_element>bytree</highlighted_element>
+        <language>Python</language>
+        <offset>47</offset>
+        <length>6</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py</file>
+        <line>165</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/lgbm_regressor.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'rmse'</description>
+        <highlighted_element>rmse</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/linear.py</file>
+        <line>69</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/linear.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'rmse'</description>
+        <highlighted_element>rmse</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/random_forest.py</file>
+        <line>123</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/random_forest.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'rmse'</description>
+        <highlighted_element>rmse</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/ridge.py</file>
+        <line>68</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/ridge.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'cholesky'</description>
+        <highlighted_element>cholesky</highlighted_element>
+        <language>Python</language>
+        <offset>44</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/regression/ridge.py</file>
+        <line>96</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/regression/ridge.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'rmse'</description>
+        <highlighted_element>rmse</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>120</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'exog'</description>
+        <highlighted_element>exog</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>122</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'exog'</description>
+        <highlighted_element>exog</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>146</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'hqic'</description>
+        <highlighted_element>hqic</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>160</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'arparams'</description>
+        <highlighted_element>arparams</highlighted_element>
+        <language>Python</language>
+        <offset>28</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>161</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'arparams'</description>
+        <highlighted_element>arparams</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>164</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'maparams'</description>
+        <highlighted_element>maparams</highlighted_element>
+        <language>Python</language>
+        <offset>28</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>165</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'maparams'</description>
+        <highlighted_element>maparams</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py</file>
+        <line>174</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/arima.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'rmse'</description>
+        <highlighted_element>rmse</highlighted_element>
+        <language>Python</language>
+        <offset>21</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>1</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'SARIMAX'</description>
+        <highlighted_element>SARIMAX</highlighted_element>
+        <language>Python</language>
+        <offset>3</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>14</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'SARIMAX'</description>
+        <highlighted_element>SARIMAX</highlighted_element>
+        <language>Python</language>
+        <offset>4</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>14</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Xogenous'</description>
+        <highlighted_element>Xogenous</highlighted_element>
+        <language>Python</language>
+        <offset>34</offset>
+        <length>8</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>25</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'sarimax'</description>
+        <highlighted_element>sarimax</highlighted_element>
+        <language>Python</language>
+        <offset>16</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>152</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'SARIMAX'</description>
+        <highlighted_element>SARIMAX</highlighted_element>
+        <language>Python</language>
+        <offset>17</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>156</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'exog'</description>
+        <highlighted_element>exog</highlighted_element>
+        <language>Python</language>
+        <offset>8</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>158</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'exog'</description>
+        <highlighted_element>exog</highlighted_element>
+        <language>Python</language>
+        <offset>12</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>194</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'hqic'</description>
+        <highlighted_element>hqic</highlighted_element>
+        <language>Python</language>
+        <offset>13</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py</file>
+        <line>222</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/models/temporal/sarimax.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'rmse'</description>
+        <highlighted_element>rmse</highlighted_element>
+        <language>Python</language>
+        <offset>25</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/pipeline_node.py</file>
+        <line>133</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/pipeline_node.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'BUSYGROUP'</description>
+        <highlighted_element>BUSYGROUP</highlighted_element>
+        <language>Python</language>
+        <offset>20</offset>
+        <length>9</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>365</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'rmse'</description>
+        <highlighted_element>rmse</highlighted_element>
+        <language>Python</language>
+        <offset>36</offset>
+        <length>4</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py</file>
+        <line>365</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/queue/tuning_node.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'bouldin'</description>
+        <highlighted_element>bouldin</highlighted_element>
+        <language>Python</language>
+        <offset>75</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/ml_training_service/storage/db_storage.py</file>
+        <line>25</line>
+        <module>python</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/ml_training_service/storage/db_storage.py"/>
+        <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Spelling</problem_class>
+        <description>Typo: In word 'Postgre'</description>
+        <highlighted_element>Postgre</highlighted_element>
+        <language>Python</language>
+        <offset>29</offset>
+        <length>7</length>
+    </problem>
+</problems>

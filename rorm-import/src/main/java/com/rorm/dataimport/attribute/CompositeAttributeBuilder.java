@@ -2,6 +2,7 @@ package com.rorm.dataimport.attribute;
 
 import com.rorm.dataimport.naming.NamingStyle;
 import com.rorm.dataimport.override.SchemaOverride;
+import com.rorm.dataimport.pipeline.SourceMapping;
 import org.jspecify.annotations.Nullable;
 
 import java.util.*;
@@ -10,10 +11,12 @@ class CompositeAttributeBuilder {
 
     private final NamingStyle namingStyle;
     private final String defaultListSeparator;
+    private final String dataSourceName;
 
-    CompositeAttributeBuilder(NamingStyle namingStyle, String defaultListSeparator) {
+    CompositeAttributeBuilder(NamingStyle namingStyle, String defaultListSeparator, String dataSourceName) {
         this.namingStyle = namingStyle;
         this.defaultListSeparator = defaultListSeparator;
+        this.dataSourceName = dataSourceName;
     }
 
     Map<String, DetectedAttribute> buildSubAttributes(
@@ -39,7 +42,8 @@ class CompositeAttributeBuilder {
             .forEach(col -> {
                 claimedColumns.add(col);
                 var name = extractAttributeName(col, prefixPartCount);
-                subAttrs.putIfAbsent(name, new DetectedAttribute.Basic(name, col, null));
+                var source = new SourceMapping(dataSourceName, col);
+                subAttrs.putIfAbsent(name, new DetectedAttribute.Basic(name, source, null));
             });
 
         return subAttrs;
@@ -105,17 +109,29 @@ class CompositeAttributeBuilder {
         return switch (override) {
             case SchemaOverride.BasicAttributeOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
-                    .map(col -> new DetectedAttribute.Basic(o.attributeName(), col, null));
+                    .map(col -> {
+                        var source = new SourceMapping(dataSourceName, col);
+                        return new DetectedAttribute.Basic(o.attributeName(), source, null);
+                    });
             case SchemaOverride.SingularReferenceOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
-                    .map(col -> new DetectedAttribute.SingularReference(o.attributeName(), col, o.targetRootName()));
+                    .map(col -> {
+                        var source = new SourceMapping(dataSourceName, col);
+                        return new DetectedAttribute.SingularReference(o.attributeName(), source, o.targetRootName(), null);
+                    });
             case SchemaOverride.PluralReferenceOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
-                    .map(col -> new DetectedAttribute.PluralReference(o.attributeName(), col, o.targetRootName()));
+                    .map(col -> {
+                        var source = new SourceMapping(dataSourceName, col);
+                        return new DetectedAttribute.PluralReference(o.attributeName(), source, o.targetRootName(), null);
+                    });
             case SchemaOverride.CollectionAttributeOverride o ->
                 findAndClaimColumn(o.attributeName(), columns, claimedColumns, prefix)
-                    .map(col -> new DetectedAttribute.Collection(
-                        o.attributeName(), col, Objects.requireNonNullElse(o.separator(), defaultListSeparator), null));
+                    .map(col -> {
+                        var source = new SourceMapping(dataSourceName, col);
+                        return new DetectedAttribute.Collection(
+                            o.attributeName(), source, Objects.requireNonNullElse(o.separator(), defaultListSeparator), null);
+                    });
             case SchemaOverride.CompositeAttributeOverride o -> {
                 validateNestedOverrides(o.nestedOverrides());
                 yield Optional.of(new DetectedAttribute.Composite(

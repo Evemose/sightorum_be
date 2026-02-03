@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.DataOverviewService;
 import com.rorm.ai.RormAiProperties;
+import com.rorm.ai.RormToolContext;
 import com.rorm.dto.ExpressionDTO;
+import com.rorm.dto.QueryDTO;
 import com.rorm.engine.ExpressionTypeResolver;
-import com.rorm.engine.QueryTransformer;
 import com.rorm.engine.TypeCategory;
+import com.rorm.fetcher.Fetcher;
 import com.rorm.mapper.ExpressionMapper;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
@@ -16,13 +18,13 @@ import com.rorm.query.Path;
 import com.rorm.query.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.Record;
-import org.jooq.Result;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -31,11 +33,9 @@ public class DataOverviewTool {
     private final DataOverviewService dataOverviewService;
     private final ExpressionTypeResolver typeResolver;
     private final ExpressionMapper expressionMapper;
-    private final QueryTransformer queryTransformer;
-    private final DSLContext dsl;
+    private final Fetcher fetcher;
     private final ObjectMapper objectMapper;
     private final RormAiProperties properties;
-    private final ModelSpace modelSpace;
 
     @Tool(
         name = "analyzeExpression",
@@ -54,13 +54,18 @@ public class DataOverviewTool {
         @ToolParam(description = "The root entity table name to analyze")
         String rootName,
         @ToolParam(description = "The expression to analyze")
-        ExpressionDTO expressionDTO
+        ExpressionDTO expressionDTO,
+        ToolContext toolContext
     ) {
         try {
             log.info("Analyzing expression on root '{}': {}", rootName, expressionDTO);
 
+            // Extract context
+            var context = RormToolContext.from(toolContext);
+            var modelSpace = context.modelSpace();
+
             // Find root
-            var root = findRootByName(rootName);
+            var root = findRootByName(rootName, modelSpace);
 
             // Convert expression DTO to entity (use a dummy query DTO for context)
             var dummyQueryDTO = createDummyQueryDTO(rootName);
@@ -75,20 +80,18 @@ public class DataOverviewTool {
 
             // Apply limit cap and execute
             var effectiveQuery = applyLimitCap(analysisQuery);
-            var jooqQuery = queryTransformer.transform(effectiveQuery);
-            var sql = jooqQuery.getSQL();
 
-            log.info("Executing analysis SQL: {}", sql);
+            log.info("Executing analysis query");
 
             @SuppressWarnings("unchecked")
-            Result<Record> results = (Result<Record>) dsl.fetch(jooqQuery);
+            var results = fetcher.queryForType(effectiveQuery, () -> (Class<Map<String, Object>>) (Class<?>) Map.class);
 
             var response = new AnalysisResponse(
                 true,
                 category.name(),
-                sql,
+                "Query executed successfully",
                 results.size(),
-                formatResults(results),
+                results,
                 null
             );
 
@@ -99,16 +102,16 @@ public class DataOverviewTool {
         }
     }
 
-    private Root findRootByName(String rootName) {
+    private Root findRootByName(String rootName, ModelSpace modelSpace) {
         return modelSpace.roots().stream()
             .filter(r -> r.primaryTableName().equals(rootName))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Unknown root: " + rootName));
     }
 
-    private com.rorm.dto.QueryDTO createDummyQueryDTO(String rootName) {
+    private QueryDTO createDummyQueryDTO(String rootName) {
         // Create minimal QueryDTO for expression mapping context
-        return new com.rorm.dto.QueryDTO(
+        return new QueryDTO(
             rootName,
             null, // fromAlias
             null, // selector
@@ -154,17 +157,6 @@ public class DataOverviewTool {
         return query;
     }
 
-    private List<Map<String, Object>> formatResults(Result<Record> results) {
-        List<Map<String, Object>> formatted = new ArrayList<>();
-        for (Record record : results) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            for (var field : record.fields()) {
-                row.put(field.getName(), record.get(field));
-            }
-            formatted.add(row);
-        }
-        return formatted;
-    }
 
     private String errorResponse(String message) {
         try {

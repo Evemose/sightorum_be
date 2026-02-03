@@ -1,8 +1,12 @@
 package com.rorm.dataimport.naming;
 
-import java.util.Collection;
-import java.util.EnumSet;
+import lombok.extern.slf4j.Slf4j;
 
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+
+@Slf4j
 public class NamingStyleDetector {
 
     public NamingStyle detect(Collection<String> propertyNames) {
@@ -10,24 +14,28 @@ public class NamingStyleDetector {
             throw new IllegalArgumentException("Cannot detect naming style from empty property list");
         }
 
-        var possibleStyles = EnumSet.allOf(NamingStyle.class);
+        var matchesByStyle = Arrays.stream(NamingStyle.values())
+            .collect(Collectors.toMap(
+                style -> style,
+                style -> propertyNames.stream().filter(style::matches).count(),
+                (a, _) -> a,
+                () -> new EnumMap<>(NamingStyle.class)
+            ));
 
-        for (var name : propertyNames) {
-            possibleStyles.removeIf(style -> !style.matches(name));
-
-            if (possibleStyles.isEmpty()) {
-                throw new IllegalStateException(
-                    "No consistent naming style detected. Property names do not conform to a single style. Property: " + name
-                );
-            }
+        if (!isUnanimousBestMatch(matchesByStyle)) {
+            log.warn("Ambiguous naming style detection: {}. Will use best match, others will be adapted", matchesByStyle);
         }
 
-        if (possibleStyles.size() > 1 && !propertyNames.stream().allMatch(s -> s.equals(s.toLowerCase()))) {
-            throw new IllegalStateException(
-                "Multiple naming styles detected: " + possibleStyles + ". Cannot determine single consistent style."
-            );
-        }
+        return matchesByStyle.entrySet().stream()
+            .max(Comparator.comparingLong(Entry::getValue))
+            .map(Entry::getKey)
+            .orElseThrow(() -> new IllegalStateException("Failed to determine best naming style"));
+    }
 
-        return possibleStyles.iterator().next();
+    private boolean isUnanimousBestMatch(EnumMap<NamingStyle, Long> matchesByStyle) {
+        var maxCount = Collections.max(matchesByStyle.values());
+        return matchesByStyle.values().stream()
+                   .filter(count -> Objects.equals(count, maxCount))
+                   .count() == 1;
     }
 }

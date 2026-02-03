@@ -25,6 +25,7 @@ final class QueryContext {
     private final Table<?> rootTable;
     private final Root root;
     private final @Nullable QueryContext parent;
+    private final @Nullable String schema;
     private final int depth;
     private int aliasCounter = 0;
 
@@ -33,21 +34,30 @@ final class QueryContext {
     }
 
     QueryContext(AliasedRoot from) {
-        this(from, null, 0);
+        this(from, null, null, 0);
     }
 
-    QueryContext(AliasedRoot from, @Nullable QueryContext parent, int depth) {
+    QueryContext(AliasedRoot from, @Nullable String schema, @Nullable QueryContext parent, int depth) {
         if (depth < 0) {
             throw new IllegalArgumentException("Depth cannot be negative");
         }
         this.root = from.root();
         this.depth = depth;
         this.parent = parent;
-        this.rootTable = table(name(from.root().primaryTableName())).as(generateAlias());
+        this.schema = schema;
+        this.rootTable = tableWithSchema(from.root().primaryTableName()).as(generateAlias());
 
         // Register the from alias
         var info = new JoinedRootInfo(from, rootTable);
         aliasRegistry.put(from.alias(), info);
+    }
+
+    private Table<?> tableWithSchema(String tableName) {
+        return schema != null ? table(name(schema, tableName)) : table(name(tableName));
+    }
+
+    QueryContext(AliasedRoot from, @Nullable String schema) {
+        this(from, schema, null, 0);
     }
 
     private String generateAlias() {
@@ -55,11 +65,11 @@ final class QueryContext {
     }
 
     QueryContext nested(AliasedRoot root) {
-        return new QueryContext(root, this, depth + 1);
+        return new QueryContext(root, schema, this, depth + 1);
     }
 
     QueryContext nested(Root root) {
-        return new QueryContext(AliasedRoot.of(root), this, depth + 1);
+        return new QueryContext(AliasedRoot.of(root), schema, this, depth + 1);
     }
 
     QueryContext ancestor(int levels) {
@@ -118,7 +128,7 @@ final class QueryContext {
 
     private JoinInfo handleSingularReference(JoinInfo parent, SingularReferenceAttribute ref) {
         var targetTable = ref.targetRoot().primaryTableName();
-        var joined = table(name(targetTable)).as(generateAlias());
+        var joined = tableWithSchema(targetTable).as(generateAlias());
 
         return switch (ref.mappingStrategy()) {
             case JoinTableMapping jtm -> new JoinInfo(joined, targetTable,

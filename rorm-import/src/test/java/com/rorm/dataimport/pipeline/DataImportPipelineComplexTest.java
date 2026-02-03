@@ -46,14 +46,14 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var userSource = new CsvDataSource(usersFile);
         var orderSource = new CsvDataSource(ordersFile);
 
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(userSource, orderSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(userSource, orderSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(userSource, orderSource), detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(5);
@@ -80,14 +80,14 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         Files.writeString(csvFile, lines.toString());
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace, 500); // chunk size 500
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult, 500); // chunk size 500
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(5000);
@@ -116,14 +116,14 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
         dataImportPipeline.importData(request);
 
         // Verify job execution (job name includes timestamp, so search by prefix)
@@ -160,14 +160,14 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace, 2); // small chunks
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult, 2); // small chunks
         dataImportPipeline.importData(request);
 
         var allInstances = jobExplorer.getJobNames();
@@ -207,14 +207,14 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         );
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of("mixed_ids", overrides),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
 
         // The import should throw an exception when encountering invalid numeric ID
         assertThatThrownBy(() -> dataImportPipeline.importData(request))
@@ -229,21 +229,21 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
     void importSpecialCharacters() throws Exception {
         var csvFile = tempDir.resolve("special.csv");
         Files.writeString(csvFile, """
-            name,description
-            "Product, Inc","This is a ""quoted"" value"
-            Test & Co,"Line 1
+            id,name,description
+            1,"Product, Inc","This is a ""quoted"" value"
+            2,"Test & Co","Line 1
             Line 2"
             """);
 
         var dataSource = new CsvDataSource(csvFile);
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(dataSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(dataSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
         dataImportPipeline.importData(request);
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.special ORDER BY id".formatted(schema));
@@ -270,15 +270,15 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         // Import with chunk size 10
         var dataSource1 = new CsvDataSource(csvFile);
-        var modelSpace1 = modelSpaceDetector.detectModelSpace(List.of(dataSource1), Map.of(), ";");
+        var detectionResult1 = modelSpaceDetector.detect(List.of(dataSource1), Map.of(), ";");
         var schema1 = "chunk_10_" + System.currentTimeMillis();
-        var request1 = new ImportRequest(schema1, List.of(dataSource1), modelSpace1, 10);
+        var request1 = new ImportRequest(schema1, List.of(dataSource1), detectionResult1, 10);
 
         // Import with chunk size 25
         var dataSource2 = new CsvDataSource(csvFile);
-        var modelSpace2 = modelSpaceDetector.detectModelSpace(List.of(dataSource2), Map.of(), ";");
+        var detectionResult2 = modelSpaceDetector.detect(List.of(dataSource2), Map.of(), ";");
         var schema2 = "chunk_25_" + System.currentTimeMillis();
-        var request2 = new ImportRequest(schema2, List.of(dataSource2), modelSpace2, 25);
+        var request2 = new ImportRequest(schema2, List.of(dataSource2), detectionResult2, 25);
 
         try {
             dataImportPipeline.importData(request1);
@@ -329,14 +329,14 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var productSource = new CsvDataSource(productsFile);
 
         // The system should automatically detect String type for category IDs
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(categorySource, productSource),
             Map.of(),
             ";"
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(categorySource, productSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(categorySource, productSource), detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(6); // 3 categories + 3 products

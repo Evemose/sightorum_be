@@ -3,8 +3,12 @@ package com.rorm.dataimport.source;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import com.rorm.dataimport.naming.NamingStyle;
+import com.rorm.dataimport.naming.NamingStyleDetector;
+import lombok.SneakyThrows;
 import org.jspecify.annotations.Nullable;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -18,15 +22,23 @@ public class CsvDataSource implements ImportDataSource {
     private final String rootName;
     private final Path filePath;
     private final List<String> columnNames;
+    private final NamingStyle namingStyle;
     @Nullable
     private MappingIterator<Map<String, String>> iterator;
     @Nullable
     private InputStream inputStream;
 
-    public CsvDataSource(Path filePath) throws IOException {
+    public CsvDataSource(Path filePath) {
         this.filePath = filePath;
         this.rootName = extractRootName(filePath);
-        this.columnNames = extractColumnNames();
+
+        // Detect naming style and normalize column names once, at initialization
+        var detector = new NamingStyleDetector();
+        var originalColumns = readOriginalColumnNames();
+        this.namingStyle = detector.detect(originalColumns);
+        this.columnNames = originalColumns.stream()
+            .map(namingStyle::forceAdjust)
+            .toList();
     }
 
     private String extractRootName(Path filePath) {
@@ -35,7 +47,11 @@ public class CsvDataSource implements ImportDataSource {
         return dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
     }
 
-    private List<String> extractColumnNames() throws IOException {
+    /**
+     * Reads the original column names from the CSV header without any transformations.
+     */
+    @SneakyThrows
+    private List<String> readOriginalColumnNames() {
         var mapper = new CsvMapper();
         var schema = CsvSchema.emptySchema().withHeader();
 
@@ -44,19 +60,17 @@ public class CsvDataSource implements ImportDataSource {
                 .with(schema)
                 .<Map<String, String>>readValues(is);
 
-            // Get schema from parser after reading headers
             var parser = it.getParser();
             var readSchema = parser.getSchema();
             if (readSchema instanceof CsvSchema csvSchema && csvSchema.size() > 0) {
-                return java.util.stream.StreamSupport.stream(
-                        csvSchema.spliterator(), false)
+                return StreamSupport.stream(csvSchema.spliterator(), false)
                     .map(CsvSchema.Column::getName)
                     .toList();
             }
 
             // Fallback: try to read first row
             return it.hasNext()
-                ? it.next().keySet().stream().toList()
+                ? new ArrayList<>(it.next().keySet())
                 : List.of();
         }
     }
@@ -77,19 +91,32 @@ public class CsvDataSource implements ImportDataSource {
             var mapper = new CsvMapper();
             var schema = CsvSchema.emptySchema().withHeader();
 
-            inputStream = Files.newInputStream(filePath);
-            iterator = mapper.readerFor(Map.class)
-                .with(schema)
-                .readValues(inputStream);
+            inputStream = new BufferedInputStream(Files.newInputStream(filePath));
+            iterator = mapper.readerFor(Map.class).with(schema).readValues(inputStream);
 
             return StreamSupport.stream(
                 Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED),
                 false
-            ).onClose(this::close);
+                )
+                .map(this::transformRowKeys)
+                .onClose(this::close);
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to create CSV stream", e);
         }
+    }
+
+    /**
+     * Transforms row keys from original CSV column names to normalized names.
+     * This ensures data keys match the column names returned by getColumnNames().
+     */
+    private Map<String, String> transformRowKeys(Map<String, String> row) {
+        var transformed = new LinkedHashMap<String, String>();
+        for (var entry : row.entrySet()) {
+            var normalizedKey = namingStyle.forceAdjust(entry.getKey());
+            transformed.put(normalizedKey, entry.getValue());
+        }
+        return transformed;
     }
 
     @Override
@@ -108,22 +135,4 @@ public class CsvDataSource implements ImportDataSource {
         });
     }
 
-    @Override
-    public Stream<Map<String, String>> peekStream(int n) {
-        try (var is = Files.newInputStream(filePath)) {
-            var mapper = new CsvMapper();
-            var schema = CsvSchema.emptySchema().withHeader();
-
-            var it = mapper.readerFor(Map.class)
-                .with(schema)
-                .<Map<String, String>>readValues(is);
-
-            return StreamSupport.stream(
-                Spliterators.spliteratorUnknownSize(it, Spliterator.ORDERED),
-                false
-            ).limit(n);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create peek CSV stream", e);
-        }
-    }
 }

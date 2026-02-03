@@ -1,0 +1,23 @@
+logging:
+  level:
+    com:
+      rorm:
+        dataimport:
+          pipeline:
+            ProgressLoggingListener: DEBUG
+    org:
+      springframework:
+        ai: TRACE
+        ai.util: TRACE
+rorm:
+  ai:
+    demo:
+      enabled: true
+      import-data: true
+    max-query-results: 1000
+spring:
+  batch:
+    jdbc:
+      initialize-schema: always
+  jooq:
+    sql-dialect: POSTGRES

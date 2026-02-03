@@ -29,8 +29,12 @@ extra["springAiVersion"] = "1.0.0"
 val jspecifyVersion = "1.0.0"
 
 subprojects {
-    apply(plugin = "java-library")
     apply(plugin = "io.spring.dependency-management")
+    apply(plugin = "org.springframework.boot")
+
+    if (!this.plugins.hasPlugin("java-library")) {
+        apply(plugin = "java")
+    }
 
     group = rootProject.group
     version = rootProject.version

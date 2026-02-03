@@ -83,4 +83,10 @@ public class RormCoreAutoConfiguration {
     ) {
         return new QueryTransformer(dsl, expressionTransformer, joinCollector);
     }
+
+    @Bean
+    @ConditionalOnMissingBean
+    com.rorm.fetcher.Fetcher fetcher(DSLContext dsl, QueryTransformer queryTransformer) {
+        return new com.rorm.fetcher.JooqFetcher(dsl, queryTransformer);
+    }
 }

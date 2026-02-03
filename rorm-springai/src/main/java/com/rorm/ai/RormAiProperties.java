@@ -5,7 +5,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "rorm.ai")
 public record RormAiProperties(
     String systemPrompt,
-    boolean includeLocationDetails,
     int maxQueryResults
 ) {
     public RormAiProperties {
@@ -31,6 +30,6 @@ public record RormAiProperties(
     }
 
     public static RormAiProperties defaults() {
-        return new RormAiProperties(null, false, 100);
+        return new RormAiProperties(null, 100);
     }
 }

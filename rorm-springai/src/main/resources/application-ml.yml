@@ -1,0 +1,13 @@
+# ML Training Service Configuration
+rorm:
+  ml:
+    enabled: true
+    service-base-url: http://localhost:8000
+    valkey-url: redis://localhost:6379
+    event-stream-name: ml_training:training_results
+    consumer-group: spring_consumers
+
+spring:
+  data:
+    redis:
+      url: ${rorm.ml.valkey-url}

@@ -32,14 +32,12 @@ class SchemaGenerator {
     }
 
     private String generateCreateTableDdl(String schemaName, Root root) {
-        var qualifiedTableName = "%s.%s".formatted(schemaName, root.primaryTableName());
+        var qualifiedTableName = quoteIdentifier(schemaName) + "." + quoteIdentifier(root.primaryTableName());
         var columnDefinitions = new ArrayList<String>();
 
         var idDescriptor = root.idDescriptor();
-        columnDefinitions.add("%s %s PRIMARY KEY".formatted(
-            idDescriptor.columnName(),
-            mapIdTypeToSql(idDescriptor.dataType())
-        ));
+        columnDefinitions.add(quoteIdentifier(idDescriptor.columnName()) + " " +
+                              mapIdTypeToSql(idDescriptor.dataType()) + " PRIMARY KEY");
 
         for (var attribute : root.attributes()) {
             // Skip ID attribute if it matches the IdDescriptor column to avoid duplicate column definition
@@ -50,23 +48,18 @@ class SchemaGenerator {
             columnDefinitions.addAll(generateColumnDefinitions(attribute));
         }
 
-        return "CREATE TABLE %s (%s)".formatted(
-            qualifiedTableName,
-            String.join(", ", columnDefinitions)
-        );
+        return "CREATE TABLE " + qualifiedTableName + " (" + String.join(", ", columnDefinitions) + ")";
     }
 
     private List<String> generateColumnDefinitions(Attribute attribute) {
         return switch (attribute) {
             case BasicAttribute basic -> List.of(
-                "%s %s".formatted(basic.location().column(), mapDataTypeToSql(basic.dataType()))
+                quoteIdentifier(basic.location().column()) + " " + mapDataTypeToSql(basic.dataType())
             );
             case CollectionAttribute collection -> switch (collection.elementType()) {
                 case CollectionAttribute.BasicElement basicElement -> List.of(
-                    "%s %s".formatted(
-                        basicElement.location().column(),
-                        mapDataTypeToSql(basicElement.dataType())
-                    )
+                    quoteIdentifier(basicElement.location().column()) + " " +
+                    mapDataTypeToSql(basicElement.dataType())
                 );
                 case CollectionAttribute.CompositeElement _ -> List.of();
             };
@@ -81,7 +74,7 @@ class SchemaGenerator {
                 case ReferenceAttribute.InverseRootTableColumn _, ReferenceAttribute.JoinTableMapping _ -> List.of();
                 // FIXME
                 case SameTableColumn(var columnName) -> List.of(
-                    "%s %s".formatted(columnName, mapIdTypeToSql(ref.targetRoot().idDescriptor().dataType()))
+                    quoteIdentifier(columnName) + " " + mapIdTypeToSql(ref.targetRoot().idDescriptor().dataType())
                 );
             };
             case PluralReferenceAttribute _ -> List.of();
@@ -94,19 +87,21 @@ class SchemaGenerator {
         Root targetRoot,
         ReferenceAttribute.JoinTableMapping mapping
     ) {
-        var joinTableName = "%s.%s".formatted(schemaName, mapping.joinColumnLocation().table());
-        var ownerColumnName = mapping.joinColumnLocation().column();
-        var targetColumnName = mapping.inverseJoinColumnName();
+        var joinTableName = quoteIdentifier(schemaName) + "." + quoteIdentifier(mapping.joinColumnLocation().table());
+        var ownerColumnName = quoteIdentifier(mapping.joinColumnLocation().column());
+        var targetColumnName = quoteIdentifier(mapping.inverseJoinColumnName());
         var ownerIdType = mapIdTypeToSql(ownerRoot.idDescriptor().dataType());
         var targetIdType = mapIdTypeToSql(targetRoot.idDescriptor().dataType());
 
-        return "CREATE TABLE %s (%s %s, %s %s, PRIMARY KEY (%s, %s))".formatted(
-            joinTableName,
-            ownerColumnName, ownerIdType,
-            targetColumnName, targetIdType,
-            ownerColumnName,
-            targetColumnName
-        );
+        return "CREATE TABLE " + joinTableName + " (" +
+               ownerColumnName + " " + ownerIdType + ", " +
+               targetColumnName + " " + targetIdType + ", " +
+               "PRIMARY KEY (" + ownerColumnName + ", " + targetColumnName + "))";
+    }
+
+    private String quoteIdentifier(String identifier) {
+        // Escape any existing double quotes and wrap in quotes
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
     private String mapDataTypeToSql(DataType dataType) {

@@ -50,7 +50,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
             new SchemaOverride.IdAttributeOverride("id", "course_id", null)
         );
 
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(studentsSource, coursesSource),
             Map.of(
                 "students", studentsOverrides,
@@ -59,7 +59,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
             ","
         );
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(studentsSource, coursesSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(studentsSource, coursesSource), detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(600); // 500 students + 100 courses
@@ -156,7 +156,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
             "enrollments", enrollmentsOverrides
         );
 
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(studentsSource, coursesSource, enrollmentsSource),
             overridesByRoot,
             ","
@@ -166,7 +166,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
         var schema = getSchemaName();
         var request = new ImportRequest(schema,
             List.of(studentsSource, coursesSource, enrollmentsSource),
-            modelSpace);
+            detectionResult);
         var result = dataImportPipeline.importData(request);
 
         // Verify import totals
@@ -229,16 +229,14 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
         var dataSources = loadAllDataSources();
         var overridesByRoot = createAllOverrides();
 
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             dataSources,
             overridesByRoot,
             ","
         );
 
-        // Model space detection happens successfully (5 roots: students, courses, enrollments, attendance, reviews)
-
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, dataSources, modelSpace);
+        var request = new ImportRequest(schema, dataSources, detectionResult);
         var result = dataImportPipeline.importData(request);
 
         // Verify total import count
@@ -356,14 +354,14 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
         var studentsFile = loadResourceFile("data/cources/students.csv");
         var studentsSource = new CsvDataSource(studentsFile);
 
-        var modelSpace = modelSpaceDetector.detectModelSpace(
+        var detectionResult = modelSpaceDetector.detect(
             List.of(studentsSource),
             Map.of(),
             ","
         );
 
         var schema = getSchemaName();
-        var request = new ImportRequest(schema, List.of(studentsSource), modelSpace);
+        var request = new ImportRequest(schema, List.of(studentsSource), detectionResult);
         var result = dataImportPipeline.importData(request);
 
         assertThat(result.totalRowsImported()).isEqualTo(500);

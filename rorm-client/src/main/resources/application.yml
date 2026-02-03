@@ -1,0 +1,51 @@
+server:
+  http2:
+    enabled: true
+  servlet:
+    async:
+      timeout: 3600000  # 1 hour for long-lived SSE connections
+
+spring:
+  batch:
+    jdbc:
+      initialize-schema: always
+  ai:
+    openai:
+      api-key: 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
+      chat:
+        options:
+          model: gpt-5.2
+  application:
+    name: rorm-client
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: rorm_client
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas:
+      - rorm_client
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  servlet:
+    multipart:
+      max-file-size: 16GB
+      max-request-size: 16GB
+
+rorm:
+  client:
+    temp-file-dir: ${java.io.tmpdir}/rorm-uploads
+    temp-file-ttl-hours: 24
+    sse:
+      heartbeat-interval-ms: 30000
+      reconnect-delay-ms: 3000
+
+logging:
+  level:
+    com.rorm: DEBUG

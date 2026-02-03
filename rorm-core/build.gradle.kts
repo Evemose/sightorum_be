@@ -20,6 +20,7 @@ dependencies {
     testFixturesApi("org.testcontainers:postgresql")
     testFixturesApi("org.springframework.boot:spring-boot-testcontainers")
 
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.testcontainers:junit-jupiter")

@@ -28,7 +28,8 @@ public abstract class AbstractImportTest {
     protected static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine")
         .withDatabaseName("testdb")
         .withUsername("test")
-        .withPassword("test");
+        .withPassword("test")
+        .withReuse(true);
 
     private final boolean reuseSchema;
 

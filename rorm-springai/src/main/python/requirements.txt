@@ -1,0 +1,39 @@
+# Core dependencies
+polars>=0.20.0
+pyarrow>=14.0.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# ML Libraries
+scikit-learn>=1.3.0
+lightgbm>=4.0.0
+
+# Time Series
+statsmodels>=0.14.0
+
+# Association Rules
+mlxtend>=0.23.0
+
+# Database
+psycopg[binary,pool]>=3.1.0
+
+# Serialization
+joblib>=1.3.0
+
+# Configuration
+pyyaml>=6.0
+
+# Dependency Injection
+dependency-injector>=4.41.0
+
+# API (optional, for HTTP service)
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+pydantic-settings>=2.12.0
+
+# Redis/Valkey for event publishing and streaming
+redis>=5.0.0
+
+# Hyperparameter optimization
+optuna>=3.0.0

@@ -1,66 +1,67 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.type.TypeParser;
-import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.IdDescriptor;
-import com.rorm.metamodel.ReferenceAttribute.SameTableColumn;
-import com.rorm.metamodel.SingularReferenceAttribute;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+/**
+ * Writes data to a database table using column mappings from detected schema.
+ */
 class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
 
     private final JdbcTemplate jdbcTemplate;
     private final String qualifiedTableName;
-    private final List<String> dataColumns;
-    private final Map<String, DataType> columnTypes;
+    private final List<ColumnMapping> dataColumnMappings;
     private final IdDescriptor idDescriptor;
     private final String insertSql;
     private final AtomicLong rowCounter;
 
+    /**
+     * Creates a writer with column mappings from detected schema.
+     *
+     * @param jdbcTemplate   JDBC template for database operations
+     * @param schema         Target database schema
+     * @param tableName      Target table name
+     * @param idDescriptor   ID descriptor for the table
+     * @param columnMappings Column mappings with source information
+     */
     DatabaseItemWriter(
         JdbcTemplate jdbcTemplate,
         String schema,
-        com.rorm.metamodel.Root root,
-        IdDescriptor idDescriptor
+        String tableName,
+        IdDescriptor idDescriptor,
+        List<ColumnMapping> columnMappings
     ) {
         this.jdbcTemplate = jdbcTemplate;
-        this.qualifiedTableName = "%s.%s".formatted(schema, root.primaryTableName());
+        this.qualifiedTableName = "%s.%s".formatted(schema, tableName);
         this.idDescriptor = idDescriptor;
 
-        var columns = new ArrayList<String>();
-        var types = new HashMap<String, DataType>();
-
-        for (var attr : root.attributes()) {
-            if (attr instanceof BasicAttribute basic) {
-                var colName = basic.location().column();
-                columns.add(colName);
-                types.put(colName, basic.dataType());
-            } else if (attr instanceof SingularReferenceAttribute(_, var targetRoot, SameTableColumn(var colName))) {
-                columns.add(colName);
-                types.put(colName, targetRoot.idDescriptor().dataType());
-            }
-        }
-
-        this.columnTypes = types;
-        this.dataColumns = columns.stream()
-            .filter(col -> !col.equalsIgnoreCase(idDescriptor.columnName()))
+        // Filter out the ID column from data columns
+        this.dataColumnMappings = columnMappings.stream()
+            .filter(mapping -> !mapping.dbColumnName().equalsIgnoreCase(idDescriptor.columnName()))
             .toList();
+
         this.insertSql = buildInsertSql();
         this.rowCounter = new AtomicLong(0);
     }
 
     private String buildInsertSql() {
-        var allColumns = Stream.concat(Stream.of(idDescriptor.columnName()), dataColumns.stream()).toList();
+        var allColumns = Stream.concat(
+            Stream.of(idDescriptor.columnName()),
+            dataColumnMappings.stream().map(ColumnMapping::dbColumnName)
+        ).toList();
         var placeholders = allColumns.stream().map(_ -> "?").toList();
         return "INSERT INTO %s (%s) VALUES (%s)".formatted(
             qualifiedTableName,
@@ -78,11 +79,21 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
             rowsWithIds.add(Map.entry(row, id));
         }
 
-        // Only write if all IDs are valid
-        for (var entry : rowsWithIds) {
-            var values = buildRowValues(entry.getKey(), entry.getValue());
-            jdbcTemplate.update(insertSql, values);
-        }
+        jdbcTemplate.batchUpdate(insertSql, new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                var entry = rowsWithIds.get(i);
+                var values = buildRowValues(entry.getKey(), entry.getValue());
+                for (var j = 0; j < values.length; j++) {
+                    ps.setObject(j + 1, values[j]);
+                }
+            }
+
+            @Override
+            public int getBatchSize() {
+                return rowsWithIds.size();
+            }
+        });
     }
 
     private Object determineRowId(Map<String, String> row) {
@@ -118,16 +129,13 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
     private Object[] buildRowValues(Map<String, String> row, Object id) {
         return Stream.concat(
             Stream.of(id),
-            dataColumns.stream().map(col -> {
-                var value = row.get(col);
+            dataColumnMappings.stream().map(mapping -> {
+                // Look up value using the source column name from CSV
+                var value = row.get(mapping.sourceColumn());
                 if (value == null || value.isEmpty()) {
                     return null;
                 }
-                var dataType = columnTypes.get(col);
-                if (dataType == null) {
-                    return value; // Fallback to string
-                }
-                return TypeParser.parseValue(value, dataType);
+                return TypeParser.parseValue(value, mapping.dataType());
             })
         ).toArray();
     }

@@ -2,7 +2,6 @@ package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.ImportDataSource;
-import com.rorm.metamodel.ModelSpace;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
@@ -15,14 +14,21 @@ import java.util.Map;
 public class ModelSpaceDetector {
 
     private final SchemaDetector schemaDetector;
-    private final MetamodelConverter metamodelConverter;
 
-    public ModelSpace detectModelSpace(
+    /**
+     * Detects the model space and returns both the ModelSpace and DetectedSchema.
+     * The DetectedSchema contains source mappings needed for multi-root imports.
+     *
+     * @param dataSources          Data sources to analyze
+     * @param overridesByRoot      Schema overrides organized by root name
+     * @param defaultListSeparator Default separator for list/collection attributes
+     * @return Detection result containing both ModelSpace and DetectedSchema
+     */
+    public DetectedSchema detect(
         List<ImportDataSource> dataSources,
         Map<String, List<SchemaOverride>> overridesByRoot,
         String defaultListSeparator
     ) {
-        var detectedSchema = schemaDetector.detectSchema(dataSources, overridesByRoot, defaultListSeparator);
-        return metamodelConverter.convertToModelSpace(detectedSchema);
+        return schemaDetector.detectSchema(dataSources, overridesByRoot, defaultListSeparator);
     }
 }

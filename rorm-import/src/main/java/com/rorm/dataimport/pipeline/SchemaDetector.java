@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  * Detects schema structure from data sources: attributes, types, and overrides.
  */
 @RequiredArgsConstructor
-class SchemaDetector {
+public class SchemaDetector {
 
     private final NamingStyleDetector namingStyleDetector;
     private final DataTypeDetector typeDetector;
@@ -45,15 +45,17 @@ class SchemaDetector {
 
         for (var dataSource : dataSources) {
             var rootName = dataSource.getRootName();
+            var dataSourceName = dataSource.getRootName(); // Use rootName as datasource identifier
             var columnDataTypes = detectColumnDataTypesForRoot(dataSource);
             var rootOverrides = overridesByRoot.getOrDefault(rootName, List.of());
             applyTypeOverridesRecursive(columnDataTypes, rootOverrides);
-            var attributes = detectAttributesForRoot(dataSource, rootNames, rootOverrides, defaultListSeparator);
+            var attributes = detectAttributesForRoot(dataSource, rootNames, rootOverrides, defaultListSeparator, dataSourceName);
             enrichAttributesWithTypes(attributes, columnDataTypes);
             var idColumn = detectIdColumnForRoot(dataSource, rootOverrides, columnDataTypes);
 
             detectedRoots.put(rootName, new DetectedRoot(
                 rootName,
+                dataSourceName,
                 attributes,
                 idColumn
             ));
@@ -232,7 +234,10 @@ class SchemaDetector {
             .findFirst();
     }
 
-    private void enrichAttributesWithTypes(Map<String, DetectedAttribute> attributes, Map<String, DataType> columnDataTypes) {
+    private void enrichAttributesWithTypes(
+        Map<String, DetectedAttribute> attributes,
+        Map<String, DataType> columnDataTypes
+    ) {
         var enrichedAttributes = new HashMap<String, DetectedAttribute>();
         for (var entry : attributes.entrySet()) {
             var name = entry.getKey();
@@ -243,19 +248,43 @@ class SchemaDetector {
         attributes.putAll(enrichedAttributes);
     }
 
-    private DetectedAttribute enrichAttributeWithType(DetectedAttribute attr, Map<String, DataType> columnDataTypes) {
+    private DetectedAttribute enrichAttributeWithType(
+        DetectedAttribute attr,
+        Map<String, DataType> columnDataTypes
+    ) {
         return switch (attr) {
-            case DetectedAttribute.Basic basic -> new DetectedAttribute.Basic(basic.name(), basic.columnName(),
-                columnDataTypes.get(basic.columnName()));
-            case DetectedAttribute.Collection coll ->
-                new DetectedAttribute.Collection(coll.name(), coll.columnName(), coll.separator(),
-                    columnDataTypes.get(coll.columnName()));
-            case DetectedAttribute.Composite comp -> new DetectedAttribute.Composite(comp.name(),
-                enrichSubAttributesWithTypes(comp.subAttributes(), columnDataTypes));
-            case DetectedAttribute.OneToOneRoot oneToOne ->
-                new DetectedAttribute.OneToOneRoot(oneToOne.name(), oneToOne.targetRootName(),
-                    enrichSubAttributesWithTypes(oneToOne.subAttributes(), columnDataTypes));
-            default -> attr;
+            case DetectedAttribute.Basic basic -> new DetectedAttribute.Basic(
+                basic.name(),
+                basic.source(),
+                columnDataTypes.get(basic.source().sourceColumn())
+            );
+            case DetectedAttribute.Collection coll -> new DetectedAttribute.Collection(
+                coll.name(),
+                coll.source(),
+                coll.separator(),
+                columnDataTypes.get(coll.source().sourceColumn())
+            );
+            case DetectedAttribute.SingularReference ref -> new DetectedAttribute.SingularReference(
+                ref.name(),
+                ref.source(),
+                ref.targetRootName(),
+                columnDataTypes.get(ref.source().sourceColumn())
+            );
+            case DetectedAttribute.PluralReference ref -> new DetectedAttribute.PluralReference(
+                ref.name(),
+                ref.source(),
+                ref.targetRootName(),
+                columnDataTypes.get(ref.source().sourceColumn())
+            );
+            case DetectedAttribute.Composite comp -> new DetectedAttribute.Composite(
+                comp.name(),
+                enrichSubAttributesWithTypes(comp.subAttributes(), columnDataTypes)
+            );
+            case DetectedAttribute.OneToOneRoot oneToOne -> new DetectedAttribute.OneToOneRoot(
+                oneToOne.name(),
+                oneToOne.targetRootName(),
+                enrichSubAttributesWithTypes(oneToOne.subAttributes(), columnDataTypes)
+            );
         };
     }
 
@@ -274,7 +303,8 @@ class SchemaDetector {
         ImportDataSource dataSource,
         Set<String> rootNames,
         List<SchemaOverride> overrides,
-        String defaultListSeparator
+        String defaultListSeparator,
+        String dataSourceName
     ) {
         var columnNames = new ArrayList<>(dataSource.getColumnNames());
 
@@ -282,7 +312,6 @@ class SchemaDetector {
         overrides.stream()
             .filter(o -> o instanceof SchemaOverride.IdAttributeOverride)
             .map(o -> (SchemaOverride.IdAttributeOverride) o)
-            .filter(o -> o.attributeName().equals("id"))
             .findFirst()
             .ifPresent(idAttributeOverride ->
                 columnNames.remove(idAttributeOverride.columnName())
@@ -294,7 +323,8 @@ class SchemaDetector {
             rootNames,
             namingStyle,
             overrides,
-            defaultListSeparator
+            defaultListSeparator,
+            dataSourceName
         );
 
         return detector.detectAttributes(columnNames);
@@ -306,20 +336,21 @@ class SchemaDetector {
     ) {
         var oneToOneRoots = new HashMap<String, DetectedRoot>();
         for (var root : detectedRoots.values()) {
-            collectOneToOneRootsRecursive(root.attributes().values(), oneToOneRoots, overrides);
+            collectOneToOneRootsRecursive(root.attributes().values(), root.sourceDataSource(), oneToOneRoots, overrides);
         }
         return oneToOneRoots;
     }
 
     private void collectOneToOneRootsRecursive(
         Collection<DetectedAttribute> attributes,
+        String sourceDataSource,
         Map<String, DetectedRoot> oneToOneRoots,
         List<SchemaOverride> overrides
     ) {
         for (var attr : attributes) {
             switch (attr) {
                 case DetectedAttribute.Composite composite ->
-                    collectOneToOneRootsRecursive(composite.subAttributes().values(), oneToOneRoots, overrides);
+                    collectOneToOneRootsRecursive(composite.subAttributes().values(), sourceDataSource, oneToOneRoots, overrides);
                 case DetectedAttribute.OneToOneRoot oneToOne -> {
                     var rootName = oneToOne.targetRootName();
                     if (!oneToOneRoots.containsKey(rootName)) {
@@ -327,8 +358,10 @@ class SchemaDetector {
                         var idColumnOverride = findOneToOneIdColumnOverride(rootName, overrides);
                         var idColumn = detectIdColumnForOneToOneRoot(oneToOne.subAttributes(), idColumnOverride);
 
+                        // OneToOneRoot gets its data from the same source as the parent root
                         oneToOneRoots.put(rootName, new DetectedRoot(
                             rootName,
+                            sourceDataSource,
                             oneToOne.subAttributes(),
                             idColumn
                         ));
@@ -376,7 +409,7 @@ class SchemaDetector {
             var overriddenAttr = subAttributes.values().stream()
                 .filter(attr -> attr instanceof DetectedAttribute.Basic)
                 .map(attr -> (DetectedAttribute.Basic) attr)
-                .filter(basic -> basic.columnName().equalsIgnoreCase(overriddenIdColumn))
+                .filter(basic -> basic.source().sourceColumn().equalsIgnoreCase(overriddenIdColumn))
                 .findFirst()
                 .orElse(null);
 
@@ -385,7 +418,7 @@ class SchemaDetector {
                     overriddenAttr.dataType(),
                     () -> new DataType.NumericType(19, 0)
                 );
-                return new DetectedIdColumn(overriddenAttr.name(), overriddenAttr.columnName(), dataType);
+                return new DetectedIdColumn(overriddenAttr.name(), overriddenAttr.source().sourceColumn(), dataType);
             }
         }
 
@@ -393,7 +426,7 @@ class SchemaDetector {
         var idAttr = subAttributes.values().stream()
             .filter(attr -> attr instanceof DetectedAttribute.Basic)
             .map(attr -> (DetectedAttribute.Basic) attr)
-            .filter(basic -> basic.columnName().toLowerCase().endsWith("_id"))
+            .filter(basic -> basic.source().sourceColumn().toLowerCase().endsWith("_id"))
             .findFirst()
             .orElse(null);
 
@@ -403,7 +436,7 @@ class SchemaDetector {
                 () -> new DataType.NumericType(19, 0)
             );
             // Use the attribute name as the ID attribute name
-            return new DetectedIdColumn(idAttr.name(), idAttr.columnName(), dataType);
+            return new DetectedIdColumn(idAttr.name(), idAttr.source().sourceColumn(), dataType);
         }
 
         // Default fallback
@@ -418,17 +451,23 @@ class SchemaDetector {
         var idOverride = overrides.stream()
             .filter(o -> o instanceof SchemaOverride.IdAttributeOverride)
             .map(o -> (SchemaOverride.IdAttributeOverride) o)
-            .filter(o -> o.attributeName().equals("id"))
             .findFirst();
 
         if (idOverride.isPresent()) {
             var override = idOverride.get();
             var dataType = override.dataType();
             if (dataType == null) {
-                // No explicit type in override, use detected type or default to NumericType
-                dataType = columnDataTypes.getOrDefault(override.columnName(), new DataType.NumericType(19, 0));
+                dataType = columnDataTypes.getOrDefault(
+                    override.columnName(),
+                    new DataType.NumericType(19, 0)
+                );
             }
-            return new DetectedIdColumn("id", override.columnName(), dataType);
+            var naming = namingStyleDetector.detect(dataSource.getColumnNames());
+            return new DetectedIdColumn(
+                Objects.requireNonNullElse(override.attributeName(), naming.forceAdjust(override.columnName())),
+                override.columnName(),
+                dataType
+            );
         } else {
             var idColumn = dataSource.getColumnNames().stream()
                 .filter(c -> c.equalsIgnoreCase("id"))
@@ -439,13 +478,17 @@ class SchemaDetector {
         }
     }
 
-    public record DetectedSchema(
-        Map<String, DetectedRoot> roots
-    ) {
-    }
-
+    /**
+     * Represents a detected root entity during schema detection.
+     *
+     * @param name             The name of the root (e.g., table name)
+     * @param sourceDataSource The ImportDataSource name where this root's data comes from
+     * @param attributes       The detected attributes for this root
+     * @param idColumn         The detected ID column for this root
+     */
     public record DetectedRoot(
         String name,
+        String sourceDataSource,
         Map<String, DetectedAttribute> attributes,
         DetectedIdColumn idColumn
     ) {

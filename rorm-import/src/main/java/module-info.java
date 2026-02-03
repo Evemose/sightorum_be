@@ -14,6 +14,10 @@ open module rorm.rorm.dataimport {
     requires spring.batch.core;
     requires spring.core;
     requires spring.boot.autoconfigure;
+    requires org.slf4j;
+    requires spring.beans;
+    requires java.sql;
+    requires com.github.benmanes.caffeine;
 
     exports com.rorm.dataimport.override;
     exports com.rorm.dataimport.pipeline;

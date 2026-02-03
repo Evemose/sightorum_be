@@ -2,6 +2,7 @@ package com.rorm.dataimport.attribute;
 
 import com.rorm.dataimport.naming.NamingStyle;
 import com.rorm.dataimport.override.SchemaOverride;
+import com.rorm.dataimport.pipeline.SourceMapping;
 
 import java.util.*;
 
@@ -10,17 +11,20 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
     private final NamingStyle namingStyle;
     private final List<SchemaOverride> overrides;
     private final String defaultListSeparator;
+    private final String dataSourceName;
     private final CompositeAttributeBuilder compositeBuilder;
 
     ExplicitOverrideHandler(
         NamingStyle namingStyle,
         List<SchemaOverride> overrides,
-        String defaultListSeparator
+        String defaultListSeparator,
+        String dataSourceName
     ) {
         this.namingStyle = namingStyle;
         this.overrides = overrides;
         this.defaultListSeparator = defaultListSeparator;
-        this.compositeBuilder = new CompositeAttributeBuilder(namingStyle, defaultListSeparator);
+        this.dataSourceName = dataSourceName;
+        this.compositeBuilder = new CompositeAttributeBuilder(namingStyle, defaultListSeparator, dataSourceName);
     }
 
     @Override
@@ -62,7 +66,8 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
         return findColumnForAttribute(basic.attributeName(), columnNames)
             .map(column -> {
                 claimedColumns.add(column);
-                return new DetectedAttribute.Basic(basic.attributeName(), column, null);
+                var source = new SourceMapping(dataSourceName, column);
+                return new DetectedAttribute.Basic(basic.attributeName(), source, null);
             });
     }
 
@@ -86,7 +91,8 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
         return findColumnForAttribute(ref.attributeName(), columnNames)
             .map(column -> {
                 claimedColumns.add(column);
-                return new DetectedAttribute.SingularReference(ref.attributeName(), column, ref.targetRootName());
+                var source = new SourceMapping(dataSourceName, column);
+                return new DetectedAttribute.SingularReference(ref.attributeName(), source, ref.targetRootName(), null);
             });
     }
 
@@ -98,7 +104,8 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
         return findColumnForAttribute(ref.attributeName(), columnNames)
             .map(column -> {
                 claimedColumns.add(column);
-                return new DetectedAttribute.PluralReference(ref.attributeName(), column, ref.targetRootName());
+                var source = new SourceMapping(dataSourceName, column);
+                return new DetectedAttribute.PluralReference(ref.attributeName(), source, ref.targetRootName(), null);
             });
     }
 
@@ -110,9 +117,10 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
         return findColumnForAttribute(coll.attributeName(), columnNames)
             .map(column -> {
                 claimedColumns.add(column);
+                var source = new SourceMapping(dataSourceName, column);
                 return new DetectedAttribute.Collection(
                     coll.attributeName(),
-                    column,
+                    source,
                     Objects.requireNonNullElse(coll.separator(), defaultListSeparator),
                     null
                 );

@@ -58,7 +58,7 @@ public sealed interface SchemaOverride permits
     }
 
     record IdAttributeOverride(
-        String attributeName,
+        @Nullable String attributeName,
         String columnName,
         @Nullable DataType dataType
     ) implements SchemaOverride {

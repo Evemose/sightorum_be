@@ -13,6 +13,15 @@ public sealed interface Selector permits RootSelector, SingleExprSelector, Multi
     boolean distinct();
 
     record RootSelector(Root root, boolean distinct) implements Selector {
+
+        public static RootSelector of(Root root) {
+            return new RootSelector(root, false);
+        }
+
+        public static RootSelector ofDistinct(Root root) {
+            return new RootSelector(root, true);
+        }
+
     }
 
     record SingleExprSelector(Expression expression, boolean distinct, @Nullable String alias) implements Selector {

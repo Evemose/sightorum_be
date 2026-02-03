@@ -6,20 +6,21 @@ import com.rorm.dataimport.override.SchemaOverride;
 import java.util.*;
 
 public class AttributeTypeDetector {
-
     private final List<AttributeDetectionHandler> handlerChain;
 
     public AttributeTypeDetector(
         Set<String> availableRootNames,
         NamingStyle namingStyle,
         List<SchemaOverride> overrides,
-        String defaultListSeparator
+        String defaultListSeparator,
+        String dataSourceName
     ) {
         this.handlerChain = buildHandlerChain(
             availableRootNames,
             namingStyle,
             overrides,
-            defaultListSeparator
+            defaultListSeparator,
+            dataSourceName
         );
     }
 
@@ -27,17 +28,19 @@ public class AttributeTypeDetector {
         Set<String> availableRootNames,
         NamingStyle namingStyle,
         List<SchemaOverride> overrides,
-        String defaultListSeparator
+        String defaultListSeparator,
+        String dataSourceName
     ) {
         return List.of(
-            new ExplicitOverrideHandler(namingStyle, overrides, defaultListSeparator),
-            new CompositeAttributeHandler(availableRootNames, namingStyle, overrides),
-            new ReferenceAttributeHandler(availableRootNames, namingStyle),
-            new BasicAttributeHandler(namingStyle)
+            new ExplicitOverrideHandler(namingStyle, overrides, defaultListSeparator, dataSourceName),
+            new CompositeAttributeHandler(availableRootNames, namingStyle, overrides, dataSourceName),
+            new ReferenceAttributeHandler(availableRootNames, namingStyle, dataSourceName),
+            new BasicAttributeHandler(namingStyle, dataSourceName)
         );
     }
 
     public Map<String, DetectedAttribute> detectAttributes(List<String> columnNames) {
+        // Column names are already normalized by the data source
         var result = new LinkedHashMap<String, DetectedAttribute>();
         var remainingColumns = new ArrayList<>(columnNames);
 
