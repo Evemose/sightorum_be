@@ -8,27 +8,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
-
 @Slf4j
 @RequiredArgsConstructor
 public class ChatForkService {
 
     private final ChatProgressRepository repository;
     private final ObjectMapper objectMapper;
-
-    @Transactional
-    public ChatProgress forkForTraining(
-        UUID conversationId,
-        TrainingRequest request,
-        TrainingJobResponse response
-    ) {
-        var parentProgress = repository.findById(conversationId)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Chat progress not found for conversation: " + conversationId));
-
-        return forkForTraining(parentProgress, request, response);
-    }
 
     @Transactional
     public ChatProgress forkForTraining(
@@ -39,10 +24,13 @@ public class ChatForkService {
         log.info("Forking chat {} for training {}",
             parentProgress.getConversationId(), response.trainingId());
 
-        var forkedProgress = parentProgress.fork(new TrainingQueuedNode(
+        var forkedProgress = parentProgress.fork(request.reason(), request.furtherInstructions());
+
+        var trainingQueuedNode = new TrainingQueuedNode(
             response.trainingId(),
             objectMapper.valueToTree(request)
-        ));
+        );
+        forkedProgress.addNode(trainingQueuedNode);
 
         forkedProgress.waitForTraining();
 

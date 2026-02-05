@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.chat.ChatProgress;
 import com.rorm.ai.chat.ChatProgressRepository;
-import com.rorm.ai.chat.ChatResumeService;
+import com.rorm.ai.chat.TrainingEventsSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 public class TrainingStreamListener implements StreamListener<String, MapRecord<String, String, String>> {
 
     private final ChatProgressRepository chatProgressRepository;
-    private final ChatResumeService chatResumeService;
+    private final TrainingEventsSupport trainingEventsSupport;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -78,20 +78,20 @@ public class TrainingStreamListener implements StreamListener<String, MapRecord<
             event.trainingId(),
             event.progress() != null ? String.format("%.1f", event.progress() * 100) : "unknown");
 
-        doWithChatProgress(event, progress -> chatResumeService.handleTrainingProgress(progress, event));
+        doWithChatProgress(event, progress -> trainingEventsSupport.handleTrainingProgress(progress, event));
     }
 
     private void handleSuccess(TrainingEvent event) {
         log.info("Training succeeded: {} - {}", event.trainingId(), event.message());
 
-        doWithChatProgress(event, progress -> chatResumeService.resumeChat(progress, event));
+        doWithChatProgress(event, progress -> trainingEventsSupport.resumeChat(progress, event));
     }
 
     private void handleFailed(TrainingEvent event) {
         log.warn("Training failed: {} - {} ({})",
             event.trainingId(), event.error(), event.errorCode());
 
-        doWithChatProgress(event, progress -> chatResumeService.handleTrainingFailure(progress, event));
+        doWithChatProgress(event, progress -> trainingEventsSupport.handleTrainingFailure(progress, event));
     }
 
     private void doWithChatProgress(TrainingEvent event, Consumer<ChatProgress> consumer) {

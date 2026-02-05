@@ -42,7 +42,7 @@ public class ChatController {
     }
 
     @GetMapping("/{id}/tree")
-    public ResponseEntity<ChatTreeResponse> getChatTree(@PathVariable UUID id) {
+    public ResponseEntity<ChatBranchDTO> getChatTree(@PathVariable UUID id) {
         return ResponseEntity.ok(sessionService.getChatTree(id));
     }
 

@@ -1,7 +1,7 @@
 package com.rorm.ai.chat.node;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.hypersistence.utils.hibernate.type.json.JsonType;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -26,7 +26,7 @@ public class TrainingStartedNode extends ChatNode {
 
     @NonNull
     @NotNull
-    @Type(JsonType.class)
+    @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
     private ObjectNode payload;
 }

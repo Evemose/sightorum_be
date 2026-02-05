@@ -4,6 +4,7 @@ import org.jspecify.annotations.NullMarked;
 open module rorm.rorm.dataimport {
     requires com.fasterxml.jackson.databind;
     requires com.fasterxml.jackson.dataformat.csv;
+    requires com.fasterxml.jackson.dataformat.yaml;
     requires static lombok;
     requires rorm.rorm.core;
     requires spring.context;
@@ -19,6 +20,7 @@ open module rorm.rorm.dataimport {
     requires java.sql;
     requires com.github.benmanes.caffeine;
 
+    exports com.rorm.dataimport.hierarchical;
     exports com.rorm.dataimport.override;
     exports com.rorm.dataimport.pipeline;
     exports com.rorm.dataimport.source;

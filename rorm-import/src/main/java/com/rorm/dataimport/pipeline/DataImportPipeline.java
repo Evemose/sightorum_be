@@ -76,7 +76,7 @@ public class DataImportPipeline {
         var writer = createWriterForDataSource(request, modelSpace, dataSource);
 
         var step = new StepBuilder("import-" + dataSource.getRootName(), jobRepository)
-            .<Map<String, String>, Map<String, String>>chunk(request.chunkSize(), transactionManager)
+            .<Map<String, Object>, Map<String, Object>>chunk(request.chunkSize(), transactionManager)
             .reader(new SynchronizedItemReader<>(reader))
             .writer(writer)
             .taskExecutor(taskExecutor)
@@ -118,7 +118,7 @@ public class DataImportPipeline {
      * Finds all roots that source from this datasource (including implicit one-to-one roots)
      * and creates a multi-root writer if needed.
      */
-    private ItemWriter<Map<String, String>> createWriterForDataSource(
+    private ItemWriter<Map<String, Object>> createWriterForDataSource(
         ImportRequest request,
         ModelSpace modelSpace,
         ImportDataSource dataSource

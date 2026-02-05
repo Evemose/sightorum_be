@@ -25,5 +25,4 @@ public abstract class ChatNode {
     @CreatedDate
     protected Instant createdAt;
 
-
 }

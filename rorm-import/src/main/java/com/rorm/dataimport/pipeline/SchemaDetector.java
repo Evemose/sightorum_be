@@ -77,7 +77,7 @@ public class SchemaDetector {
         var columnNames = dataSource.getColumnNames();
         var nullStrategy = NullCoalescingStrategy.SkipNulls.INSTANCE;
 
-        var columnSamples = new HashMap<String, List<String>>();
+        var columnSamples = new HashMap<String, List<Object>>();
         for (var columnName : columnNames) {
             columnSamples.put(columnName, new ArrayList<>());
         }

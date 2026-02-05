@@ -13,6 +13,8 @@ import org.springframework.expression.spel.support.StandardTypeConverter;
 import org.springframework.expression.spel.support.StandardTypeLocator;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+
 /**
  * Configuration for Spring Expression Language (SpEL) support in saga compensation.
  * Provides an expression parser and evaluation context factory for evaluating
@@ -43,7 +45,7 @@ class SpELParserUtils {
      */
     public StandardEvaluationContext createEvaluationContext(Object rootObject) {
         var context = new StandardEvaluationContext(rootObject);
-        context.addPropertyAccessor(new MapAccessor(false));
+        context.setPropertyAccessors(Collections.singletonList(new MapAccessor(false)));
         context.setBeanResolver(new BeanFactoryResolver(applicationContext));
         context.setTypeLocator(new StandardTypeLocator());
         context.setTypeConverter(new StandardTypeConverter(conversionService));

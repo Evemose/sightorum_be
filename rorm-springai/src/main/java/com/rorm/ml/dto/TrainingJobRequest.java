@@ -12,6 +12,8 @@ import java.util.List;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record TrainingJobRequest(
+    @JsonIgnore String reason,
+    @JsonIgnore String furtherInstructions,
     DatasourceConfig datasource,
     String targetColumn,
     List<String> featureColumns,
@@ -27,5 +29,4 @@ public record TrainingJobRequest(
     public ModelConfig modelParams() {
         return modelConfig;
     }
-
 }

@@ -1,5 +1,6 @@
 package com.rorm.ml.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
@@ -20,6 +21,8 @@ import java.util.Map;
 @Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record TuningJobRequest(
+    @JsonIgnore String reason,
+    @JsonIgnore String furtherInstructions,
     BaseTrainingRequest request,
     TuningModelConfig paramSpace,
     TuningConfig tuningConfig

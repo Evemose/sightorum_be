@@ -1,3 +1,4 @@
+
 package com.rorm.client.stream;
 
 import com.rorm.client.config.RormClientProperties;
@@ -5,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -88,8 +90,16 @@ public class SseEmitterRegistry {
             try {
                 wrapper.emitter.send(event);
                 wrapper.lastEventId = eventId;
+            } catch (AsyncRequestNotUsableException e) {
+                log.debug("Client disconnected for topic {}: {}", topic, e.getMessage());
+                toRemove.add(wrapper);
+                cleanupEmitter(wrapper.emitter);
             } catch (IOException e) {
                 log.debug("Failed to send SSE event to topic {}: {}", topic, e.getMessage());
+                toRemove.add(wrapper);
+                cleanupEmitter(wrapper.emitter);
+            } catch (Exception e) {
+                log.warn("Unexpected error sending SSE event to topic {}: {}", topic, e.getMessage());
                 toRemove.add(wrapper);
             }
         }
@@ -163,6 +173,18 @@ public class SseEmitterRegistry {
     }
 
     /**
+     * Safely cleans up an emitter by completing it with error.
+     * Swallows any exceptions as the emitter might already be in an error state.
+     */
+    private void cleanupEmitter(SseEmitter emitter) {
+        try {
+            emitter.completeWithError(new IOException("Client disconnected"));
+        } catch (Exception _) {
+            // Emitter might already be in error state, ignore
+        }
+    }
+
+    /**
      * Sends heartbeat to all active connections to keep them alive.
      * Uses a comment event which is ignored by browsers but keeps the connection open.
      */
@@ -176,8 +198,16 @@ public class SseEmitterRegistry {
             for (var wrapper : list) {
                 try {
                     wrapper.emitter.send(SseEmitter.event().comment("heartbeat"));
+                } catch (AsyncRequestNotUsableException e) {
+                    log.debug("Client disconnected during heartbeat for topic {}", topic);
+                    toRemove.add(wrapper);
+                    cleanupEmitter(wrapper.emitter);
                 } catch (IOException e) {
-                    log.debug("Heartbeat failed for topic {}, removing emitter", topic);
+                    log.debug("Heartbeat failed for topic {}, removing emitter: {}", topic, e.getMessage());
+                    toRemove.add(wrapper);
+                    cleanupEmitter(wrapper.emitter);
+                } catch (Exception e) {
+                    log.warn("Unexpected error during heartbeat for topic {}: {}", topic, e.getMessage());
                     toRemove.add(wrapper);
                 }
             }

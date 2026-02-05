@@ -10,9 +10,9 @@ import lombok.*;
 @ToString
 @RequiredArgsConstructor
 @Table(name = "message_nodes")
-@EqualsAndHashCode(callSuper = false)
+@EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public non-sealed class MessageNode extends ChatNode implements MessageLike {
+public class MessageNode extends ChatNode {
 
     @NonNull
     @NotBlank
@@ -35,11 +35,6 @@ public non-sealed class MessageNode extends ChatNode implements MessageLike {
 
     public static MessageNode system(String content) {
         return new MessageNode(content, Sender.SYSTEM);
-    }
-
-    @Override
-    public String getTitle() {
-        return content.length() <= 20 ? content : content.substring(0, 20) + "...";
     }
 
 }

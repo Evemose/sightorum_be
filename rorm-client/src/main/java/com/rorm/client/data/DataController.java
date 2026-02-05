@@ -16,7 +16,6 @@ import java.util.List;
 @RequestMapping("/datasets")
 @RequiredArgsConstructor
 @Validated
-@WithSchema("schema")
 public class DataController {
 
     private final DatasetService datasetService;
@@ -26,6 +25,7 @@ public class DataController {
         return ResponseEntity.ok(datasetService.listDatasets());
     }
 
+    @WithSchema("schema")
     @GetMapping("/{schema}")
     public ResponseEntity<DatasetInfo> getDataset(
         @PathVariable String schema
@@ -33,6 +33,7 @@ public class DataController {
         return ResponseEntity.ok(datasetService.getDatasetInfo(schema));
     }
 
+    @WithSchema("schema")
     @GetMapping("/{schema}/samples")
     public ResponseEntity<SampleResponse> getSamples(
         @PathVariable String schema,

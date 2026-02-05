@@ -1,12 +1,14 @@
 package com.rorm.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.ai.chat.ChatForkService;
-import com.rorm.ai.chat.ChatProgressRepository;
-import com.rorm.ai.chat.ChatResumeService;
-import com.rorm.ai.chat.ProgressBasedChatMemoryRepository;
+import com.rorm.ai.chat.*;
+import com.rorm.ai.chat.dto.SubconclusionMapper;
+import com.rorm.ai.chat.dto.SubconclusionMapperImpl;
+import com.rorm.ai.chat.node.ChatNodeRepository;
+import com.rorm.ai.tools.ChatHistoryTool;
 import com.rorm.ai.tools.DataOverviewTool;
 import com.rorm.ai.tools.QueryExecutionTool;
+import com.rorm.ai.tools.mapper.ChatNodeMapper;
 import com.rorm.engine.ExpressionTypeResolver;
 import com.rorm.fetcher.Fetcher;
 import com.rorm.mapper.ExpressionMapper;
@@ -15,18 +17,33 @@ import com.rorm.ml.tools.MlTrainingTool;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-@AutoConfiguration
+@EnableJpaAuditing
+@AutoConfiguration(after = ChatMemoryAutoConfiguration.class)
 @ConditionalOnClass(ChatModel.class)
 @EnableConfigurationProperties(RormAiProperties.class)
-@PropertySource("classpath:application-ai.properties")
+@PropertySource("classpath:application-ai.yaml")
+@EntityScan(basePackageClasses = {ChatProgress.class})
+@EnableJpaRepositories(basePackageClasses = {ChatProgressRepository.class})
+@ComponentScan(basePackageClasses = {ChatNodeMapper.class})
 public class RormAiAutoConfiguration {
+
+    @Bean
+    public SubconclusionMapper subconclusionMapper() {
+        return new SubconclusionMapperImpl();
+    }
 
     @Bean
     @ConditionalOnMissingBean
@@ -67,47 +84,56 @@ public class RormAiAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public RormAiService rormAiService(
+    public ChatHistoryTool chatHistoryTool(
+        ChatNodeRepository chatNodeRepository,
+        ChatMemoryRepository chatMemoryRepository,
+        ChatNodeMapper chatNodeMapper,
+        ObjectMapper objectMapper
+    ) {
+        return new ChatHistoryTool(
+            chatNodeRepository,
+            chatMemoryRepository,
+            chatNodeMapper,
+            objectMapper
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AiChatService rormAiService(
         ChatModel chatModel,
         QueryExecutionTool queryExecutionTool,
         DataOverviewTool dataOverviewTool,
         MlTrainingTool mlTrainingTool,
+        ChatHistoryTool chatHistoryTool,
         ChatMemory chatMemory,
-        ChatProgressRepository chatProgressRepository,
         RormAiProperties properties
     ) {
-        return new RormAiService(
+        return new AiChatService(
             chatModel,
             queryExecutionTool,
             dataOverviewTool,
             mlTrainingTool,
+            chatHistoryTool,
             chatMemory,
-            chatProgressRepository,
             properties
         );
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public ChatResumeService chatResumeService(
+    public TrainingEventsSupport chatResumeService(
         ChatProgressRepository chatProgressRepository,
+        ChatNodeRepository chatNodeRepository,
         ObjectMapper objectMapper,
-        RormAiService rormAiService
+        AiChatService aiChatService
     ) {
-        return new ChatResumeService(
+        return new TrainingEventsSupport(
             chatProgressRepository,
+            chatNodeRepository,
             objectMapper,
-            rormAiService
+            aiChatService
         );
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public ChatMemoryRepository chatMemoryRepository(
-        ObjectMapper objectMapper,
-        ChatProgressRepository chatProgressRepository
-    ) {
-        return new ProgressBasedChatMemoryRepository(objectMapper, chatProgressRepository);
     }
 
     @Bean
@@ -117,6 +143,12 @@ public class RormAiAutoConfiguration {
         ObjectMapper objectMapper
     ) {
         return new ChatForkService(chatProgressRepository, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ObservableChatMemory observableChatMemory(ChatMemory chatMemory, ApplicationEventPublisher eventPublisher) {
+        return new ObservableChatMemory(chatMemory, eventPublisher);
     }
 
 }

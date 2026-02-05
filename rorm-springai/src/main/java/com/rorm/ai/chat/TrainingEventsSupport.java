@@ -2,8 +2,8 @@ package com.rorm.ai.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.rorm.ai.RormAiService;
-import com.rorm.ai.chat.node.FailureNode;
+import com.rorm.ai.chat.node.ChatNodeRepository;
+import com.rorm.ai.chat.node.TrainingFailedNode;
 import com.rorm.ai.chat.node.TrainingFinishedNode;
 import com.rorm.ai.chat.node.TrainingProgressNode;
 import com.rorm.ml.stream.TrainingEvent;
@@ -12,13 +12,16 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
+
 @Slf4j
 @RequiredArgsConstructor
-public class ChatResumeService {
+public class TrainingEventsSupport {
 
     private final ChatProgressRepository repository;
+    private final ChatNodeRepository chatNodeRepository;
     private final ObjectMapper objectMapper;
-    private final RormAiService rormAiService;
+    private final AiChatService aiChatService;
 
     @Transactional
     public void resumeChat(ChatProgress progress, TrainingEvent event) {
@@ -30,7 +33,18 @@ public class ChatResumeService {
         );
         progress.addNode(finishedNode);
         repository.save(progress);
-        rormAiService.proceed(progress, "Resuming after training completion.");
+
+        var request = ChatRequest.proceedingOnSchema(extractSchemaName(progress), progress)
+            .ask("Resuming after training completion.");
+        aiChatService.call(request);
+    }
+
+    private String extractSchemaName(ChatProgress progress) {
+        var modelSpace = progress.getModelSpace();
+        if (modelSpace != null && !modelSpace.roots().isEmpty()) {
+            return modelSpace.roots().iterator().next().primaryTableName();
+        }
+        return "unknown";
     }
 
     @SneakyThrows
@@ -46,7 +60,8 @@ public class ChatResumeService {
         log.warn("Handling training failure for conversation {}: {}",
             progress.getConversationId(), event.error());
 
-        var failureNode = new FailureNode(
+        var failureNode = new TrainingFailedNode(
+            event.trainingId(),
             String.format("Training failed: %s (Error code: %s)", event.error(), event.errorCode()),
             toObjectNode(event.metadata())
         );
@@ -62,12 +77,13 @@ public class ChatResumeService {
             progress.getConversationId(),
             event.progress() != null ? String.format("%.1f", event.progress() * 100) : "unknown");
 
-        var progressNode = new TrainingProgressNode(
-            event.trainingId(),
-            event.progress() != null ? event.progress() * 100 : 0.0
-        );
-        progress.addNode(progressNode);
+        var progressNode = chatNodeRepository.findTrainingProgressByTrainingId((event.trainingId()))
+            .orElseGet(() -> new TrainingProgressNode(
+                event.trainingId(),
+                Objects.requireNonNullElse(event.progress(), 0d)
+            ));
 
+        progressNode.setProgressPercentage(Objects.requireNonNullElse(event.progress(), 0d));
         repository.save(progress);
     }
 }

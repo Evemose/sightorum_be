@@ -17,26 +17,89 @@ public class DataTypeDetector {
      * Detects DataType from a collection of sample values.
      * Applies coercion rules by trying parsers in priority order.
      *
-     * @param samples      Collection of string samples from the column
+     * @param samples      Collection of object samples from the column (may include native types)
      * @param nullStrategy Strategy for handling null/empty values
      * @return Detected DataType (defaults to StringType if no other type matches)
      */
     @SuppressWarnings("NullableProblems")
-    public DataType detectType(Collection<String> samples, NullCoalescingStrategy nullStrategy) {
-        var processedSamples = samples.stream()
+    public DataType detectType(Collection<?> samples, NullCoalescingStrategy nullStrategy) {
+        // First, check if all samples are already of a native type
+        var nativeType = detectNativeType(samples);
+        if (nativeType != null) {
+            return nativeType;
+        }
+
+        // Convert to strings for parsing-based detection
+        var stringSamples = samples.stream()
+            .filter(Objects::nonNull)
+            .map(Object::toString)
             .map(nullStrategy::process)
             .filter(Objects::nonNull)
             .toList();
-        if (processedSamples.isEmpty()) {
+
+        if (stringSamples.isEmpty()) {
             return new DataType.StringType();
         }
-        var parsers = createParsers(processedSamples);
+
+        var parsers = createParsers(stringSamples);
         for (var parser : parsers) {
-            if (allValuesParse(processedSamples, parser)) {
+            if (allValuesParse(stringSamples, parser)) {
                 return parser.getDataType();
             }
         }
         return new DataType.StringType();
+    }
+
+    /**
+     * Detects if all samples are of a native type (Boolean, Number, List).
+     * Returns the DataType if consistent, null otherwise.
+     */
+    private @org.jspecify.annotations.Nullable DataType detectNativeType(Collection<?> samples) {
+        var nonNullSamples = samples.stream()
+            .filter(Objects::nonNull)
+            .toList();
+
+        if (nonNullSamples.isEmpty()) {
+            return null;
+        }
+
+        // Check if all are Boolean
+        if (nonNullSamples.stream().allMatch(Boolean.class::isInstance)) {
+            return new DataType.BooleanType();
+        }
+
+        // Check if all are Numbers
+        if (nonNullSamples.stream().allMatch(Number.class::isInstance)) {
+            // Determine if integer or floating point
+            var hasFloatingPoint = nonNullSamples.stream()
+                .anyMatch(obj -> obj instanceof Float || obj instanceof Double);
+
+            if (hasFloatingPoint) {
+                return new DataType.NumericType(19, 6); // Default precision for floating point
+            } else {
+                return new DataType.NumericType(19, 0); // Integer
+            }
+        }
+
+        // Check if all are Lists (collection type)
+        if (nonNullSamples.stream().allMatch(List.class::isInstance)) {
+            // Try to determine element type from list contents
+            var allElements = nonNullSamples.stream()
+                .filter(List.class::isInstance)
+                .flatMap(obj -> ((List<?>) obj).stream())
+                .toList();
+
+            if (!allElements.isEmpty()) {
+                var elementType = detectNativeType(allElements);
+                if (elementType != null) {
+                    return new DataType.ListType(elementType);
+                }
+            }
+            // Default to list of strings
+            return new DataType.ListType(new DataType.StringType());
+        }
+
+        return null; // Mixed types or all strings, use string-based detection
     }
 
     private List<TypeParser> createParsers(List<String> samples) {

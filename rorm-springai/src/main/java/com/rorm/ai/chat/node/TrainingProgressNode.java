@@ -20,6 +20,7 @@ public class TrainingProgressNode extends ChatNode {
     @NotNull
     private UUID trainingId;
 
+    @Setter
     @NonNull
     @NotNull
     private Double progressPercentage;

@@ -7,11 +7,11 @@ import org.springframework.batch.item.ItemReader;
 import java.util.Iterator;
 import java.util.Map;
 
-class DataSourceItemReader implements ItemReader<Map<String, String>> {
+class DataSourceItemReader implements ItemReader<Map<String, Object>> {
 
     private final ImportDataSource dataSource;
     @Nullable
-    private Iterator<Map<String, String>> iterator;
+    private Iterator<Map<String, Object>> iterator;
 
     DataSourceItemReader(ImportDataSource dataSource) {
         this.dataSource = dataSource;
@@ -19,7 +19,7 @@ class DataSourceItemReader implements ItemReader<Map<String, String>> {
 
     @Override
     @Nullable
-    public Map<String, String> read() {
+    public Map<String, Object> read() {
         if (iterator == null) {
             iterator = dataSource.stream().iterator();
         }

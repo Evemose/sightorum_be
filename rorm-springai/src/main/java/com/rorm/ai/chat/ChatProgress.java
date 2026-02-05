@@ -1,10 +1,9 @@
 package com.rorm.ai.chat;
 
+import com.rorm.ai.chat.node.ChatForkedNode;
 import com.rorm.ai.chat.node.ChatNode;
-import com.rorm.ai.chat.node.MessageLike;
-import com.rorm.ai.chat.node.TrainingQueuedNode;
 import com.rorm.metamodel.ModelSpace;
-import io.hypersistence.utils.hibernate.type.json.JsonType;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
@@ -16,8 +15,10 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
-import java.util.*;
-import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Getter
 @Entity
@@ -32,19 +33,15 @@ public class ChatProgress {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @OrderBy("createdAt ASC")
+    @OneToMany(orphanRemoval = true, cascade = CascadeType.ALL)
+    private final List<ChatNode> nodes = new ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ChatProgressStatus status;
 
-    @OrderBy("createdAt ASC")
-    @OneToMany(orphanRemoval = true, cascade = CascadeType.ALL)
-    private final List<ChatNode> pastNodes = new ArrayList<>();
-
-    @OrderBy("createdAt ASC")
-    @OneToMany(orphanRemoval = true, cascade = CascadeType.ALL)
-    private final List<ChatNode> memoryNodes = new ArrayList<>();
-
-    @Type(JsonType.class)
+    @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
     private ModelSpace modelSpace;
 
@@ -59,29 +56,6 @@ public class ChatProgress {
         this.status = ChatProgressStatus.ACTIVE;
         this.createdAt = Instant.now();
         this.modelSpace = modelSpace;
-    }
-
-    @SuppressWarnings("DataFlowIssue")
-    private Stream<MessageLike> streamMessages() {
-        return Stream.concat(
-            Stream.concat(
-                Stream.ofNullable(parent).flatMap(ChatProgress::streamMessages),
-                pastNodes.stream().filter(MessageLike.class::isInstance).map(MessageLike.class::cast)
-            ),
-            memoryNodes.stream().filter(MessageLike.class::isInstance).map(MessageLike.class::cast)
-        );
-    }
-
-    public List<MessageLike> getMessages() {
-        return streamMessages()
-            .sorted(Comparator.comparing(MessageLike::getCreatedAt))
-            .toList();
-    }
-
-    public void setMemoryNodes(List<ChatNode> nodes) {
-        this.memoryNodes.clear();
-        this.memoryNodes.addAll(nodes);
-        this.pastNodes.removeAll(nodes);
     }
 
     @SuppressWarnings("NullableProblems")
@@ -102,24 +76,47 @@ public class ChatProgress {
     }
 
     public void addNode(ChatNode node) {
-        this.memoryNodes.add(node);
+        this.nodes.add(node);
+    }
+
+    /**
+     * Removes all nodes starting from (and including) the node with the given ID.
+     * Used for corrections where we need to rewind the conversation.
+     *
+     * @param nodeId the ID of the first node to remove
+     * @return true if nodes were removed, false if the node was not found
+     */
+    public boolean truncateNodesFrom(UUID nodeId) {
+        var index = -1;
+        for (var i = 0; i < nodes.size(); i++) {
+            if (nodes.get(i).getId().equals(nodeId)) {
+                index = i;
+                break;
+            }
+        }
+        if (index == -1) {
+            return false;
+        }
+        nodes.subList(index, nodes.size()).clear();
+        return true;
     }
 
     public UUID getConversationId() {
         return id;
     }
 
-    public ChatProgress fork(TrainingQueuedNode firstNode) {
+    public ChatProgress fork(String reason, String furtherInstructions) {
+        if (this.status != ChatProgressStatus.ACTIVE) {
+            throw new IllegalStateException("Can only fork an active chat progress");
+        }
+        if (this.nodes.isEmpty()) {
+            throw new IllegalStateException("Cannot fork a chat progress with no past nodes");
+        }
         var child = new ChatProgress(modelSpace);
         child.parent = this;
-        child.pastNodes.add(firstNode);
+        child.nodes.add(new ChatForkedNode(this.nodes.getLast(), reason, furtherInstructions));
         return child;
     }
 
-    public List<MessageLike> getMemoryMessages() {
-        return memoryNodes.stream()
-            .filter(MessageLike.class::isInstance)
-            .map(MessageLike.class::cast)
-            .toList();
-    }
+
 }

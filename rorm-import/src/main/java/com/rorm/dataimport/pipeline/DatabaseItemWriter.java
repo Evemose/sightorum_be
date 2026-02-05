@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 /**
  * Writes data to a database table using column mappings from detected schema.
  */
-class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
+class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
 
     private final JdbcTemplate jdbcTemplate;
     private final String qualifiedTableName;
@@ -71,9 +71,9 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
     }
 
     @Override
-    public void write(Chunk<? extends Map<String, String>> chunk) {
+    public void write(Chunk<? extends Map<String, Object>> chunk) {
         // Validate all IDs first to ensure the entire chunk fails if any ID is invalid
-        var rowsWithIds = new ArrayList<Map.Entry<Map<String, String>, Object>>();
+        var rowsWithIds = new ArrayList<Map.Entry<Map<String, Object>, Object>>();
         for (var row : chunk) {
             var id = determineRowId(row);
             rowsWithIds.add(Map.entry(row, id));
@@ -96,7 +96,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
         });
     }
 
-    private Object determineRowId(Map<String, String> row) {
+    private Object determineRowId(Map<String, Object> row) {
         // Try to find ID value in row (case-insensitive)
         var idValue = row.entrySet().stream()
             .filter(e -> e.getKey().equalsIgnoreCase(idDescriptor.columnName()))
@@ -106,37 +106,64 @@ class DatabaseItemWriter implements ItemWriter<Map<String, String>> {
 
         return switch (idDescriptor.dataType()) {
             case DataType.NumericType _ -> {
-                if (idValue == null || idValue.isEmpty()) {
+                if (idValue == null) {
+                    yield rowCounter.incrementAndGet();
+                }
+                if (idValue instanceof Number n) {
+                    yield n.longValue();
+                }
+                var strValue = idValue.toString();
+                if (strValue.isEmpty()) {
                     yield rowCounter.incrementAndGet();
                 }
                 try {
-                    yield Long.parseLong(idValue);
+                    yield Long.parseLong(strValue);
                 } catch (NumberFormatException e) {
                     throw new IllegalArgumentException("Invalid numeric ID: " + idValue, e);
                 }
             }
             case DataType.StringType _ -> {
-                if (idValue == null || idValue.isEmpty()) {
+                if (idValue == null) {
                     throw new IllegalStateException("String ID column '" + idDescriptor.columnName() +
                                                     "' is required but not provided in data");
                 }
-                yield idValue;
+                var strValue = idValue.toString();
+                if (strValue.isBlank()) {
+                    throw new IllegalStateException("String ID column '" + idDescriptor.columnName() +
+                                                    "' is required but not provided in data");
+                }
+                yield strValue;
             }
             default -> throw new IllegalArgumentException("Unsupported ID type: " + idDescriptor.dataType());
         };
     }
 
-    private Object[] buildRowValues(Map<String, String> row, Object id) {
+    private Object[] buildRowValues(Map<String, Object> row, Object id) {
         return Stream.concat(
             Stream.of(id),
             dataColumnMappings.stream().map(mapping -> {
                 // Look up value using the source column name from CSV
                 var value = row.get(mapping.sourceColumn());
-                if (value == null || value.isEmpty()) {
+                if (value == null) {
                     return null;
                 }
-                return TypeParser.parseValue(value, mapping.dataType());
+                // If value is already the correct type, use it directly
+                if (isCompatibleType(value, mapping.dataType())) {
+                    return value;
+                }
+                // Otherwise, parse from string representation
+                return TypeParser.parseValue(value.toString(), mapping.dataType());
             })
         ).toArray();
+    }
+
+    private boolean isCompatibleType(Object value, DataType dataType) {
+        return switch (dataType) {
+            case DataType.NumericType _ -> value instanceof Number;
+            case DataType.BooleanType _ -> value instanceof Boolean;
+            case DataType.StringType _ -> value instanceof String;
+            case DataType.ListType _ -> value instanceof List || value.getClass().isArray();
+            default -> false;
+        };
     }
 }

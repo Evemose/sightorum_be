@@ -86,7 +86,7 @@ public class CsvDataSource implements ImportDataSource {
     }
 
     @Override
-    public Stream<Map<String, String>> stream() {
+    public Stream<Map<String, Object>> stream() {
         try {
             var mapper = new CsvMapper();
             var schema = CsvSchema.emptySchema().withHeader();
@@ -110,8 +110,8 @@ public class CsvDataSource implements ImportDataSource {
      * Transforms row keys from original CSV column names to normalized names.
      * This ensures data keys match the column names returned by getColumnNames().
      */
-    private Map<String, String> transformRowKeys(Map<String, String> row) {
-        var transformed = new LinkedHashMap<String, String>();
+    private Map<String, Object> transformRowKeys(Map<String, String> row) {
+        var transformed = new LinkedHashMap<String, Object>();
         for (var entry : row.entrySet()) {
             var normalizedKey = namingStyle.forceAdjust(entry.getKey());
             transformed.put(normalizedKey, entry.getValue());

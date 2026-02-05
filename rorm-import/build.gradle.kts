@@ -8,6 +8,7 @@ dependencies {
     api("org.springframework.boot:spring-boot-starter-jdbc")
 
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-csv")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
     implementation("com.github.ben-manes.caffeine:caffeine:3.2.3")
 
     compileOnly("org.projectlombok:lombok")

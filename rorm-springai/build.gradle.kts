@@ -16,6 +16,7 @@ repositories {
 
 val springAiVersion = "1.0.0"
 val hypersistenceVersion = "3.14.1"
+val mapstructVersion = "1.6.3"
 
 dependencies {
     api(project(":rorm-core"))
@@ -32,10 +33,15 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("io.hypersistence:hypersistence-utils-hibernate-63:$hypersistenceVersion")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc")
 
     compileOnly("org.jspecify:jspecify")
     compileOnly("org.projectlombok:lombok")
+
+    implementation("org.mapstruct:mapstruct:$mapstructVersion")
+    annotationProcessor("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

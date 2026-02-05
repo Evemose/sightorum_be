@@ -7,6 +7,7 @@ import com.rorm.metamodel.DataType;
 import com.rorm.query.Expression;
 import org.jooq.Condition;
 import org.jooq.Field;
+import org.jooq.impl.DSL;
 
 public final class NotOperator implements BuiltInUnaryOperatorHandler {
 
@@ -23,7 +24,12 @@ public final class NotOperator implements BuiltInUnaryOperatorHandler {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Field<?> transform(Expression operand, TransformContext ctx) {
-        return ((Condition) ctx.transform(operand)).not();
+        var field = ctx.transform(operand);
+        if (field instanceof Field<?> boolField && !(field instanceof Condition)) {
+            return DSL.condition((Field<Boolean>) boolField).not();
+        }
+        return ((Condition) field).not();
     }
 }

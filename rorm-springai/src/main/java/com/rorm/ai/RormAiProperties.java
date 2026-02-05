@@ -20,16 +20,10 @@ public record RormAiProperties(
                 
                 Always explain what query you're executing and why.
                 If you cannot answer a question with the available schema, explain what's missing.
-                
-                Try to use every tool, not just executeQuery, in the toolbox for the sake of demonstration, even if not strictly necessary.
                 """;
         }
         if (maxQueryResults <= 0) {
-            maxQueryResults = 100;
+            maxQueryResults = 10000;
         }
-    }
-
-    public static RormAiProperties defaults() {
-        return new RormAiProperties(null, 100);
     }
 }

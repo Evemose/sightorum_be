@@ -1,6 +1,9 @@
 package com.rorm.client.chat.dto;
 
+import lombok.With;
+
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -11,7 +14,10 @@ public sealed interface ChatNodeDTO permits
     ChatNodeDTO.TrainingStarted,
     ChatNodeDTO.TrainingProgress,
     ChatNodeDTO.TrainingFinished,
-    ChatNodeDTO.Failure {
+    ChatNodeDTO.Failure,
+    ChatNodeDTO.AgentSubconclusion,
+    ChatNodeDTO.Forked,
+    ChatNodeDTO.Temporary {
 
     UUID id();
 
@@ -65,5 +71,36 @@ public sealed interface ChatNodeDTO permits
         Instant createdAt,
         String reason,
         String errorMessage
+    ) implements ChatNodeDTO {}
+
+    record AgentSubconclusion(
+        UUID id,
+        Instant createdAt,
+        String summary,
+        String keyInsight,
+        String details,
+        List<ResearchStepDTO> researchSteps,
+        String conversationId
+    ) implements ChatNodeDTO {
+        public record ResearchStepDTO(
+            String reasoning,
+            String action,
+            String observation
+        ) {}
+    }
+
+    record Forked(
+        UUID id,
+        Instant createdAt,
+        UUID forkPointId,
+        String reason,
+        String furtherInstructions
+    ) implements ChatNodeDTO {}
+
+    @With
+    record Temporary(
+        UUID id,
+        Instant createdAt,
+        String inProgressContent
     ) implements ChatNodeDTO {}
 }

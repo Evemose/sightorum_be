@@ -26,6 +26,54 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MlTrainingTool {
 
+    private static final String REASON_DESCRIPTION = """
+        Brief explanation of WHY you're training this model and WHAT QUESTION you're trying to answer.
+        This will be shown to the user and available to the subagent that analyzes results.
+        
+        Focus on the analytical goal in business terms, not technical implementation.
+        
+        Good examples:
+        - "To identify which customers are likely to churn based on their purchase patterns"
+        - "To predict quarterly revenue based on current sales trends and seasonal factors"
+        - "To classify transactions as fraudulent using behavioral anomaly patterns"
+        
+        Bad examples:
+        - "Training a random forest model" (describes what, not why)
+        - "Because you asked me to" (not informative)
+        
+        Length: 1-2 sentences maximum.
+        """;
+
+    private static final String INSTRUCTIONS_DESCRIPTION = """
+        Actionable instructions for the subagent analyzing the trained model results.
+        
+        The subagent will have access to:
+        - Your recent action history (last N steps traced linearly back)
+        - Model performance metrics and feature importance
+        - Ability to query full details of any previous node by ID on demand
+        
+        Provide SPECIFIC ANALYSIS GUIDANCE and CONDITIONAL NEXT STEPS:
+        
+        What to include:
+        1. Key metrics to prioritize (e.g., "focus on recall over precision - false negatives cost $5K each")
+        2. Performance thresholds that determine next actions (e.g., "if accuracy >75% proceed to scoring entire dataset; if <75% check node #47 for feature engineering ideas")
+        3. Specific hypotheses to validate (e.g., "verify if recency_days dominates feature importance as expected from correlation analysis")
+        4. References to relevant previous nodes if needed (e.g., "if model underperforms, review the data distribution analysis in node #23")
+        5. What to do with good/bad results (e.g., "on success, generate predictions and create visualization comparing predicted vs actual; on failure, query for additional temporal features")
+        
+        The subagent can access history but you should guide its attention to what matters.
+        
+        Good example:
+        "Prioritize F1-score since we need balance. If F1 >0.72, this is production-ready - score all active customers and flag top 100 highest risk for review. Check if customer_tenure and support_tickets_count are in top 3 features - this validates our hypothesis from the earlier segmentation. If F1 <0.65, the issue is likely class imbalance - check node #31 where we saw 90/10 split and consider SMOTE resampling."
+        
+        Bad examples:
+        - "Analyze the results" (no specific guidance)
+        - "Look at accuracy and report back" (no action plan)
+        - "Check if the model is good" (no defined success criteria)
+        
+        Length: 3-5 sentences with specific, conditional guidance.
+        """;
+
     private final MlTrainingService trainingService;
     private final ChatForkService chatForkService;
     private final ObjectMapper objectMapper;
@@ -57,6 +105,13 @@ public class MlTrainingTool {
             """
     )
     public String launchModelTraining(
+
+        @ToolParam(description = REASON_DESCRIPTION)
+        String reason,
+
+        @ToolParam(description = INSTRUCTIONS_DESCRIPTION)
+        String furtherInstructions,
+
         @ToolParam(description = """
             Model configuration with type and hyperparameters. The modelType field determines the model.
             
@@ -126,6 +181,8 @@ public class MlTrainingTool {
             var bindValues = extractBindVariables(jooqQuery);
 
             var request = TrainingJobRequest.builder()
+                .reason(reason)
+                .furtherInstructions(furtherInstructions)
                 .datasource(new DatasourceConfig(sql, bindValues))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
@@ -282,6 +339,13 @@ public class MlTrainingTool {
             """
     )
     public String tuneAndTrainModel(
+
+        @ToolParam(description = REASON_DESCRIPTION)
+        String reason,
+
+        @ToolParam(description = INSTRUCTIONS_DESCRIPTION)
+        String furtherInstructions,
+
         @ToolParam(description = """
             Tuning configuration with parameter search spaces. The modelType field determines the model.
             
@@ -351,6 +415,8 @@ public class MlTrainingTool {
                 .build();
 
             var request = TuningJobRequest.builder()
+                .reason(reason)
+                .furtherInstructions(furtherInstructions)
                 .request(baseRequest)
                 .paramSpace(tuningConfig)
                 .tuningConfig(tuningSettings != null ? tuningSettings : TuningConfig.defaults())

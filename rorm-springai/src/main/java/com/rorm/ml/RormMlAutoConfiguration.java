@@ -3,23 +3,18 @@ package com.rorm.ml;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.RormAiAutoConfiguration;
 import com.rorm.ai.chat.ChatForkService;
-import com.rorm.ai.chat.ChatProgress;
 import com.rorm.ai.chat.ChatProgressRepository;
-import com.rorm.ai.chat.ChatResumeService;
+import com.rorm.ai.chat.TrainingEventsSupport;
 import com.rorm.engine.QueryTransformer;
 import com.rorm.mapper.QueryMapper;
 import com.rorm.misc.YamlPropertySource;
 import com.rorm.ml.stream.TrainingStreamListener;
 import com.rorm.ml.tools.MlTrainingTool;
-import org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -35,11 +30,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
 
-@AutoConfiguration(before = {ChatMemoryAutoConfiguration.class, RormAiAutoConfiguration.class})
+@AutoConfiguration(before = {RormAiAutoConfiguration.class})
 @EnableConfigurationProperties(RormMlProperties.class)
-@EnableJpaAuditing
-@EntityScan(basePackageClasses = ChatProgress.class)
-@EnableJpaRepositories(basePackageClasses = ChatProgressRepository.class)
 @YamlPropertySource("classpath:application-ml.yml")
 public class RormMlAutoConfiguration {
 
@@ -126,12 +118,12 @@ public class RormMlAutoConfiguration {
     @ConditionalOnMissingBean
     public TrainingStreamListener trainingStreamListener(
         ChatProgressRepository chatProgressRepository,
-        ChatResumeService chatResumeService,
+        TrainingEventsSupport trainingEventsSupport,
         ObjectMapper objectMapper
     ) {
         return new TrainingStreamListener(
             chatProgressRepository,
-            chatResumeService,
+            trainingEventsSupport,
             objectMapper
         );
     }

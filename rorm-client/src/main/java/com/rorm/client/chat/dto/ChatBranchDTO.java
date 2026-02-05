@@ -7,10 +7,10 @@ import java.util.UUID;
 
 public record ChatBranchDTO(
     UUID sessionId,
-    @Nullable UUID parentSessionId,
     String status,
     @Nullable ForkPoint forkPoint,
-    List<ChatNodeDTO> nodes
+    List<ChatNodeDTO> nodes,
+    List<ChatBranchDTO> children
 ) {
     public record ForkPoint(
         UUID afterNodeId,

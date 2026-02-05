@@ -52,13 +52,16 @@ public class QueryExecutionTool {
             // Apply limit cap
             var effectiveQuery = applyLimitCap(query);
 
-            log.info("Executing query");
+            log.info("Executing query on schema: {}", context.schema());
 
-            var results = fetcher.queryForType(effectiveQuery, () -> {
-                @SuppressWarnings("unchecked")
-                var clazz = (Class<Map<String, Object>>) (Class<?>) Map.class;
-                return clazz;
-            });
+            // Execute query within schema context
+            var results = fetcher.withSchema(context.schema(), () ->
+                fetcher.queryForType(effectiveQuery, () -> {
+                    @SuppressWarnings("unchecked")
+                    var clazz = (Class<Map<String, Object>>) (Class<?>) Map.class;
+                    return clazz;
+                })
+            );
 
             var response = new QueryResponse(
                 true,
@@ -76,7 +79,7 @@ public class QueryExecutionTool {
     }
 
     private Query applyLimitCap(Query query) {
-        int maxResults = properties.maxQueryResults();
+        var maxResults = properties.maxQueryResults();
         Long currentLimit = query.limit();
 
         if (currentLimit == null || currentLimit > maxResults) {

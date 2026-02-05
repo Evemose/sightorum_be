@@ -141,9 +141,9 @@ public class NameUtils {
             s -> s.substring(0, s.length() - 2)
         ));
 
-        // -uses -> -use, -ouses -> -ouse (courses -> course, houses -> house)
+        // -ouses -> -ouse (courses -> course, houses -> house)
         add(new SingularizationRule(
-            s -> (s.endsWith("uses") || s.matches(".+our?ses$")) && s.length() > 4,
+            s -> s.matches(".+ou[dtpr]?ses$") && s.length() > 4,
             s -> s.substring(0, s.length() - 1)
         ));
 

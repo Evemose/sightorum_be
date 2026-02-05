@@ -10,7 +10,7 @@ public interface ImportDataSource extends AutoCloseable {
 
     List<String> getColumnNames();
 
-    Stream<Map<String, String>> stream();
+    Stream<Map<String, Object>> stream();
 
     /// Close the data source and release any held resources.
     /// Some datasource may allow reopening after close by calling [ImportDataSource#stream] again.

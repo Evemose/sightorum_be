@@ -81,10 +81,13 @@ public class DataOverviewTool {
             // Apply limit cap and execute
             var effectiveQuery = applyLimitCap(analysisQuery);
 
-            log.info("Executing analysis query");
+            log.info("Executing analysis query on schema: {}", context.schema());
 
+            // Execute query within schema context
             @SuppressWarnings("unchecked")
-            var results = fetcher.queryForType(effectiveQuery, () -> (Class<Map<String, Object>>) (Class<?>) Map.class);
+            var results = fetcher.withSchema(context.schema(), () ->
+                fetcher.queryForType(effectiveQuery, () -> (Class<Map<String, Object>>) (Class<?>) Map.class)
+            );
 
             var response = new AnalysisResponse(
                 true,

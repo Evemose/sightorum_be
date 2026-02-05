@@ -17,7 +17,7 @@ import java.util.Map;
  * contains data for multiple roots. Each root gets its own subset of columns
  * based on the source mappings established during schema detection.
  */
-class MultiRootItemWriter implements ItemWriter<Map<String, String>> {
+class MultiRootItemWriter implements ItemWriter<Map<String, Object>> {
 
     private final List<DatabaseItemWriter> delegates;
 
@@ -58,7 +58,7 @@ class MultiRootItemWriter implements ItemWriter<Map<String, String>> {
     }
 
     @Override
-    public void write(Chunk<? extends Map<String, String>> chunk) throws Exception {
+    public void write(Chunk<? extends Map<String, Object>> chunk) throws Exception {
         // Write to all delegate writers - each handles its own columns
         for (var delegate : delegates) {
             delegate.write(chunk);

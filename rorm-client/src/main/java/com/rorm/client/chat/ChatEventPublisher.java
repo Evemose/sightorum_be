@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ChatEventPublisher {
 
     private final SseEmitterRegistry registry;
-    private final ChatNodeMapper nodeMapper;
+    private final ClientChatNodeMapper nodeMapper;
 
     private final AtomicLong eventCounter = new AtomicLong(0);
 
@@ -34,14 +34,6 @@ public class ChatEventPublisher {
         log.debug("Published node {} to session {}", node.getId(), sessionId);
     }
 
-    private String buildTreeTopic(UUID sessionId) {
-        return "chat:tree:" + sessionId;
-    }
-
-    private String generateEventId() {
-        return String.valueOf(eventCounter.incrementAndGet());
-    }
-
     /**
      * Publishes a new chat node DTO to all subscribers of the session.
      */
@@ -53,32 +45,60 @@ public class ChatEventPublisher {
     }
 
     /**
-     * Publishes a streaming token to the current message stream.
+     * Publishes an update to an existing chat node.
      */
-    public void publishToken(UUID sessionId, String token) {
-        var topic = buildCurrentTopic(sessionId);
+    public void publishNodeUpdate(UUID sessionId, ChatNode node) {
+        var topic = buildTreeTopic(sessionId);
+        var dto = nodeMapper.toDTO(node);
         var eventId = generateEventId();
-        registry.publish(topic, "token", eventId, token);
+        registry.publish(topic, "node-update", eventId, dto);
+        log.debug("Published node update {} to session {}", node.getId(), sessionId);
     }
 
-    private String buildCurrentTopic(UUID sessionId) {
-        return "chat:current:" + sessionId;
+    private String buildTreeTopic(UUID sessionId) {
+        return "chat:tree:" + sessionId;
+    }
+
+    private String generateEventId() {
+        return String.valueOf(eventCounter.incrementAndGet());
+    }
+
+    /**
+     * Publishes an update to an existing chat node DTO.
+     */
+    public void publishNodeUpdate(UUID sessionId, ChatNodeDTO nodeDTO) {
+        var topic = buildTreeTopic(sessionId);
+        var eventId = generateEventId();
+        registry.publish(topic, "node-update", eventId, nodeDTO);
+        log.debug("Published node update DTO {} to session {}", nodeDTO.id(), sessionId);
+    }
+
+    /**
+     * Publishes a node deletion event.
+     */
+    public void publishNodeDeleted(UUID sessionId, UUID nodeId) {
+        var topic = buildTreeTopic(sessionId);
+        var eventId = generateEventId();
+        registry.publish(topic, "node-deleted", eventId, new NodeDeleted(nodeId));
+        log.debug("Published node deleted {} to session {}", nodeId, sessionId);
     }
 
     /**
      * Publishes a streaming completion event.
      */
     public void publishStreamComplete(UUID sessionId) {
-        var topic = buildCurrentTopic(sessionId);
-        registry.complete(topic);
+        var topic = buildTreeTopic(sessionId);
+        var eventId = generateEventId();
+        registry.publish(topic, "complete", eventId, null);
     }
 
     /**
      * Publishes a streaming error event.
      */
     public void publishStreamError(UUID sessionId, String errorMessage) {
-        var topic = buildCurrentTopic(sessionId);
-        registry.error(topic, errorMessage);
+        var topic = buildTreeTopic(sessionId);
+        var eventId = generateEventId();
+        registry.publish(topic, "error", eventId, new StreamError(errorMessage));
     }
 
     /**
@@ -90,13 +110,9 @@ public class ChatEventPublisher {
         registry.publish(topic, "status", eventId, new StatusUpdate(sessionId, status));
     }
 
-    /**
-     * Checks if there are any active subscribers for a session.
-     */
-    public boolean hasSubscribers(UUID sessionId) {
-        return registry.hasSubscribers(buildTreeTopic(sessionId))
-               || registry.hasSubscribers(buildCurrentTopic(sessionId));
-    }
-
     private record StatusUpdate(UUID sessionId, String status) {}
+
+    private record NodeDeleted(UUID nodeId) {}
+
+    private record StreamError(String message) {}
 }
