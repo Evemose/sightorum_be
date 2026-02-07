@@ -20,7 +20,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(classes = {
     SchemaDetector.class,
     NamingStyleDetector.class,
-    DataTypeDetector.class
+    DataTypeDetector.class,
+    FlatDetectionStrategy.class,
+    HierarchicalDetectionStrategy.class,
+    com.rorm.dataimport.hierarchical.HierarchicalSchemaConverter.class
 })
 class SchemaDetectorRootSpecificTest {
 

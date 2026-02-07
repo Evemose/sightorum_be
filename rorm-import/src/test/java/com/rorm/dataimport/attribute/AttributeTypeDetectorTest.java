@@ -17,11 +17,12 @@ class AttributeTypeDetectorTest {
     private static final NamingStyle SNAKE_CASE = NamingStyle.SNAKE_CASE;
     private static final Set<String> AVAILABLE_ROOTS = Set.of("user", "order", "product");
     private static final String DATA_SOURCE = "test_source";
+    private static final String CURRENT_ROOT = "current_root";
 
     @Test
     @DisplayName("detects basic attributes from simple columns")
     void detectBasicAttributes() {
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, List.of(), ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, List.of(), ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("first_name", "last_name", "email");
 
         var result = detector.detectAttributes(columns);
@@ -39,7 +40,7 @@ class AttributeTypeDetectorTest {
     @Test
     @DisplayName("detects singular reference when column ends with _id and matches available root")
     void detectSingularReference() {
-        var detector = new AttributeTypeDetector(AVAILABLE_ROOTS, SNAKE_CASE, List.of(), ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(AVAILABLE_ROOTS, SNAKE_CASE, List.of(), ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("user_id", "order_id", "name");
 
         var result = detector.detectAttributes(columns);
@@ -60,7 +61,7 @@ class AttributeTypeDetectorTest {
     @Test
     @DisplayName("detects plural reference when column ends with _ids and matches available root")
     void detectPluralReference() {
-        var detector = new AttributeTypeDetector(AVAILABLE_ROOTS, SNAKE_CASE, List.of(), ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(AVAILABLE_ROOTS, SNAKE_CASE, List.of(), ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("user_ids", "product_ids", "name");
 
         var result = detector.detectAttributes(columns);
@@ -79,7 +80,7 @@ class AttributeTypeDetectorTest {
     @Test
     @DisplayName("detects composite attribute from columns with shared prefix")
     void detectCompositeAttribute() {
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, List.of(), ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, List.of(), ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("address_street", "address_city", "address_zip", "name");
 
         var result = detector.detectAttributes(columns);
@@ -102,7 +103,7 @@ class AttributeTypeDetectorTest {
     @Test
     @DisplayName("treats columns as basic attributes by default (collections need explicit override)")
     void detectBasicAttributesByDefault() {
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, List.of(), ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, List.of(), ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("tags", "categories", "name");
 
         var result = detector.detectAttributes(columns);
@@ -123,7 +124,7 @@ class AttributeTypeDetectorTest {
         List<SchemaOverride> overrides = List.of(
             new SchemaOverride.BasicAttributeOverride("firstName", new DataType.NumericType(10, 0))
         );
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("first_name", "last_name");
 
         var result = detector.detectAttributes(columns);
@@ -156,7 +157,7 @@ class AttributeTypeDetectorTest {
             )
         );
 
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("name", "address_street", "address_city", "address_zip_code");
 
         var result = detector.detectAttributes(columns);
@@ -188,7 +189,7 @@ class AttributeTypeDetectorTest {
         List<SchemaOverride> overrides = List.of(
             new SchemaOverride.SingularReferenceOverride("authorName", "users")
         );
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("title", "author_name");
 
         var result = detector.detectAttributes(columns);
@@ -210,7 +211,7 @@ class AttributeTypeDetectorTest {
         List<SchemaOverride> overrides = List.of(
             new SchemaOverride.CollectionAttributeOverride("tags", null, ",")
         );
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("name", "tags");
 
         var result = detector.detectAttributes(columns);
@@ -243,7 +244,7 @@ class AttributeTypeDetectorTest {
             )
         );
 
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("username", "profile_id", "profile_bio");
 
         var result = detector.detectAttributes(columns);
@@ -271,7 +272,7 @@ class AttributeTypeDetectorTest {
                 List.of()
             )
         );
-        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of(), SNAKE_CASE, overrides, ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("address_street", "address_city", "name");
 
         var result = detector.detectAttributes(columns);
@@ -287,7 +288,7 @@ class AttributeTypeDetectorTest {
     @Test
     @DisplayName("detects one-to-one root when prefix_id exists but prefix is not available root")
     void detectOneToOneRoot() {
-        var detector = new AttributeTypeDetector(Set.of("user"), SNAKE_CASE, List.of(), ";", DATA_SOURCE);
+        var detector = new AttributeTypeDetector(Set.of("user"), SNAKE_CASE, List.of(), ";", DATA_SOURCE, CURRENT_ROOT);
         var columns = List.of("user_id", "profile_id", "profile_bio", "profile_avatar");
 
         var result = detector.detectAttributes(columns);

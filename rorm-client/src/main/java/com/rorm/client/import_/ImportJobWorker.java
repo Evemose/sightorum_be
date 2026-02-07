@@ -1,8 +1,9 @@
 package com.rorm.client.import_;
 
 import com.rorm.client.import_.dto.ImportProgressEvent;
-import com.rorm.client.import_.mapper.SchemaOverrideMapper;
+import com.rorm.client.import_.mapper.DetectionOverrideMapper;
 import com.rorm.client.metamodel.MetamodelService;
+import com.rorm.dataimport.override.DetectionOverride;
 import com.rorm.dataimport.pipeline.DataImportPipeline;
 import com.rorm.dataimport.pipeline.ImportRequest;
 import com.rorm.dataimport.pipeline.ModelSpaceDetector;
@@ -24,7 +25,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
@@ -39,7 +43,7 @@ public class ImportJobWorker {
     private final ModelSpaceDetector modelSpaceDetector;
     private final MetamodelService metamodelService;
     private final ImportProgressPublisher progressPublisher;
-    private final SchemaOverrideMapper schemaOverrideMapper;
+    private final DetectionOverrideMapper detectionOverrideMapper;
     @Lazy
     private final ImportJobWorker self;
     @ImportTaskExecutor
@@ -91,7 +95,9 @@ public class ImportJobWorker {
             log.info("Loaded {} data source(s) from upload: {}", dataSources.size(), jobId);
 
             // Parse DTOs to domain objects using MapStruct
-            var overridesByRoot = schemaOverrideMapper.toSchemaOverridesMap(payload.overridesByRoot());
+            Map<String, List<DetectionOverride>> overridesByRoot = payload.overridesByRoot() != null
+                ? detectionOverrideMapper.toDetectionOverridesMap(payload.overridesByRoot())
+                : Collections.emptyMap();
 
             // Detect schema with overrides
             var detectedSchema = modelSpaceDetector.detect(
@@ -139,13 +145,25 @@ public class ImportJobWorker {
         try (Stream<Path> files = Files.list(uploadDir)) {
             return files
                 .filter(Files::isRegularFile)
-                .filter(path -> {
-                    var name = path.getFileName().toString().toLowerCase();
-                    return name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".txt");
-                })
-                .map(CsvDataSource::new)
-                .map(ds -> (ImportDataSource) ds)
+                .map(this::createDataSource)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .toList();
+        }
+    }
+
+    private Optional<ImportDataSource> createDataSource(Path path) {
+        var name = path.getFileName().toString().toLowerCase();
+
+        if (name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".txt")) {
+            return Optional.of(new CsvDataSource(path));
+        } else if (name.endsWith(".json")) {
+            return Optional.of(new com.rorm.dataimport.hierarchical.JsonDataSource(path));
+        } else if (name.endsWith(".yaml") || name.endsWith(".yml")) {
+            return Optional.of(new com.rorm.dataimport.hierarchical.YamlDataSource(path));
+        } else {
+            log.warn("Unsupported file type: {}", name);
+            return Optional.empty();
         }
     }
 

@@ -4,12 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.rorm.dataimport.attribute.NameUtils;
-import com.rorm.dataimport.hierarchical.HierarchicalOverride.ForceComposite;
-import com.rorm.dataimport.hierarchical.HierarchicalOverride.ForceSeparateRoot;
 import com.rorm.dataimport.hierarchical.HierarchicalStructure.DetectedField;
 import com.rorm.dataimport.hierarchical.HierarchicalStructure.DetectedRoot;
 import com.rorm.dataimport.type.DataTypeDetector;
-import com.rorm.dataimport.type.NullCoalescingStrategy;
+import com.rorm.dataimport.type.InMemoryCoercion;
 import com.rorm.metamodel.DataType;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -31,18 +29,16 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
     protected final String rootName;
     protected final Path filePath;
     protected final DataTypeDetector typeDetector;
-    protected final List<HierarchicalOverride> overrides;
 
     @Nullable
     private List<String> cachedColumnNames;
     @Nullable
     private HierarchicalStructure cachedStructure;
 
-    protected AbstractHierarchicalDataSource(Path filePath, List<HierarchicalOverride> overrides) {
+    protected AbstractHierarchicalDataSource(Path filePath) {
         this.filePath = filePath;
         this.rootName = extractRootName(filePath);
         this.typeDetector = new DataTypeDetector();
-        this.overrides = overrides;
     }
 
     private String extractRootName(Path filePath) {
@@ -252,7 +248,7 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
             .filter(n -> !n.isNull())
             .map(JsonNode::asText)
             .toList();
-        var dataType = detectDataType(fieldPath, stringValues);
+        var dataType = detectDataType(stringValues);
         return new DetectedField.Scalar(fieldName, dataType);
     }
 
@@ -268,19 +264,9 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
             .filter(JsonNode::isObject)
             .toList();
 
-        // Check for explicit overrides
-        var forceComposite = findOverride(fieldPath, ForceComposite.class);
-        var forceSeparateRoot = findOverride(fieldPath, ForceSeparateRoot.class);
-
-        boolean treatAsSeparateRoot;
-        if (forceComposite.isPresent()) {
-            treatAsSeparateRoot = false;
-        } else if (forceSeparateRoot.isPresent()) {
-            treatAsSeparateRoot = true;
-        } else {
-            // Default: check if nested objects have an "id" field
-            treatAsSeparateRoot = hasIdField(objectSamples);
-        }
+        // Default behavior: check if nested objects have an "id" field
+        // Override logic is applied later in HierarchicalSchemaConverter
+        boolean treatAsSeparateRoot = hasIdField(objectSamples);
 
         if (treatAsSeparateRoot) {
             var childRootName = deriveChildRootName(currentRootName, fieldName);
@@ -334,7 +320,7 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
             .filter(n -> !n.isNull())
             .map(JsonNode::asText)
             .toList();
-        var elementType = detectDataType(fieldPath, stringValues);
+        var elementType = detectDataType(stringValues);
         return new DetectedField.ScalarArray(fieldName, elementType);
     }
 
@@ -344,27 +330,13 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
             .anyMatch(n -> n.has(ID_FIELD_NAME));
     }
 
-    private <T extends HierarchicalOverride> Optional<T> findOverride(String fieldPath, Class<T> type) {
-        return overrides.stream()
-            .filter(type::isInstance)
-            .map(type::cast)
-            .filter(o -> o.fieldPath().equals(fieldPath))
-            .findFirst();
-    }
-
     private String deriveChildRootName(String parentName, String fieldName) {
         var singular = NameUtils.singularize(fieldName);
         return parentName + "_" + singular;
     }
 
-    private DataType detectDataType(String fieldPath, List<String> values) {
-        return overrides.stream()
-            .filter(o -> o instanceof HierarchicalOverride.DataTypeOverride)
-            .map(o -> (HierarchicalOverride.DataTypeOverride) o)
-            .filter(o -> o.fieldPath().equals(fieldPath))
-            .findFirst()
-            .map(HierarchicalOverride.DataTypeOverride::dataType)
-            .orElseGet(() -> typeDetector.detectType(values, NullCoalescingStrategy.SkipNulls.INSTANCE));
+    private DataType detectDataType(List<String> values) {
+        return typeDetector.detectType(values, InMemoryCoercion.Skip.INSTANCE);
     }
 
     protected void closeQuietly(@Nullable AutoCloseable resource) {

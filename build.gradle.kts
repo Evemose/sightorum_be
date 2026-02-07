@@ -1,5 +1,6 @@
 plugins {
     java
+    id("org.flywaydb.flyway") version "11.13.2"
     id("org.springframework.boot") version "3.5.9"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -22,6 +23,13 @@ configurations {
 
 repositories {
     mavenCentral()
+}
+
+buildscript {
+    dependencies {
+        classpath("org.postgresql:postgresql:42.7.4")
+        classpath("org.flywaydb:flyway-database-postgresql:12.0.0")
+    }
 }
 
 extra["springModulithVersion"] = "1.4.6"

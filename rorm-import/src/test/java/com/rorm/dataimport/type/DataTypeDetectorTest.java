@@ -12,8 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DataTypeDetectorTest {
 
     private final DataTypeDetector detector = new DataTypeDetector();
-    private final NullCoalescingStrategy skipNulls = new NullCoalescingStrategy.SkipNulls();
-    private final NullCoalescingStrategy treatAsString = new NullCoalescingStrategy.TreatAsString();
+    private final InvalidValueCoercionStrategy skipNulls = InMemoryCoercion.Skip.INSTANCE;
+    private final InMemoryCoercion treatAsString = InMemoryCoercion.UseDefault.withStandardDefaults();
 
     // ==================== Boolean Type Tests ====================
 

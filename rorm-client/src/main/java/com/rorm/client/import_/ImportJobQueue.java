@@ -2,8 +2,9 @@ package com.rorm.client.import_;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.client.import_.dto.DetectionOverrideDTO;
 import com.rorm.client.import_.dto.ImportProgressEvent;
-import com.rorm.client.import_.dto.SchemaOverrideDTO;
+import com.rorm.client.import_.dto.NumericCoercionConfigDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -72,13 +73,6 @@ public class ImportJobQueue {
     }
 
     /**
-     * Gets the progress channel name for a job.
-     */
-    public String getProgressChannel(UUID jobId) {
-        return PROGRESS_CHANNEL_PREFIX + jobId;
-    }
-
-    /**
      * Payload for import jobs in the queue.
      * Uses DTOs for serialization (not domain objects).
      */
@@ -88,6 +82,8 @@ public class ImportJobQueue {
         String targetSchema,
         int chunkSize,
         String listSeparator,
-        Map<String, List<SchemaOverrideDTO>> overridesByRoot
+        Map<String, List<DetectionOverrideDTO>> overridesByRoot,
+        @Nullable
+        NumericCoercionConfigDTO numericCoercionConfig
     ) {}
 }

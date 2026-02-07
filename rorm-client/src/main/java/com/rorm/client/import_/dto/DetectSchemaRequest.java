@@ -18,7 +18,7 @@ public record DetectSchemaRequest(
     String listSeparator,
 
     @Valid
-    Map<String, List<@Valid SchemaOverrideDTO>> overridesByRoot
+    Map<String, List<@Valid DetectionOverrideDTO>> overridesByRoot
 ) {
     private static final String DEFAULT_LIST_SEPARATOR = ",";
 

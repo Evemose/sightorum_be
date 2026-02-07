@@ -1,8 +1,10 @@
 package com.rorm.dataimport.pipeline;
 
+import com.rorm.dataimport.type.NumericCoercionStrategy;
 import com.rorm.dataimport.type.TypeParser;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.IdDescriptor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
@@ -19,6 +21,7 @@ import java.util.stream.Stream;
 /**
  * Writes data to a database table using column mappings from detected schema.
  */
+@Slf4j
 class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
 
     private final JdbcTemplate jdbcTemplate;
@@ -27,26 +30,37 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
     private final IdDescriptor idDescriptor;
     private final String insertSql;
     private final AtomicLong rowCounter;
+    private final Map<ImportRequest.AttributeKey, com.rorm.dataimport.type.InMemoryCoercion> inMemoryCoercions;
 
     /**
      * Creates a writer with column mappings from detected schema.
      *
-     * @param jdbcTemplate   JDBC template for database operations
-     * @param schema         Target database schema
-     * @param tableName      Target table name
-     * @param idDescriptor   ID descriptor for the table
-     * @param columnMappings Column mappings with source information
+     * @param jdbcTemplate        JDBC template for database operations
+     * @param schema              Target database schema
+     * @param tableName           Target table name
+     * @param idDescriptor        ID descriptor for the table
+     * @param columnMappings      Column mappings with source information
+     * @param coercionStrategies  All coercion strategies (InMemory and DbLevel)
      */
     DatabaseItemWriter(
         JdbcTemplate jdbcTemplate,
         String schema,
         String tableName,
         IdDescriptor idDescriptor,
-        List<ColumnMapping> columnMappings
+        List<ColumnMapping> columnMappings,
+        Map<ImportRequest.AttributeKey, com.rorm.dataimport.type.InvalidValueCoercionStrategy> coercionStrategies
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.qualifiedTableName = "%s.%s".formatted(schema, tableName);
         this.idDescriptor = idDescriptor;
+
+        // Filter to only InMemoryCoercion strategies - DbLevelCoercion executes post-import
+        this.inMemoryCoercions = coercionStrategies.entrySet().stream()
+            .filter(e -> e.getValue() instanceof com.rorm.dataimport.type.InMemoryCoercion)
+            .collect(java.util.stream.Collectors.toMap(
+                Map.Entry::getKey,
+                e -> (com.rorm.dataimport.type.InMemoryCoercion) e.getValue()
+            ));
 
         // Filter out the ID column from data columns
         this.dataColumnMappings = columnMappings.stream()
@@ -139,6 +153,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
     }
 
     private Object[] buildRowValues(Map<String, Object> row, Object id) {
+        var tableName = qualifiedTableName.substring(qualifiedTableName.indexOf('.') + 1);
         return Stream.concat(
             Stream.of(id),
             dataColumnMappings.stream().map(mapping -> {
@@ -147,12 +162,39 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
                 if (value == null) {
                     return null;
                 }
-                // If value is already the correct type, use it directly
                 if (isCompatibleType(value, mapping.dataType())) {
                     return value;
                 }
-                // Otherwise, parse from string representation
-                return TypeParser.parseValue(value.toString(), mapping.dataType());
+                try {
+                    var parsed = TypeParser.parseValue(value.toString(), mapping.dataType());
+
+                    if (
+                        mapping.dataType() instanceof DataType.NumericType numericType && parsed instanceof Number number &&
+                        !fitsWithinConstraints(number, numericType)
+                    ) {
+                        // Check if there's an in-memory coercion strategy for numeric overflow
+                        var key = new ImportRequest.AttributeKey(tableName, mapping.dbColumnName());
+                        var strategy = inMemoryCoercions.get(key);
+                        if (strategy != null) {
+                            return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
+                        }
+                        log.warn("Value {} exceeds precision/scale constraints for column {}. Setting to NULL.",
+                            value, mapping.dbColumnName());
+                        return null;
+                    }
+
+                    return parsed;
+                } catch (Exception e) {
+                    // Check if there's an in-memory coercion strategy for this attribute
+                    var key = new ImportRequest.AttributeKey(tableName, mapping.dbColumnName());
+                    var strategy = inMemoryCoercions.get(key);
+                    if (strategy != null) {
+                        return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
+                    }
+                    log.error("Failed to parse value '{}' for column '{}' with type {}: {}",
+                        value, mapping.dbColumnName(), mapping.dataType(), e.getMessage());
+                    throw new IllegalArgumentException("Failed to parse value for column " + mapping.dbColumnName(), e);
+                }
             })
         ).toArray();
     }
@@ -165,5 +207,10 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
             case DataType.ListType _ -> value instanceof List || value.getClass().isArray();
             default -> false;
         };
+    }
+
+    private boolean fitsWithinConstraints(Number number, DataType.NumericType numericType) {
+        var decimal = new java.math.BigDecimal(number.toString());
+        return NumericCoercionStrategy.fitsWithinPrecision(decimal, numericType.precision(), numericType.scale());
     }
 }

@@ -1,0 +1,50 @@
+> Task :rorm-core:testFixturesJar UP-TO-DATE
+> Task :rorm-import:compileTestJava
+> Task :rorm-import:testClasses
+
+> Task :rorm-import:test
+
+InvalidValueCoercionStrategy > processForDetection default implementation should return null for empty FAILED
+    org.opentest4j.AssertionFailedError at InvalidValueCoercionStrategyTest.java:131
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/C:/Users/4upa4/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.13.0/1200e7ebeedbe0d10062093f32925a912020e747/jna-5.13.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/C:/Users/4upa4/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.13.0/1200e7ebeedbe0d10062093f32925a912020e747/jna-5.13.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :rorm-import:test
+
+Coercion Integration Tests > Numeric NORMALIZE_PERCENTAGE should clamp to 0-1 range FAILED
+    org.opentest4j.AssertionFailedError at CoercionIntegrationTest.java:396
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-02-07T20:12:23.709+02:00  INFO 4236 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:12:23.717+02:00  INFO 4236 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T20:12:24.147+02:00  INFO 24708 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:12:24.201+02:00  INFO 24708 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+> Task :rorm-import:test
+
+DataImportPipelineComplexTest > different chunk sizes produce same result FAILED
+    org.springframework.dao.DataAccessResourceFailureException at DataImportPipelineComplexTest.java:300
+        Caused by: org.postgresql.util.PSQLException at DataImportPipelineComplexTest.java:300
+            Caused by: java.io.EOFException at DataImportPipelineComplexTest.java:300
+
+2026-02-07T20:12:26.121+02:00  INFO 32828 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:12:26.127+02:00  INFO 32828 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T20:12:26.255+02:00  INFO 27472 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:12:26.263+02:00  INFO 27472 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.

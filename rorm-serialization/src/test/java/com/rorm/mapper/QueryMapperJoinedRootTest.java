@@ -82,7 +82,7 @@ class QueryMapperJoinedRootTest {
             var customerIdPath = new Path(customerId, null);
 
             var orderCustomerIdPath = new Path(orderCustomerId, new Path(joinedOrders, null));
-            var joinCondition = new BinaryExpression(customerIdPath, BinaryOperator.EQUALS, orderCustomerIdPath);
+            var joinCondition = new BinaryExpression(customerIdPath, BinaryOperator.EQUALS.name(), orderCustomerIdPath);
 
             var query = Query.builder()
                 .from(AliasedRoot.of(customerRoot))
@@ -116,7 +116,7 @@ class QueryMapperJoinedRootTest {
             var customerIdPath = new Path(customerId, null);
 
             var orderCustomerIdPath = new Path(orderCustomerId, new Path(joinedOrders, null));
-            var joinCondition = new BinaryExpression(customerIdPath, BinaryOperator.EQUALS, orderCustomerIdPath);
+            var joinCondition = new BinaryExpression(customerIdPath, BinaryOperator.EQUALS.name(), orderCustomerIdPath);
 
             var query = Query.builder()
                 .from(AliasedRoot.of(customerRoot))
@@ -147,7 +147,7 @@ class QueryMapperJoinedRootTest {
 
             var customerIdPath = new Path(customerId, null);
             var orderCustomerIdPath = new Path(orderCustomerId, new Path(joinedOrders, null));
-            var ordersJoinCondition = new BinaryExpression(customerIdPath, BinaryOperator.EQUALS, orderCustomerIdPath);
+            var ordersJoinCondition = new BinaryExpression(customerIdPath, BinaryOperator.EQUALS.name(), orderCustomerIdPath);
 
             var joins = new LinkedHashSet<Join>();
             joins.add(new Join(joinedOrders, JoinType.INNER, ordersJoinCondition));

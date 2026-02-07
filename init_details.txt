@@ -1,0 +1,23 @@
+DataImportPipelineComplexTest > initializationError FAILED
+    org.testcontainers.containers.ContainerLaunchException at GenericContainer.java:351
+        Caused by: org.rnorth.ducttape.RetryCountExceededException at Unreliables.java:88
+            Caused by: org.testcontainers.containers.ContainerLaunchException at GenericContainer.java:556
+                Caused by: com.github.dockerjava.api.exception.NotModifiedException at DefaultInvocationBuilder.java:235
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-02-07T20:20:10.679+02:00  INFO 29360 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+--
+Coercion Integration Tests > initializationError FAILED
+    org.testcontainers.containers.ContainerLaunchException at GenericContainer.java:351
+        Caused by: org.rnorth.ducttape.RetryCountExceededException at Unreliables.java:88
+            Caused by: org.testcontainers.containers.ContainerLaunchException at GenericContainer.java:556
+                Caused by: java.lang.NullPointerException at Objects.java:246
+
+249 tests completed, 2 failed
+
+> Task :rorm-import:test FAILED
+
+FAILURE: Build failed with an exception.

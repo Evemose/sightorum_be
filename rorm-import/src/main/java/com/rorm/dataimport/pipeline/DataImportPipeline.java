@@ -1,9 +1,12 @@
 package com.rorm.dataimport.pipeline;
 
+import com.rorm.dataimport.attribute.DetectedAttribute;
 import com.rorm.dataimport.source.ImportDataSource;
+import com.rorm.dataimport.type.DbLevelCoercion;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -51,6 +54,9 @@ public class DataImportPipeline {
                 var rowCount = executeImportJob(request, modelSpace, dataSource);
                 totalRows += rowCount;
             }
+
+            // Execute database-level coercions after all data is imported
+            executeDbLevelCoercions(request, modelSpace);
 
             return new ImportResult(request.targetSchema(), modelSpace, totalRows);
         } catch (Exception e) {
@@ -140,7 +146,8 @@ public class DataImportPipeline {
                 jdbcTemplate,
                 request.targetSchema(),
                 rootsFromThisSource,
-                rootMap
+                rootMap,
+                request.coercionStrategies()
             );
         } else if (rootsFromThisSource.size() == 1) {
             // Single root
@@ -154,7 +161,8 @@ public class DataImportPipeline {
                 request.targetSchema(),
                 detectedRoot.name(),
                 root.idDescriptor(),
-                columnMappings
+                columnMappings,
+                request.coercionStrategies()
             );
         } else {
             throw new IllegalStateException("No roots found for datasource: " + dataSourceName);
@@ -166,6 +174,82 @@ public class DataImportPipeline {
             .filter(r -> r.primaryTableName().equals(rootName))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Root not found: " + rootName));
+    }
+
+    /**
+     * Execute database-level coercions (ForwardFill, BackwardFill, UseMean, UseMedian, UseMode).
+     * These run as SQL UPDATE statements after all data has been imported.
+     */
+    private void executeDbLevelCoercions(ImportRequest request, ModelSpace modelSpace) {
+        var dbCoercions = request.coercionStrategies().entrySet().stream()
+            .filter(e -> e.getValue() instanceof DbLevelCoercion)
+            .toList();
+
+        if (dbCoercions.isEmpty()) {
+            return;
+        }
+
+        transactionTemplate.executeWithoutResult(_ -> {
+            for (var entry : dbCoercions) {
+                var key = entry.getKey();
+                var strategy = (DbLevelCoercion) entry.getValue();
+
+                // Find the root and attribute to get metadata
+                var detectedRoot = request.detectedSchema().roots().get(key.rootName());
+                if (detectedRoot == null) {
+                    throw new IllegalStateException("Root not found: " + key.rootName());
+                }
+
+                var attribute = findAttributeByPath(detectedRoot.attributes(), key.attributePath());
+                if (attribute == null) {
+                    throw new IllegalStateException("Attribute not found: " + key.attributePath());
+                }
+
+                if (!(attribute instanceof DetectedAttribute.Basic basicAttr)) {
+                    throw new IllegalStateException("DbLevelCoercion only applicable to basic attributes, not: " + attribute.getClass().getSimpleName());
+                }
+
+                // Find the root from modelSpace to get the ID column name and actual dataType
+                var root = findRoot(modelSpace, key.rootName());
+                var idColumnName = root.idDescriptor().columnName();
+
+                // Get the table and column names
+                var tableName = key.rootName();
+                var columnName = basicAttr.name();
+
+                // Get the actual data type from the metamodel (more reliable than detected type)
+                var metamodelAttr = root.attributes().stream()
+                    .filter(a -> a instanceof com.rorm.metamodel.BasicAttribute)
+                    .map(a -> (com.rorm.metamodel.BasicAttribute) a)
+                    .filter(a -> a.location().column().equals(columnName))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Attribute not found in metamodel: " + columnName));
+                var dataType = metamodelAttr.dataType();
+
+                // Generate and execute SQL
+                var sql = strategy.generateSql(
+                    request.targetSchema(),
+                    tableName,
+                    columnName,
+                    dataType,
+                    idColumnName
+                );
+
+                jdbcTemplate.execute(sql);
+            }
+        });
+    }
+
+    private @Nullable DetectedAttribute findAttributeByPath(Map<String, DetectedAttribute> attributes, String path) {
+        if (!path.contains(".")) {
+            return attributes.get(path);
+        }
+        var parts = path.split("\\.", 2);
+        var first = attributes.get(parts[0]);
+        if (first instanceof DetectedAttribute.Composite composite) {
+            return findAttributeByPath(composite.subAttributes(), parts[1]);
+        }
+        return null;
     }
 
 }

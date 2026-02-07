@@ -27,11 +27,7 @@ public class JsonDataSource extends AbstractHierarchicalDataSource {
     private InputStream currentInputStream;
 
     public JsonDataSource(Path filePath) {
-        this(filePath, List.of());
-    }
-
-    public JsonDataSource(Path filePath, List<HierarchicalOverride> overrides) {
-        super(filePath, overrides);
+        super(filePath);
         this.objectMapper = new ObjectMapper();
     }
 

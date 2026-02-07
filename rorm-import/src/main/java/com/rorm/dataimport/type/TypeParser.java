@@ -118,7 +118,12 @@ public interface TypeParser {
         public Object parse(String value) {
             var dataType = (DataType.NumericType) getDataType();
             if (dataType.scale() > 0) {
-                return new BigDecimal(value);
+                var doubleValue = Double.parseDouble(value);
+                if (Double.isInfinite(doubleValue) || Double.isNaN(doubleValue)) {
+                    return new BigDecimal(value);
+                } else {
+                    return doubleValue;
+                }
             }
             var longValue = Long.parseLong(value);
             if (dataType.precision() <= 4) {

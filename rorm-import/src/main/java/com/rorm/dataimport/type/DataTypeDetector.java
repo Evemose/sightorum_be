@@ -18,11 +18,11 @@ public class DataTypeDetector {
      * Applies coercion rules by trying parsers in priority order.
      *
      * @param samples      Collection of object samples from the column (may include native types)
-     * @param nullStrategy Strategy for handling null/empty values
+     * @param coercionStrategy Strategy for handling null/empty values
      * @return Detected DataType (defaults to StringType if no other type matches)
      */
     @SuppressWarnings("NullableProblems")
-    public DataType detectType(Collection<?> samples, NullCoalescingStrategy nullStrategy) {
+    public DataType detectType(Collection<?> samples, InvalidValueCoercionStrategy coercionStrategy) {
         // First, check if all samples are already of a native type
         var nativeType = detectNativeType(samples);
         if (nativeType != null) {
@@ -33,7 +33,7 @@ public class DataTypeDetector {
         var stringSamples = samples.stream()
             .filter(Objects::nonNull)
             .map(Object::toString)
-            .map(nullStrategy::process)
+            .map(coercionStrategy::processForDetection)
             .filter(Objects::nonNull)
             .toList();
 

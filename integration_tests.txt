@@ -1,0 +1,49 @@
+> Task :rorm-import:processResources UP-TO-DATE
+> Task :rorm-import:processTestResources UP-TO-DATE
+> Task :rorm-core:compileJava UP-TO-DATE
+> Task :rorm-core:processResources UP-TO-DATE
+> Task :rorm-core:classes UP-TO-DATE
+> Task :rorm-core:jar UP-TO-DATE
+> Task :rorm-core:compileTestFixturesJava UP-TO-DATE
+> Task :rorm-core:processTestFixturesResources NO-SOURCE
+> Task :rorm-core:testFixturesClasses UP-TO-DATE
+> Task :rorm-core:testFixturesJar UP-TO-DATE
+
+> Task :rorm-import:compileJava FAILED
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:221: error: cannot find symbol
+                    .filter(a -> a.columnName().equals(columnName))
+                                  ^
+  symbol:   method columnName()
+  location: variable a of type Attribute
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:224: error: cannot find symbol
+                var dataType = metamodelAttr.dataType();
+                                            ^
+  symbol:   method dataType()
+  location: variable metamodelAttr of type Attribute
+2 errors
+
+[Incubating] Problems report is available at: file:///C:/Users/4upa4/IdeaProjects/rorm/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':rorm-import:compileJava'.
+> Compilation failed; see the compiler output below.
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:221: error: cannot find symbol
+                      .filter(a -> a.columnName().equals(columnName))
+                                    ^
+    symbol:   method columnName()
+    location: variable a of type Attribute
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:224: error: cannot find symbol
+                  var dataType = metamodelAttr.dataType();
+                                              ^
+    symbol:   method dataType()
+    location: variable metamodelAttr of type Attribute
+  2 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 1s
+8 actionable tasks: 1 executed, 7 up-to-date

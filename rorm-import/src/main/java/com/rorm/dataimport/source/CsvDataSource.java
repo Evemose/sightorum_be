@@ -109,12 +109,15 @@ public class CsvDataSource implements ImportDataSource {
     /**
      * Transforms row keys from original CSV column names to normalized names.
      * This ensures data keys match the column names returned by getColumnNames().
+     * Empty strings are converted to null.
      */
+    @SuppressWarnings("ConstantValue")
     private Map<String, Object> transformRowKeys(Map<String, String> row) {
         var transformed = new LinkedHashMap<String, Object>();
         for (var entry : row.entrySet()) {
             var normalizedKey = namingStyle.forceAdjust(entry.getKey());
-            transformed.put(normalizedKey, entry.getValue());
+            var value = entry.getValue();
+            transformed.put(normalizedKey, (value == null || value.isEmpty()) ? null : value);
         }
         return transformed;
     }

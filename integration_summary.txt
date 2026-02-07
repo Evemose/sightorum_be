@@ -1,0 +1,2 @@
+> Task :rorm-import:compileJava FAILED
+BUILD FAILED in 1s

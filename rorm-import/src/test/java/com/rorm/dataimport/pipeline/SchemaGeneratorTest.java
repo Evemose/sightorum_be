@@ -27,10 +27,10 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
         assertThat(ddl).singleElement(STRING)
-            .contains("CREATE TABLE test_schema.users")
-            .contains("id BIGINT PRIMARY KEY")
-            .contains("name TEXT")
-            .contains("age SMALLINT");
+            .contains("CREATE TABLE \"test_schema\".\"users\"")
+            .contains("\"id\" BIGINT PRIMARY KEY")
+            .contains("\"name\" TEXT")
+            .contains("\"age\" SMALLINT");
     }
 
     @Test
@@ -46,10 +46,10 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
         assertThat(ddl).singleElement(STRING)
-            .contains("small SMALLINT")
-            .contains("medium INTEGER")
-            .contains("large BIGINT")
-            .contains("decimal NUMERIC(10, 2)");
+            .contains("\"small\" SMALLINT")
+            .contains("\"medium\" INTEGER")
+            .contains("\"large\" BIGINT")
+            .contains("\"decimal\" NUMERIC(10, 2)");
     }
 
     @Test
@@ -65,8 +65,8 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
         assertThat(ddl).singleElement(STRING)
-            .contains("address_street TEXT")
-            .contains("address_city TEXT");
+            .contains("\"address_street\" TEXT")
+            .contains("\"address_city\" TEXT");
     }
 
     @Test
@@ -84,9 +84,9 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root, targetRoot)));
 
         assertThat(ddl)
-            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("create table test_schema.users"))
+            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("\"test_schema\".\"users\""))
             .singleElement(STRING)
-            .contains("order_id BIGINT");
+            .contains("\"order_id\" BIGINT");
     }
 
     @Test
@@ -109,14 +109,14 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root, targetRoot)));
 
         assertThat(ddl)
-            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("create table test_schema.orders"))
+            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("\"test_schema\".\"orders\""))
             .singleElement(STRING)
-            .contains("user_id BIGINT");
+            .contains("\"user_id\" BIGINT");
 
         assertThat(ddl)
-            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("create table test_schema.users"))
+            .filteredOn(ddlStmt -> ddlStmt.toLowerCase().contains("\"test_schema\".\"users\""))
             .singleElement(STRING)
-            .doesNotContain("order_id BIGINT");
+            .doesNotContain("\"order_id\" BIGINT");
     }
 
     @Test
@@ -144,10 +144,10 @@ class SchemaGeneratorTest {
         assertThat(joinTableDdl)
             .isPresent()
             .get(STRING)
-            .contains("CREATE TABLE test_schema.user_roles")
-            .contains("user_id BIGINT")
-            .contains("role_id BIGINT")
-            .contains("PRIMARY KEY (user_id, role_id)");
+            .contains("CREATE TABLE \"test_schema\".\"user_roles\"")
+            .contains("\"user_id\" BIGINT")
+            .contains("\"role_id\" BIGINT")
+            .contains("PRIMARY KEY (\"user_id\", \"role_id\")");
     }
 
     @Test
@@ -173,9 +173,9 @@ class SchemaGeneratorTest {
         var ddls = generator.generateAllTablesDdl("test_schema", modelSpace);
 
         assertThat(ddls).hasSize(3)
-            .anyMatch(ddl -> ddl.contains("CREATE TABLE test_schema.users"))
-            .anyMatch(ddl -> ddl.contains("CREATE TABLE test_schema.roles"))
-            .anyMatch(ddl -> ddl.contains("CREATE TABLE test_schema.user_roles"));
+            .anyMatch(ddl -> ddl.contains("CREATE TABLE \"test_schema\".\"users\""))
+            .anyMatch(ddl -> ddl.contains("CREATE TABLE \"test_schema\".\"roles\""))
+            .anyMatch(ddl -> ddl.contains("CREATE TABLE \"test_schema\".\"user_roles\""));
     }
 
     @Test
@@ -195,14 +195,14 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
         assertThat(ddl).singleElement(STRING)
-            .contains("text_col TEXT")
-            .contains("bool_col BOOLEAN")
-            .contains("date_col DATE")
-            .contains("time_col TIME")
-            .contains("datetime_col TIMESTAMP WITH TIME ZONE")
-            .contains("timezone_col TEXT")
-            .contains("day_col TEXT")
-            .contains("enum_col TEXT");
+            .contains("\"text_col\" TEXT")
+            .contains("\"bool_col\" BOOLEAN")
+            .contains("\"date_col\" DATE")
+            .contains("\"time_col\" TIME")
+            .contains("\"datetime_col\" TIMESTAMP WITH TIME ZONE")
+            .contains("\"timezone_col\" TEXT")
+            .contains("\"day_col\" TEXT")
+            .contains("\"enum_col\" TEXT");
     }
 
     @Test
@@ -215,7 +215,7 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
 
         assertThat(ddl).singleElement(STRING)
-            .contains("id VARCHAR(255) PRIMARY KEY");
+            .contains("\"id\" VARCHAR(255) PRIMARY KEY");
     }
 
     @Test
@@ -233,12 +233,12 @@ class SchemaGeneratorTest {
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(ownerRoot, targetRoot)));
 
         var productsDdl = ddl.stream()
-            .filter(d -> d.contains("test_schema.products"))
+            .filter(d -> d.contains("\"test_schema\".\"products\""))
             .findFirst();
 
         assertThat(productsDdl).isPresent()
             .get(STRING)
-            .contains("category_id VARCHAR(255)");
+            .contains("\"category_id\" VARCHAR(255)");
     }
 
     @Test
@@ -264,7 +264,7 @@ class SchemaGeneratorTest {
 
         assertThat(joinTableDdl).isPresent()
             .get(STRING)
-            .contains("user_id BIGINT")
-            .contains("role_id VARCHAR(255)");
+            .contains("\"user_id\" BIGINT")
+            .contains("\"role_id\" VARCHAR(255)");
     }
 }

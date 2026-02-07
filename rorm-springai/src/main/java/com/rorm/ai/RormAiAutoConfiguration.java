@@ -5,6 +5,7 @@ import com.rorm.ai.chat.*;
 import com.rorm.ai.chat.dto.SubconclusionMapper;
 import com.rorm.ai.chat.dto.SubconclusionMapperImpl;
 import com.rorm.ai.chat.node.ChatNodeRepository;
+import com.rorm.ai.swarm.SwarmConfig;
 import com.rorm.ai.tools.ChatHistoryTool;
 import com.rorm.ai.tools.DataOverviewTool;
 import com.rorm.ai.tools.QueryExecutionTool;
@@ -33,7 +34,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaAuditing
 @AutoConfiguration(after = ChatMemoryAutoConfiguration.class)
 @ConditionalOnClass(ChatModel.class)
-@EnableConfigurationProperties(RormAiProperties.class)
+@EnableConfigurationProperties({
+    RormAiProperties.class,
+    SwarmConfig.class
+})
 @PropertySource("classpath:application-ai.yaml")
 @EntityScan(basePackageClasses = {ChatProgress.class})
 @EnableJpaRepositories(basePackageClasses = {ChatProgressRepository.class})

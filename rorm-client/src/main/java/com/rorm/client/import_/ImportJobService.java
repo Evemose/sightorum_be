@@ -2,8 +2,11 @@ package com.rorm.client.import_;
 
 import com.rorm.client.import_.dto.*;
 import com.rorm.client.import_.mapper.DetectedSchemaMapper;
+import com.rorm.client.import_.mapper.DetectionOverrideMapper;
 import com.rorm.client.import_.mapper.ImportJobMapper;
-import com.rorm.client.import_.mapper.SchemaOverrideMapper;
+import com.rorm.dataimport.hierarchical.JsonDataSource;
+import com.rorm.dataimport.hierarchical.YamlDataSource;
+import com.rorm.dataimport.override.DetectionOverride;
 import com.rorm.dataimport.pipeline.ModelSpaceDetector;
 import com.rorm.dataimport.source.CsvDataSource;
 import com.rorm.dataimport.source.ImportDataSource;
@@ -16,10 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -31,7 +31,7 @@ public class ImportJobService {
     private final ImportJobQueue jobQueue;
     private final ModelSpaceDetector modelSpaceDetector;
     private final DetectedSchemaMapper detectedSchemaMapper;
-    private final SchemaOverrideMapper schemaOverrideMapper;
+    private final DetectionOverrideMapper detectionOverrideMapper;
     private final ImportJobMapper importJobMapper;
 
     public UploadResponse uploadFiles(List<MultipartFile> files) throws IOException {
@@ -47,15 +47,14 @@ public class ImportJobService {
     public DetectedSchemaResponse detectSchema(DetectSchemaRequest request) throws IOException {
         var filePaths = tempFileStorage.listFiles(request.uploadId());
 
-        var dataSources = new ArrayList<ImportDataSource>();
-        for (var path : filePaths) {
-            dataSources.add(new CsvDataSource(path));
-        }
+        var dataSources = filePaths.stream()
+            .map(this::createDataSource)
+            .flatMap(Optional::stream)
+            .toList();
 
-        Map<String, List<com.rorm.dataimport.override.SchemaOverride>> overridesByRoot =
-            request.overridesByRoot() != null
-                ? schemaOverrideMapper.toSchemaOverridesMap(request.overridesByRoot())
-                : Map.of();
+        Map<String, List<DetectionOverride>> overridesByRoot = request.overridesByRoot() != null
+            ? detectionOverrideMapper.toDetectionOverridesMap(request.overridesByRoot())
+            : Collections.emptyMap();
 
         var detectedSchema = modelSpaceDetector.detect(
             dataSources,
@@ -64,6 +63,21 @@ public class ImportJobService {
         );
 
         return detectedSchemaMapper.toResponse(detectedSchema);
+    }
+
+    private Optional<ImportDataSource> createDataSource(java.nio.file.Path path) {
+        var name = path.getFileName().toString().toLowerCase();
+
+        if (name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".txt")) {
+            return Optional.of(new CsvDataSource(path));
+        } else if (name.endsWith(".json")) {
+            return Optional.of(new JsonDataSource(path));
+        } else if (name.endsWith(".yaml") || name.endsWith(".yml")) {
+            return Optional.of(new YamlDataSource(path));
+        } else {
+            log.warn("Unsupported file type: {}", name);
+            return Optional.empty();
+        }
     }
 
     @Transactional
@@ -79,7 +93,8 @@ public class ImportJobService {
             request.targetSchema(),
             request.chunkSize(),
             ",",
-            request.overridesByRoot() != null ? request.overridesByRoot() : Map.of()
+            request.overridesByRoot() != null ? request.overridesByRoot() : Map.of(),
+            request.numericCoercionConfig()
         );
 
         jobQueue.enqueue(payload);

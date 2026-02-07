@@ -26,11 +26,7 @@ public class YamlDataSource extends AbstractHierarchicalDataSource {
     private InputStream currentInputStream;
 
     public YamlDataSource(Path filePath) {
-        this(filePath, List.of());
-    }
-
-    public YamlDataSource(Path filePath, List<HierarchicalOverride> overrides) {
-        super(filePath, overrides);
+        super(filePath);
         this.yamlMapper = new ObjectMapper(new YAMLFactory());
     }
 

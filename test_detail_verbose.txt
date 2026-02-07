@@ -1,0 +1,387 @@
+Initialized native services in: C:\Users\4upa4\.gradle\native
+Initialized jansi services in: C:\Users\4upa4\.gradle\native
+Found daemon DaemonInfo{pid=2696, address=[53e3b224-8147-4b29-9f90-9d27a16f47b6 port:61096, addresses:[/127.0.0.1]], state=Idle, lastBusy=1770487187939, context=DefaultDaemonContext[uid=3b574deb-0eaa-40d2-a2d6-84f95d518f07,javaHome=C:\Users\4upa4\.jdks\openjdk-25.0.1,javaVersion=25,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\4upa4\.gradle\daemon,pid=2696,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=384m,-XX:+HeapDumpOnOutOfMemoryError,-Xms256m,-Xmx512m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]} however its context does not match the desired criteria.
+JVM is incompatible.
+Wanted: DaemonRequestContext{jvmCriteria=C:\Users\4upa4\.jdks\openjdk-25 (no JDK specified, using current Java home), daemonOpts=[-XX:MaxMetaspaceSize=384m, -XX:+HeapDumpOnOutOfMemoryError, -Xms256m, -Xmx512m, -Dfile.encoding=UTF-8, -Duser.country=US, -Duser.language=en, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=3b574deb-0eaa-40d2-a2d6-84f95d518f07,javaHome=C:\Users\4upa4\.jdks\openjdk-25.0.1,javaVersion=25,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\4upa4\.gradle\daemon,pid=2696,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=384m,-XX:+HeapDumpOnOutOfMemoryError,-Xms256m,-Xmx512m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+
+  Looking for a different daemon...
+The client will now receive all logging from the daemon (pid: 13620). The daemon log file: C:\Users\4upa4\.gradle\daemon\9.2.0\daemon-13620.out.log
+Starting 13th build in daemon [uptime: 34 mins 55.702 secs, performance: 100%, GC rate: 0.00/s, heap usage: 0% of 512 MiB, non-heap usage: 22% of 384 MiB]
+Using 16 worker leases.
+Operational build model parameters: {requiresToolingModels=false, parallelProjectExecution=true, configureOnDemand=false, configurationCache=false, configurationCacheParallelStore=false, configurationCacheParallelLoad=true, isolatedProjects=false, parallelProjectConfiguration=false, intermediateModelCache=false, parallelToolingApiActions=true, invalidateCoupledProjects=false, modelAsProjectDependency=false, resilientModelBuilding=false}
+Now considering [C:\Users\4upa4\IdeaProjects\rorm] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\Users\4upa4\IdeaProjects\rorm\settings.gradle.kts'.
+Projects loaded. Root project using build file 'C:\Users\4upa4\IdeaProjects\rorm\build.gradle.kts'.
+Included projects: [root project 'rorm', project ':rorm-client', project ':rorm-core', project ':rorm-import', project ':rorm-jpasupport', project ':rorm-serialization', project ':rorm-springai']
+
+> Configure project :
+Evaluating root project 'rorm' using build file 'C:\Users\4upa4\IdeaProjects\rorm\build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java']
+Resolved plugin [id: 'org.flywaydb.flyway', version: '11.13.2']
+Resolved plugin [id: 'org.springframework.boot', version: '3.5.9']
+Resolved plugin [id: 'io.spring.dependency-management', version: '1.1.7']
+Applying dependency management to configuration 'annotationProcessor' in project 'rorm'
+Applying dependency management to configuration 'apiElements' in project 'rorm'
+Applying dependency management to configuration 'archives' in project 'rorm'
+Applying dependency management to configuration 'bootArchives' in project 'rorm'
+Applying dependency management to configuration 'compileClasspath' in project 'rorm'
+Applying dependency management to configuration 'compileOnly' in project 'rorm'
+Applying dependency management to configuration 'default' in project 'rorm'
+Applying dependency management to configuration 'developmentOnly' in project 'rorm'
+Applying dependency management to configuration 'implementation' in project 'rorm'
+Applying dependency management to configuration 'mainSourceElements' in project 'rorm'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'rorm'
+Applying dependency management to configuration 'runtimeClasspath' in project 'rorm'
+Applying dependency management to configuration 'runtimeElements' in project 'rorm'
+Applying dependency management to configuration 'runtimeOnly' in project 'rorm'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'rorm'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'rorm'
+Applying dependency management to configuration 'testCompileClasspath' in project 'rorm'
+Applying dependency management to configuration 'testCompileOnly' in project 'rorm'
+Applying dependency management to configuration 'testImplementation' in project 'rorm'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'rorm'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'rorm'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'rorm'
+Applying dependency management to configuration 'bootArchives' in project 'rorm-client'
+Applying dependency management to configuration 'archives' in project 'rorm-client'
+Applying dependency management to configuration 'default' in project 'rorm-client'
+Applying dependency management to configuration 'implementation' in project 'rorm-client'
+Applying dependency management to configuration 'compileOnly' in project 'rorm-client'
+Applying dependency management to configuration 'compileClasspath' in project 'rorm-client'
+Applying dependency management to configuration 'annotationProcessor' in project 'rorm-client'
+Applying dependency management to configuration 'runtimeOnly' in project 'rorm-client'
+Applying dependency management to configuration 'runtimeClasspath' in project 'rorm-client'
+Applying dependency management to configuration 'apiElements' in project 'rorm-client'
+Applying dependency management to configuration 'runtimeElements' in project 'rorm-client'
+Applying dependency management to configuration 'mainSourceElements' in project 'rorm-client'
+Applying dependency management to configuration 'testImplementation' in project 'rorm-client'
+Applying dependency management to configuration 'testCompileOnly' in project 'rorm-client'
+Applying dependency management to configuration 'testCompileClasspath' in project 'rorm-client'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'rorm-client'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'rorm-client'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'rorm-client'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'rorm-client'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'rorm-client'
+Applying dependency management to configuration 'developmentOnly' in project 'rorm-client'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'rorm-client'
+Applying dependency management to configuration 'bootArchives' in project 'rorm-core'
+Applying dependency management to configuration 'archives' in project 'rorm-core'
+Applying dependency management to configuration 'default' in project 'rorm-core'
+Applying dependency management to configuration 'implementation' in project 'rorm-core'
+Applying dependency management to configuration 'compileOnly' in project 'rorm-core'
+Applying dependency management to configuration 'compileClasspath' in project 'rorm-core'
+Applying dependency management to configuration 'annotationProcessor' in project 'rorm-core'
+Applying dependency management to configuration 'runtimeOnly' in project 'rorm-core'
+Applying dependency management to configuration 'runtimeClasspath' in project 'rorm-core'
+Applying dependency management to configuration 'apiElements' in project 'rorm-core'
+Applying dependency management to configuration 'runtimeElements' in project 'rorm-core'
+Applying dependency management to configuration 'mainSourceElements' in project 'rorm-core'
+Applying dependency management to configuration 'testImplementation' in project 'rorm-core'
+Applying dependency management to configuration 'testCompileOnly' in project 'rorm-core'
+Applying dependency management to configuration 'testCompileClasspath' in project 'rorm-core'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'rorm-core'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'rorm-core'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'rorm-core'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'rorm-core'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'rorm-core'
+Applying dependency management to configuration 'developmentOnly' in project 'rorm-core'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'rorm-core'
+Applying dependency management to configuration 'bootArchives' in project 'rorm-import'
+Applying dependency management to configuration 'archives' in project 'rorm-import'
+Applying dependency management to configuration 'default' in project 'rorm-import'
+Applying dependency management to configuration 'implementation' in project 'rorm-import'
+Applying dependency management to configuration 'compileOnly' in project 'rorm-import'
+Applying dependency management to configuration 'compileClasspath' in project 'rorm-import'
+Applying dependency management to configuration 'annotationProcessor' in project 'rorm-import'
+Applying dependency management to configuration 'runtimeOnly' in project 'rorm-import'
+Applying dependency management to configuration 'runtimeClasspath' in project 'rorm-import'
+Applying dependency management to configuration 'apiElements' in project 'rorm-import'
+Applying dependency management to configuration 'runtimeElements' in project 'rorm-import'
+Applying dependency management to configuration 'mainSourceElements' in project 'rorm-import'
+Applying dependency management to configuration 'testImplementation' in project 'rorm-import'
+Applying dependency management to configuration 'testCompileOnly' in project 'rorm-import'
+Applying dependency management to configuration 'testCompileClasspath' in project 'rorm-import'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'rorm-import'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'rorm-import'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'rorm-import'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'rorm-import'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'rorm-import'
+Applying dependency management to configuration 'developmentOnly' in project 'rorm-import'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'rorm-import'
+Applying dependency management to configuration 'bootArchives' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'archives' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'default' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'implementation' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'compileOnly' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'compileClasspath' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'annotationProcessor' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'runtimeOnly' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'runtimeClasspath' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'apiElements' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'runtimeElements' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'mainSourceElements' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testImplementation' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testCompileOnly' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testCompileClasspath' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'developmentOnly' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'bootArchives' in project 'rorm-serialization'
+Applying dependency management to configuration 'archives' in project 'rorm-serialization'
+Applying dependency management to configuration 'default' in project 'rorm-serialization'
+Applying dependency management to configuration 'implementation' in project 'rorm-serialization'
+Applying dependency management to configuration 'compileOnly' in project 'rorm-serialization'
+Applying dependency management to configuration 'compileClasspath' in project 'rorm-serialization'
+Applying dependency management to configuration 'annotationProcessor' in project 'rorm-serialization'
+Applying dependency management to configuration 'runtimeOnly' in project 'rorm-serialization'
+Applying dependency management to configuration 'runtimeClasspath' in project 'rorm-serialization'
+Applying dependency management to configuration 'apiElements' in project 'rorm-serialization'
+Applying dependency management to configuration 'runtimeElements' in project 'rorm-serialization'
+Applying dependency management to configuration 'mainSourceElements' in project 'rorm-serialization'
+Applying dependency management to configuration 'testImplementation' in project 'rorm-serialization'
+Applying dependency management to configuration 'testCompileOnly' in project 'rorm-serialization'
+Applying dependency management to configuration 'testCompileClasspath' in project 'rorm-serialization'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'rorm-serialization'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'rorm-serialization'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'rorm-serialization'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'rorm-serialization'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'rorm-serialization'
+Applying dependency management to configuration 'developmentOnly' in project 'rorm-serialization'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'rorm-serialization'
+Applying dependency management to configuration 'bootArchives' in project 'rorm-springai'
+Applying dependency management to configuration 'archives' in project 'rorm-springai'
+Applying dependency management to configuration 'default' in project 'rorm-springai'
+Applying dependency management to configuration 'implementation' in project 'rorm-springai'
+Applying dependency management to configuration 'compileOnly' in project 'rorm-springai'
+Applying dependency management to configuration 'compileClasspath' in project 'rorm-springai'
+Applying dependency management to configuration 'annotationProcessor' in project 'rorm-springai'
+Applying dependency management to configuration 'runtimeOnly' in project 'rorm-springai'
+Applying dependency management to configuration 'runtimeClasspath' in project 'rorm-springai'
+Applying dependency management to configuration 'apiElements' in project 'rorm-springai'
+Applying dependency management to configuration 'runtimeElements' in project 'rorm-springai'
+Applying dependency management to configuration 'mainSourceElements' in project 'rorm-springai'
+Applying dependency management to configuration 'testImplementation' in project 'rorm-springai'
+Applying dependency management to configuration 'testCompileOnly' in project 'rorm-springai'
+Applying dependency management to configuration 'testCompileClasspath' in project 'rorm-springai'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'rorm-springai'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'rorm-springai'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'rorm-springai'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'rorm-springai'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'rorm-springai'
+Applying dependency management to configuration 'developmentOnly' in project 'rorm-springai'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'rorm-springai'
+
+> Configure project :rorm-client
+Evaluating project ':rorm-client' using build file 'C:\Users\4upa4\IdeaProjects\rorm\rorm-client\build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java']
+Resolved plugin [id: 'org.flywaydb.flyway', version: '11.13.2']
+
+> Configure project :rorm-core
+Evaluating project ':rorm-core' using build file 'C:\Users\4upa4\IdeaProjects\rorm\rorm-core\build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java-library']
+Resolved plugin [id: 'org.gradle.java-test-fixtures']
+Applying dependency management to configuration 'api' in project 'rorm-core'
+Applying dependency management to configuration 'compileOnlyApi' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesImplementation' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesCompileOnly' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesCompileClasspath' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesAnnotationProcessor' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesRuntimeOnly' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesRuntimeClasspath' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesApiElements' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesRuntimeElements' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesApi' in project 'rorm-core'
+Applying dependency management to configuration 'testFixturesCompileOnlyApi' in project 'rorm-core'
+
+> Configure project :rorm-import
+Evaluating project ':rorm-import' using build file 'C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java-library']
+Applying dependency management to configuration 'api' in project 'rorm-import'
+Applying dependency management to configuration 'compileOnlyApi' in project 'rorm-import'
+
+> Configure project :rorm-jpasupport
+Evaluating project ':rorm-jpasupport' using build file 'C:\Users\4upa4\IdeaProjects\rorm\rorm-jpasupport\build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java-library']
+Applying dependency management to configuration 'api' in project 'rorm-jpasupport'
+Applying dependency management to configuration 'compileOnlyApi' in project 'rorm-jpasupport'
+
+> Configure project :rorm-serialization
+Evaluating project ':rorm-serialization' using build file 'C:\Users\4upa4\IdeaProjects\rorm\rorm-serialization\build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java-library']
+Applying dependency management to configuration 'api' in project 'rorm-serialization'
+Applying dependency management to configuration 'compileOnlyApi' in project 'rorm-serialization'
+
+> Configure project :rorm-springai
+Evaluating project ':rorm-springai' using build file 'C:\Users\4upa4\IdeaProjects\rorm\rorm-springai\build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java-library']
+Applying dependency management to configuration 'api' in project 'rorm-springai'
+Applying dependency management to configuration 'compileOnlyApi' in project 'rorm-springai'
+All projects evaluated.
+Task path ':rorm-import:test' matched project ':rorm-import'
+Task name matched 'test'
+Selected primary task 'test' from project :rorm-import
+Resolving global dependency management for project 'rorm-import'
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Resolving global dependency management for project 'rorm-core'
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Tasks to be executed: [task ':rorm-core:compileJava', task ':rorm-core:processResources', task ':rorm-core:classes', task ':rorm-core:jar', task ':rorm-core:compileTestFixturesJava', task ':rorm-core:processTestFixturesResources', task ':rorm-core:testFixturesClasses', task ':rorm-core:testFixturesJar', task ':rorm-import:compileJava', task ':rorm-import:processResources', task ':rorm-import:classes', task ':rorm-import:compileTestJava', task ':rorm-import:processTestResources', task ':rorm-import:testClasses', task ':rorm-import:test']
+Tasks that were excluded: []
+Resolve mutations for :rorm-import:processResources (Thread[#3419,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :rorm-core:compileJava (Thread[#3418,Execution worker,5,main]) started.
+:rorm-import:processResources (Thread[#3431,Execution worker Thread 14,5,main]) started.
+:rorm-core:compileJava (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-import:processResources UP-TO-DATE
+Caching disabled for task ':rorm-import:processResources' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':rorm-import:processResources' as it is up-to-date.
+Resolve mutations for :rorm-import:processTestResources (Thread[#3431,Execution worker Thread 14,5,main]) started.
+:rorm-import:processTestResources (Thread[#3431,Execution worker Thread 14,5,main]) started.
+
+> Task :rorm-import:processTestResources UP-TO-DATE
+Caching disabled for task ':rorm-import:processTestResources' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':rorm-import:processTestResources' as it is up-to-date.
+
+> Task :rorm-core:compileJava UP-TO-DATE
+Custom actions are attached to task ':rorm-core:compileJava'.
+Caching disabled for task ':rorm-core:compileJava' because:
+  Build cache is disabled
+Skipping task ':rorm-core:compileJava' as it is up-to-date.
+work action resolve main (project :rorm-core) (Thread[#3418,Execution worker,5,main]) started.
+Resolve mutations for :rorm-core:processResources (Thread[#3418,Execution worker,5,main]) started.
+:rorm-core:processResources (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-core:processResources UP-TO-DATE
+Caching disabled for task ':rorm-core:processResources' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':rorm-core:processResources' as it is up-to-date.
+Resolve mutations for :rorm-core:classes (Thread[#3418,Execution worker,5,main]) started.
+:rorm-core:classes (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-core:classes UP-TO-DATE
+Skipping task ':rorm-core:classes' as it has no actions.
+Resolve mutations for :rorm-core:jar (Thread[#3418,Execution worker,5,main]) started.
+:rorm-core:jar (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-core:jar UP-TO-DATE
+Caching disabled for task ':rorm-core:jar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':rorm-core:jar' as it is up-to-date.
+work action resolve rorm-core-0.0.1-SNAPSHOT-plain.jar (project :rorm-core) (Thread[#3418,Execution worker,5,main]) started.
+Resolve mutations for :rorm-core:compileTestFixturesJava (Thread[#3418,Execution worker,5,main]) started.
+Resolve mutations for :rorm-import:compileJava (Thread[#3422,Execution worker Thread 5,5,main]) started.
+:rorm-import:compileJava (Thread[#3422,Execution worker Thread 5,5,main]) started.
+:rorm-core:compileTestFixturesJava (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-core:compileTestFixturesJava UP-TO-DATE
+Custom actions are attached to task ':rorm-core:compileTestFixturesJava'.
+Caching disabled for task ':rorm-core:compileTestFixturesJava' because:
+  Build cache is disabled
+Skipping task ':rorm-core:compileTestFixturesJava' as it is up-to-date.
+work action resolve testFixtures (project :rorm-core) (Thread[#3418,Execution worker,5,main]) started.
+Resolve mutations for :rorm-core:processTestFixturesResources (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-import:compileJava UP-TO-DATE
+Custom actions are attached to task ':rorm-import:compileJava'.
+Caching disabled for task ':rorm-import:compileJava' because:
+  Build cache is disabled
+Skipping task ':rorm-import:compileJava' as it is up-to-date.
+Resolve mutations for :rorm-import:classes (Thread[#3422,Execution worker Thread 5,5,main]) started.
+:rorm-import:classes (Thread[#3422,Execution worker Thread 5,5,main]) started.
+
+> Task :rorm-import:classes UP-TO-DATE
+Skipping task ':rorm-import:classes' as it has no actions.
+Resolve mutations for :rorm-import:compileTestJava (Thread[#3422,Execution worker Thread 5,5,main]) started.
+:rorm-core:processTestFixturesResources (Thread[#3418,Execution worker,5,main]) started.
+:rorm-import:compileTestJava (Thread[#3422,Execution worker Thread 5,5,main]) started.
+
+> Task :rorm-core:processTestFixturesResources NO-SOURCE
+Skipping task ':rorm-core:processTestFixturesResources' as it has no source files and no previous output files.
+Resolve mutations for :rorm-core:testFixturesClasses (Thread[#3418,Execution worker,5,main]) started.
+:rorm-core:testFixturesClasses (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-core:testFixturesClasses UP-TO-DATE
+Skipping task ':rorm-core:testFixturesClasses' as it has no actions.
+Resolve mutations for :rorm-core:testFixturesJar (Thread[#3418,Execution worker,5,main]) started.
+:rorm-core:testFixturesJar (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-core:testFixturesJar UP-TO-DATE
+Caching disabled for task ':rorm-core:testFixturesJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':rorm-core:testFixturesJar' as it is up-to-date.
+work action resolve rorm-core-0.0.1-SNAPSHOT-test-fixtures.jar (project :rorm-core) (Thread[#3418,Execution worker,5,main]) started.
+
+> Task :rorm-import:compileTestJava UP-TO-DATE
+Custom actions are attached to task ':rorm-import:compileTestJava'.
+Caching disabled for task ':rorm-import:compileTestJava' because:
+  Build cache is disabled
+Skipping task ':rorm-import:compileTestJava' as it is up-to-date.
+Resolve mutations for :rorm-import:testClasses (Thread[#3422,Execution worker Thread 5,5,main]) started.
+:rorm-import:testClasses (Thread[#3422,Execution worker Thread 5,5,main]) started.
+
+> Task :rorm-import:testClasses UP-TO-DATE
+Skipping task ':rorm-import:testClasses' as it has no actions.
+Resolve mutations for :rorm-import:test (Thread[#3422,Execution worker Thread 5,5,main]) started.
+:rorm-import:test (Thread[#3422,Execution worker Thread 5,5,main]) started.
+
+> Task :rorm-import:test
+Caching disabled for task ':rorm-import:test' because:
+  Build cache is disabled
+Task ':rorm-import:test' is not up-to-date because:
+  Task has failed previously.
+Starting process 'Gradle Test Executor 65'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath6325706142806329658txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 65'
+Successfully started process 'Gradle Test Executor 65'
+Starting process 'Gradle Test Executor 67'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath2535931062849058252txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 67'
+Starting process 'Gradle Test Executor 70'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath5053606380118367992txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 70'
+Starting process 'Gradle Test Executor 66'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath4185568769607078582txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 66'
+Starting process 'Gradle Test Executor 72'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath10394903046335946742txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 72'
+Starting process 'Gradle Test Executor 68'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath16828545388396675418txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 68'
+Starting process 'Gradle Test Executor 71'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath11273433555850760415txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 71'
+Starting process 'Gradle Test Executor 73'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath13036415829836860353txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 73'
+Starting process 'Gradle Test Executor 69'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath9770945859421008421txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 69'
+Starting process 'Gradle Test Executor 74'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath7020828752481039526txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 74'
+Starting process 'Gradle Test Executor 75'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath1071505457025924481txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 75'
+Starting process 'Gradle Test Executor 77'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath12291666110472810927txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 77'
+Starting process 'Gradle Test Executor 76'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath11532355570285338063txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 76'
+Starting process 'Gradle Test Executor 79'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath4365773094161147535txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 79'
+Starting process 'Gradle Test Executor 80'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath11310293360570296126txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 80'
+Starting process 'Gradle Test Executor 78'. Working directory: C:\Users\4upa4\IdeaProjects\rorm\rorm-import Command: C:\Users\4upa4\.jdks\openjdk-25\bin\java.exe -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.mode.classes.default=concurrent -Djunit.jupiter.execution.parallel.mode.default=concurrent -Dorg.gradle.internal.worker.tmpdir=C:\Users\4upa4\IdeaProjects\rorm\rorm-import\build\tmp\test\work @C:\Users\4upa4\.gradle\.tmp\gradle-worker-classpath14115150058049436864txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 78'
+Successfully started process 'Gradle Test Executor 70'
+Successfully started process 'Gradle Test Executor 67'
+Successfully started process 'Gradle Test Executor 66'
+Successfully started process 'Gradle Test Executor 72'
+Successfully started process 'Gradle Test Executor 68'
+Successfully started process 'Gradle Test Executor 71'
+Successfully started process 'Gradle Test Executor 73'
+Successfully started process 'Gradle Test Executor 69'
+Successfully started process 'Gradle Test Executor 74'
+Successfully started process 'Gradle Test Executor 75'
+Successfully started process 'Gradle Test Executor 77'
+Successfully started process 'Gradle Test Executor 79'
+Successfully started process 'Gradle Test Executor 76'
+Successfully started process 'Gradle Test Executor 80'
+Successfully started process 'Gradle Test Executor 78'

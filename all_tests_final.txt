@@ -1,0 +1,105 @@
+> Task :rorm-import:processResources UP-TO-DATE
+> Task :rorm-import:processTestResources UP-TO-DATE
+> Task :rorm-core:compileJava UP-TO-DATE
+> Task :rorm-core:processResources UP-TO-DATE
+> Task :rorm-core:classes UP-TO-DATE
+> Task :rorm-core:jar UP-TO-DATE
+> Task :rorm-core:compileTestFixturesJava UP-TO-DATE
+> Task :rorm-core:processTestFixturesResources NO-SOURCE
+> Task :rorm-core:testFixturesClasses UP-TO-DATE
+> Task :rorm-core:testFixturesJar UP-TO-DATE
+> Task :rorm-import:compileJava
+> Task :rorm-import:classes
+> Task :rorm-import:compileTestJava
+> Task :rorm-import:testClasses
+
+> Task :rorm-import:test
+
+DbLevelCoercionTest > UseMean for numeric should generate AVG SQL FAILED
+    java.lang.AssertionError at DbLevelCoercionTest.java:53
+
+DbLevelCoercionTest > UseMean for text should generate MODE SQL FAILED
+    java.lang.AssertionError at DbLevelCoercionTest.java:67
+
+DbLevelCoercionTest > BackwardFill should generate correct SQL FAILED
+    java.lang.AssertionError at DbLevelCoercionTest.java:36
+
+DbLevelCoercionTest > UseMedian for numeric should generate PERCENTILE_CONT SQL FAILED
+    java.lang.AssertionError at DbLevelCoercionTest.java:84
+
+DbLevelCoercionTest > UseMode should generate MODE SQL FAILED
+    java.lang.AssertionError at DbLevelCoercionTest.java:111
+
+DbLevelCoercionTest > ForwardFill should generate correct SQL FAILED
+    java.lang.AssertionError at DbLevelCoercionTest.java:19
+
+DataImportPipelineComplexTest > initializationError FAILED
+    org.testcontainers.containers.ContainerFetchException at GenericContainer.java:1364
+        Caused by: java.lang.IllegalStateException at DockerClientProviderStrategy.java:274
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/C:/Users/4upa4/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.13.0/1200e7ebeedbe0d10062093f32925a912020e747/jna-5.13.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :rorm-import:test
+
+Coercion Integration Tests > Numeric NORMALIZE_PERCENTAGE should clamp to 0-1 range FAILED
+    org.opentest4j.AssertionFailedError at CoercionIntegrationTest.java:396
+
+Coercion Integration Tests > BackwardFill should propagate next valid value backward FAILED
+    org.springframework.dao.DataIntegrityViolationException at CoercionIntegrationTest.java:470
+        Caused by: org.postgresql.util.PSQLException at CoercionIntegrationTest.java:470
+
+Coercion Integration Tests > UseMean should fill with average for numeric columns FAILED
+    org.springframework.dao.DataIntegrityViolationException at CoercionIntegrationTest.java:500
+        Caused by: org.postgresql.util.PSQLException at CoercionIntegrationTest.java:500
+
+Coercion Integration Tests > UseMode should fill with most frequent value FAILED
+    org.opentest4j.AssertionFailedError at CoercionIntegrationTest.java:569
+
+Coercion Integration Tests > ForwardFill should propagate last valid value forward FAILED
+    org.springframework.dao.DataIntegrityViolationException at CoercionIntegrationTest.java:440
+        Caused by: org.postgresql.util.PSQLException at CoercionIntegrationTest.java:440
+
+Coercion Integration Tests > UseMedian should fill with median for numeric columns FAILED
+    java.lang.IllegalArgumentException at CoercionIntegrationTest.java:529
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-02-07T23:04:41.140+02:00  INFO 15564 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T23:04:41.150+02:00  INFO 15564 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T23:04:41.264+02:00  INFO 38052 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T23:04:41.280+02:00  INFO 38052 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T23:04:42.048+02:00  INFO 32704 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T23:04:42.054+02:00  INFO 32704 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T23:04:43.220+02:00  INFO 3800 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T23:04:43.226+02:00  INFO 3800 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T23:04:43.407+02:00  INFO 12892 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T23:04:43.412+02:00  INFO 12892 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+> Task :rorm-import:test
+
+271 tests completed, 13 failed
+
+> Task :rorm-import:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':rorm-import:test'.
+> There were failing tests. See the report at: file:///C:/Users/4upa4/IdeaProjects/rorm/rorm-import/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 46s
+10 actionable tasks: 3 executed, 7 up-to-date

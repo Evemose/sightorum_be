@@ -24,16 +24,18 @@ class MultiRootItemWriter implements ItemWriter<Map<String, Object>> {
     /**
      * Creates a multi-root writer for all roots that source from the given datasource.
      *
-     * @param jdbcTemplate  JDBC template for database operations
-     * @param schema        Target database schema
-     * @param detectedRoots All detected roots that source from this datasource
-     * @param rootMap       Map of root name to Root for IdDescriptor lookup
+     * @param jdbcTemplate        JDBC template for database operations
+     * @param schema              Target database schema
+     * @param detectedRoots       All detected roots that source from this datasource
+     * @param rootMap             Map of root name to Root for IdDescriptor lookup
+     * @param coercionStrategies  Coercion strategies for handling invalid values
      */
     MultiRootItemWriter(
         JdbcTemplate jdbcTemplate,
         String schema,
         List<DetectedRoot> detectedRoots,
-        Map<String, Root> rootMap
+        Map<String, Root> rootMap,
+        Map<ImportRequest.AttributeKey, com.rorm.dataimport.type.InvalidValueCoercionStrategy> coercionStrategies
     ) {
         this.delegates = new ArrayList<>();
         var mappingBuilder = new ColumnMappingBuilder();
@@ -51,7 +53,8 @@ class MultiRootItemWriter implements ItemWriter<Map<String, Object>> {
                 schema,
                 detectedRoot.name(),
                 root.idDescriptor(),
-                columnMappings
+                columnMappings,
+                coercionStrategies
             );
             delegates.add(writer);
         }

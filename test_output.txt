@@ -1,0 +1,157 @@
+> Task :rorm-import:processResources UP-TO-DATE
+> Task :rorm-import:processTestResources UP-TO-DATE
+> Task :rorm-core:compileJava UP-TO-DATE
+> Task :rorm-core:processResources UP-TO-DATE
+> Task :rorm-core:classes UP-TO-DATE
+> Task :rorm-core:jar UP-TO-DATE
+> Task :rorm-core:compileTestFixturesJava UP-TO-DATE
+> Task :rorm-import:compileJava UP-TO-DATE
+> Task :rorm-import:classes UP-TO-DATE
+> Task :rorm-core:processTestFixturesResources NO-SOURCE
+> Task :rorm-core:testFixturesClasses UP-TO-DATE
+> Task :rorm-core:testFixturesJar UP-TO-DATE
+
+> Task :rorm-import:compileTestJava
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\DataTypeDetectorTest.java:15: error: cannot find symbol
+    private final InvalidValueCoercionStrategy skipNulls = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                                                       ^
+  symbol:   variable Skip
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\DataTypeDetectorTest.java:16: error: anonymous classes must not extend sealed classes
+    private final InvalidValueCoercionStrategy treatAsString = new InvalidValueCoercionStrategy() {
+                                                                                                  ^
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\DataTypeDetectorTest.java:17: error: method does not override or implement a method from a supertype
+        @Override
+        ^
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:18: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                   ^
+  symbol:   variable Skip
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:29: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                   ^
+  symbol:   variable Skip
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:42: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.UseDefault.withStandardDefaults();
+                                                   ^
+  symbol:   variable UseDefault
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:60: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.UseDefault.withNoDefaults();
+                                                   ^
+  symbol:   variable UseDefault
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:77: error: cannot find symbol
+        var strategy = new InvalidValueCoercionStrategy.UseDefault(defaultStrategy);
+                                                       ^
+  symbol:   class UseDefault
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:93: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.ThrowOnInvalid.INSTANCE;
+                                                   ^
+  symbol:   variable ThrowOnInvalid
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:106: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.ThrowOnInvalid.INSTANCE;
+                                                   ^
+  symbol:   variable ThrowOnInvalid
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:118: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                   ^
+  symbol:   variable Skip
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:128: error: cannot find symbol
+        var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                   ^
+  symbol:   variable Skip
+  location: interface InvalidValueCoercionStrategy
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:139: error: anonymous classes must not extend sealed classes
+        var strategy = new InvalidValueCoercionStrategy() {
+                                                          ^
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:140: error: method does not override or implement a method from a supertype
+            @Override
+            ^
+14 errors
+
+> Task :rorm-import:compileTestJava FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/4upa4/IdeaProjects/rorm/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':rorm-import:compileTestJava'.
+> Compilation failed; see the compiler output below.
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\DataTypeDetectorTest.java:15: error: cannot find symbol
+      private final InvalidValueCoercionStrategy skipNulls = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                                                         ^
+    symbol:   variable Skip
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:18: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                     ^
+    symbol:   variable Skip
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:29: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                     ^
+    symbol:   variable Skip
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:42: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.UseDefault.withStandardDefaults();
+                                                     ^
+    symbol:   variable UseDefault
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:60: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.UseDefault.withNoDefaults();
+                                                     ^
+    symbol:   variable UseDefault
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:77: error: cannot find symbol
+          var strategy = new InvalidValueCoercionStrategy.UseDefault(defaultStrategy);
+                                                         ^
+    symbol:   class UseDefault
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:93: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.ThrowOnInvalid.INSTANCE;
+                                                     ^
+    symbol:   variable ThrowOnInvalid
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:106: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.ThrowOnInvalid.INSTANCE;
+                                                     ^
+    symbol:   variable ThrowOnInvalid
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:118: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                     ^
+    symbol:   variable Skip
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:128: error: cannot find symbol
+          var strategy = InvalidValueCoercionStrategy.Skip.INSTANCE;
+                                                     ^
+    symbol:   variable Skip
+    location: interface InvalidValueCoercionStrategy
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\DataTypeDetectorTest.java:16: error: anonymous classes must not extend sealed classes
+      private final InvalidValueCoercionStrategy treatAsString = new InvalidValueCoercionStrategy() {
+                                                                                                    ^
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:139: error: anonymous classes must not extend sealed classes
+          var strategy = new InvalidValueCoercionStrategy() {
+                                                            ^
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\DataTypeDetectorTest.java:17: error: method does not override or implement a method from a supertype
+          @Override
+          ^
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\test\java\com\rorm\dataimport\type\InvalidValueCoercionStrategyTest.java:140: error: method does not override or implement a method from a supertype
+              @Override
+              ^
+  14 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 5s
+9 actionable tasks: 1 executed, 8 up-to-date

@@ -5,7 +5,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
-public sealed interface SchemaOverride permits
+public sealed interface SchemaOverride extends DetectionOverride permits
     SchemaOverride.BasicAttributeOverride,
     SchemaOverride.CompositeAttributeOverride,
     SchemaOverride.SingularReferenceOverride,

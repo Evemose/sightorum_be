@@ -1,8 +1,5 @@
 package com.rorm.client.import_.dto;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 import com.rorm.client.validation.ValidSchemaName;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -13,20 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Objects;
 
-@JsonTypeInfo(
-    use = Id.NAME,
-    property = "type"
-)
-@JsonSubTypes({
-    @JsonSubTypes.Type(value = SchemaOverrideDTO.Basic.class, name = "Basic"),
-    @JsonSubTypes.Type(value = SchemaOverrideDTO.Collection.class, name = "Collection"),
-    @JsonSubTypes.Type(value = SchemaOverrideDTO.Id.class, name = "Id"),
-    @JsonSubTypes.Type(value = SchemaOverrideDTO.Composite.class, name = "Composite"),
-    @JsonSubTypes.Type(value = SchemaOverrideDTO.OneToOneRoot.class, name = "OneToOneRoot"),
-    @JsonSubTypes.Type(value = SchemaOverrideDTO.SingularReference.class, name = "SingularReference"),
-    @JsonSubTypes.Type(value = SchemaOverrideDTO.PluralReference.class, name = "PluralReference")
-})
-public sealed interface SchemaOverrideDTO permits
+public sealed interface SchemaOverrideDTO extends DetectionOverrideDTO permits
     SchemaOverrideDTO.Basic,
     SchemaOverrideDTO.Collection,
     SchemaOverrideDTO.Id,

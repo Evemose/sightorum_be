@@ -1,0 +1,3 @@
+InvalidValueCoercionStrategy > processForDetection default implementation should return null for empty FAILED
+Coercion Integration Tests > Numeric NORMALIZE_PERCENTAGE should clamp to 0-1 range FAILED
+DataImportPipelineComplexTest > different chunk sizes produce same result FAILED

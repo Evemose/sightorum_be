@@ -13,14 +13,16 @@ public class AttributeTypeDetector {
         NamingStyle namingStyle,
         List<SchemaOverride> overrides,
         String defaultListSeparator,
-        String dataSourceName
+        String dataSourceName,
+        String currentRootName
     ) {
         this.handlerChain = buildHandlerChain(
             availableRootNames,
             namingStyle,
             overrides,
             defaultListSeparator,
-            dataSourceName
+            dataSourceName,
+            currentRootName
         );
     }
 
@@ -29,12 +31,13 @@ public class AttributeTypeDetector {
         NamingStyle namingStyle,
         List<SchemaOverride> overrides,
         String defaultListSeparator,
-        String dataSourceName
+        String dataSourceName,
+        String currentRootName
     ) {
         return List.of(
             new ExplicitOverrideHandler(namingStyle, overrides, defaultListSeparator, dataSourceName),
             new CompositeAttributeHandler(availableRootNames, namingStyle, overrides, dataSourceName),
-            new ReferenceAttributeHandler(availableRootNames, namingStyle, dataSourceName),
+            new ReferenceAttributeHandler(availableRootNames, namingStyle, dataSourceName, currentRootName),
             new BasicAttributeHandler(namingStyle, dataSourceName)
         );
     }

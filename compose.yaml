@@ -19,6 +19,5 @@ services:
       start_period: 2s
       retries: 5
     restart: on-failure
-
 volumes:
   pgdata:

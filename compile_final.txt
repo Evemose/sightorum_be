@@ -1,0 +1,9 @@
+> Task :rorm-core:compileJava UP-TO-DATE
+> Task :rorm-core:processResources UP-TO-DATE
+> Task :rorm-core:classes UP-TO-DATE
+> Task :rorm-core:jar UP-TO-DATE
+> Task :rorm-import:compileJava
+
+BUILD SUCCESSFUL in 5s
+4 actionable tasks: 1 executed, 3 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.0/userguide/configuration_cache_enabling.html

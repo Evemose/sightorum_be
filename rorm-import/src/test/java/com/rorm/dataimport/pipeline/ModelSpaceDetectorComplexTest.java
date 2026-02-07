@@ -29,7 +29,10 @@ import static org.assertj.core.api.Assertions.assertThat;
     NamingStyleDetector.class,
     SchemaDetector.class,
     MetamodelConverter.class,
-    DataTypeDetector.class
+    DataTypeDetector.class,
+    FlatDetectionStrategy.class,
+    HierarchicalDetectionStrategy.class,
+    com.rorm.dataimport.hierarchical.HierarchicalSchemaConverter.class
 })
 class ModelSpaceDetectorComplexTest {
 

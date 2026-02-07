@@ -1,0 +1,82 @@
+> Task :rorm-import:processResources UP-TO-DATE
+> Task :rorm-import:processTestResources UP-TO-DATE
+> Task :rorm-core:compileJava UP-TO-DATE
+> Task :rorm-core:processResources UP-TO-DATE
+> Task :rorm-core:classes UP-TO-DATE
+> Task :rorm-core:jar UP-TO-DATE
+> Task :rorm-import:compileJava UP-TO-DATE
+> Task :rorm-core:compileTestFixturesJava UP-TO-DATE
+> Task :rorm-import:classes UP-TO-DATE
+> Task :rorm-core:processTestFixturesResources NO-SOURCE
+> Task :rorm-core:testFixturesClasses UP-TO-DATE
+> Task :rorm-core:testFixturesJar UP-TO-DATE
+> Task :rorm-import:compileTestJava
+> Task :rorm-import:testClasses
+
+> Task :rorm-import:test
+
+NumericCoercionStrategy > Clamp with custom bounds should respect bounds FAILED
+    org.opentest4j.AssertionFailedError at NumericCoercionStrategyTest.java:57
+
+NumericCoercionStrategy > Truncate should truncate decimals FAILED
+    org.opentest4j.AssertionFailedError at NumericCoercionStrategyTest.java:78
+
+NumericCoercionStrategy > Clamp percentage should clamp to [0, 1] range FAILED
+    org.opentest4j.AssertionFailedError at NumericCoercionStrategyTest.java:64
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/C:/Users/4upa4/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.13.0/1200e7ebeedbe0d10062093f32925a912020e747/jna-5.13.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/C:/Users/4upa4/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.13.0/1200e7ebeedbe0d10062093f32925a912020e747/jna-5.13.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-02-07T20:18:44.184+02:00  INFO 31080 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:18:44.220+02:00  INFO 31080 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+> Task :rorm-import:test
+
+Coercion Integration Tests > Numeric NORMALIZE_PERCENTAGE should clamp to 0-1 range FAILED
+    org.opentest4j.AssertionFailedError at CoercionIntegrationTest.java:396
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-02-07T20:18:47.966+02:00  INFO 32104 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:18:47.978+02:00  INFO 32104 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T20:18:48.510+02:00  INFO 32376 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:18:48.523+02:00  INFO 32376 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T20:18:49.441+02:00  INFO 24508 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:18:49.445+02:00  INFO 24508 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T20:18:50.246+02:00  INFO 35436 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:18:50.248+02:00  INFO 35436 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-02-07T20:18:50.411+02:00  INFO 34932 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-02-07T20:18:50.413+02:00  INFO 34932 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+> Task :rorm-import:test
+
+266 tests completed, 4 failed
+
+> Task :rorm-import:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':rorm-import:test'.
+> There were failing tests. See the report at: file:///C:/Users/4upa4/IdeaProjects/rorm/rorm-import/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 1m 2s
+10 actionable tasks: 2 executed, 8 up-to-date

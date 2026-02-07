@@ -10,11 +10,13 @@ class ReferenceAttributeHandler implements AttributeDetectionHandler {
     private final Set<String> availableRootNames;
     private final NamingStyle namingStyle;
     private final String dataSourceName;
+    private final String currentRootName;
 
-    ReferenceAttributeHandler(Set<String> availableRootNames, NamingStyle namingStyle, String dataSourceName) {
+    ReferenceAttributeHandler(Set<String> availableRootNames, NamingStyle namingStyle, String dataSourceName, String currentRootName) {
         this.availableRootNames = availableRootNames;
         this.namingStyle = namingStyle;
         this.dataSourceName = dataSourceName;
+        this.currentRootName = currentRootName;
     }
 
     @Override
@@ -68,6 +70,7 @@ class ReferenceAttributeHandler implements AttributeDetectionHandler {
             var possiblySingularRootName = String.join(namingStyle.getSeparator(), rootNameParts);
 
             var rootOpt = availableRootNames.stream()
+                .filter(rn -> !rn.equals(currentRootName)) // Exclude self-references
                 .filter(rn -> NameUtils.singularize(rn).equalsIgnoreCase(possiblySingularRootName))
                 .findFirst();
             if (rootOpt.isPresent()) {

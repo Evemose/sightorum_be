@@ -1,5 +1,6 @@
 package com.rorm.dataimport.pipeline;
 
+import com.rorm.dataimport.hierarchical.HierarchicalSchemaConverter;
 import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.type.DataTypeDetector;
 import org.springframework.batch.core.launch.JobLauncher;
@@ -38,8 +39,34 @@ public class RormImportAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    SchemaDetector schemaDetector(NamingStyleDetector namingStyleDetector, DataTypeDetector dataTypeDetector) {
-        return new SchemaDetector(namingStyleDetector, dataTypeDetector);
+    HierarchicalSchemaConverter hierarchicalSchemaConverter() {
+        return new HierarchicalSchemaConverter();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    FlatDetectionStrategy flatDetectionStrategy(
+        NamingStyleDetector namingStyleDetector,
+        DataTypeDetector dataTypeDetector
+    ) {
+        return new FlatDetectionStrategy(namingStyleDetector, dataTypeDetector);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    HierarchicalDetectionStrategy hierarchicalDetectionStrategy(
+        HierarchicalSchemaConverter hierarchicalSchemaConverter
+    ) {
+        return new HierarchicalDetectionStrategy(hierarchicalSchemaConverter);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    SchemaDetector schemaDetector(
+        FlatDetectionStrategy flatDetectionStrategy,
+        HierarchicalDetectionStrategy hierarchicalDetectionStrategy
+    ) {
+        return new SchemaDetector(flatDetectionStrategy, hierarchicalDetectionStrategy);
     }
 
     @Bean

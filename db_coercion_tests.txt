@@ -1,0 +1,229 @@
+> Task :rorm-import:processResources UP-TO-DATE
+> Task :rorm-import:processTestResources UP-TO-DATE
+> Task :rorm-core:compileJava UP-TO-DATE
+> Task :rorm-core:processResources UP-TO-DATE
+> Task :rorm-core:classes UP-TO-DATE
+> Task :rorm-core:jar UP-TO-DATE
+> Task :rorm-core:compileTestFixturesJava UP-TO-DATE
+> Task :rorm-core:processTestFixturesResources NO-SOURCE
+> Task :rorm-core:testFixturesClasses UP-TO-DATE
+> Task :rorm-core:testFixturesJar UP-TO-DATE
+
+> Task :rorm-import:compileJava FAILED
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:101: error: cannot find symbol
+                s, t, c,
+                ^
+  symbol:   variable s
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:101: error: cannot find symbol
+                s, t, c,
+                   ^
+  symbol:   variable t
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:101: error: cannot find symbol
+                s, t, c,
+                      ^
+  symbol:   variable c
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:102: error: cannot find symbol
+                c,
+                ^
+  symbol:   variable c
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:103: error: cannot find symbol
+                s, t,
+                ^
+  symbol:   variable s
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:103: error: cannot find symbol
+                s, t,
+                   ^
+  symbol:   variable t
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:104: error: cannot find symbol
+                c,
+                ^
+  symbol:   variable c
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:105: error: cannot find symbol
+                id, id,
+                ^
+  symbol:   variable id
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:105: error: cannot find symbol
+                id, id,
+                    ^
+  symbol:   variable id
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:106: error: cannot find symbol
+                id,
+                ^
+  symbol:   variable id
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:107: error: cannot find symbol
+                c
+                ^
+  symbol:   variable c
+  location: class BackwardFill
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:221: error: cannot find symbol
+                s, t, c,
+                ^
+  symbol:   variable s
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:221: error: cannot find symbol
+                s, t, c,
+                   ^
+  symbol:   variable t
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:221: error: cannot find symbol
+                s, t, c,
+                      ^
+  symbol:   variable c
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:222: error: cannot find symbol
+                c,
+                ^
+  symbol:   variable c
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:223: error: cannot find symbol
+                s, t,
+                ^
+  symbol:   variable s
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:223: error: cannot find symbol
+                s, t,
+                   ^
+  symbol:   variable t
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:224: error: cannot find symbol
+                c,
+                ^
+  symbol:   variable c
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:225: error: cannot find symbol
+                c,
+                ^
+  symbol:   variable c
+  location: class UseMode
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:226: error: cannot find symbol
+                c
+                ^
+  symbol:   variable c
+  location: class UseMode
+20 errors
+
+[Incubating] Problems report is available at: file:///C:/Users/4upa4/IdeaProjects/rorm/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':rorm-import:compileJava'.
+> Compilation failed; see the compiler output below.
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:101: error: cannot find symbol
+                  s, t, c,
+                  ^
+    symbol:   variable s
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:101: error: cannot find symbol
+                  s, t, c,
+                     ^
+    symbol:   variable t
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:101: error: cannot find symbol
+                  s, t, c,
+                        ^
+    symbol:   variable c
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:102: error: cannot find symbol
+                  c,
+                  ^
+    symbol:   variable c
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:103: error: cannot find symbol
+                  s, t,
+                  ^
+    symbol:   variable s
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:103: error: cannot find symbol
+                  s, t,
+                     ^
+    symbol:   variable t
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:104: error: cannot find symbol
+                  c,
+                  ^
+    symbol:   variable c
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:105: error: cannot find symbol
+                  id, id,
+                  ^
+    symbol:   variable id
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:105: error: cannot find symbol
+                  id, id,
+                      ^
+    symbol:   variable id
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:106: error: cannot find symbol
+                  id,
+                  ^
+    symbol:   variable id
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:107: error: cannot find symbol
+                  c
+                  ^
+    symbol:   variable c
+    location: class BackwardFill
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:221: error: cannot find symbol
+                  s, t, c,
+                  ^
+    symbol:   variable s
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:221: error: cannot find symbol
+                  s, t, c,
+                     ^
+    symbol:   variable t
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:221: error: cannot find symbol
+                  s, t, c,
+                        ^
+    symbol:   variable c
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:222: error: cannot find symbol
+                  c,
+                  ^
+    symbol:   variable c
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:223: error: cannot find symbol
+                  s, t,
+                  ^
+    symbol:   variable s
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:223: error: cannot find symbol
+                  s, t,
+                     ^
+    symbol:   variable t
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:224: error: cannot find symbol
+                  c,
+                  ^
+    symbol:   variable c
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:225: error: cannot find symbol
+                  c,
+                  ^
+    symbol:   variable c
+    location: class UseMode
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\type\DbLevelCoercion.java:226: error: cannot find symbol
+                  c
+                  ^
+    symbol:   variable c
+    location: class UseMode
+  20 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 2s
+8 actionable tasks: 1 executed, 7 up-to-date

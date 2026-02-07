@@ -1,11 +1,32 @@
+import org.flywaydb.gradle.FlywayExtension
+import java.util.*
+
+TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+
 plugins {
     java
+    id("org.flywaydb.flyway") version "11.13.2"
 }
 
 tasks.test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
     jvmArgs("-XX:+EnableDynamicAgentLoading")
+}
+
+configure<FlywayExtension> {
+    url = "jdbc:postgresql://localhost:5444/mydatabase"
+    user = "myuser"
+    password = "mypassword"
+    schemas = arrayOf("rorm_client")
+    locations = arrayOf("classpath:db/migration")
+}
+
+buildscript {
+    dependencies {
+        classpath("org.postgresql:postgresql:42.7.4")
+        classpath("org.flywaydb:flyway-database-postgresql:12.0.0")
+    }
 }
 
 repositories {

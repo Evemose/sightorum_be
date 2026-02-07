@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import org.hibernate.validator.constraints.UUID;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,16 @@ public record StartImportRequest(
     int chunkSize,
 
     @Valid
-    Map<String, List<@Valid SchemaOverrideDTO>> overridesByRoot
+    Map<String, List<@Valid DetectionOverrideDTO>> overridesByRoot,
+
+    /**
+     * Optional configuration for numeric coercion post-processing.
+     * If provided, numeric values that overflow will be set to NULL during import,
+     * then filled using the specified aggregation strategies.
+     */
+    @Nullable
+    @Valid
+    NumericCoercionConfigDTO numericCoercionConfig
 ) {
     private static final int DEFAULT_CHUNK_SIZE = 1000;
 
