@@ -1,4 +1,0 @@
-C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:221: error: cannot find symbol
-C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:224: error: cannot find symbol
-  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:221: error: cannot find symbol
-  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\DataImportPipeline.java:224: error: cannot find symbol

@@ -1,6 +1,7 @@
 package com.rorm.client.import_;
 
 import com.rorm.client.import_.dto.ImportProgressEvent;
+import com.rorm.client.import_.mapper.CoercionStrategyMapper;
 import com.rorm.client.import_.mapper.DetectionOverrideMapper;
 import com.rorm.client.metamodel.MetamodelService;
 import com.rorm.dataimport.override.DetectionOverride;
@@ -44,6 +45,7 @@ public class ImportJobWorker {
     private final MetamodelService metamodelService;
     private final ImportProgressPublisher progressPublisher;
     private final DetectionOverrideMapper detectionOverrideMapper;
+    private final CoercionStrategyMapper coercionStrategyMapper;
     @Lazy
     private final ImportJobWorker self;
     @ImportTaskExecutor
@@ -94,7 +96,7 @@ public class ImportJobWorker {
 
             log.info("Loaded {} data source(s) from upload: {}", dataSources.size(), jobId);
 
-            // Parse DTOs to domain objects using MapStruct
+            // Parse DTOs to domain objects
             Map<String, List<DetectionOverride>> overridesByRoot = payload.overridesByRoot() != null
                 ? detectionOverrideMapper.toDetectionOverridesMap(payload.overridesByRoot())
                 : Collections.emptyMap();
@@ -106,12 +108,16 @@ public class ImportJobWorker {
                 payload.listSeparator()
             );
 
-            // Create import request
+            // Convert coercion config DTOs to domain strategies
+            var coercionStrategies = coercionStrategyMapper.toCoercionStrategies(payload.coercionConfigs());
+
+            // Create import request with coercion strategies
             var request = new ImportRequest(
                 payload.targetSchema(),
                 dataSources,
                 detectedSchema,
-                payload.chunkSize()
+                payload.chunkSize(),
+                coercionStrategies
             );
 
             // Execute import

@@ -2,9 +2,9 @@ package com.rorm.client.import_;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.client.import_.dto.CoercionConfigDTO;
 import com.rorm.client.import_.dto.DetectionOverrideDTO;
 import com.rorm.client.import_.dto.ImportProgressEvent;
-import com.rorm.client.import_.dto.NumericCoercionConfigDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -75,6 +75,7 @@ public class ImportJobQueue {
     /**
      * Payload for import jobs in the queue.
      * Uses DTOs for serialization (not domain objects).
+     * Clean, immutable, no nulls where possible.
      */
     public record ImportJobPayload(
         UUID jobId,
@@ -83,7 +84,6 @@ public class ImportJobQueue {
         int chunkSize,
         String listSeparator,
         Map<String, List<DetectionOverrideDTO>> overridesByRoot,
-        @Nullable
-        NumericCoercionConfigDTO numericCoercionConfig
+        List<CoercionConfigDTO> coercionConfigs
     ) {}
 }

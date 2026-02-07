@@ -93,8 +93,8 @@ public class ImportJobService {
             request.targetSchema(),
             request.chunkSize(),
             ",",
-            request.overridesByRoot() != null ? request.overridesByRoot() : Map.of(),
-            request.numericCoercionConfig()
+            request.overridesByRoot(),
+            request.coercionConfigs()
         );
 
         jobQueue.enqueue(payload);

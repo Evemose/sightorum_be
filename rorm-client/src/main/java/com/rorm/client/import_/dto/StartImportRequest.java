@@ -6,7 +6,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import org.hibernate.validator.constraints.UUID;
-import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -29,13 +28,12 @@ public record StartImportRequest(
     Map<String, List<@Valid DetectionOverrideDTO>> overridesByRoot,
 
     /**
-     * Optional configuration for numeric coercion post-processing.
-     * If provided, numeric values that overflow will be set to NULL during import,
-     * then filled using the specified aggregation strategies.
+     * Optional coercion configurations for specific attributes.
+     * Coercion strategies are applied during and/or after import to handle invalid values.
+     * Clean, type-safe list - no nulls, no parameter hell.
      */
-    @Nullable
     @Valid
-    NumericCoercionConfigDTO numericCoercionConfig
+    List<@Valid CoercionConfigDTO> coercionConfigs
 ) {
     private static final int DEFAULT_CHUNK_SIZE = 1000;
 
@@ -44,5 +42,6 @@ public record StartImportRequest(
             chunkSize = DEFAULT_CHUNK_SIZE;
         }
         overridesByRoot = Map.copyOf(Objects.requireNonNullElseGet(overridesByRoot, Map::of));
+        coercionConfigs = List.copyOf(Objects.requireNonNullElseGet(coercionConfigs, List::of));
     }
 }
