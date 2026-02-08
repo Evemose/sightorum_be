@@ -86,6 +86,15 @@ public class CsvDataSource implements ImportDataSource {
     }
 
     @Override
+    public long countRows() {
+        try (var lines = Files.lines(filePath)) {
+            return Math.max(0, lines.count() - 1); // minus header row
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
+    @Override
     public Stream<Map<String, Object>> stream() {
         try {
             var mapper = new CsvMapper();

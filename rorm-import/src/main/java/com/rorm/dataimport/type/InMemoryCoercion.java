@@ -38,21 +38,33 @@ public sealed interface InMemoryCoercion extends InvalidValueCoercionStrategy pe
     }
 
     /**
-     * Use default values for invalid data based on data type.
+     * Use a default value for invalid data.
+     * Simple: just the default value for THIS column.
+     *
+     * @param defaultValue The value to use (can be null to mean "use type default")
      */
-    record UseDefault(DefaultValueStrategy defaultValueStrategy) implements InMemoryCoercion {
-
-        public static UseDefault withStandardDefaults() {
-            return new UseDefault(DefaultValueStrategy.standardDefaults());
-        }
-
-        public static UseDefault withNoDefaults() {
-            return new UseDefault(DefaultValueStrategy.noDefaults());
-        }
+    record UseDefault(@Nullable Object defaultValue) implements InMemoryCoercion {
 
         @Override
         public @Nullable Object coerce(@Nullable String value, DataType dataType, String columnName) {
-            return defaultValueStrategy.getDefault(columnName, dataType);
+            // If default is explicitly set, use it
+            if (defaultValue != null) {
+                return defaultValue;
+            }
+
+            // Otherwise use type-based defaults
+            return switch (dataType) {
+                case DataType.NumericType _ -> java.math.BigDecimal.ZERO;
+                case DataType.StringType _ -> "";
+                case DataType.BooleanType _ -> Boolean.FALSE;
+                case DataType.DateType _ -> java.time.LocalDate.EPOCH;
+                case DataType.TimeType _ -> java.time.LocalTime.MIDNIGHT;
+                case DataType.DateTimeType _ -> java.time.Instant.EPOCH;
+                case DataType.TimezoneType _ -> java.time.ZoneOffset.UTC;
+                case DataType.DayOfWeekType _ -> java.time.DayOfWeek.MONDAY;
+                case DataType.EnumType enumType -> enumType.values().length > 0 ? enumType.values()[0] : "";
+                case DataType.ListType _ -> "";
+            };
         }
     }
 

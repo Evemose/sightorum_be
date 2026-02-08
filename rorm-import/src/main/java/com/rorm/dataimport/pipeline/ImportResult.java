@@ -1,10 +1,15 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.metamodel.ModelSpace;
+import reactor.core.publisher.Flux;
 
 public record ImportResult(
     String targetSchema,
     ModelSpace modelSpace,
-    long totalRowsImported
+    Flux<ImportProgress> progress
 ) {
+    public long totalRowsImported() {
+        var last = progress.blockLast();
+        return last != null ? last.rowsProcessed() : 0L;
+    }
 }

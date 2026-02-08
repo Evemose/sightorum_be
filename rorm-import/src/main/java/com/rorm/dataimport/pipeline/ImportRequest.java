@@ -173,30 +173,12 @@ public record ImportRequest(
 
         @Override
         public void useDefaults() {
-            using(com.rorm.dataimport.type.InMemoryCoercion.UseDefault.withStandardDefaults());
+            using(new com.rorm.dataimport.type.InMemoryCoercion.UseDefault(null));
         }
 
         @Override
-        public void useDefault(Object literalValue) {
-            var basic = (DetectedAttribute.Basic) attribute;
-            var dataType = basic.dataType();
-
-            if (dataType == null) {
-                throw new IllegalStateException("Cannot set default for attribute without data type: " + attribute.name());
-            }
-
-            if (!isCompatibleType(literalValue, dataType)) {
-                throw new IllegalArgumentException(
-                    "Literal value type " + literalValue.getClass().getSimpleName() +
-                    " incompatible with attribute data type " + dataType.getClass().getSimpleName()
-                );
-            }
-
-            var defaultStrategy = com.rorm.dataimport.type.DefaultValueStrategy.builder()
-                .columnDefault(attribute.name(), literalValue)
-                .build();
-
-            using(new com.rorm.dataimport.type.InMemoryCoercion.UseDefault(defaultStrategy));
+        public void useDefault(Object defaultValue) {
+            using(new com.rorm.dataimport.type.InMemoryCoercion.UseDefault(defaultValue));
         }
 
         private boolean isCompatibleType(Object value, DataType dataType) {

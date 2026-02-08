@@ -10,6 +10,7 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-csv")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
     implementation("com.github.ben-manes.caffeine:caffeine:3.2.3")
+    implementation("io.projectreactor:reactor-core")
 
     compileOnly("org.projectlombok:lombok")
     compileOnly("org.jspecify:jspecify")

@@ -63,6 +63,25 @@ public class YamlDataSource extends AbstractHierarchicalDataSource {
     }
 
     @Override
+    public long countRows() {
+        try (var is = Files.newInputStream(filePath)) {
+            var rootNode = yamlMapper.readTree(is);
+            if (rootNode == null) {
+                return 0;
+            }
+            if (rootNode.isArray()) {
+                return rootNode.size();
+            }
+            if (rootNode.isObject()) {
+                return 1;
+            }
+            return 0;
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
+    @Override
     public Stream<Map<String, Object>> stream() {
         try {
             currentInputStream = Files.newInputStream(filePath);

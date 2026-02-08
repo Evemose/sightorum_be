@@ -34,18 +34,13 @@ public class CoercionStrategyMapper {
             ));
     }
 
-    /**
-     * Convert a single DTO strategy to domain strategy.
-     * Pattern matching for type-safe conversion.
-     */
     private InvalidValueCoercionStrategy toDomainStrategy(CoercionStrategyDTO dto) {
         return switch (dto) {
             // In-memory coercions
             case CoercionStrategyDTO.SkipDTO _ -> InMemoryCoercion.Skip.INSTANCE;
 
-            case CoercionStrategyDTO.UseDefaultDTO useDefault -> useDefault.useStandardDefaults()
-                ? InMemoryCoercion.UseDefault.withStandardDefaults()
-                : InMemoryCoercion.UseDefault.withNoDefaults();
+            case CoercionStrategyDTO.UseDefaultDTO useDefault ->
+                new InMemoryCoercion.UseDefault(useDefault.defaultValue());
 
             case CoercionStrategyDTO.NullOnInvalidDTO _ -> InMemoryCoercion.NullOnInvalid.INSTANCE;
 

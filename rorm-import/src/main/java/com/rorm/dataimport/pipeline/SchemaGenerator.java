@@ -48,7 +48,7 @@ class SchemaGenerator {
             columnDefinitions.addAll(generateColumnDefinitions(attribute));
         }
 
-        return "CREATE TABLE " + qualifiedTableName + " (" + String.join(", ", columnDefinitions) + ")";
+        return "CREATE TABLE IF NOT EXISTS " + qualifiedTableName + " (" + String.join(", ", columnDefinitions) + ")";
     }
 
     private List<String> generateColumnDefinitions(Attribute attribute) {
@@ -93,7 +93,7 @@ class SchemaGenerator {
         var ownerIdType = mapIdTypeToSql(ownerRoot.idDescriptor().dataType());
         var targetIdType = mapIdTypeToSql(targetRoot.idDescriptor().dataType());
 
-        return "CREATE TABLE " + joinTableName + " (" +
+        return "CREATE TABLE IF NOT EXISTS " + joinTableName + " (" +
                ownerColumnName + " " + ownerIdType + ", " +
                targetColumnName + " " + targetIdType + ", " +
                "PRIMARY KEY (" + ownerColumnName + ", " + targetColumnName + "))";

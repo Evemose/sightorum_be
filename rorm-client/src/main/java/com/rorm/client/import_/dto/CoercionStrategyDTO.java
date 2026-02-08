@@ -39,14 +39,14 @@ public sealed interface CoercionStrategyDTO {
     record SkipDTO() implements CoercionStrategyDTO {}
 
     /**
-     * Use default values for invalid data based on data type.
+     * Use a default value for invalid data.
+     * Simple: just the default value for THIS column.
      *
-     * @param useStandardDefaults If true, use standard defaults (0 for numbers, empty string for text).
-     *                            If false, use NULL for all types.
+     * @param defaultValue The value to use. Null means "use type-based default" (0 for numbers, "" for strings, etc.)
      */
-    record UseDefaultDTO(boolean useStandardDefaults) implements CoercionStrategyDTO {
+    record UseDefaultDTO(@Nullable Object defaultValue) implements CoercionStrategyDTO {
         public UseDefaultDTO() {
-            this(true);
+            this(null);
         }
     }
 

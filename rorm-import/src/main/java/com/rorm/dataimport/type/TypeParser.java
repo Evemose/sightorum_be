@@ -137,7 +137,11 @@ public interface TypeParser {
 
         @Override
         public DataType getDataType() {
-            return new DataType.NumericType(Math.max(maxPrecision, 19), maxScale);
+            // Ensure precision is at least 19 and always greater than scale
+            // Also cap scale at a reasonable value to avoid overflow issues
+            var effectiveScale = Math.min(maxScale, 6);
+            var effectivePrecision = Math.max(Math.max(maxPrecision, 19), effectiveScale + 1);
+            return new DataType.NumericType(effectivePrecision, effectiveScale);
         }
 
         @Override

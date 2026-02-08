@@ -19,31 +19,4 @@ public record CoercionConfigDTO(
     @Valid
     CoercionStrategyDTO strategy
 ) {
-    /**
-     * Helper factory method for common use case: single attribute coercion.
-     */
-    public static CoercionConfigDTO of(String rootName, String attributePath, CoercionStrategyDTO strategy) {
-        return new CoercionConfigDTO(rootName, attributePath, strategy);
-    }
-
-    /**
-     * Helper factory method for skip strategy.
-     */
-    public static CoercionConfigDTO skip(String rootName, String attributePath) {
-        return new CoercionConfigDTO(rootName, attributePath, new CoercionStrategyDTO.SkipDTO());
-    }
-
-    /**
-     * Helper factory method for forward fill strategy.
-     */
-    public static CoercionConfigDTO forwardFill(String rootName, String attributePath) {
-        return new CoercionConfigDTO(rootName, attributePath, new CoercionStrategyDTO.ForwardFillDTO());
-    }
-
-    /**
-     * Helper factory method for use mean strategy.
-     */
-    public static CoercionConfigDTO useMean(String rootName, String attributePath) {
-        return new CoercionConfigDTO(rootName, attributePath, new CoercionStrategyDTO.UseMeanDTO());
-    }
 }

@@ -1,14 +1,16 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.attribute.DetectedAttribute;
+import com.rorm.dataimport.pipeline.listeners.ImportEventListener;
+import com.rorm.dataimport.pipeline.listeners.ProgressLoggingListener;
 import com.rorm.dataimport.source.ImportDataSource;
 import com.rorm.dataimport.type.DbLevelCoercion;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
@@ -19,9 +21,16 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -35,10 +44,11 @@ public class DataImportPipeline {
     private final TaskExecutor taskExecutor;
     private final MetamodelConverter metamodelConverter;
     private final TransactionTemplate transactionTemplate;
+    private final Executor executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public ImportResult importData(ImportRequest request) throws Exception {
+    public ImportResult importData(ImportRequest request) {
+
         var box = new Object() {
-            @SuppressWarnings("NotNullFieldNotInitialized")
             ModelSpace modelSpace;
         };
         transactionTemplate.executeWithoutResult(_ -> {
@@ -46,24 +56,39 @@ public class DataImportPipeline {
             box.modelSpace = metamodelConverter.convertToModelSpace(request.detectedSchema());
             createAllTables(request.targetSchema(), box.modelSpace);
         });
+        var modelSpace = box.modelSpace;
 
-        try {
-            var modelSpace = box.modelSpace;
-            var totalRows = 0L;
-            for (var dataSource : request.dataSources()) {
-                var rowCount = executeImportJob(request, modelSpace, dataSource);
-                totalRows += rowCount;
-            }
+        // Count total rows across all data sources for progress tracking
+        var totalRows = request.dataSources().stream()
+            .mapToLong(ImportDataSource::countRows)
+            .filter(c -> c >= 0)
+            .sum();
 
-            // Execute database-level coercions after all data is imported
-            executeDbLevelCoercions(request, modelSpace);
+        // Each executeImportJob launches in the background and returns a live Flux
+        var eventFluxes = request.dataSources().stream()
+            .map(ds -> executeImportJob(request, modelSpace, ds))
+            .toList();
 
-            return new ImportResult(request.targetSchema(), modelSpace, totalRows);
-        } catch (Exception e) {
-            //noinspection SqlSourceToSinkFlow
-            jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + quoteIdentifier(request.targetSchema()) + " CASCADE");
-            throw e;
-        }
+        var progress = Flux.merge(eventFluxes)
+            .concatWith(Flux.defer(() ->
+                Mono.<ImportEvent>fromRunnable(() -> executeDbLevelCoercions(request, modelSpace))
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .flux()
+            ))
+            .onErrorResume(e ->
+                Mono.<ImportEvent>fromRunnable(() -> {
+                        //noinspection SqlSourceToSinkFlow
+                        jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + quoteIdentifier(request.targetSchema()) + " CASCADE");
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .then(Mono.<ImportEvent>error(e))
+                    .flux()
+            )
+            .scan(ImportProgress.initial(totalRows), ImportProgress::append)
+            .skip(1)
+            .cache();
+
+        return new ImportResult(request.targetSchema(), modelSpace, progress);
     }
 
     private void createSchema(String schemaName) {
@@ -77,41 +102,50 @@ public class DataImportPipeline {
         }
     }
 
-    protected long executeImportJob(ImportRequest request, ModelSpace modelSpace, ImportDataSource dataSource) throws Exception {
+    protected Flux<ImportEvent> executeImportJob(ImportRequest request, ModelSpace modelSpace, ImportDataSource dataSource) {
         var reader = new DataSourceItemReader(dataSource);
         var writer = createWriterForDataSource(request, modelSpace, dataSource);
+        var sink = Sinks.many().multicast().<ImportEvent>onBackpressureBuffer();
 
-        var step = new StepBuilder("import-" + dataSource.getRootName(), jobRepository)
+        var stepBuilder = new StepBuilder("import-" + dataSource.getRootName(), jobRepository)
             .<Map<String, Object>, Map<String, Object>>chunk(request.chunkSize(), transactionManager)
             .reader(new SynchronizedItemReader<>(reader))
             .writer(writer)
             .taskExecutor(taskExecutor)
             .listener(new ProgressLoggingListener())
-            .build();
+            .listener(new ImportEventListener(sink));
+
+        if (writer instanceof ChunkListener chunkListener) {
+            stepBuilder.listener(chunkListener);
+        }
+
+        var step = stepBuilder.build();
 
         var jobName = "import-job-" + dataSource.getRootName() + "-" + UUID.randomUUID();
         var job = new JobBuilder(jobName, jobRepository)
             .start(step)
             .build();
 
-        var execution = jobLauncher.run(job, new JobParameters());
+        CompletableFuture.runAsync(() -> {
+            try {
+                var execution = jobLauncher.run(job, new JobParameters());
 
-        // Check if the job failed and propagate any exceptions
-        if (execution.getStatus().isUnsuccessful()) {
-            var failureExceptions = execution.getAllFailureExceptions();
-            if (!failureExceptions.isEmpty()) {
-                var rootCause = failureExceptions.getFirst();
-                if (rootCause instanceof RuntimeException re) {
-                    throw re;
+                if (execution.getStatus().isUnsuccessful()) {
+                    var failureExceptions = execution.getAllFailureExceptions();
+                    if (!failureExceptions.isEmpty()) {
+                        sink.tryEmitError(failureExceptions.getFirst());
+                    } else {
+                        sink.tryEmitError(new RuntimeException("Import job failed with status: " + execution.getStatus()));
+                    }
+                } else {
+                    sink.tryEmitComplete();
                 }
-                throw new RuntimeException("Import job failed", rootCause);
+            } catch (Exception e) {
+                sink.tryEmitError(e);
             }
-            throw new RuntimeException("Import job failed with status: " + execution.getStatus());
-        }
+        }, executor);
 
-        return execution.getStepExecutions().stream()
-            .mapToLong(StepExecution::getWriteCount)
-            .sum();
+        return sink.asFlux();
     }
 
     private String quoteIdentifier(String identifier) {

@@ -1,6 +1,6 @@
 package com.rorm.client.import_;
 
-import com.rorm.client.import_.dto.ImportProgressEvent;
+import com.rorm.client.import_.dto.ImportProgress;
 import com.rorm.client.stream.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ public class ImportProgressPublisher {
     /**
      * Publishes a progress event to both Redis (for distribution) and local SSE subscribers.
      */
-    public void publish(ImportProgressEvent event) {
+    public void publish(ImportProgress event) {
         // Publish to Redis for distributed subscribers
         jobQueue.publishProgress(event);
 
@@ -32,7 +32,7 @@ public class ImportProgressPublisher {
     /**
      * Publishes directly to local SSE subscribers (used by Redis listener).
      */
-    public void publishToSse(ImportProgressEvent event) {
+    public void publishToSse(ImportProgress event) {
         var topic = "import:" + event.jobId();
         var eventId = String.valueOf(eventCounter.incrementAndGet());
         var eventType = getEventType(event);
@@ -40,12 +40,11 @@ public class ImportProgressPublisher {
         log.debug("Published import progress: job={}, type={}", event.jobId(), eventType);
     }
 
-    private String getEventType(ImportProgressEvent event) {
+    private String getEventType(ImportProgress event) {
         return switch (event) {
-            case ImportProgressEvent.Chunk c -> "chunk";
-            case ImportProgressEvent.StepComplete s -> "step_complete";
-            case ImportProgressEvent.JobComplete j -> "job_complete";
-            case ImportProgressEvent.Error e -> "error";
+            case ImportProgress.Progress _ -> "progress";
+            case ImportProgress.JobComplete _ -> "job_complete";
+            case ImportProgress.Error _ -> "error";
         };
     }
 

@@ -60,6 +60,25 @@ public class JsonDataSource extends AbstractHierarchicalDataSource {
     }
 
     @Override
+    public long countRows() {
+        try (var is = Files.newInputStream(filePath);
+             var parser = objectMapper.getFactory().createParser(is)) {
+            var token = parser.nextToken();
+            if (token != JsonToken.START_ARRAY) {
+                return -1;
+            }
+            long count = 0;
+            while (parser.nextToken() != JsonToken.END_ARRAY) {
+                parser.skipChildren();
+                count++;
+            }
+            return count;
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
+    @Override
     public Stream<Map<String, Object>> stream() {
         try {
             currentInputStream = Files.newInputStream(filePath);

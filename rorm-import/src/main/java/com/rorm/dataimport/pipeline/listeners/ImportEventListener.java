@@ -1,4 +1,4 @@
-package com.rorm.dataimport.pipeline.progress;
+package com.rorm.dataimport.pipeline.listeners;
 
 import com.rorm.dataimport.pipeline.ImportEvent;
 import com.rorm.dataimport.pipeline.ImportEvent.ChunkFailed;

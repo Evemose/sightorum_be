@@ -1,11 +1,12 @@
 package com.rorm.client.import_;
 
-import com.rorm.client.import_.dto.ImportProgressEvent;
+import com.rorm.client.import_.dto.ImportProgress;
 import com.rorm.client.import_.mapper.CoercionStrategyMapper;
 import com.rorm.client.import_.mapper.DetectionOverrideMapper;
 import com.rorm.client.metamodel.MetamodelService;
 import com.rorm.dataimport.override.DetectionOverride;
 import com.rorm.dataimport.pipeline.DataImportPipeline;
+import com.rorm.dataimport.pipeline.ImportEvent;
 import com.rorm.dataimport.pipeline.ImportRequest;
 import com.rorm.dataimport.pipeline.ModelSpaceDetector;
 import com.rorm.dataimport.pipeline.RormImportAutoConfiguration.ImportTaskExecutor;
@@ -28,7 +29,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -97,9 +97,9 @@ public class ImportJobWorker {
             log.info("Loaded {} data source(s) from upload: {}", dataSources.size(), jobId);
 
             // Parse DTOs to domain objects
-            Map<String, List<DetectionOverride>> overridesByRoot = payload.overridesByRoot() != null
+            var overridesByRoot = payload.overridesByRoot() != null
                 ? detectionOverrideMapper.toDetectionOverridesMap(payload.overridesByRoot())
-                : Collections.emptyMap();
+                : Collections.<String, List<DetectionOverride>>emptyMap();
 
             // Detect schema with overrides
             var detectedSchema = modelSpaceDetector.detect(
@@ -123,18 +123,35 @@ public class ImportJobWorker {
             // Execute import
             var result = importPipeline.importData(request);
 
+            // Subscribe to progress flux - publish SSE events per emission, block until done
+            var finalProgress = result.progress()
+                .doOnNext(progress -> {
+                    var latestEvent = toSseEvent(progress.events().getLast());
+                    progressPublisher.publish(new ImportProgress.Progress(
+                        jobId,
+                        progress.totalRows(),
+                        progress.rowsProcessed(),
+                        progress.rowsFailed(),
+                        progress.progressPercent(),
+                        latestEvent
+                    ));
+                })
+                .blockLast();
+
+            var totalRows = finalProgress != null ? finalProgress.rowsProcessed() : 0L;
+
             // Save metamodel
             metamodelService.saveMetamodel(payload.targetSchema(), result.modelSpace());
 
             // Mark complete
-            job.markCompleted(result.totalRowsImported());
+            job.markCompleted(totalRows);
             jobRepository.save(job);
 
             // Publish completion
-            progressPublisher.publish(new ImportProgressEvent.JobComplete(jobId, result.totalRowsImported()));
+            progressPublisher.publish(new ImportProgress.JobComplete(jobId, totalRows));
             progressPublisher.complete(jobId);
 
-            log.info("Import job completed: {} - {} rows", jobId, result.totalRowsImported());
+            log.info("Import job completed: {} - {} rows", jobId, totalRows);
 
         } catch (Exception e) {
             log.error("Import job failed: {}", jobId, e);
@@ -142,7 +159,7 @@ public class ImportJobWorker {
             job.markFailed(e.getMessage());
             jobRepository.save(job);
 
-            progressPublisher.publish(new ImportProgressEvent.Error(jobId, e.getMessage()));
+            progressPublisher.publish(new ImportProgress.Error(jobId, e.getMessage()));
             progressPublisher.error(jobId, e.getMessage());
         }
     }
@@ -171,6 +188,17 @@ public class ImportJobWorker {
             log.warn("Unsupported file type: {}", name);
             return Optional.empty();
         }
+    }
+
+    private static ImportProgress.Event toSseEvent(ImportEvent event) {
+        return switch (event) {
+            case ImportEvent.ChunkProcessed cp -> new ImportProgress.Event.ChunkProcessed(
+                cp.chunkNumber(), cp.rowsWritten(), cp.warnings(), cp.timestamp()
+            );
+            case ImportEvent.ChunkFailed cf -> new ImportProgress.Event.ChunkFailed(
+                cf.chunkNumber(), cf.error().getMessage(), cf.timestamp()
+            );
+        };
     }
 
     @PreDestroy

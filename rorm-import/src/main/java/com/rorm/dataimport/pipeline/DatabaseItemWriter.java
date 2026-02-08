@@ -1,10 +1,13 @@
 package com.rorm.dataimport.pipeline;
 
+import com.rorm.dataimport.pipeline.listeners.ImportEventListener;
 import com.rorm.dataimport.type.NumericCoercionStrategy;
 import com.rorm.dataimport.type.TypeParser;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.IdDescriptor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.ChunkListener;
+import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
@@ -22,7 +25,7 @@ import java.util.stream.Stream;
  * Writes data to a database table using column mappings from detected schema.
  */
 @Slf4j
-class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
+class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListener {
 
     private final JdbcTemplate jdbcTemplate;
     private final String qualifiedTableName;
@@ -31,6 +34,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
     private final String insertSql;
     private final AtomicLong rowCounter;
     private final Map<ImportRequest.AttributeKey, com.rorm.dataimport.type.InMemoryCoercion> inMemoryCoercions;
+    private ChunkContext chunkContext;
 
     /**
      * Creates a writer with column mappings from detected schema.
@@ -85,6 +89,14 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
     }
 
     @Override
+    public void beforeChunk(ChunkContext context) {
+        this.chunkContext = context;
+        context.setAttribute(ImportEventListener.WARNINGS_KEY, new ArrayList<String>());
+        context.setAttribute(ImportEventListener.ROWS_IN_CHUNK_KEY, 0L);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
     public void write(Chunk<? extends Map<String, Object>> chunk) {
         // Validate all IDs first to ensure the entire chunk fails if any ID is invalid
         var rowsWithIds = new ArrayList<Map.Entry<Map<String, Object>, Object>>();
@@ -93,11 +105,13 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
             rowsWithIds.add(Map.entry(row, id));
         }
 
+        var warnings = (List<String>) chunkContext.getAttribute(ImportEventListener.WARNINGS_KEY);
+
         jdbcTemplate.batchUpdate(insertSql, new BatchPreparedStatementSetter() {
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 var entry = rowsWithIds.get(i);
-                var values = buildRowValues(entry.getKey(), entry.getValue());
+                var values = buildRowValues(entry.getKey(), entry.getValue(), warnings);
                 for (var j = 0; j < values.length; j++) {
                     ps.setObject(j + 1, values[j]);
                 }
@@ -108,6 +122,8 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
                 return rowsWithIds.size();
             }
         });
+
+        chunkContext.setAttribute(ImportEventListener.ROWS_IN_CHUNK_KEY, (long) chunk.size());
     }
 
     private Object determineRowId(Map<String, Object> row) {
@@ -152,7 +168,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
         };
     }
 
-    private Object[] buildRowValues(Map<String, Object> row, Object id) {
+    private Object[] buildRowValues(Map<String, Object> row, Object id, List<String> warnings) {
         var tableName = qualifiedTableName.substring(qualifiedTableName.indexOf('.') + 1);
         return Stream.concat(
             Stream.of(id),
@@ -178,8 +194,8 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
                         if (strategy != null) {
                             return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
                         }
-                        log.warn("Value {} exceeds precision/scale constraints for column {}. Setting to NULL.",
-                            value, mapping.dbColumnName());
+                        warnings.add("Value %s exceeds precision/scale constraints for column %s. Setting to NULL."
+                            .formatted(value, mapping.dbColumnName()));
                         return null;
                     }
 
@@ -191,9 +207,9 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>> {
                     if (strategy != null) {
                         return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
                     }
-                    log.error("Failed to parse value '{}' for column '{}' with type {}: {}",
-                        value, mapping.dbColumnName(), mapping.dataType(), e.getMessage());
-                    throw new IllegalArgumentException("Failed to parse value for column " + mapping.dbColumnName(), e);
+                    warnings.add("Failed to parse value '%s' for column '%s' with type %s: %s"
+                        .formatted(value, mapping.dbColumnName(), mapping.dataType(), e.getMessage()));
+                    return null;
                 }
             })
         ).toArray();

@@ -27,20 +27,11 @@ public record StartImportRequest(
     @Valid
     Map<String, List<@Valid DetectionOverrideDTO>> overridesByRoot,
 
-    /**
-     * Optional coercion configurations for specific attributes.
-     * Coercion strategies are applied during and/or after import to handle invalid values.
-     * Clean, type-safe list - no nulls, no parameter hell.
-     */
     @Valid
     List<@Valid CoercionConfigDTO> coercionConfigs
 ) {
-    private static final int DEFAULT_CHUNK_SIZE = 1000;
 
     public StartImportRequest {
-        if (chunkSize <= 0) {
-            chunkSize = DEFAULT_CHUNK_SIZE;
-        }
         overridesByRoot = Map.copyOf(Objects.requireNonNullElseGet(overridesByRoot, Map::of));
         coercionConfigs = List.copyOf(Objects.requireNonNullElseGet(coercionConfigs, List::of));
     }

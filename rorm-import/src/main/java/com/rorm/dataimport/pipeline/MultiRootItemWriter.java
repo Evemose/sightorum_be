@@ -2,6 +2,8 @@ package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.pipeline.SchemaDetector.DetectedRoot;
 import com.rorm.metamodel.Root;
+import org.springframework.batch.core.ChunkListener;
+import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,7 +19,7 @@ import java.util.Map;
  * contains data for multiple roots. Each root gets its own subset of columns
  * based on the source mappings established during schema detection.
  */
-class MultiRootItemWriter implements ItemWriter<Map<String, Object>> {
+class MultiRootItemWriter implements ItemWriter<Map<String, Object>>, ChunkListener {
 
     private final List<DatabaseItemWriter> delegates;
 
@@ -57,6 +59,13 @@ class MultiRootItemWriter implements ItemWriter<Map<String, Object>> {
                 coercionStrategies
             );
             delegates.add(writer);
+        }
+    }
+
+    @Override
+    public void beforeChunk(ChunkContext context) {
+        for (var delegate : delegates) {
+            delegate.beforeChunk(context);
         }
     }
 

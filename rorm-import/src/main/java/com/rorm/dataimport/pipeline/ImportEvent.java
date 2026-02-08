@@ -1,13 +1,17 @@
-package com.rorm.dataimport.pipeline.progress;
+package com.rorm.dataimport.pipeline;
 
+import java.time.Instant;
 import java.util.List;
 
 public sealed interface ImportEvent {
 
     Long jobId();
 
-    record ChunkProcessed(Long jobId, long chunkNumber, List<String> warnings) implements ImportEvent {}
+    Instant timestamp();
 
-    record ChunkFailed(Long jobId, long chunkNumber, Throwable errorMessage) implements ImportEvent {}
+    record ChunkProcessed(Long jobId, long chunkNumber, long rowsWritten, List<String> warnings,
+                          Instant timestamp) implements ImportEvent {}
+
+    record ChunkFailed(Long jobId, long chunkNumber, Throwable error, Instant timestamp) implements ImportEvent {}
 
 }

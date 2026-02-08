@@ -12,6 +12,8 @@ public interface ImportDataSource extends AutoCloseable {
 
     Stream<Map<String, Object>> stream();
 
+    long countRows();
+
     /// Close the data source and release any held resources.
     /// Some datasource may allow reopening after close by calling [ImportDataSource#stream] again.
     @Override

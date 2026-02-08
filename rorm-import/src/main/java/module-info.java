@@ -19,6 +19,8 @@ open module rorm.rorm.dataimport {
     requires spring.beans;
     requires java.sql;
     requires com.github.benmanes.caffeine;
+    requires reactor.core;
+    requires org.reactivestreams;
 
     exports com.rorm.dataimport.hierarchical;
     exports com.rorm.dataimport.override;
