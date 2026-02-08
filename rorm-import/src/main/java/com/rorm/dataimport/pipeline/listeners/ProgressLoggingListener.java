@@ -1,11 +1,11 @@
-package com.rorm.dataimport.pipeline;
+package com.rorm.dataimport.pipeline.progress;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.scope.context.ChunkContext;
 
 @Slf4j
-class ProgressLoggingListener implements ChunkListener {
+public class ProgressLoggingListener implements ChunkListener {
 
     private long startTime;
 

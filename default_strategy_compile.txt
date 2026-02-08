@@ -1,0 +1,36 @@
+Starting a Gradle Daemon, 1 incompatible and 1 stopped Daemons could not be reused, use --status for details
+> Task :rorm-core:compileJava UP-TO-DATE
+> Task :rorm-core:processResources UP-TO-DATE
+> Task :rorm-core:classes UP-TO-DATE
+> Task :rorm-core:jar UP-TO-DATE
+
+> Task :rorm-import:compileJava
+C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\ImportRequest.java:196: error: cannot find symbol
+                .columnDefault(attribute.name(), literalValue)
+                ^
+  symbol:   method columnDefault(String,Object)
+  location: class Builder
+1 error
+
+> Task :rorm-import:compileJava FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/4upa4/IdeaProjects/rorm/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':rorm-import:compileJava'.
+> Compilation failed; see the compiler output below.
+  C:\Users\4upa4\IdeaProjects\rorm\rorm-import\src\main\java\com\rorm\dataimport\pipeline\ImportRequest.java:196: error: cannot find symbol
+                  .columnDefault(attribute.name(), literalValue)
+                  ^
+    symbol:   method columnDefault(String,Object)
+    location: class Builder
+  1 error
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 12s
+4 actionable tasks: 1 executed, 3 up-to-date
