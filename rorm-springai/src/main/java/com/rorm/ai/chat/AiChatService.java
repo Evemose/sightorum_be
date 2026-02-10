@@ -60,7 +60,7 @@ public class AiChatService {
     /**
      * Execute a chat request and get a blocking response.
      *
-     * @param request The chat request containing progress, prompt, response type and optional chat ID
+     * @param request The chat request containing progress, userPrompt, response type and optional chat ID
      * @return AI-generated response of the requested type
      */
     @SneakyThrows
@@ -78,7 +78,7 @@ public class AiChatService {
         var progress = request.progress();
         var context = new RormToolContext(progress, request.schema());
         var systemPrompt = promptBuilder.buildSystemMessage(progress.getModelSpace());
-        var userMessage = promptBuilder.buildContextMessage(progress, request.prompt());
+        var userMessage = promptBuilder.buildContextMessage(progress, request.userPrompt());
 
         var clientRequest = chatClient.prompt()
             .system(systemPrompt)
@@ -91,22 +91,26 @@ public class AiChatService {
                 .build());
         }
 
-        applyThinkingLevel(clientRequest, request.thinkingLevel());
+        applyOptions(clientRequest, request);
         return clientRequest;
     }
 
-    private void applyThinkingLevel(ChatClient.ChatClientRequestSpec clientRequest, ThinkingLevel level) {
+    private void applyOptions(ChatClient.ChatClientRequestSpec clientRequest, ChatRequest<?> request) {
+        var level = request.thinkingLevel();
+        var optsBuilder = OpenAiChatOptions.builder();
         if (level.requiresOptions()) {
-            clientRequest.options(OpenAiChatOptions.builder()
-                .reasoningEffort(level.apiValue())
-                .build());
+            optsBuilder = optsBuilder.reasoningEffort(level.apiValue());
         }
+        if (request.modelName() != null) {
+            optsBuilder = optsBuilder.model(request.modelName());
+        }
+        clientRequest.options(optsBuilder.build());
     }
 
     /**
      * Execute a chat request with streaming response.
      *
-     * @param request The chat request containing progress, prompt and optional chat ID
+     * @param request The chat request containing progress, userPrompt and optional chat ID
      * @return Flux of response tokens
      */
     public Flux<String> stream(ChatRequest<?> request) {

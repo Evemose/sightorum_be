@@ -25,7 +25,7 @@ public record SwarmConfig(
         critic = Objects.requireNonNullElseGet(critic, () -> new ModelConfig(null, null));
         analyzer = Objects.requireNonNullElseGet(analyzer, () -> new ModelConfig(null, null));
         if (!hasText(scout.model)) {
-            scout = scout.withModel("gpt-5-nano-2025-08-07");
+            scout = scout.withModel("gpt-5.2-pro-2025-12-11");
         }
         if (!hasText(scout.systemPrompt)) {
             scout = scout.withSystemPrompt(SwarmDefaultPrompts.SCOUT);

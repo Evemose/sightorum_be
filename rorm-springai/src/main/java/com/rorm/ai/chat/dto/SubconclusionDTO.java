@@ -43,14 +43,24 @@ public record SubconclusionDTO(
         This provides an audit trail of the agent's decision-making process.
         """)
     @JsonProperty(required = true)
-    List<ResearchStepDTO> researchSteps
+    List<AnalysisStep> researchSteps,
+
+    @JsonPropertyDescription("""
+        Whether this step requires additional research to complete its objective.
+        True if the conclusion is incomplete relative to the step's goal (e.g., partial data,
+        inconclusive findings, unanswered sub-questions within scope).
+        False if the step's objective is adequately addressed, even if broader questions remain.
+        This evaluates completeness of THIS step only, not external dependencies.
+        """)
+    @JsonProperty(required = true)
+    boolean needsFurtherResearch
 
 ) {
     /**
      * A single step in the agent's research process.
      */
     @JsonClassDescription("A single step in the research/analysis process")
-    public record ResearchStepDTO(
+    public record AnalysisStep(
 
         @JsonPropertyDescription("""
             The reasoning or hypothesis that led to this action.

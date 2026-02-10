@@ -9,9 +9,11 @@ import org.jspecify.annotations.Nullable;
 public record ChatRequest<T>(
     @NonNull String schema,
     @NonNull ChatProgress progress,
-    @NonNull String prompt,
+    @NonNull String userPrompt,
     @NonNull Class<T> responseType,
     @Nullable String chatId,
+    @Nullable String systemPrompt,
+    @Nullable String modelName,
     @NonNull ThinkingLevel thinkingLevel
 ) {
 
@@ -34,13 +36,15 @@ public record ChatRequest<T>(
         private final ChatProgress progress;
         private String chatId;
         private ThinkingLevel thinkingLevel = ThinkingLevel.NONE;
+        private String systemPrompt;
+        private String modelName;
 
-        public ChatRequest<String> ask(String prompt) {
-            return new ChatRequest<>(schema, progress, prompt, String.class, chatId, thinkingLevel);
+        public ChatRequest<String> ask(String userPrompt) {
+            return new ChatRequest<>(schema, progress, userPrompt, String.class, systemPrompt, modelName, chatId, thinkingLevel);
         }
 
-        public <T> ChatRequest<T> ask(String prompt, Class<T> responseType) {
-            return new ChatRequest<>(schema, progress, prompt, responseType, chatId, thinkingLevel);
+        public <T> ChatRequest<T> ask(String userPrompt, Class<T> responseType) {
+            return new ChatRequest<>(schema, progress, userPrompt, responseType, systemPrompt, modelName, chatId, thinkingLevel);
         }
 
     }

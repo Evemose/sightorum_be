@@ -18,7 +18,7 @@ import java.util.List;
  *   <li>User message contains dynamic context (previous actions, current task)</li>
  * </ul>
  * <p>
- * This separation keeps the system prompt cacheable and clearly distinguishes
+ * This separation keeps the system userPrompt cacheable and clearly distinguishes
  * "facts about the world" from "current state".
  */
 @RequiredArgsConstructor

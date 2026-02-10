@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  *   <li>Clearly documents relationships between entities</li>
  * </ul>
  *
- * <p>The output is designed to be included in the system prompt and cached
+ * <p>The output is designed to be included in the system userPrompt and cached
  * across multiple agent interactions for the same ModelSpace.
  */
 @RequiredArgsConstructor
@@ -53,7 +53,7 @@ public class MetamodelContextBuilder {
         sb.append("The following entities are available for querying:\n\n");
 
         for (Root root : modelSpace.roots()) {
-            sb.append(describeRoot(root, modelSpace));
+            sb.append(describeRoot(root));
             sb.append("\n");
         }
 
@@ -71,7 +71,7 @@ public class MetamodelContextBuilder {
         return sb.toString();
     }
 
-    private String describeRoot(Root root, ModelSpace modelSpace) {
+    private String describeRoot(Root root) {
         var sb = new StringBuilder();
         sb.append("### Entity: `").append(root.primaryTableName()).append("`\n\n");
 
@@ -95,7 +95,7 @@ public class MetamodelContextBuilder {
         sb.append("|-----------|------|-------------|\n");
 
         for (Attribute attr : root.attributes()) {
-            sb.append(describeAttributeTableRow(attr, root, modelSpace));
+            sb.append(describeAttributeTableRow(attr));
         }
 
         return sb.toString();
@@ -124,7 +124,7 @@ public class MetamodelContextBuilder {
     /**
      * Describe an attribute as a markdown table row for compact, readable display.
      */
-    private String describeAttributeTableRow(Attribute attr, Root root, ModelSpace modelSpace) {
+    private String describeAttributeTableRow(Attribute attr) {
         return switch (attr) {
             case BasicAttribute basic ->
                 "| `%s` | %s | - |%n".formatted(basic.name(), describeDataType(basic.dataType()));

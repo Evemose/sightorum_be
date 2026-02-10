@@ -76,6 +76,10 @@ subprojects {
         systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
         systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
     }
+
+    tasks.withType<JavaCompile> {
+        options.compilerArgs.add("--enable-preview")
+    }
 }
 
 dependencies {
