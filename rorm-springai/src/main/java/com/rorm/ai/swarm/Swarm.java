@@ -4,8 +4,11 @@ import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatProgress;
 import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.swarm.agents.*;
+import org.springframework.ai.vectorstore.VectorStore;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+
+import java.util.UUID;
 
 /**
  * Main swarm orchestrator
@@ -17,8 +20,9 @@ public class Swarm {
     private final ExecutorSwarmAgent executor;
     private final AnalyzerSwarmAgent analyzer;
 
-    public Swarm(SwarmConfig config, AiChatService chatService, ChatProgress chatProgress) {
+    public Swarm(SwarmConfig config, AiChatService chatService, ChatProgress chatProgress, VectorStore vectorStore) {
         var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, chatProgress, ThinkingLevel.NONE);
+        var swarmMind = new SwarmMind(UUID.randomUUID().toString(), vectorStore);
 
         this.scout = new ScoutSwarmAgent(
             new FirstLevelSwarmAgent(config.scout(), chatService, chatProgress, ThinkingLevel.HIGH),
@@ -35,12 +39,14 @@ public class Swarm {
         );
 
         this.executor = new ExecutorSwarmAgent(
+            swarmMind,
             new FirstLevelSwarmAgent(config.executor(), chatService, chatProgress, ThinkingLevel.MEDIUM),
             summarizer,
             new DependencyCoordinator()
         );
 
         this.analyzer = new AnalyzerSwarmAgent(
+            swarmMind,
             new FirstLevelSwarmAgent(config.analyzer(), chatService, chatProgress, ThinkingLevel.HIGH),
             critic,
             summarizer
@@ -48,7 +54,7 @@ public class Swarm {
     }
 
     public Flux<SwarmEvent> research(String input) {
-        var eventSink = Sinks.many().multicast().<SwarmEvent>onBackpressureBuffer();
+        var eventSink = Sinks.many().replay().<SwarmEvent>all();
 
         Thread.ofVirtual().start(() -> {
             try {

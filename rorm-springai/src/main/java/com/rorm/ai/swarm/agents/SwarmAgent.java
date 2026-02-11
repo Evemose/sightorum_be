@@ -1,5 +1,6 @@
 package com.rorm.ai.swarm.agents;
 
+import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.swarm.SwarmEvent;
 import com.rorm.ai.swarm.SwarmEvent.EndEvent;
 import com.rorm.ai.swarm.SwarmEvent.StartEvent;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * Base class for swarm agent operations with shared streaming/structuring logic
@@ -33,7 +35,7 @@ abstract class SwarmAgent {
             params.tokenConsumer().accept(tokenSink.asFlux());
         }
 
-        var response = params.agent.stream(params.userPrompt(), convId)
+        var response = params.agent.stream(params.userPrompt(), params.requestBuilderCustomizer())
             .scan(new StringBuffer(), StringBuffer::append)
             .map(StringBuffer::toString)
             .doOnSubscribe(_ -> eventSink.tryEmitNext(params.startEventFactory.apply(tokenSink.asFlux())))
@@ -48,7 +50,7 @@ abstract class SwarmAgent {
     }
 
     protected Many<String> createTokenSink() {
-        return Sinks.many().multicast().onBackpressureBuffer();
+        return Sinks.many().replay().all();
     }
 
     protected <T> T structurize(String response, Class<T> responseType) {
@@ -63,6 +65,13 @@ abstract class SwarmAgent {
         @NonNull Function<Flux<String>, StartEvent> startEventFactory,
         @NonNull BiFunction<T, String, EndEvent<T>> endEventFactory,
         @Nullable Consumer<Flux<String>> tokenConsumer,
-        @Nullable Many<String> tokenSink
-    ) {}
+        @Nullable Many<String> tokenSink,
+        @Nullable UnaryOperator<ChatRequest.Builder> requestBuilderCustomizer
+    ) {
+
+        @Override
+        public UnaryOperator<ChatRequest.Builder> requestBuilderCustomizer() {
+            return requestBuilderCustomizer != null ? requestBuilderCustomizer : UnaryOperator.identity();
+        }
+    }
 }

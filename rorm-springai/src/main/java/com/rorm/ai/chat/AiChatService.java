@@ -13,10 +13,14 @@ import lombok.SneakyThrows;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import reactor.core.publisher.Flux;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Main service for AI-powered database queries.
@@ -38,6 +42,8 @@ public class AiChatService {
     private final ChatMemory chatMemory;
     private final AgentPromptBuilder promptBuilder;
     private final RormAiProperties properties;
+    private final List<Advisor> defaultAdvisors;
+    private final List<Object> defaultTools;
 
     public AiChatService(
         ChatModel chatModel,
@@ -51,9 +57,11 @@ public class AiChatService {
         this.promptBuilder = new AgentPromptBuilder(new MetamodelContextBuilder());
         this.chatMemory = chatMemory;
         this.properties = properties;
+        this.defaultTools = List.of(queryExecutionTool, dataOverviewTool, mlTrainingTool, chatHistoryTool);
+        this.defaultAdvisors = List.of(MessageChatMemoryAdvisor.builder(chatMemory).build());
         this.chatClient = ChatClient.builder(chatModel)
-            .defaultTools(queryExecutionTool, dataOverviewTool, mlTrainingTool, chatHistoryTool)
-            .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+            .defaultTools(defaultTools)
+            .defaultAdvisors(defaultAdvisors)
             .build();
     }
 
@@ -79,10 +87,16 @@ public class AiChatService {
         var context = new RormToolContext(progress, request.schema());
         var systemPrompt = promptBuilder.buildSystemMessage(progress.getModelSpace());
         var userMessage = promptBuilder.buildContextMessage(progress, request.userPrompt());
+        var advisors = new ArrayList<>(defaultAdvisors);
+        advisors.addAll(request.additionalAdvisors());
+        var tools = new ArrayList<>(defaultTools);
+        tools.addAll(request.additionalTools());
 
         var clientRequest = chatClient.prompt()
             .system(systemPrompt)
             .toolContext(context.toMap())
+            .advisors(advisors)
+            .tools(tools)
             .user(userMessage);
 
         if (request.chatId() != null) {
@@ -99,10 +113,10 @@ public class AiChatService {
         var level = request.thinkingLevel();
         var optsBuilder = OpenAiChatOptions.builder();
         if (level.requiresOptions()) {
-            optsBuilder = optsBuilder.reasoningEffort(level.apiValue());
+            optsBuilder.reasoningEffort(level.apiValue());
         }
         if (request.modelName() != null) {
-            optsBuilder = optsBuilder.model(request.modelName());
+            optsBuilder.model(request.modelName());
         }
         clientRequest.options(optsBuilder.build());
     }

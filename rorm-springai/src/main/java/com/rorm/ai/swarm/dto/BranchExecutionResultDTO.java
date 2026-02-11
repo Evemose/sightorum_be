@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @JsonClassDescription("Synthesized results from executing all steps in a research branch")
-public record BranchExecutionResult(
+public record BranchExecutionResultDTO(
 
     @JsonPropertyDescription("Branch identifier matching ResearchBranch.branchId")
     @JsonProperty(required = true)
@@ -48,7 +48,7 @@ public record BranchExecutionResult(
         Use for deep dive into how conclusions were reached.
         """)
     @JsonProperty(required = true)
-    List<StepExecutionResult> stepResults,
+    List<StepExecutionResultDTO> stepResults,
 
     @JsonPropertyDescription("""
         All variables produced by this branch (aggregated from all steps).

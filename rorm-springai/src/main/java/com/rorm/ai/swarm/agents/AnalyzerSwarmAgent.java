@@ -1,37 +1,41 @@
 package com.rorm.ai.swarm.agents;
 
-import com.rorm.ai.swarm.NegotiationFinishReason;
 import com.rorm.ai.swarm.SwarmEvent;
 import com.rorm.ai.swarm.SwarmEvent.*;
+import com.rorm.ai.swarm.SwarmMind;
+import com.rorm.ai.swarm.SwarmMindTool;
 import com.rorm.ai.swarm.dto.AnalysisResultDTO;
-import com.rorm.ai.swarm.dto.BranchExecutionResult;
+import com.rorm.ai.swarm.dto.BranchExecutionResultDTO;
 import com.rorm.ai.swarm.dto.ConclusionCritiqueDTO;
 import reactor.core.publisher.Sinks.Many;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Analyzer agent with critic negotiation loop
  */
 public class AnalyzerSwarmAgent extends SwarmAgent {
+
+    private final SwarmMind swarmMind;
     private final FirstLevelSwarmAgent analyzer;
     private final FirstLevelSwarmAgent critic;
 
     public AnalyzerSwarmAgent(
+        SwarmMind swarmMind,
         FirstLevelSwarmAgent analyzer,
         FirstLevelSwarmAgent critic,
         SecondarySwarmAgent summarizer
     ) {
         super(summarizer);
+        this.swarmMind = swarmMind;
         this.analyzer = analyzer;
         this.critic = critic;
     }
 
     public AnalysisResultDTO negotiate(
         String originalQuery,
-        List<BranchExecutionResult> branchResults,
+        List<BranchExecutionResultDTO> branchResults,
         Many<SwarmEvent> eventSink
     ) {
         var tokenSink = createTokenSink();
@@ -48,7 +52,7 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
             var critique = critiqueAnalysis(analysis, originalQuery, tokenSink, eventSink);
             scores.add(critique.conclusionScore());
 
-            var finishReason = shouldFinish(scores, iteration + 1);
+            var finishReason = NegotiationBreaker.shouldFinish(scores, iteration + 1);
             if (finishReason.isPresent()) {
                 eventSink.tryEmitNext(new AnalysisNegotiationFinished(
                     analysis,
@@ -63,7 +67,7 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
 
     private AnalysisResultDTO createAnalysis(
         String originalQuery,
-        List<BranchExecutionResult> branchResults,
+        List<BranchExecutionResultDTO> branchResults,
         Many<String> tokenSink,
         Many<SwarmEvent> eventSink
     ) {
@@ -77,6 +81,9 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
                 .startEventFactory(AnalysisVersionCreationStarted::new)
                 .endEventFactory(AnalysisVersionCreationFinished::new)
                 .tokenSink(tokenSink)
+                .requestBuilderCustomizer(b ->
+                    b.withAdvisor(swarmMind.stepAdvisor()).withTool(new SwarmMindTool(swarmMind))
+                )
                 .build(),
             eventSink
         );
@@ -96,32 +103,15 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
                 .startEventFactory(AnalysisVersionCritiqueStarted::new)
                 .endEventFactory(AnalysisVersionCritiqueFinished::new)
                 .tokenSink(tokenSink)
+                .requestBuilderCustomizer(b ->
+                    b.withAdvisor(swarmMind.stepAdvisor()).withTool(new SwarmMindTool(swarmMind))
+                )
                 .build(),
             eventSink
         );
     }
 
-    private Optional<NegotiationFinishReason> shouldFinish(List<Double> scores, int iteration) {
-        var hardLimit = 5;
-        var softLimit = 3;
-
-        if (iteration >= hardLimit) {
-            return Optional.of(NegotiationFinishReason.MAX_ITERATIONS_REACHED);
-        }
-
-        double threshold = 8.5 - 0.75 * iteration;
-        if (scores.getLast() >= threshold && iteration < softLimit) {
-            return Optional.of(NegotiationFinishReason.APPROVED);
-        }
-
-        if (recentVsOverallAvg(scores, iteration) < 0.3) {
-            return Optional.of(NegotiationFinishReason.INSIGNIFICANT_IMPROVEMENT);
-        }
-
-        return Optional.empty();
-    }
-
-    private String buildAnalysisPrompt(String originalQuery, List<BranchExecutionResult> branchResults) {
+    private String buildAnalysisPrompt(String originalQuery, List<BranchExecutionResultDTO> branchResults) {
         var prompt = new StringBuilder(originalQuery);
         prompt.append("\n\nBranch Findings:\n\n");
 
@@ -137,16 +127,5 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
         }
 
         return prompt.toString();
-    }
-
-    private double recentVsOverallAvg(List<Double> scores, int iteration) {
-        if (iteration < 2) {
-            return 1.0;
-        }
-
-        var recentAvg = (scores.get(iteration - 1) + scores.get(iteration)) / 2.0;
-        var overallAvg = scores.stream().limit(iteration + 1).mapToDouble(Double::doubleValue).average().orElse(0);
-
-        return recentAvg - overallAvg;
     }
 }

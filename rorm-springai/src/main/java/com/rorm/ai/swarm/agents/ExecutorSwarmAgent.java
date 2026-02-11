@@ -4,11 +4,13 @@ import com.rorm.ai.swarm.SwarmEvent;
 import com.rorm.ai.swarm.SwarmEvent.BranchExecutionStarted;
 import com.rorm.ai.swarm.SwarmEvent.StepExecutionFinished;
 import com.rorm.ai.swarm.SwarmEvent.StepExecutionStarted;
-import com.rorm.ai.swarm.dto.BranchExecutionResult;
+import com.rorm.ai.swarm.SwarmMind;
+import com.rorm.ai.swarm.SwarmMindTool;
+import com.rorm.ai.swarm.dto.BranchExecutionResultDTO;
 import com.rorm.ai.swarm.dto.ResearchPlanDTO;
 import com.rorm.ai.swarm.dto.ResearchPlanDTO.ResearchBranch;
 import com.rorm.ai.swarm.dto.ResearchPlanDTO.ResearchStep;
-import com.rorm.ai.swarm.dto.StepExecutionResult;
+import com.rorm.ai.swarm.dto.StepExecutionResultDTO;
 import com.rorm.ai.swarm.dto.StepRef;
 import reactor.core.publisher.Sinks.Many;
 
@@ -22,34 +24,42 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("preview")
 public class ExecutorSwarmAgent extends SwarmAgent {
+
+    private static final ScopedValue<ResearchPlanDTO> CURRENT_PLAN = ScopedValue.newInstance();
+
+    private final SwarmMind swarmMind;
     private final FirstLevelSwarmAgent executor;
     private final DependencyCoordinator coordinator;
 
     public ExecutorSwarmAgent(
+        SwarmMind swarmMind,
         FirstLevelSwarmAgent executor,
         SecondarySwarmAgent summarizer,
         DependencyCoordinator coordinator
     ) {
         super(summarizer);
+        this.swarmMind = swarmMind;
         this.executor = executor;
         this.coordinator = coordinator;
     }
 
-    public List<BranchExecutionResult> execute(ResearchPlanDTO plan, Many<SwarmEvent> eventSink) {
-        var dependentsMap = buildDependentsMap(plan);
-        try (var scope = StructuredTaskScope.open(StructuredTaskScope.Joiner.<BranchExecutionResult>allSuccessfulOrThrow())) {
-            for (var branch : plan.branches()) {
-                scope.fork(() -> executeBranch(branch, dependentsMap, eventSink));
+    public List<BranchExecutionResultDTO> execute(ResearchPlanDTO plan, Many<SwarmEvent> eventSink) {
+        return ScopedValue.where(CURRENT_PLAN, plan).call(() -> {
+            var dependentsMap = buildDependentsMap();
+            try (var scope = StructuredTaskScope.open(StructuredTaskScope.Joiner.<BranchExecutionResultDTO>allSuccessfulOrThrow())) {
+                for (var branch : plan.branches()) {
+                    scope.fork(() -> executeBranch(branch, dependentsMap, eventSink));
+                }
+                return scope.join().map(StructuredTaskScope.Subtask::get).toList();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Research execution interrupted", e);
             }
-            return scope.join().map(StructuredTaskScope.Subtask::get).toList();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Research execution interrupted", e);
-        }
+        });
     }
 
-    private Map<StepRef, List<StepRef>> buildDependentsMap(ResearchPlanDTO plan) {
-        return plan.branches().stream()
+    private Map<StepRef, List<StepRef>> buildDependentsMap() {
+        return CURRENT_PLAN.get().branches().stream()
             .flatMap(branch -> branch.steps().stream()
                 .flatMap(step -> step.dependencies().stream()
                     .map(dep -> Map.entry(dep, new StepRef(branch.branchId(), step.stepId())))
@@ -61,7 +71,7 @@ public class ExecutorSwarmAgent extends SwarmAgent {
             ));
     }
 
-    private BranchExecutionResult executeBranch(
+    private BranchExecutionResultDTO executeBranch(
         ResearchBranch branch,
         Map<StepRef, List<StepRef>> dependentsMap,
         Many<SwarmEvent> eventSink
@@ -69,7 +79,7 @@ public class ExecutorSwarmAgent extends SwarmAgent {
         var branchSink = createTokenSink();
         eventSink.tryEmitNext(new BranchExecutionStarted(branchSink.asFlux()));
 
-        try (var scope = StructuredTaskScope.open(StructuredTaskScope.Joiner.<StepExecutionResult>allSuccessfulOrThrow())) {
+        try (var scope = StructuredTaskScope.open(StructuredTaskScope.Joiner.<StepExecutionResultDTO>allSuccessfulOrThrow())) {
             for (var step : branch.steps()) {
                 scope.fork(() -> executeStep(branch.branchId(), step, dependentsMap, branchSink, eventSink));
             }
@@ -77,7 +87,7 @@ public class ExecutorSwarmAgent extends SwarmAgent {
             // TODO: enhance input
             return structurize(
                 branchSink.asFlux().reduce(new StringBuffer(), StringBuffer::append).map(StringBuffer::toString).block(),
-                BranchExecutionResult.class
+                BranchExecutionResultDTO.class
             );
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -85,7 +95,7 @@ public class ExecutorSwarmAgent extends SwarmAgent {
         }
     }
 
-    private StepExecutionResult executeStep(
+    private StepExecutionResultDTO executeStep(
         String branchId,
         ResearchStep step,
         Map<StepRef, List<StepRef>> dependentsMap,
@@ -96,20 +106,29 @@ public class ExecutorSwarmAgent extends SwarmAgent {
 
         coordinator.awaitDependencies(stepRef, step.dependencies());
 
+        var swarmTool = SwarmMindTool.forStep(CURRENT_PLAN.get(), stepRef, swarmMind);
+        var sb = new StringBuffer();
+
         var result = streamAndStructurize(
-            StepParams.<StepExecutionResult>builder()
+            StepParams.<StepExecutionResultDTO>builder()
                 .agent(executor)
                 .userPrompt("Execute step " + stepRef + " with dependencies " + step.dependencies())
-                .responseType(StepExecutionResult.class)
+                .responseType(StepExecutionResultDTO.class)
                 .startEventFactory(StepExecutionStarted::new)
                 .endEventFactory(StepExecutionFinished::new)
+                .requestBuilderCustomizer(b -> b.withTool(swarmTool).withAdvisor(swarmMind.stepAdvisor()))
                 .tokenConsumer(f -> f.subscribe(
-                    branchSink::tryEmitNext,
+                    token -> {
+                        sb.append(token);
+                        branchSink.tryEmitNext(token);
+                    },
                     branchSink::tryEmitError,
                     branchSink::tryEmitComplete
-                )).build(),
+                ))
+                .build(),
             eventSink
         );
+        swarmMind.storeStep(sb.toString(), result);
         coordinator.markComplete(stepRef, dependentsMap.getOrDefault(stepRef, List.of()));
 
         return result;

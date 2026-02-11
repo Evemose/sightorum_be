@@ -66,16 +66,16 @@ public sealed interface SwarmEvent permits
     ) implements EndEvent<PlanCritiqueDTO> {}
 
     record BranchExecutionFinished(
-        BranchExecutionResult findings,
+        BranchExecutionResultDTO findings,
         String rawResponse
-    ) implements EndEvent<BranchExecutionResult> {}
+    ) implements EndEvent<BranchExecutionResultDTO> {}
 
     record StepExecutionStarted(Flux<String> tokenStream) implements StartEvent {}
 
     record StepExecutionFinished(
-        StepExecutionResult findings,
+        StepExecutionResultDTO findings,
         String rawResponse
-    ) implements EndEvent<StepExecutionResult> {}
+    ) implements EndEvent<StepExecutionResultDTO> {}
 
     record AnalysisNegotiationStarted(Flux<String> tokenStream) implements StartEvent {}
 

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @JsonClassDescription("Complete result of executing a single research step")
-public record StepExecutionResult(
+public record StepExecutionResultDTO(
 
     @JsonPropertyDescription("Reference to the executed step")
     @JsonProperty(required = true)
@@ -42,7 +42,7 @@ public record StepExecutionResult(
         Matches ResearchVariable.variableName from plan.
         """)
     @JsonProperty(required = true)
-    Map<String, String> producedVariables,
+    Map<String, Object> producedVariables,
 
     @JsonProperty(required = true)
     Instant completedAt

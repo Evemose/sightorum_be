@@ -14,9 +14,15 @@ repositories {
     maven { url = uri("https://repo.spring.io/snapshot") }
 }
 
-val springAiVersion = "1.0.0"
-val hypersistenceVersion = "3.14.1"
-val mapstructVersion = "1.6.3"
+val springAiVersion by extra("1.1.2")
+val hypersistenceVersion by extra("3.14.1")
+val mapstructVersion by extra("1.6.3")
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.ai:spring-ai-bom:$springAiVersion")
+    }
+}
 
 dependencies {
     api(project(":rorm-core"))
@@ -34,6 +40,8 @@ dependencies {
     implementation("io.hypersistence:hypersistence-utils-hibernate-63:$hypersistenceVersion")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc")
+    implementation("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
+    implementation("org.springframework.ai:spring-ai-advisors-vector-store")
 
     compileOnly("org.jspecify:jspecify")
     compileOnly("org.projectlombok:lombok")

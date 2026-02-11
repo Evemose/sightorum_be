@@ -1,5 +1,10 @@
 spring:
   ai:
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 3072
+        schema-validation: true
     chat:
       memory:
         repository:
@@ -11,3 +16,6 @@ spring:
         options:
           model: gpt-5.2-2025-12-11
           temperature: 1.0
+      embedding:
+        options:
+          model: text-embedding-3-large
