@@ -40,8 +40,8 @@ dependencies {
     implementation("io.hypersistence:hypersistence-utils-hibernate-63:$hypersistenceVersion")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc")
-    implementation("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
-    implementation("org.springframework.ai:spring-ai-advisors-vector-store")
+    api("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
+    api("org.springframework.ai:spring-ai-advisors-vector-store")
 
     compileOnly("org.jspecify:jspecify")
     compileOnly("org.projectlombok:lombok")

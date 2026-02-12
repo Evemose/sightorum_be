@@ -1,6 +1,7 @@
 package com.rorm.ai.swarm.agents;
 
 import com.rorm.ai.swarm.SwarmEvent;
+import com.rorm.ai.swarm.SwarmEvent.BranchExecutionFinished;
 import com.rorm.ai.swarm.SwarmEvent.BranchExecutionStarted;
 import com.rorm.ai.swarm.SwarmEvent.StepExecutionFinished;
 import com.rorm.ai.swarm.SwarmEvent.StepExecutionStarted;
@@ -16,6 +17,7 @@ import reactor.core.publisher.Sinks.Many;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.stream.Collectors;
 
@@ -77,18 +79,21 @@ public class ExecutorSwarmAgent extends SwarmAgent {
         Many<SwarmEvent> eventSink
     ) {
         var branchSink = createTokenSink();
-        eventSink.tryEmitNext(new BranchExecutionStarted(branchSink.asFlux()));
+        var structuralBranchId = UUID.randomUUID().toString();
+        eventSink.tryEmitNext(new BranchExecutionStarted(structuralBranchId, branchSink.asFlux()));
 
         try (var scope = StructuredTaskScope.open(StructuredTaskScope.Joiner.<StepExecutionResultDTO>allSuccessfulOrThrow())) {
             for (var step : branch.steps()) {
-                scope.fork(() -> executeStep(branch.branchId(), step, dependentsMap, branchSink, eventSink));
+                scope.fork(() -> executeStep(branch.branchId(), step, dependentsMap, branchSink, eventSink, structuralBranchId));
             }
             scope.join();
             // TODO: enhance input
-            return structurize(
+            var result = structurize(
                 branchSink.asFlux().reduce(new StringBuffer(), StringBuffer::append).map(StringBuffer::toString).block(),
                 BranchExecutionResultDTO.class
             );
+            eventSink.tryEmitNext(new BranchExecutionFinished(structuralBranchId, result, "Branch execution completed"));
+            return result;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Branch execution interrupted", e);
@@ -100,7 +105,8 @@ public class ExecutorSwarmAgent extends SwarmAgent {
         ResearchStep step,
         Map<StepRef, List<StepRef>> dependentsMap,
         Many<String> branchSink,
-        Many<SwarmEvent> eventSink
+        Many<SwarmEvent> eventSink,
+        String structuralBranchId
     ) throws InterruptedException {
         var stepRef = new StepRef(branchId, step.stepId());
 
@@ -114,8 +120,12 @@ public class ExecutorSwarmAgent extends SwarmAgent {
                 .agent(executor)
                 .userPrompt("Execute step " + stepRef + " with dependencies " + step.dependencies())
                 .responseType(StepExecutionResultDTO.class)
-                .startEventFactory(StepExecutionStarted::new)
-                .endEventFactory(StepExecutionFinished::new)
+                .startEventFactory((id, tokens) ->
+                    new StepExecutionStarted(structuralBranchId, id, tokens)
+                )
+                .endEventFactory((id, dto, raw) ->
+                    new StepExecutionFinished(structuralBranchId, id, dto, raw)
+                )
                 .requestBuilderCustomizer(b -> b.withTool(swarmTool).withAdvisor(swarmMind.stepAdvisor()))
                 .tokenConsumer(f -> f.subscribe(
                     token -> {

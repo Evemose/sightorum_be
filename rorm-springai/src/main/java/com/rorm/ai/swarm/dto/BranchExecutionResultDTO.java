@@ -11,10 +11,6 @@ import java.util.Map;
 @JsonClassDescription("Synthesized results from executing all steps in a research branch")
 public record BranchExecutionResultDTO(
 
-    @JsonPropertyDescription("Branch identifier matching ResearchBranch.branchId")
-    @JsonProperty(required = true)
-    String branchId,
-
     @JsonPropertyDescription("""
         Goal this branch aimed to achieve.
         Copied from ResearchBranch.goal for context when reviewing results.

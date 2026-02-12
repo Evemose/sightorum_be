@@ -11,10 +11,6 @@ import java.util.Map;
 @JsonClassDescription("Complete result of executing a single research step")
 public record StepExecutionResultDTO(
 
-    @JsonPropertyDescription("Reference to the executed step")
-    @JsonProperty(required = true)
-    StepRef stepRef,
-
     @JsonPropertyDescription("""
         Concise summary of what was accomplished.
         Example: "Identified top 10 customers by revenue in Q1 2024, accounting for 45% of total sales."

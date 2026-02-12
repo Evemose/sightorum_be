@@ -14,7 +14,6 @@ import reactor.core.publisher.Sinks.Many;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
@@ -34,18 +33,19 @@ abstract class SwarmAgent {
         if (params.tokenConsumer() != null) {
             params.tokenConsumer().accept(tokenSink.asFlux());
         }
+        var id = UUID.randomUUID().toString();
 
         var response = params.agent.stream(params.userPrompt(), params.requestBuilderCustomizer())
             .scan(new StringBuffer(), StringBuffer::append)
             .map(StringBuffer::toString)
-            .doOnSubscribe(_ -> eventSink.tryEmitNext(params.startEventFactory.apply(tokenSink.asFlux())))
+            .doOnSubscribe(_ -> eventSink.tryEmitNext(params.startEventFactory.apply(id, tokenSink.asFlux())))
             .doOnNext(tokenSink::tryEmitNext)
             .doOnError(tokenSink::tryEmitError)
             .doOnComplete(tokenSink::tryEmitComplete)
             .blockLast();
 
         var callResult = summarizer.call(response, convId, params.responseType());
-        eventSink.tryEmitNext(params.endEventFactory.apply(callResult, response));
+        eventSink.tryEmitNext(params.endEventFactory.apply(id, callResult, response));
         return callResult;
     }
 
@@ -57,13 +57,18 @@ abstract class SwarmAgent {
         return summarizer.call(response, responseType);
     }
 
+    @FunctionalInterface
+    protected interface TriFunction<A, B, C, R> {
+        R apply(A a, B b, C c);
+    }
+
     @Builder
     protected record StepParams<T>(
         @NonNull FirstLevelSwarmAgent agent,
         @NonNull String userPrompt,
         @NonNull Class<T> responseType,
-        @NonNull Function<Flux<String>, StartEvent> startEventFactory,
-        @NonNull BiFunction<T, String, EndEvent<T>> endEventFactory,
+        @NonNull BiFunction<String, Flux<String>, StartEvent> startEventFactory,
+        @NonNull TriFunction<String, T, String, EndEvent<T>> endEventFactory,
         @Nullable Consumer<Flux<String>> tokenConsumer,
         @Nullable Many<String> tokenSink,
         @Nullable UnaryOperator<ChatRequest.Builder> requestBuilderCustomizer

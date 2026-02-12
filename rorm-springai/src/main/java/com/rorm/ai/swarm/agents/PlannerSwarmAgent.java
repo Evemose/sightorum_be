@@ -11,6 +11,7 @@ import reactor.core.publisher.Sinks.Many;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -36,7 +37,8 @@ public class PlannerSwarmAgent extends SwarmAgent {
 
     public ResearchPlanDTO negotiate(String input, ScoutOverviewDTO scoutResult, Many<SwarmEvent> eventSink) {
         var tokenSink = createTokenSink();
-        eventSink.tryEmitNext(new PlanNegotiationStarted(tokenSink.asFlux()));
+        var id = UUID.randomUUID().toString();
+        eventSink.tryEmitNext(new PlanNegotiationStarted(id, tokenSink.asFlux()));
 
         var scores = new ArrayList<Double>();
         var cycles = List.<List<StepRef>>of();
@@ -44,7 +46,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
         for (var iteration = 0; ; iteration++) {
             tokenSink.tryEmitNext("Iteration " + (iteration + 1) + ":\nPlanner:\n\n");
 
-            var draftPlan = createPlan(input, scoutResult, cycles, tokenSink, eventSink);
+            var draftPlan = createPlan(input, scoutResult, cycles, tokenSink, eventSink, iteration);
             cycles = validator.findCycles(draftPlan);
 
             if (!cycles.isEmpty()) {
@@ -54,12 +56,13 @@ public class PlannerSwarmAgent extends SwarmAgent {
             }
 
             tokenSink.tryEmitNext("\nCritic:\n\n");
-            var critique = critiquePlan(draftPlan, input, tokenSink, eventSink);
+            var critique = critiquePlan(draftPlan, input, tokenSink, eventSink, iteration);
             scores.add(critique.planScore());
 
             var finishReason = NegotiationBreaker.shouldFinish(scores, iteration + 1);
             if (finishReason.isPresent()) {
                 eventSink.tryEmitNext(new PlanNegotiationFinished(
+                    id,
                     draftPlan,
                     Objects.requireNonNull(
                         tokenSink.asFlux().reduce(new StringBuilder(), StringBuilder::append).block()
@@ -77,7 +80,8 @@ public class PlannerSwarmAgent extends SwarmAgent {
         ScoutOverviewDTO scoutResult,
         List<List<StepRef>> cycles,
         Many<String> tokenSink,
-        Many<SwarmEvent> eventSink
+        Many<SwarmEvent> eventSink,
+        int iteration
     ) {
         var userPrompt = input + "\n\nScout's findings:\n" + scoutResult + buildCycleWarning(cycles);
 
@@ -86,8 +90,12 @@ public class PlannerSwarmAgent extends SwarmAgent {
                 .agent(planner)
                 .userPrompt(userPrompt)
                 .responseType(ResearchPlanDTO.class)
-                .startEventFactory(PlanVersionCreationStarted::new)
-                .endEventFactory(PlanVersionCreationFinished::new)
+                .startEventFactory((id, tokens) ->
+                    new PlanVersionCreationStarted(id, iteration, tokens)
+                )
+                .endEventFactory((id, version, raw) ->
+                    new PlanVersionCreationFinished(id, iteration, version, raw)
+                )
                 .tokenSink(tokenSink)
                 .build(),
             eventSink
@@ -118,15 +126,20 @@ public class PlannerSwarmAgent extends SwarmAgent {
         ResearchPlanDTO plan,
         String originalInput,
         Many<String> tokenSink,
-        Many<SwarmEvent> eventSink
+        Many<SwarmEvent> eventSink,
+        int iteration
     ) {
         return streamAndStructurize(
             StepParams.<PlanCritiqueDTO>builder()
                 .agent(critic)
                 .userPrompt(originalInput + "\n\nDraft plan:\n" + plan)
                 .responseType(PlanCritiqueDTO.class)
-                .startEventFactory(PlanVersionCritiqueStarted::new)
-                .endEventFactory(PlanVersionCritiqueFinished::new)
+                .startEventFactory((id, tokens) ->
+                    new PlanVersionCritiqueStarted(id, iteration, tokens)
+                )
+                .endEventFactory((id, version, raw) ->
+                    new PlanVersionCritiqueFinished(id, iteration, version, raw)
+                )
                 .tokenSink(tokenSink)
                 .build(),
             eventSink

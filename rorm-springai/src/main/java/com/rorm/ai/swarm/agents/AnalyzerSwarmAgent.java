@@ -11,6 +11,7 @@ import reactor.core.publisher.Sinks.Many;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Analyzer agent with critic negotiation loop
@@ -39,22 +40,24 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
         Many<SwarmEvent> eventSink
     ) {
         var tokenSink = createTokenSink();
-        eventSink.tryEmitNext(new AnalysisNegotiationStarted(tokenSink.asFlux()));
+        var id = UUID.randomUUID().toString();
+        eventSink.tryEmitNext(new AnalysisNegotiationStarted(id, tokenSink.asFlux()));
 
         var scores = new ArrayList<Double>();
 
         for (var iteration = 0; ; iteration++) {
             tokenSink.tryEmitNext("Iteration " + (iteration + 1) + ":\nAnalyzer:\n\n");
 
-            var analysis = createAnalysis(originalQuery, branchResults, tokenSink, eventSink);
+            var analysis = createAnalysis(originalQuery, branchResults, tokenSink, eventSink, iteration);
 
             tokenSink.tryEmitNext("\nCritic:\n\n");
-            var critique = critiqueAnalysis(analysis, originalQuery, tokenSink, eventSink);
+            var critique = critiqueAnalysis(analysis, originalQuery, tokenSink, eventSink, iteration);
             scores.add(critique.conclusionScore());
 
             var finishReason = NegotiationBreaker.shouldFinish(scores, iteration + 1);
             if (finishReason.isPresent()) {
                 eventSink.tryEmitNext(new AnalysisNegotiationFinished(
+                    id,
                     analysis,
                     "Analysis negotiation completed",
                     finishReason.get()
@@ -69,7 +72,8 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
         String originalQuery,
         List<BranchExecutionResultDTO> branchResults,
         Many<String> tokenSink,
-        Many<SwarmEvent> eventSink
+        Many<SwarmEvent> eventSink,
+        int iteration
     ) {
         var userPrompt = buildAnalysisPrompt(originalQuery, branchResults);
 
@@ -78,8 +82,12 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
                 .agent(analyzer)
                 .userPrompt(userPrompt)
                 .responseType(AnalysisResultDTO.class)
-                .startEventFactory(AnalysisVersionCreationStarted::new)
-                .endEventFactory(AnalysisVersionCreationFinished::new)
+                .startEventFactory((id, tokens) ->
+                    new AnalysisVersionCreationStarted(id, iteration, tokens)
+                )
+                .endEventFactory((id, version, raw) ->
+                    new AnalysisVersionCreationFinished(id, iteration, version, raw)
+                )
                 .tokenSink(tokenSink)
                 .requestBuilderCustomizer(b ->
                     b.withAdvisor(swarmMind.stepAdvisor()).withTool(new SwarmMindTool(swarmMind))
@@ -93,15 +101,20 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
         AnalysisResultDTO analysis,
         String originalQuery,
         Many<String> tokenSink,
-        Many<SwarmEvent> eventSink
+        Many<SwarmEvent> eventSink,
+        int iteration
     ) {
         return streamAndStructurize(
             StepParams.<ConclusionCritiqueDTO>builder()
                 .agent(critic)
                 .userPrompt(originalQuery + "\n\nAnalysis:\n" + analysis)
                 .responseType(ConclusionCritiqueDTO.class)
-                .startEventFactory(AnalysisVersionCritiqueStarted::new)
-                .endEventFactory(AnalysisVersionCritiqueFinished::new)
+                .startEventFactory((id, tokens) ->
+                    new AnalysisVersionCritiqueStarted(id, iteration, tokens)
+                )
+                .endEventFactory((id, version, raw) ->
+                    new AnalysisVersionCritiqueFinished(id, iteration, version, raw)
+                )
                 .tokenSink(tokenSink)
                 .requestBuilderCustomizer(b ->
                     b.withAdvisor(swarmMind.stepAdvisor()).withTool(new SwarmMindTool(swarmMind))

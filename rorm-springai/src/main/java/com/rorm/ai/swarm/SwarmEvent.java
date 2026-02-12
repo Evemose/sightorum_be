@@ -5,9 +5,7 @@ import com.rorm.ai.swarm.SwarmEvent.StartEvent;
 import com.rorm.ai.swarm.dto.*;
 import reactor.core.publisher.Flux;
 
-public sealed interface SwarmEvent permits
-    StartEvent,
-    EndEvent {
+public sealed interface SwarmEvent permits StartEvent, EndEvent {
 
     sealed interface StartEvent extends SwarmEvent permits
         AnalysisNegotiationStarted,
@@ -37,64 +35,82 @@ public sealed interface SwarmEvent permits
         String rawResponse();
     }
 
-    record ScoutStarted(Flux<String> tokenStream) implements StartEvent {}
+    record ScoutStarted(String scoutId, Flux<String> tokenStream) implements StartEvent {}
 
-    record ScoutFinished(ScoutOverviewDTO findings, String rawResponse) implements EndEvent<ScoutOverviewDTO> {}
+    record ScoutFinished(String scoutId, ScoutOverviewDTO findings,
+                         String rawResponse) implements EndEvent<ScoutOverviewDTO> {}
 
-    record PlanNegotiationStarted(Flux<String> tokenStream) implements StartEvent {}
+    record PlanNegotiationStarted(String planningId, Flux<String> tokenStream) implements StartEvent {}
 
     record PlanNegotiationFinished(
+        String planningId,
         ResearchPlanDTO findings,
         String rawResponse,
         NegotiationFinishReason finishReason
     ) implements EndEvent<ResearchPlanDTO> {}
 
-    record BranchExecutionStarted(Flux<String> tokenStream) implements StartEvent {}
+    record BranchExecutionStarted(String branchId, Flux<String> tokenStream) implements StartEvent {}
 
-    record PlanVersionCreationStarted(Flux<String> tokenStream) implements StartEvent {}
+    record PlanVersionCreationStarted(String planningId, int versionNumber,
+                                      Flux<String> tokenStream) implements StartEvent {}
 
     record PlanVersionCreationFinished(
+        String planningId,
+        int versionNumber,
         ResearchPlanDTO findings,
         String rawResponse
     ) implements EndEvent<ResearchPlanDTO> {}
 
-    record PlanVersionCritiqueStarted(Flux<String> tokenStream) implements StartEvent {}
+    record PlanVersionCritiqueStarted(String planningId, int versionNumber,
+                                      Flux<String> tokenStream) implements StartEvent {}
 
     record PlanVersionCritiqueFinished(
+        String planningId,
+        int versionNumber,
         PlanCritiqueDTO findings,
         String rawResponse
     ) implements EndEvent<PlanCritiqueDTO> {}
 
     record BranchExecutionFinished(
+        String branchId,
         BranchExecutionResultDTO findings,
         String rawResponse
     ) implements EndEvent<BranchExecutionResultDTO> {}
 
-    record StepExecutionStarted(Flux<String> tokenStream) implements StartEvent {}
+    record StepExecutionStarted(String branchId, String stepId, Flux<String> tokenStream) implements StartEvent {}
 
     record StepExecutionFinished(
+        String branchId,
+        String stepId,
         StepExecutionResultDTO findings,
         String rawResponse
     ) implements EndEvent<StepExecutionResultDTO> {}
 
-    record AnalysisNegotiationStarted(Flux<String> tokenStream) implements StartEvent {}
+    record AnalysisNegotiationStarted(String analysisId, Flux<String> tokenStream) implements StartEvent {}
 
     record AnalysisNegotiationFinished(
+        String analysisId,
         AnalysisResultDTO findings,
         String rawResponse,
         NegotiationFinishReason reason
     ) implements EndEvent<AnalysisResultDTO> {}
 
-    record AnalysisVersionCreationStarted(Flux<String> tokenStream) implements StartEvent {}
+    record AnalysisVersionCreationStarted(String analysisId, int versionNumber,
+                                          Flux<String> tokenStream) implements StartEvent {}
 
     record AnalysisVersionCreationFinished(
+        String analysisId,
+        int versionNumber,
         AnalysisResultDTO findings,
         String rawResponse
     ) implements EndEvent<AnalysisResultDTO> {}
 
-    record AnalysisVersionCritiqueStarted(Flux<String> tokenStream) implements StartEvent {}
+    record AnalysisVersionCritiqueStarted(String analysisId, int versionNumber,
+                                          Flux<String> tokenStream) implements StartEvent {}
 
     record AnalysisVersionCritiqueFinished(
+        String analysisId,
+        int versionNumber,
         ConclusionCritiqueDTO findings,
         String rawResponse
     ) implements EndEvent<ConclusionCritiqueDTO> {}
