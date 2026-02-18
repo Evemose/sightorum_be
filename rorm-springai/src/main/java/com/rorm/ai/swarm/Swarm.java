@@ -1,9 +1,9 @@
 package com.rorm.ai.swarm;
 
 import com.rorm.ai.chat.AiChatService;
-import com.rorm.ai.chat.ChatProgress;
 import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.swarm.agents.*;
+import com.rorm.metamodel.ModelSpace;
 import org.springframework.ai.vectorstore.VectorStore;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -20,19 +20,19 @@ public class Swarm {
     private final ExecutorSwarmAgent executor;
     private final AnalyzerSwarmAgent analyzer;
 
-    public Swarm(SwarmConfig config, AiChatService chatService, ChatProgress chatProgress, VectorStore vectorStore) {
-        var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, chatProgress, ThinkingLevel.NONE);
+    public Swarm(SwarmConfig config, AiChatService chatService, ModelSpace modelSpace, VectorStore vectorStore) {
+        var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, modelSpace, ThinkingLevel.NONE);
         var swarmMind = new SwarmMind(UUID.randomUUID().toString(), vectorStore);
 
         this.scout = new ScoutSwarmAgent(
-            new FirstLevelSwarmAgent(config.scout(), chatService, chatProgress, ThinkingLevel.HIGH),
+            new FirstLevelSwarmAgent(config.scout(), chatService, modelSpace, ThinkingLevel.HIGH),
             summarizer
         );
 
-        var critic = new FirstLevelSwarmAgent(config.critic(), chatService, chatProgress, ThinkingLevel.HIGH);
+        var critic = new FirstLevelSwarmAgent(config.critic(), chatService, modelSpace, ThinkingLevel.HIGH);
 
         this.planner = new PlannerSwarmAgent(
-            new FirstLevelSwarmAgent(config.planner(), chatService, chatProgress, ThinkingLevel.HIGH),
+            new FirstLevelSwarmAgent(config.planner(), chatService, modelSpace, ThinkingLevel.HIGH),
             critic,
             summarizer,
             new PlanValidator()
@@ -40,14 +40,14 @@ public class Swarm {
 
         this.executor = new ExecutorSwarmAgent(
             swarmMind,
-            new FirstLevelSwarmAgent(config.executor(), chatService, chatProgress, ThinkingLevel.MEDIUM),
+            new FirstLevelSwarmAgent(config.executor(), chatService, modelSpace, ThinkingLevel.MEDIUM),
             summarizer,
             new DependencyCoordinator()
         );
 
         this.analyzer = new AnalyzerSwarmAgent(
             swarmMind,
-            new FirstLevelSwarmAgent(config.analyzer(), chatService, chatProgress, ThinkingLevel.HIGH),
+            new FirstLevelSwarmAgent(config.analyzer(), chatService, modelSpace, ThinkingLevel.HIGH),
             critic,
             summarizer
         );

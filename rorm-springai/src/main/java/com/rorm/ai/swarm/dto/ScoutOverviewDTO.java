@@ -64,22 +64,22 @@ public record ScoutOverviewDTO(
     Instant timestamp
 
 ) {
-    enum IssueType {
+    public enum IssueType {
         MISSING_VALUES, DUPLICATES, INCONSISTENT, INVALID_FORMAT, OUTLIERS, OTHER
     }
 
-    enum Severity {
+    public enum Severity {
         CRITICAL, HIGH, MEDIUM, LOW
     }
 
-    enum ComplexityLevel {
+    public enum ComplexityLevel {
         LOW,      // Simple query, single entity
         MEDIUM,   // Multiple entities, some joins
         HIGH      // Complex relationships, large scale, data quality issues
     }
 
     @JsonClassDescription("Summary of a discovered entity (table, dataset, concept)")
-    record EntitySummary(
+    public record EntitySummary(
         @JsonPropertyDescription("Entity name (e.g., 'customers', 'orders')")
         @JsonProperty(required = true)
         String name,
@@ -102,7 +102,7 @@ public record ScoutOverviewDTO(
     ) {}
 
     @JsonClassDescription("Data quality issue that may impact research")
-    record DataQualityIssue(
+    public record DataQualityIssue(
         @JsonPropertyDescription("Type: MISSING_VALUES, DUPLICATES, INCONSISTENT, INVALID_FORMAT, OUTLIERS")
         @JsonProperty(required = true)
         IssueType type,

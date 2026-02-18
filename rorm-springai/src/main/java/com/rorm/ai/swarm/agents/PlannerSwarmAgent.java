@@ -11,7 +11,6 @@ import reactor.core.publisher.Sinks.Many;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -37,7 +36,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
 
     public ResearchPlanDTO negotiate(String input, ScoutOverviewDTO scoutResult, Many<SwarmEvent> eventSink) {
         var tokenSink = createTokenSink();
-        var id = UUID.randomUUID().toString();
+        var id = "plan";
         eventSink.tryEmitNext(new PlanNegotiationStarted(id, tokenSink.asFlux()));
 
         var scores = new ArrayList<Double>();
@@ -90,6 +89,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
                 .agent(planner)
                 .userPrompt(userPrompt)
                 .responseType(ResearchPlanDTO.class)
+                .eventId("plan")
                 .startEventFactory((id, tokens) ->
                     new PlanVersionCreationStarted(id, iteration, tokens)
                 )
@@ -134,6 +134,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
                 .agent(critic)
                 .userPrompt(originalInput + "\n\nDraft plan:\n" + plan)
                 .responseType(PlanCritiqueDTO.class)
+                .eventId("plan")
                 .startEventFactory((id, tokens) ->
                     new PlanVersionCritiqueStarted(id, iteration, tokens)
                 )

@@ -18,7 +18,7 @@ configure<FlywayExtension> {
     url = "jdbc:postgresql://localhost:5444/mydatabase"
     user = "myuser"
     password = "mypassword"
-    schemas = arrayOf("rorm_client")
+    schemas = arrayOf("public")
     locations = arrayOf("classpath:db/migration")
 }
 

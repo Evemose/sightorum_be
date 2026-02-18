@@ -5,6 +5,8 @@ import com.rorm.ai.swarm.SwarmEvent.StartEvent;
 import com.rorm.ai.swarm.dto.*;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
+
 public sealed interface SwarmEvent permits StartEvent, EndEvent {
 
     sealed interface StartEvent extends SwarmEvent permits
@@ -77,11 +79,19 @@ public sealed interface SwarmEvent permits StartEvent, EndEvent {
         String rawResponse
     ) implements EndEvent<BranchExecutionResultDTO> {}
 
-    record StepExecutionStarted(String branchId, String stepId, Flux<String> tokenStream) implements StartEvent {}
+    record StepExecutionStarted(
+        String branchId,
+        String stepId,
+        String previousStepId,
+        List<StepRef> dependencies,
+        Flux<String> tokenStream
+    ) implements StartEvent {}
 
     record StepExecutionFinished(
         String branchId,
         String stepId,
+        String previousStepId,
+        List<StepRef> dependencies,
         StepExecutionResultDTO findings,
         String rawResponse
     ) implements EndEvent<StepExecutionResultDTO> {}

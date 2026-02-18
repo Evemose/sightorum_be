@@ -2,8 +2,9 @@ spring:
   ai:
     vectorstore:
       pgvector:
-        initialize-schema: true
         dimensions: 3072
+        table-name: vector_store
+        schema-name: public
         schema-validation: true
     chat:
       memory:

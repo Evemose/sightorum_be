@@ -12,7 +12,7 @@ import java.util.List;
 @With
 public record ChatRequest<T>(
     @NonNull String schema,
-    @NonNull ChatProgress progress,
+    @NonNull ModelSpace modelSpace,
     @NonNull String userPrompt,
     @NonNull Class<T> responseType,
     @Nullable String chatId,
@@ -24,11 +24,13 @@ public record ChatRequest<T>(
 ) {
 
     public static Builder usingData(@NonNull String schema, @NonNull ModelSpace modelSpace) {
-        return new Builder(schema, new ChatProgress(modelSpace));
+        return new Builder(schema, modelSpace);
     }
 
-    public static Builder proceedingOnSchema(@NonNull String schema, ChatProgress progress) {
-        return new Builder(schema, progress);
+    // TODO: Remove when ML module is refactored to use usingData(schema, modelSpace) directly
+    @Deprecated(forRemoval = true)
+    public static Builder proceedingOnSchema(@NonNull String schema, @NonNull ChatProgress progress) {
+        return new Builder(schema, progress.getModelSpace());
     }
 
     @With
@@ -40,7 +42,7 @@ public record ChatRequest<T>(
         @With(AccessLevel.NONE)
         private final String schema;
         @With(AccessLevel.NONE)
-        private final ChatProgress progress;
+        private final ModelSpace modelSpace;
         private String chatId;
         private ThinkingLevel thinkingLevel = ThinkingLevel.NONE;
         private String systemPrompt;
@@ -55,7 +57,7 @@ public record ChatRequest<T>(
         public <T> ChatRequest<T> ask(String userPrompt, Class<T> responseType) {
             return new ChatRequest<>(
                 schema,
-                progress,
+                modelSpace,
                 userPrompt,
                 responseType,
                 systemPrompt,

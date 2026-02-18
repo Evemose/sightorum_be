@@ -1,6 +1,5 @@
 package com.rorm.ai.chat;
 
-import com.rorm.ai.chat.node.ChatForkedNode;
 import com.rorm.ai.chat.node.ChatNode;
 import com.rorm.metamodel.ModelSpace;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
@@ -58,11 +57,6 @@ public class ChatProgress {
         this.modelSpace = modelSpace;
     }
 
-    @SuppressWarnings("NullableProblems")
-    public Optional<ChatProgress> getParent() {
-        return Optional.ofNullable(parent);
-    }
-
     public void fail() {
         this.status = ChatProgressStatus.FAILED;
     }
@@ -71,34 +65,17 @@ public class ChatProgress {
         this.status = ChatProgressStatus.COMPLETED;
     }
 
+    @SuppressWarnings("NullableProblems")
+    public Optional<ChatProgress> getParent() {
+        return Optional.ofNullable(parent);
+    }
+
     public void waitForTraining() {
         this.status = ChatProgressStatus.WAITING_FOR_TRAINING;
     }
 
     public void addNode(ChatNode node) {
         this.nodes.add(node);
-    }
-
-    /**
-     * Removes all nodes starting from (and including) the node with the given ID.
-     * Used for corrections where we need to rewind the conversation.
-     *
-     * @param nodeId the ID of the first node to remove
-     * @return true if nodes were removed, false if the node was not found
-     */
-    public boolean truncateNodesFrom(UUID nodeId) {
-        var index = -1;
-        for (var i = 0; i < nodes.size(); i++) {
-            if (nodes.get(i).getId().equals(nodeId)) {
-                index = i;
-                break;
-            }
-        }
-        if (index == -1) {
-            return false;
-        }
-        nodes.subList(index, nodes.size()).clear();
-        return true;
     }
 
     public UUID getConversationId() {
@@ -114,9 +91,8 @@ public class ChatProgress {
         }
         var child = new ChatProgress(modelSpace);
         child.parent = this;
-        child.nodes.add(new ChatForkedNode(this.nodes.getLast(), reason, furtherInstructions));
+        child.nodes.add(new com.rorm.ai.chat.node.ChatForkedNode(this.nodes.getLast(), reason, furtherInstructions));
         return child;
     }
-
 
 }

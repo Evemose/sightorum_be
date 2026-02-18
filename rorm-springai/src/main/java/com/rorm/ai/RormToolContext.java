@@ -2,6 +2,7 @@ package com.rorm.ai;
 
 import com.rorm.ai.chat.ChatProgress;
 import com.rorm.metamodel.ModelSpace;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
 
@@ -10,29 +11,33 @@ import java.util.Map;
 
 /**
  * Typed wrapper for Spring AI ToolContext providing type-safe access to RORM-specific context data.
- * This record encapsulates the ChatProgress, ModelSpace, and schema name that tools need during execution.
  */
+@Slf4j
 public record RormToolContext(
-    ChatProgress chatProgress,
+    ModelSpace modelSpace,
     @Nullable String schema
 ) {
 
-    public RormToolContext(ChatProgress chatProgress) {
-        this(chatProgress, null);
+    public RormToolContext(ModelSpace modelSpace) {
+        this(modelSpace, null);
     }
 
     /**
      * Extract typed context from Spring AI's ToolContext.
-     *
-     * @throws ClassCastException   if context doesn't contain expected types
-     * @throws NullPointerException if required context keys are missing
      */
     public static RormToolContext from(ToolContext toolContext) {
         var context = toolContext.getContext();
         return new RormToolContext(
-            (ChatProgress) context.get("chatProgress"),
+            (ModelSpace) context.get("modelSpace"),
             (String) context.get("schema")
         );
+    }
+
+    // TODO: Remove when ML module is refactored to use ModelSpace directly
+    @Deprecated(forRemoval = true)
+    public ChatProgress chatProgress() {
+        log.warn("chatProgress() is deprecated - ML module should be refactored to use modelSpace() directly");
+        return new ChatProgress(modelSpace);
     }
 
     /**
@@ -40,14 +45,10 @@ public record RormToolContext(
      */
     public Map<String, Object> toMap() {
         var map = new HashMap<String, Object>();
-        map.put("chatProgress", chatProgress);
+        map.put("modelSpace", modelSpace);
         if (schema != null) {
             map.put("schema", schema);
         }
         return map;
-    }
-
-    public ModelSpace modelSpace() {
-        return chatProgress.getModelSpace();
     }
 }

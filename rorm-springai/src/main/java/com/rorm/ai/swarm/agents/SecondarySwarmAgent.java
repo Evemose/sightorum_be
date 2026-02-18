@@ -1,10 +1,10 @@
 package com.rorm.ai.swarm.agents;
 
 import com.rorm.ai.chat.AiChatService;
-import com.rorm.ai.chat.ChatProgress;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.swarm.SwarmConfig.ModelConfig;
+import com.rorm.metamodel.ModelSpace;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
@@ -14,7 +14,7 @@ public class SecondarySwarmAgent {
     private final String modelName;
     private final String promptTemplate;
     private final AiChatService chatService;
-    private final ChatProgress chatProgress;
+    private final ModelSpace modelSpace;
     private final ThinkingLevel thinkingLevel;
     @Getter(lazy = true, value = AccessLevel.PRIVATE)
     private final String systemPrompt = buildSystemPrompt();
@@ -22,13 +22,13 @@ public class SecondarySwarmAgent {
     public SecondarySwarmAgent(
         ModelConfig modelConfig,
         AiChatService chatService,
-        ChatProgress chatProgress,
+        ModelSpace modelSpace,
         ThinkingLevel thinkingLevel
     ) {
         this.modelName = modelConfig.model();
         this.promptTemplate = modelConfig.systemPrompt();
         this.chatService = chatService;
-        this.chatProgress = chatProgress;
+        this.modelSpace = modelSpace;
         this.thinkingLevel = thinkingLevel;
     }
 
@@ -37,7 +37,7 @@ public class SecondarySwarmAgent {
     }
 
     private <T> ChatRequest<T> buildRequest(String input, @Nullable String conversationId, Class<T> responseType) {
-        return ChatRequest.usingData("", chatProgress.getModelSpace())
+        return ChatRequest.usingData("", modelSpace)
             .withSystemPrompt(getSystemPrompt())
             .withThinkingLevel(thinkingLevel)
             .withModelName(modelName)

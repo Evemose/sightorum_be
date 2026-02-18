@@ -1,17 +1,21 @@
 package com.rorm.client.import_;
 
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "import_jobs", schema = "rorm_client")
+@Table(name = "import_jobs")
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -44,6 +48,10 @@ public class ImportJob {
     @Column(columnDefinition = "text")
     private String errorMessage;
 
+    @Type(JsonType.class)
+    @Column(columnDefinition = "jsonb")
+    private List<ImportEventLog> eventLog = new ArrayList<>();
+
     public ImportJob(String targetSchema, String uploadDir) {
         this.status = ImportJobStatus.QUEUED;
         this.targetSchema = targetSchema;
@@ -73,5 +81,9 @@ public class ImportJob {
         if (totalRows != null) {
             this.totalRows = totalRows;
         }
+    }
+
+    public void appendEvent(ImportEventLog event) {
+        this.eventLog.add(event);
     }
 }

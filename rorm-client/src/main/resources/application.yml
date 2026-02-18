@@ -30,14 +30,11 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-    properties:
-      hibernate:
-        default_schema: rorm_client
   flyway:
     enabled: true
     locations: classpath:db/migration
     schemas:
-      - rorm_client
+      - public
   data:
     redis:
       host: localhost

@@ -1,4 +1,4 @@
-package com.rorm.client.chat;
+package com.rorm.client.research;
 
 import com.rorm.ai.swarm.SwarmEvent;
 import com.rorm.client.stream.SseEmitterRegistry;

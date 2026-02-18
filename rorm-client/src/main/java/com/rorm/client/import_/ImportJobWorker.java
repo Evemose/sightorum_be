@@ -126,7 +126,8 @@ public class ImportJobWorker {
             // Subscribe to progress flux - publish SSE events per emission, block until done
             var finalProgress = result.progress()
                 .doOnNext(progress -> {
-                    var latestEvent = toSseEvent(progress.events().getLast());
+                    var importEvent = progress.events().getLast();
+                    var latestEvent = toSseEvent(importEvent);
                     progressPublisher.publish(new ImportProgress.Progress(
                         jobId,
                         progress.totalRows(),
@@ -135,6 +136,9 @@ public class ImportJobWorker {
                         progress.progressPercent(),
                         latestEvent
                     ));
+
+                    // Append event to job entity for persistence
+                    job.appendEvent(toEventLog(importEvent));
                 })
                 .blockLast();
 
@@ -196,6 +200,17 @@ public class ImportJobWorker {
                 cp.chunkNumber(), cp.rowsWritten(), cp.warnings(), cp.timestamp()
             );
             case ImportEvent.ChunkFailed cf -> new ImportProgress.Event.ChunkFailed(
+                cf.chunkNumber(), cf.error().getMessage(), cf.timestamp()
+            );
+        };
+    }
+
+    private static ImportEventLog toEventLog(ImportEvent event) {
+        return switch (event) {
+            case ImportEvent.ChunkProcessed cp -> ImportEventLog.chunkProcessed(
+                cp.chunkNumber(), cp.rowsWritten(), cp.warnings(), cp.timestamp()
+            );
+            case ImportEvent.ChunkFailed cf -> ImportEventLog.chunkFailed(
                 cf.chunkNumber(), cf.error().getMessage(), cf.timestamp()
             );
         };

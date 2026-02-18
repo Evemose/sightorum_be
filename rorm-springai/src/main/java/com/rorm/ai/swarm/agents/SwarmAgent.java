@@ -33,7 +33,7 @@ abstract class SwarmAgent {
         if (params.tokenConsumer() != null) {
             params.tokenConsumer().accept(tokenSink.asFlux());
         }
-        var id = UUID.randomUUID().toString();
+        var id = params.eventId() != null ? params.eventId() : UUID.randomUUID().toString();
 
         var response = params.agent.stream(params.userPrompt(), params.requestBuilderCustomizer())
             .scan(new StringBuffer(), StringBuffer::append)
@@ -71,6 +71,7 @@ abstract class SwarmAgent {
         @NonNull TriFunction<String, T, String, EndEvent<T>> endEventFactory,
         @Nullable Consumer<Flux<String>> tokenConsumer,
         @Nullable Many<String> tokenSink,
+        @Nullable String eventId,
         @Nullable UnaryOperator<ChatRequest.Builder> requestBuilderCustomizer
     ) {
 

@@ -178,7 +178,7 @@ public class SseEmitterRegistry {
      */
     private void cleanupEmitter(SseEmitter emitter) {
         try {
-            emitter.completeWithError(new IOException("Client disconnected"));
+            emitter.complete();
         } catch (Exception _) {
             // Emitter might already be in error state, ignore
         }

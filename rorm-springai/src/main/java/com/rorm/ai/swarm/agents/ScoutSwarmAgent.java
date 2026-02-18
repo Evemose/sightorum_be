@@ -23,6 +23,7 @@ public class ScoutSwarmAgent extends SwarmAgent {
                 .agent(scout)
                 .userPrompt(input)
                 .responseType(ScoutOverviewDTO.class)
+                .eventId("scout")
                 .startEventFactory(ScoutStarted::new)
                 .endEventFactory(ScoutFinished::new)
                 .build(),

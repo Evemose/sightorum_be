@@ -10,8 +10,7 @@ import com.rorm.ai.swarm.dto.ConclusionCritiqueDTO;
 import reactor.core.publisher.Sinks.Many;
 
 import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
 /**
  * Analyzer agent with critic negotiation loop
@@ -36,11 +35,11 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
 
     public AnalysisResultDTO negotiate(
         String originalQuery,
-        List<BranchExecutionResultDTO> branchResults,
+        Map<String, BranchExecutionResultDTO> branchResults,
         Many<SwarmEvent> eventSink
     ) {
         var tokenSink = createTokenSink();
-        var id = UUID.randomUUID().toString();
+        var id = "analysis";
         eventSink.tryEmitNext(new AnalysisNegotiationStarted(id, tokenSink.asFlux()));
 
         var scores = new ArrayList<Double>();
@@ -51,7 +50,7 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
             var analysis = createAnalysis(originalQuery, branchResults, tokenSink, eventSink, iteration);
 
             tokenSink.tryEmitNext("\nCritic:\n\n");
-            var critique = critiqueAnalysis(analysis, originalQuery, tokenSink, eventSink, iteration);
+            var critique = critiqueAnalysis(analysis, originalQuery, branchResults, tokenSink, eventSink, iteration);
             scores.add(critique.conclusionScore());
 
             var finishReason = NegotiationBreaker.shouldFinish(scores, iteration + 1);
@@ -70,7 +69,7 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
 
     private AnalysisResultDTO createAnalysis(
         String originalQuery,
-        List<BranchExecutionResultDTO> branchResults,
+        Map<String, BranchExecutionResultDTO> branchResults,
         Many<String> tokenSink,
         Many<SwarmEvent> eventSink,
         int iteration
@@ -82,6 +81,7 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
                 .agent(analyzer)
                 .userPrompt(userPrompt)
                 .responseType(AnalysisResultDTO.class)
+                .eventId("analysis")
                 .startEventFactory((id, tokens) ->
                     new AnalysisVersionCreationStarted(id, iteration, tokens)
                 )
@@ -100,6 +100,7 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
     private ConclusionCritiqueDTO critiqueAnalysis(
         AnalysisResultDTO analysis,
         String originalQuery,
+        Map<String, BranchExecutionResultDTO> branchResults,
         Many<String> tokenSink,
         Many<SwarmEvent> eventSink,
         int iteration
@@ -107,8 +108,13 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
         return streamAndStructurize(
             StepParams.<ConclusionCritiqueDTO>builder()
                 .agent(critic)
-                .userPrompt(originalQuery + "\n\nAnalysis:\n" + analysis)
+                .userPrompt(
+                    buildAnalysisPrompt(originalQuery, branchResults)
+                    + "\n\nAnalysis to critique:\n\n" +
+                    buildAnalysisResult(analysis)
+                )
                 .responseType(ConclusionCritiqueDTO.class)
+                .eventId("analysis")
                 .startEventFactory((id, tokens) ->
                     new AnalysisVersionCritiqueStarted(id, iteration, tokens)
                 )
@@ -124,12 +130,13 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
         );
     }
 
-    private String buildAnalysisPrompt(String originalQuery, List<BranchExecutionResultDTO> branchResults) {
+    private String buildAnalysisPrompt(String originalQuery, Map<String, BranchExecutionResultDTO> branchResults) {
         var prompt = new StringBuilder(originalQuery);
         prompt.append("\n\nBranch Findings:\n\n");
 
-        for (var branch : branchResults) {
-            prompt.append("Branch: ").append(branch.branchId()).append("\n");
+        for (var entry : branchResults.entrySet()) {
+            var branch = entry.getValue();
+            prompt.append("Branch: ").append(entry.getKey()).append("\n");
             prompt.append("Goal: ").append(branch.goal()).append("\n");
             prompt.append("Summary: ").append(branch.branchSummary()).append("\n");
             prompt.append("Key Insights:\n");
@@ -140,5 +147,35 @@ public class AnalyzerSwarmAgent extends SwarmAgent {
         }
 
         return prompt.toString();
+    }
+
+    private String buildAnalysisResult(AnalysisResultDTO analysis) {
+        var result = new StringBuilder();
+        result.append("Main Conclusion:\n").append(analysis.mainConclusion()).append("\n\n");
+        result.append("Supporting Evidence:\n");
+        for (var evidence : analysis.supportingEvidence()) {
+            result.append("- [").append(evidence.strength()).append("] ")
+                .append(evidence.sourceBranch()).append(": ").append(evidence.finding()).append("\n");
+        }
+        result.append("\nConfidence: ").append(analysis.confidence()).append("\n\n");
+        result.append("Alternative Interpretations:\n");
+        for (var alt : analysis.alternatives()) {
+            result.append("- ").append(alt).append("\n");
+        }
+        result.append("\nGaps and Limitations:\n");
+        for (var gap : analysis.gaps()) {
+            result.append("- [").append(gap.impact()).append("] ").append(gap.description());
+            if (gap.requiredData() != null) {
+                result.append(" (Needs: ").append(gap.requiredData()).append(")");
+            }
+            result.append("\n");
+        }
+        if (analysis.needsMoreResearch()) {
+            result.append("\nRecommended Follow-Up Research:\n");
+            for (var followUp : analysis.suggestedFollowUp()) {
+                result.append("- ").append(followUp).append("\n");
+            }
+        }
+        return result.toString();
     }
 }

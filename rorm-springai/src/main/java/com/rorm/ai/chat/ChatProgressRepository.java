@@ -4,7 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,15 +18,6 @@ public interface ChatProgressRepository extends JpaRepository<ChatProgress, UUID
         AND TREAT(n AS TrainingQueuedNode).trainingId = :trainingId
         """)
     Optional<ChatProgress> findByTrainingId(UUID trainingId);
-
-    default List<ChatProgress> findByParentIdRecursive(UUID parentId) {
-        var result = new ArrayList<ChatProgress>();
-        findByParent_Id(parentId).forEach(child -> {
-            result.add(child);
-            result.addAll(findByParentIdRecursive(child.getId()));
-        });
-        return result;
-    }
 
     List<ChatProgress> findByParent_Id(UUID parentId);
 

@@ -34,17 +34,17 @@ public class SwarmMind {
         return stepRawOutputs.get(stepRef);
     }
 
-    public void storeStep(String rawOutput, StepExecutionResultDTO step) {
+    public void storeStep(String rawOutput, StepRef ref, StepExecutionResultDTO step) {
         async(() -> {
-            variables.put(step.stepRef(), step.producedVariables());
-            stepRawOutputs.put(step.stepRef(), rawOutput);
+            variables.put(ref, step.producedVariables());
+            stepRawOutputs.put(ref, rawOutput);
             vectorStore.add(List.of(new Document(
                 rawOutput,
                 Map.of(
                     GRANULARITY, Granularity.STEP.toString(),
                     SWARM_ID, swarmId,
-                    STEP_ID, step.stepRef().stepId(),
-                    BRANCH_ID, step.stepRef().branchId(),
+                    STEP_ID, ref.stepId(),
+                    BRANCH_ID, ref.branchId(),
                     "timestamp", step.completedAt().toString()
                 )
             )));
