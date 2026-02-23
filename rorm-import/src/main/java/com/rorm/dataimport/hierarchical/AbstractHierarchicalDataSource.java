@@ -14,6 +14,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -34,6 +35,30 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
     private List<String> cachedColumnNames;
     @Nullable
     private HierarchicalStructure cachedStructure;
+
+    protected HierarchicalStructure analyzeStructure() {
+        var sampleNodes = readSampleNodes();
+
+        if (sampleNodes.isEmpty()) {
+            return new HierarchicalStructure(Map.of(rootName, DetectedRoot.primary(rootName, Map.of())));
+        }
+
+        var roots = new LinkedHashMap<String, DetectedRoot>();
+        var ctx = new FieldContext(rootName, "", roots);
+        var fields = analyzeObjectFields(sampleNodes, ctx);
+        roots.put(rootName, DetectedRoot.primary(rootName, fields));
+        return new HierarchicalStructure(roots);
+    }
+
+    // 4B: Stream-based column flattening
+    private List<String> detectColumnNames() {
+        var structure = detectStructure();
+        var primaryRoot = structure.roots().get(rootName);
+        if (primaryRoot == null) {
+            return List.of();
+        }
+        return flattenedColumns(primaryRoot.fields(), "").toList();
+    }
 
     protected AbstractHierarchicalDataSource(Path filePath) {
         this.filePath = filePath;
@@ -142,55 +167,24 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
      */
     protected abstract List<JsonNode> readSampleNodes();
 
-    protected HierarchicalStructure analyzeStructure() {
-        var sampleNodes = readSampleNodes();
-
-        if (sampleNodes.isEmpty()) {
-            return new HierarchicalStructure(Map.of(rootName, DetectedRoot.primary(rootName, Map.of())));
-        }
-
-        var roots = new LinkedHashMap<String, DetectedRoot>();
-        var fields = analyzeObjectFields(sampleNodes, rootName, "", roots);
-        roots.put(rootName, DetectedRoot.primary(rootName, fields));
-        return new HierarchicalStructure(roots);
-    }
-
-    private List<String> detectColumnNames() {
-        var structure = detectStructure();
-        var primaryRoot = structure.roots().get(rootName);
-        if (primaryRoot == null) {
-            return List.of();
-        }
-        var columns = new ArrayList<String>();
-        collectFlattenedColumns(primaryRoot.fields(), "", columns);
-        return List.copyOf(columns);
-    }
-
-    private void collectFlattenedColumns(Map<String, DetectedField> fields, String prefix, List<String> columns) {
-        for (var entry : fields.entrySet()) {
+    private Stream<String> flattenedColumns(Map<String, DetectedField> fields, String prefix) {
+        return fields.entrySet().stream().flatMap(entry -> {
             var fieldName = entry.getKey();
             var field = entry.getValue();
             var fullName = prefix.isEmpty() ? fieldName : prefix + "." + fieldName;
 
-            switch (field) {
-                case DetectedField.Scalar _ -> columns.add(fullName);
-                case DetectedField.ScalarArray _ -> columns.add(fullName);
-                case DetectedField.Composite composite ->
-                    collectFlattenedColumns(composite.fields(), fullName, columns);
-                case DetectedField.CompositeCollection coll ->
-                    collectFlattenedColumns(coll.elementFields(), fullName, columns);
-                case DetectedField.SingularObjectRef _, DetectedField.PluralObjectRef _ ->
-                    columns.add(fullName + "_id");
-            }
-        }
+            return switch (field) {
+                case DetectedField.Scalar _ -> Stream.of(fullName);
+                case DetectedField.ScalarArray _ -> Stream.of(fullName);
+                case DetectedField.Composite composite -> flattenedColumns(composite.fields(), fullName);
+                case DetectedField.CompositeCollection coll -> flattenedColumns(coll.elementFields(), fullName);
+                case DetectedField.SingularObjectRef _, DetectedField.PluralObjectRef _ -> Stream.of(fullName + "_id");
+            };
+        });
     }
 
-    private Map<String, DetectedField> analyzeObjectFields(
-        List<JsonNode> samples,
-        String currentRootName,
-        String currentPath,
-        Map<String, DetectedRoot> roots
-    ) {
+    // 4A: Uses FieldContext to reduce parameter threading
+    private Map<String, DetectedField> analyzeObjectFields(List<JsonNode> samples, FieldContext ctx) {
         var fieldNames = new LinkedHashSet<String>();
         for (var sample : samples) {
             if (sample.isObject()) {
@@ -201,7 +195,6 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
         var fields = new LinkedHashMap<String, DetectedField>();
 
         for (var fieldName : fieldNames) {
-            var fieldPath = currentPath.isEmpty() ? fieldName : currentPath + "." + fieldName;
             var fieldSamples = samples.stream()
                 .filter(JsonNode::isObject)
                 .map(n -> n.get(fieldName))
@@ -212,20 +205,14 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
                 continue;
             }
 
-            var field = analyzeField(fieldName, fieldPath, fieldSamples, currentRootName, roots);
+            var field = analyzeField(fieldName, fieldSamples, ctx.withPath(fieldName));
             fields.put(fieldName, field);
         }
 
         return fields;
     }
 
-    private DetectedField analyzeField(
-        String fieldName,
-        String fieldPath,
-        List<JsonNode> samples,
-        String currentRootName,
-        Map<String, DetectedRoot> roots
-    ) {
+    private DetectedField analyzeField(String fieldName, List<JsonNode> samples, FieldContext ctx) {
         var firstNonNull = samples.stream()
             .filter(n -> !n.isNull())
             .findFirst()
@@ -235,12 +222,14 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
             return new DetectedField.Scalar(fieldName, new DataType.StringType());
         }
 
+        // 4C: Object analysis uses ObjectClassification
         if (firstNonNull.isObject()) {
-            return analyzeObjectField(fieldName, fieldPath, samples, currentRootName, roots, false);
+            var classification = classifyObject(fieldName, samples, ctx);
+            return classification.toSingular(fieldName);
         }
 
         if (firstNonNull.isArray()) {
-            return analyzeArrayField(fieldName, fieldPath, samples, currentRootName, roots);
+            return analyzeArrayField(fieldName, samples, ctx);
         }
 
         // Scalar value
@@ -252,46 +241,25 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
         return new DetectedField.Scalar(fieldName, dataType);
     }
 
-    private DetectedField analyzeObjectField(
-        String fieldName,
-        String fieldPath,
-        List<JsonNode> samples,
-        String currentRootName,
-        Map<String, DetectedRoot> roots,
-        boolean isArray
-    ) {
+    // 4C: Shared classification builds once, callers pick singular/plural
+    private ObjectClassification classifyObject(String fieldName, List<JsonNode> samples, FieldContext ctx) {
         var objectSamples = samples.stream()
             .filter(JsonNode::isObject)
             .toList();
 
-        // Default behavior: check if nested objects have an "id" field
-        // Override logic is applied later in HierarchicalSchemaConverter
-        boolean treatAsSeparateRoot = hasIdField(objectSamples);
-
-        if (treatAsSeparateRoot) {
-            var childRootName = deriveChildRootName(currentRootName, fieldName);
-            var childFields = analyzeObjectFields(objectSamples, childRootName, "", roots);
-            roots.put(childRootName, DetectedRoot.child(childRootName, childFields, currentRootName, fieldName));
-
-            return isArray
-                ? new DetectedField.PluralObjectRef(fieldName, childRootName)
-                : new DetectedField.SingularObjectRef(fieldName, childRootName);
+        if (hasIdField(objectSamples)) {
+            var childRootName = deriveChildRootName(ctx.rootName(), fieldName);
+            var childCtx = ctx.forChildRoot(childRootName);
+            var childFields = analyzeObjectFields(objectSamples, childCtx);
+            ctx.roots().put(childRootName, DetectedRoot.child(childRootName, childFields, ctx.rootName(), fieldName));
+            return new ObjectClassification(childRootName, childFields);
         } else {
-            var nestedFields = analyzeObjectFields(objectSamples, currentRootName, fieldPath, roots);
-
-            return isArray
-                ? new DetectedField.CompositeCollection(fieldName, nestedFields)
-                : new DetectedField.Composite(fieldName, nestedFields);
+            var nestedFields = analyzeObjectFields(objectSamples, ctx);
+            return new ObjectClassification(null, nestedFields);
         }
     }
 
-    private DetectedField analyzeArrayField(
-        String fieldName,
-        String fieldPath,
-        List<JsonNode> samples,
-        String currentRootName,
-        Map<String, DetectedRoot> roots
-    ) {
+    private DetectedField analyzeArrayField(String fieldName, List<JsonNode> samples, FieldContext ctx) {
         var allElements = samples.stream()
             .filter(JsonNode::isArray)
             .flatMap(arr -> StreamSupport.stream(arr.spliterator(), false))
@@ -311,8 +279,9 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
         }
 
         if (firstElement.isObject()) {
-            // Delegate to object analysis with isArray=true
-            return analyzeObjectField(fieldName, fieldPath, allElements, currentRootName, roots, true);
+            // 4C: Reuse classification, pick plural variant
+            var classification = classifyObject(fieldName, allElements, ctx);
+            return classification.toPlural(fieldName);
         }
 
         // Array of scalars
@@ -322,6 +291,35 @@ public abstract class AbstractHierarchicalDataSource implements HierarchicalData
             .toList();
         var elementType = detectDataType(stringValues);
         return new DetectedField.ScalarArray(fieldName, elementType);
+    }
+
+    // 4A: FieldContext record reduces recursive parameter threading
+    private record FieldContext(String rootName, String path, Map<String, DetectedRoot> roots) {
+        FieldContext withPath(String fieldName) {
+            var newPath = path.isEmpty() ? fieldName : path + "." + fieldName;
+            return new FieldContext(rootName, newPath, roots);
+        }
+
+        FieldContext forChildRoot(String childRootName) {
+            return new FieldContext(childRootName, "", roots);
+        }
+    }
+
+    // 4C: ObjectClassification record replaces boolean isArray parameter
+    private record ObjectClassification(@Nullable String childRootName, Map<String, DetectedField> fields) {
+        DetectedField toSingular(String fieldName) {
+            if (childRootName != null) {
+                return new DetectedField.SingularObjectRef(fieldName, childRootName);
+            }
+            return new DetectedField.Composite(fieldName, fields);
+        }
+
+        DetectedField toPlural(String fieldName) {
+            if (childRootName != null) {
+                return new DetectedField.PluralObjectRef(fieldName, childRootName);
+            }
+            return new DetectedField.CompositeCollection(fieldName, fields);
+        }
     }
 
     private boolean hasIdField(List<JsonNode> objectSamples) {

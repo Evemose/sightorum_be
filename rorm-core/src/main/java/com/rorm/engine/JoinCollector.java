@@ -20,6 +20,15 @@ class JoinCollector {
         return joins;
     }
 
+    Set<QueryContext.JoinInfo> collectFromExpression(Expression expression) {
+        if (expression == null) {
+            return Set.of();
+        }
+        var joins = new LinkedHashSet<QueryContext.JoinInfo>();
+        collectFromExpression(expression, 0, joins);
+        return joins;
+    }
+
     private void collectFromQuery(Query query, int depth, Set<QueryContext.JoinInfo> joins) {
         collectFromSelector(query.selector(), depth, joins);
         if (query.where() != null) {

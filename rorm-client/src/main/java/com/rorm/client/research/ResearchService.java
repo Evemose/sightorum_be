@@ -54,7 +54,7 @@ public class ResearchService {
         outbox.runOnCommit(() -> {
             var stream = request.mock()
                 ? MockSwarm.research(request.query())
-                : createSwarm(metamodel.getModelSpace()).research(request.query());
+                : createSwarm(metamodel.getSchemaName(), metamodel.getModelSpace()).research(request.query());
             stream
                 .doOnNext(event -> handleEvent(researchId, event))
                 .doOnComplete(() -> handleCompletion(researchId))
@@ -65,10 +65,10 @@ public class ResearchService {
         return toResponse(research);
     }
 
-    private Swarm createSwarm(com.rorm.metamodel.ModelSpace modelSpace) {
+    private Swarm createSwarm(String schemaName, com.rorm.metamodel.ModelSpace modelSpace) {
         var store = vectorStore.orElseThrow(() ->
             new IllegalStateException("VectorStore is required to run real swarm research"));
-        return new Swarm(swarmConfig, aiChatService, modelSpace, store);
+        return new Swarm(swarmConfig, aiChatService, schemaName, modelSpace, store);
     }
 
     private void handleEvent(UUID researchId, SwarmEvent event) {

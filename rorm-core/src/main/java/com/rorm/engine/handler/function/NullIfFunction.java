@@ -24,7 +24,6 @@ public final class NullIfFunction implements BuiltInFunctionHandler {
     }
 
     @Override
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public Field<?> transform(List<Expression> args, TransformContext ctx) {
         if (args.size() >= 2) {
             // Use DSL.field() to wrap and avoid ambiguity

@@ -85,7 +85,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "age", CoercionBuilder::skip)
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var ages = jdbcTemplate.queryForList(
             "SELECT age FROM " + testSchema + ".users ORDER BY id",
@@ -129,7 +129,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "active", CoercionBuilder::useDefaults)
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var ages = jdbcTemplate.queryForList(
             "SELECT age FROM " + testSchema + ".users ORDER BY id",
@@ -173,7 +173,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "age", c -> c.useDefault(18))
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var ages = jdbcTemplate.queryForList(
             "SELECT age FROM " + testSchema + ".users ORDER BY id",
@@ -230,7 +230,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "age", CoercionBuilder::throwOnInvalid)
             .importFromSources(List.of(dataSource));
 
-        assertThatThrownBy(() -> dataImportPipeline.importData(request))
+        assertThatThrownBy(() -> awaitImportCompletion(dataImportPipeline.importData(request)))
             .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -252,7 +252,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", c -> c.asNumeric().round())
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -283,7 +283,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", c -> c.asNumeric().clamp())
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -312,7 +312,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", c -> c.asNumeric().truncate())
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -354,7 +354,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", CoercionBuilder::nullOnInvalid)
             .importFromSources(java.util.List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -386,7 +386,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", c -> c.asNumeric().clampPercentage())
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -435,7 +435,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", CoercionBuilder::forwardFill)
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -465,7 +465,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", CoercionBuilder::backwardFill)
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -495,7 +495,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", CoercionBuilder::useMean)
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -526,7 +526,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "score", CoercionBuilder::useMedian)
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var scores = jdbcTemplate.queryForList(
             "SELECT score FROM " + testSchema + ".users ORDER BY id",
@@ -558,7 +558,7 @@ class CoercionIntegrationTest extends AbstractImportTest {
             .withCoercionForPath("users", "status", CoercionBuilder::useMode)
             .importFromSources(List.of(dataSource));
 
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var statuses = jdbcTemplate.queryForList(
             "SELECT status FROM " + testSchema + ".users ORDER BY id",

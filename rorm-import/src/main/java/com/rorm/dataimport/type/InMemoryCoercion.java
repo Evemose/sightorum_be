@@ -62,7 +62,8 @@ public sealed interface InMemoryCoercion extends InvalidValueCoercionStrategy pe
                 case DataType.DateTimeType _ -> java.time.Instant.EPOCH;
                 case DataType.TimezoneType _ -> java.time.ZoneOffset.UTC;
                 case DataType.DayOfWeekType _ -> java.time.DayOfWeek.MONDAY;
-                case DataType.EnumType enumType -> enumType.values().length > 0 ? enumType.values()[0] : "";
+                case DataType.CategorcialType categorcialType ->
+                    categorcialType.values().length > 0 ? categorcialType.values()[0] : "";
                 case DataType.ListType _ -> "";
             };
         }

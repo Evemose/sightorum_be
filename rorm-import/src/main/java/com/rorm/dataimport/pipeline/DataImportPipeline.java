@@ -5,6 +5,7 @@ import com.rorm.dataimport.pipeline.listeners.ImportEventListener;
 import com.rorm.dataimport.pipeline.listeners.ProgressLoggingListener;
 import com.rorm.dataimport.source.ImportDataSource;
 import com.rorm.dataimport.type.DbLevelCoercion;
+import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,9 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -47,16 +50,13 @@ public class DataImportPipeline {
     private final Executor executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public ImportResult importData(ImportRequest request) {
-
-        var box = new Object() {
-            ModelSpace modelSpace;
-        };
-        transactionTemplate.executeWithoutResult(_ -> {
+        // 3A: Direct return from transactionTemplate.execute() eliminates box pattern
+        var modelSpace = Objects.requireNonNull(transactionTemplate.execute(_ -> {
             createSchema(request.targetSchema());
-            box.modelSpace = metamodelConverter.convertToModelSpace(request.detectedSchema());
-            createAllTables(request.targetSchema(), box.modelSpace);
-        });
-        var modelSpace = box.modelSpace;
+            var ms = metamodelConverter.convertToModelSpace(request.detectedSchema());
+            createAllTables(request.targetSchema(), ms);
+            return ms;
+        }));
 
         // Count total rows across all data sources for progress tracking
         var totalRows = request.dataSources().stream()
@@ -91,6 +91,23 @@ public class DataImportPipeline {
         return new ImportResult(request.targetSchema(), modelSpace, progress);
     }
 
+    // 3B: Decomposed into launchJobAsync + buildStep
+    protected Flux<ImportEvent> executeImportJob(ImportRequest request, ModelSpace modelSpace, ImportDataSource dataSource) {
+        var reader = new DataSourceItemReader(dataSource);
+        var writer = createWriterForDataSource(request, modelSpace, dataSource);
+        var sink = Sinks.many().multicast().<ImportEvent>onBackpressureBuffer();
+
+        var step = buildStep(dataSource.getRootName(), reader, writer, request.chunkSize(), sink);
+
+        var jobName = "import-job-" + dataSource.getRootName() + "-" + UUID.randomUUID();
+        var job = new JobBuilder(jobName, jobRepository)
+            .start(step)
+            .build();
+
+        runJobToSink(job, sink);
+        return sink.asFlux();
+    }
+
     private void createSchema(String schemaName) {
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + quoteIdentifier(schemaName));
     }
@@ -102,16 +119,31 @@ public class DataImportPipeline {
         }
     }
 
-    protected Flux<ImportEvent> executeImportJob(ImportRequest request, ModelSpace modelSpace, ImportDataSource dataSource) {
-        var reader = new DataSourceItemReader(dataSource);
-        var writer = createWriterForDataSource(request, modelSpace, dataSource);
-        var sink = Sinks.many().multicast().<ImportEvent>onBackpressureBuffer();
+    // 3C: Decomposed into resolve phase + execute phase
+    private void executeDbLevelCoercions(ImportRequest request, ModelSpace modelSpace) {
+        var targets = resolveCoercionTargets(request, modelSpace);
+        if (targets.isEmpty()) {
+            return;
+        }
 
-        var stepBuilder = new StepBuilder("import-" + dataSource.getRootName(), jobRepository)
-            .<Map<String, Object>, Map<String, Object>>chunk(request.chunkSize(), transactionManager)
+        transactionTemplate.executeWithoutResult(_ -> {
+            for (var target : targets) {
+                jdbcTemplate.execute(target.toSql());
+            }
+        });
+    }
+
+    private org.springframework.batch.core.Step buildStep(
+        String rootName,
+        DataSourceItemReader reader,
+        ItemWriter<Map<String, Object>> writer,
+        int chunkSize,
+        Sinks.Many<ImportEvent> sink
+    ) {
+        var stepBuilder = new StepBuilder("import-" + rootName, jobRepository)
+            .<Map<String, Object>, Map<String, Object>>chunk(chunkSize, transactionManager)
             .reader(new SynchronizedItemReader<>(reader))
             .writer(writer)
-            .taskExecutor(taskExecutor)
             .listener(new ProgressLoggingListener())
             .listener(new ImportEventListener(sink));
 
@@ -119,17 +151,13 @@ public class DataImportPipeline {
             stepBuilder.listener(chunkListener);
         }
 
-        var step = stepBuilder.build();
+        return stepBuilder.build();
+    }
 
-        var jobName = "import-job-" + dataSource.getRootName() + "-" + UUID.randomUUID();
-        var job = new JobBuilder(jobName, jobRepository)
-            .start(step)
-            .build();
-
+    private void runJobToSink(org.springframework.batch.core.Job job, Sinks.Many<ImportEvent> sink) {
         CompletableFuture.runAsync(() -> {
             try {
                 var execution = jobLauncher.run(job, new JobParameters());
-
                 if (execution.getStatus().isUnsuccessful()) {
                     var failureExceptions = execution.getAllFailureExceptions();
                     if (!failureExceptions.isEmpty()) {
@@ -144,8 +172,6 @@ public class DataImportPipeline {
                 sink.tryEmitError(e);
             }
         }, executor);
-
-        return sink.asFlux();
     }
 
     private String quoteIdentifier(String identifier) {
@@ -210,25 +236,13 @@ public class DataImportPipeline {
             .orElseThrow(() -> new IllegalArgumentException("Root not found: " + rootName));
     }
 
-    /**
-     * Execute database-level coercions (ForwardFill, BackwardFill, UseMean, UseMedian, UseMode).
-     * These run as SQL UPDATE statements after all data has been imported.
-     */
-    private void executeDbLevelCoercions(ImportRequest request, ModelSpace modelSpace) {
-        var dbCoercions = request.coercionStrategies().entrySet().stream()
+    private List<CoercionTarget> resolveCoercionTargets(ImportRequest request, ModelSpace modelSpace) {
+        return request.coercionStrategies().entrySet().stream()
             .filter(e -> e.getValue() instanceof DbLevelCoercion)
-            .toList();
-
-        if (dbCoercions.isEmpty()) {
-            return;
-        }
-
-        transactionTemplate.executeWithoutResult(_ -> {
-            for (var entry : dbCoercions) {
+            .map(entry -> {
                 var key = entry.getKey();
                 var strategy = (DbLevelCoercion) entry.getValue();
 
-                // Find the root and attribute to get metadata
                 var detectedRoot = request.detectedSchema().roots().get(key.rootName());
                 if (detectedRoot == null) {
                     throw new IllegalStateException("Root not found: " + key.rootName());
@@ -238,40 +252,42 @@ public class DataImportPipeline {
                 if (attribute == null) {
                     throw new IllegalStateException("Attribute not found: " + key.attributePath());
                 }
-
                 if (!(attribute instanceof DetectedAttribute.Basic basicAttr)) {
                     throw new IllegalStateException("DbLevelCoercion only applicable to basic attributes, not: " + attribute.getClass().getSimpleName());
                 }
 
-                // Find the root from modelSpace to get the ID column name and actual dataType
                 var root = findRoot(modelSpace, key.rootName());
-                var idColumnName = root.idDescriptor().columnName();
-
-                // Get the table and column names
-                var tableName = key.rootName();
-                var columnName = basicAttr.name();
-
-                // Get the actual data type from the metamodel (more reliable than detected type)
                 var metamodelAttr = root.attributes().stream()
                     .filter(a -> a instanceof com.rorm.metamodel.BasicAttribute)
                     .map(a -> (com.rorm.metamodel.BasicAttribute) a)
-                    .filter(a -> a.location().column().equals(columnName))
+                    .filter(a -> a.location().column().equals(basicAttr.name()))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Attribute not found in metamodel: " + columnName));
-                var dataType = metamodelAttr.dataType();
+                    .orElseThrow(() -> new IllegalStateException("Attribute not found in metamodel: " + basicAttr.name()));
 
-                // Generate and execute SQL
-                var sql = strategy.generateSql(
+                return new CoercionTarget(
+                    strategy,
                     request.targetSchema(),
-                    tableName,
-                    columnName,
-                    dataType,
-                    idColumnName
+                    key.rootName(),
+                    basicAttr.name(),
+                    metamodelAttr.dataType(),
+                    root.idDescriptor().columnName()
                 );
+            })
+            .toList();
+    }
 
-                jdbcTemplate.execute(sql);
-            }
-        });
+    // 3C: CoercionTarget record for db-level coercion resolution
+    private record CoercionTarget(
+        DbLevelCoercion strategy,
+        String targetSchema,
+        String tableName,
+        String columnName,
+        DataType dataType,
+        String idColumnName
+    ) {
+        String toSql() {
+            return strategy.generateSql(targetSchema, tableName, columnName, dataType, idColumnName);
+        }
     }
 
     private @Nullable DetectedAttribute findAttributeByPath(Map<String, DetectedAttribute> attributes, String path) {

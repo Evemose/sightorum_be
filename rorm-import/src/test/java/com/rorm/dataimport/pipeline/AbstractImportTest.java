@@ -11,6 +11,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Duration;
 import java.util.UUID;
 
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlSourceToSinkFlow"})
@@ -29,7 +30,8 @@ public abstract class AbstractImportTest {
         .withDatabaseName("testdb")
         .withUsername("test")
         .withPassword("test")
-        .withReuse(true);
+        .withUrlParam("sslmode", "disable");
+    private static final Duration IMPORT_TIMEOUT = Duration.ofSeconds(30);
 
     private final boolean reuseSchema;
 
@@ -68,5 +70,10 @@ public abstract class AbstractImportTest {
 
     protected String getSchemaName() {
         return testSchema;
+    }
+
+    protected ImportResult awaitImportCompletion(ImportResult result) {
+        result.progress().blockLast(IMPORT_TIMEOUT);
+        return result;
     }
 }

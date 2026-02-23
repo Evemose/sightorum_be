@@ -555,4 +555,24 @@ class HierarchicalSchemaConverterTest {
         var profileAttr = schema.roots().get("users").attributes().get("profile");
         assertThat(profileAttr).isInstanceOf(DetectedAttribute.SingularReference.class);
     }
+
+    @Test
+    void shouldConvertPeakSeasonMonthsScalarArrayToNumericCollection() {
+        var fields = new LinkedHashMap<String, DetectedField>();
+        fields.put("id", new DetectedField.Scalar("id", new DataType.NumericType(19, 0)));
+        fields.put(
+            "peak_season_months",
+            new DetectedField.ScalarArray("peak_season_months", new DataType.NumericType(19, 0))
+        );
+
+        var roots = Map.of("products", DetectedRoot.primary("products", fields));
+        var structure = new HierarchicalStructure(roots);
+
+        var schema = converter.convert(structure, "products");
+        var attribute = schema.roots().get("products").attributes().get("peak_season_months");
+
+        assertThat(attribute).isInstanceOf(DetectedAttribute.Collection.class);
+        assertThat(((DetectedAttribute.Collection) attribute).elementType())
+            .isInstanceOf(DataType.NumericType.class);
+    }
 }

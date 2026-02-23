@@ -1,6 +1,7 @@
 package com.rorm.dataimport.type;
 
 import com.rorm.metamodel.DataType;
+import com.rorm.metamodel.DataType.CategorcialType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +14,7 @@ class DataTypeDetectorTest {
 
     private final DataTypeDetector detector = new DataTypeDetector();
     private final InvalidValueCoercionStrategy skipNulls = InMemoryCoercion.Skip.INSTANCE;
-    private final InMemoryCoercion treatAsString = InMemoryCoercion.UseDefault.withStandardDefaults();
+    private final InMemoryCoercion treatAsString = new InMemoryCoercion.UseDefault("");
 
     // ==================== Boolean Type Tests ====================
 
@@ -188,8 +189,8 @@ class DataTypeDetectorTest {
     void detectEnumFewValues() {
         var samples = List.of("RED", "GREEN", "BLUE", "RED", "GREEN", "BLUE", "RED", "GREEN", "BLUE");
         var result = detector.detectType(samples, skipNulls);
-        assertThat(result).isInstanceOf(DataType.EnumType.class);
-        var enumType = (DataType.EnumType) result;
+        assertThat(result).isInstanceOf(CategorcialType.class);
+        var enumType = (CategorcialType) result;
         assertThat(enumType.values()).containsExactlyInAnyOrder("RED", "GREEN", "BLUE");
     }
 

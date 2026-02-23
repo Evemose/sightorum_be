@@ -3,6 +3,7 @@ package com.rorm.dataimport.hierarchical;
 import com.rorm.dataimport.attribute.DetectedAttribute;
 import com.rorm.dataimport.hierarchical.HierarchicalStructure.DetectedField;
 import com.rorm.metamodel.DataType;
+import com.rorm.metamodel.DataType.CategorcialType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -293,7 +294,7 @@ class JsonDataSourceTest {
         Files.writeString(jsonFile, jsonContent);
 
         List<HierarchicalOverride> overrides = List.of(
-            new HierarchicalOverride.DataTypeOverride("status", new DataType.EnumType(new String[]{"active", "inactive", "pending"}))
+            new HierarchicalOverride.DataTypeOverride("status", new CategorcialType(new String[]{"active", "inactive", "pending"}))
         );
 
         var dataSource = new JsonDataSource(jsonFile);
@@ -306,7 +307,7 @@ class JsonDataSourceTest {
         // Convert with override - should apply EnumType
         var schema = converter.convert(structure, "items", Set.of(), overrides);
         var statusAttr = (DetectedAttribute.Basic) schema.roots().get("items").attributes().get("status");
-        assertThat(statusAttr.dataType()).isInstanceOf(DataType.EnumType.class);
+        assertThat(statusAttr.dataType()).isInstanceOf(CategorcialType.class);
 
         dataSource.close();
     }
@@ -477,7 +478,7 @@ class JsonDataSourceTest {
         List<HierarchicalOverride> overrides = List.of(
             new HierarchicalOverride.DataTypeOverride(
                 "address.type",
-                new DataType.EnumType(new String[]{"home", "work", "other"})
+                new CategorcialType(new String[]{"home", "work", "other"})
             )
         );
 
@@ -489,7 +490,7 @@ class JsonDataSourceTest {
 
         var addressAttr = (DetectedAttribute.Composite) schema.roots().get("users").attributes().get("address");
         var typeAttr = (DetectedAttribute.Basic) addressAttr.subAttributes().get("type");
-        assertThat(typeAttr.dataType()).isInstanceOf(DataType.EnumType.class);
+        assertThat(typeAttr.dataType()).isInstanceOf(CategorcialType.class);
 
         dataSource.close();
     }
@@ -511,7 +512,7 @@ class JsonDataSourceTest {
 
         List<HierarchicalOverride> overrides = List.of(
             // Override data type
-            new HierarchicalOverride.DataTypeOverride("status", new DataType.EnumType(new String[]{"active", "inactive"})),
+            new HierarchicalOverride.DataTypeOverride("status", new CategorcialType(new String[]{"active", "inactive"})),
             // Force settings (no ID) to be separate root
             new HierarchicalOverride.ForceSeparateRoot("settings", HierarchicalOverride.IdStrategy.AutoGenerate.INSTANCE)
         );
@@ -524,7 +525,7 @@ class JsonDataSourceTest {
 
         // Status should be enum
         var statusAttr = (DetectedAttribute.Basic) schema.roots().get("users").attributes().get("status");
-        assertThat(statusAttr.dataType()).isInstanceOf(DataType.EnumType.class);
+        assertThat(statusAttr.dataType()).isInstanceOf(CategorcialType.class);
 
         // Settings should be separate root (via override)
         assertThat(schema.roots()).containsKeys("users", "users_setting");
@@ -779,6 +780,38 @@ class JsonDataSourceTest {
 
         var root = structure.roots().get("special");
         assertThat(root.fields()).containsKeys("id", "field_with_underscore", "fieldWithCamelCase", "field-with-dash");
+
+        dataSource.close();
+    }
+
+    @Test
+    void shouldFlattenPeakSeasonMonthsArrayAsListOfNumbers() throws Exception {
+        var jsonContent = """
+            [
+              {"id": 1, "peak_season_months": [1, 12, 2]},
+              {"id": 2, "peak_season_months": []}
+            ]
+            """;
+
+        var jsonFile = tempDir.resolve("products.json");
+        Files.writeString(jsonFile, jsonContent);
+
+        var dataSource = new JsonDataSource(jsonFile);
+        var rows = dataSource.stream().toList();
+
+        assertThat(rows)
+            .filteredOn(row -> ((Number) row.get("id")).longValue() == 1L)
+            .singleElement()
+            .extracting(row -> row.get("peak_season_months"))
+            .asInstanceOf(LIST)
+            .containsExactly(1L, 12L, 2L);
+
+        assertThat(rows)
+            .filteredOn(row -> ((Number) row.get("id")).longValue() == 2L)
+            .singleElement()
+            .extracting(row -> row.get("peak_season_months"))
+            .asInstanceOf(LIST)
+            .isEmpty();
 
         dataSource.close();
     }

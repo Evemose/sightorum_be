@@ -1,6 +1,7 @@
 package com.rorm.dataimport.type;
 
 import com.rorm.metamodel.DataType;
+import com.rorm.metamodel.DataType.CategorcialType;
 
 import java.math.BigDecimal;
 import java.time.*;
@@ -35,7 +36,7 @@ public interface TypeParser {
             case DataType.TimeType _ -> new TimeParser().parse(value);
             case DataType.DayOfWeekType _ -> new DayOfWeekParser().parse(value);
             case DataType.TimezoneType _ -> new TimezoneParser().parse(value);
-            case DataType.EnumType enm -> new EnumParser(List.of(enm.values())).parse(value);
+            case DataType.CategorcialType enm -> new EnumParser(List.of(enm.values())).parse(value);
             case DataType.StringType _ -> new StringParser().parse(value);
             case DataType.ListType _ -> value; // Collections handled separately
         };
@@ -378,7 +379,7 @@ public interface TypeParser {
 
         @Override
         public DataType getDataType() {
-            return new DataType.EnumType(distinctValues.toArray(String[]::new));
+            return new CategorcialType(distinctValues.toArray(String[]::new));
         }
 
         @Override

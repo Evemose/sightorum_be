@@ -10,6 +10,7 @@ import com.rorm.query.Selector.SingleExprSelector;
 import lombok.RequiredArgsConstructor;
 import org.jooq.*;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -70,9 +71,22 @@ public class QueryTransformer {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Select<?> applyJoins(Select<?> query, Set<QueryContext.JoinInfo> autoJoins, Set<Join> explicitJoins, QueryContext ctx) {
         var result = query;
+        var remainingAutoJoins = new LinkedHashSet<>(autoJoins);
 
         for (var join : explicitJoins) {
             var joinedRootInfo = ctx.getOrRegisterJoinedRoot(join.aliasedRoot());
+
+            var onConditionAutoJoins = join.onCondition() != null
+                ? joinCollector.collectFromExpression(join.onCondition())
+                : Set.<QueryContext.JoinInfo>of();
+            for (var autoJoin : onConditionAutoJoins) {
+                if (autoJoin.leftJoinColumn() != null && autoJoin.rightJoinColumn() != null) {
+                    remainingAutoJoins.remove(autoJoin);
+                    result = ((SelectJoinStep<?>) result).leftJoin(autoJoin.table())
+                        .on(autoJoin.leftJoinColumn().eq((Field) autoJoin.rightJoinColumn()));
+                }
+            }
+
             var condition = join.onCondition() != null
                 ? (Condition) expr.transform(join.onCondition())
                 : noCondition();
@@ -80,7 +94,7 @@ public class QueryTransformer {
         }
 
         // Apply automatic joins from path navigation (reference attributes)
-        for (var join : autoJoins) {
+        for (var join : remainingAutoJoins) {
             if (join.leftJoinColumn() != null && join.rightJoinColumn() != null) {
                 result = ((SelectJoinStep<?>) result).leftJoin(join.table())
                     .on(join.leftJoinColumn().eq((Field) join.rightJoinColumn()));

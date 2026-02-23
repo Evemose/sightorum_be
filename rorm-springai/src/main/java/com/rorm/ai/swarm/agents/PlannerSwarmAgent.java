@@ -10,7 +10,6 @@ import reactor.core.publisher.Sinks.Many;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -36,6 +35,8 @@ public class PlannerSwarmAgent extends SwarmAgent {
 
     public ResearchPlanDTO negotiate(String input, ScoutOverviewDTO scoutResult, Many<SwarmEvent> eventSink) {
         var tokenSink = createTokenSink();
+        var rawResponse = new StringBuffer();
+        var rawResponseSubscription = tokenSink.asFlux().subscribe(rawResponse::append);
         var id = "plan";
         eventSink.tryEmitNext(new PlanNegotiationStarted(id, tokenSink.asFlux()));
 
@@ -63,12 +64,11 @@ public class PlannerSwarmAgent extends SwarmAgent {
                 eventSink.tryEmitNext(new PlanNegotiationFinished(
                     id,
                     draftPlan,
-                    Objects.requireNonNull(
-                        tokenSink.asFlux().reduce(new StringBuilder(), StringBuilder::append).block()
-                    ).toString(),
+                    rawResponse.toString(),
                     finishReason.get()
                 ));
                 tokenSink.tryEmitComplete();
+                rawResponseSubscription.dispose();
                 return draftPlan;
             }
         }

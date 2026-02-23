@@ -1,11 +1,13 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.pipeline.listeners.ImportEventListener;
+import com.rorm.dataimport.type.InMemoryCoercion;
 import com.rorm.dataimport.type.NumericCoercionStrategy;
 import com.rorm.dataimport.type.TypeParser;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.IdDescriptor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.item.Chunk;
@@ -13,12 +15,12 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.lang.reflect.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -27,24 +29,39 @@ import java.util.stream.Stream;
 @Slf4j
 class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListener {
 
+    private static final Map<Class<?>, Class<?>> PRIMITIVE_TO_WRAPPER = Map.of(
+        int.class, Integer.class,
+        long.class, Long.class,
+        short.class, Short.class,
+        boolean.class, Boolean.class,
+        double.class, Double.class,
+        float.class, Float.class,
+        byte.class, Byte.class,
+        char.class, Character.class
+    );
+
+    private static final Set<String> INVALID_TOKENS = Set.of("invalid", "n/a", "na", "null");
+
     private final JdbcTemplate jdbcTemplate;
     private final String qualifiedTableName;
     private final List<ColumnMapping> dataColumnMappings;
     private final IdDescriptor idDescriptor;
     private final String insertSql;
     private final AtomicLong rowCounter;
-    private final Map<ImportRequest.AttributeKey, com.rorm.dataimport.type.InMemoryCoercion> inMemoryCoercions;
+    private final Map<ImportRequest.AttributeKey, InMemoryCoercion> inMemoryCoercions;
+    private final Map<ImportRequest.AttributeKey, com.rorm.dataimport.type.DbLevelCoercion> dbLevelCoercions;
+    @SuppressWarnings("NotNullFieldNotInitialized")
     private ChunkContext chunkContext;
 
     /**
      * Creates a writer with column mappings from detected schema.
      *
-     * @param jdbcTemplate        JDBC template for database operations
-     * @param schema              Target database schema
-     * @param tableName           Target table name
-     * @param idDescriptor        ID descriptor for the table
-     * @param columnMappings      Column mappings with source information
-     * @param coercionStrategies  All coercion strategies (InMemory and DbLevel)
+     * @param jdbcTemplate       JDBC template for database operations
+     * @param schema             Target database schema
+     * @param tableName          Target table name
+     * @param idDescriptor       ID descriptor for the table
+     * @param columnMappings     Column mappings with source information
+     * @param coercionStrategies All coercion strategies (InMemory and DbLevel)
      */
     DatabaseItemWriter(
         JdbcTemplate jdbcTemplate,
@@ -60,10 +77,16 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
 
         // Filter to only InMemoryCoercion strategies - DbLevelCoercion executes post-import
         this.inMemoryCoercions = coercionStrategies.entrySet().stream()
-            .filter(e -> e.getValue() instanceof com.rorm.dataimport.type.InMemoryCoercion)
+            .filter(e -> e.getValue() instanceof InMemoryCoercion)
             .collect(java.util.stream.Collectors.toMap(
                 Map.Entry::getKey,
-                e -> (com.rorm.dataimport.type.InMemoryCoercion) e.getValue()
+                e -> (InMemoryCoercion) e.getValue()
+            ));
+        this.dbLevelCoercions = coercionStrategies.entrySet().stream()
+            .filter(e -> e.getValue() instanceof com.rorm.dataimport.type.DbLevelCoercion)
+            .collect(java.util.stream.Collectors.toMap(
+                Map.Entry::getKey,
+                e -> (com.rorm.dataimport.type.DbLevelCoercion) e.getValue()
             ));
 
         // Filter out the ID column from data columns
@@ -98,14 +121,15 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
     @Override
     @SuppressWarnings("unchecked")
     public void write(Chunk<? extends Map<String, Object>> chunk) {
-        // Validate all IDs first to ensure the entire chunk fails if any ID is invalid
         var rowsWithIds = new ArrayList<Map.Entry<Map<String, Object>, Object>>();
         for (var row : chunk) {
             var id = determineRowId(row);
             rowsWithIds.add(Map.entry(row, id));
         }
 
-        var warnings = (List<String>) chunkContext.getAttribute(ImportEventListener.WARNINGS_KEY);
+        var warnings = (List<String>) Objects.requireNonNull(
+            chunkContext.getAttribute(ImportEventListener.WARNINGS_KEY)
+        );
 
         jdbcTemplate.batchUpdate(insertSql, new BatchPreparedStatementSetter() {
             @Override
@@ -127,13 +151,26 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
     }
 
     private Object determineRowId(Map<String, Object> row) {
-        // Try to find ID value in row (case-insensitive)
-        var idValue = row.entrySet().stream()
+        var rawValue = findRawIdValue(row);
+        return coerceIdValue(rawValue);
+    }
+
+    private Object[] buildRowValues(Map<String, Object> row, Object id, List<String> warnings) {
+        return Stream.concat(
+            Stream.of(id),
+            dataColumnMappings.stream().map(mapping -> resolveColumnValue(row, mapping, warnings))
+        ).toArray();
+    }
+
+    private @Nullable Object findRawIdValue(Map<String, Object> row) {
+        return row.entrySet().stream()
             .filter(e -> e.getKey().equalsIgnoreCase(idDescriptor.columnName()))
             .map(Map.Entry::getValue)
             .findFirst()
             .orElse(null);
+    }
 
+    private Object coerceIdValue(@Nullable Object idValue) {
         return switch (idDescriptor.dataType()) {
             case DataType.NumericType _ -> {
                 if (idValue == null) {
@@ -168,51 +205,52 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
         };
     }
 
-    private Object[] buildRowValues(Map<String, Object> row, Object id, List<String> warnings) {
+    private @Nullable Object resolveColumnValue(Map<String, Object> row, ColumnMapping mapping, List<String> warnings) {
         var tableName = qualifiedTableName.substring(qualifiedTableName.indexOf('.') + 1);
-        return Stream.concat(
-            Stream.of(id),
-            dataColumnMappings.stream().map(mapping -> {
-                // Look up value using the source column name from CSV
-                var value = row.get(mapping.sourceColumn());
-                if (value == null) {
-                    return null;
-                }
-                if (isCompatibleType(value, mapping.dataType())) {
-                    return value;
-                }
-                try {
-                    var parsed = TypeParser.parseValue(value.toString(), mapping.dataType());
+        var key = new ImportRequest.AttributeKey(tableName, mapping.dbColumnName());
+        var rawValue = row.get(mapping.sourceColumn());
+        if (rawValue == null) {
+            return null;
+        }
 
-                    if (
-                        mapping.dataType() instanceof DataType.NumericType numericType && parsed instanceof Number number &&
-                        !fitsWithinConstraints(number, numericType)
-                    ) {
-                        // Check if there's an in-memory coercion strategy for numeric overflow
-                        var key = new ImportRequest.AttributeKey(tableName, mapping.dbColumnName());
-                        var strategy = inMemoryCoercions.get(key);
-                        if (strategy != null) {
-                            return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
-                        }
-                        warnings.add("Value %s exceeds precision/scale constraints for column %s. Setting to NULL."
-                            .formatted(value, mapping.dbColumnName()));
-                        return null;
-                    }
+        var coerced = handleCollectionTypes(rawValue, mapping);
+        if (isDbLevelCoercionTarget(key, coerced)) {
+            return null;
+        }
 
-                    return parsed;
-                } catch (Exception e) {
-                    // Check if there's an in-memory coercion strategy for this attribute
-                    var key = new ImportRequest.AttributeKey(tableName, mapping.dbColumnName());
-                    var strategy = inMemoryCoercions.get(key);
-                    if (strategy != null) {
-                        return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
-                    }
-                    warnings.add("Failed to parse value '%s' for column '%s' with type %s: %s"
-                        .formatted(value, mapping.dbColumnName(), mapping.dataType(), e.getMessage()));
-                    return null;
-                }
-            })
-        ).toArray();
+        var strategy = inMemoryCoercions.get(key);
+        if (isNumericCoercionTarget(strategy, mapping)) {
+            return strategy.coerce(coerced.toString(), mapping.dataType(), mapping.dbColumnName());
+        }
+        if (isCompatibleType(coerced, mapping.dataType())) {
+            return coerced;
+        }
+        return parseAndValidate(coerced, mapping, strategy, warnings);
+    }
+
+    private Object handleCollectionTypes(Object value, ColumnMapping mapping) {
+        if (mapping.dataType() instanceof DataType.ListType(var elementType)) {
+            if (value instanceof Collection<?> collection) {
+                return toTypedArray(collection, elementType);
+            } else if (value instanceof String stringValue) {
+                return parseDelimitedCollectionValue(stringValue, mapping, elementType);
+            }
+        } else if (value instanceof Collection<?>) {
+            throw new IllegalStateException("Expected ListType for collection value but got " + mapping.dataType());
+        }
+        return value;
+    }
+
+    private boolean isDbLevelCoercionTarget(ImportRequest.AttributeKey key, Object value) {
+        return dbLevelCoercions.containsKey(key) && isInvalidToken(value.toString());
+    }
+
+    private boolean isNumericCoercionTarget(
+        InMemoryCoercion strategy,
+        ColumnMapping mapping
+    ) {
+        return strategy instanceof NumericCoercionStrategy
+               && mapping.dataType() instanceof DataType.NumericType;
     }
 
     private boolean isCompatibleType(Object value, DataType dataType) {
@@ -225,8 +263,81 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
         };
     }
 
+    private @Nullable Object parseAndValidate(
+        Object value, ColumnMapping mapping,
+        @Nullable InMemoryCoercion strategy, List<String> warnings
+    ) {
+        try {
+            var parsed = TypeParser.parseValue(value.toString(), mapping.dataType());
+            if (mapping.dataType() instanceof DataType.NumericType numericType
+                && parsed instanceof Number number
+                && !fitsWithinConstraints(number, numericType)) {
+                if (strategy != null) {
+                    return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
+                }
+                warnings.add("Value %s exceeds precision/scale constraints for column %s. Setting to NULL."
+                    .formatted(value, mapping.dbColumnName()));
+                return null;
+            }
+            return parsed;
+        } catch (Exception e) {
+            if (strategy != null) {
+                return strategy.coerce(value.toString(), mapping.dataType(), mapping.dbColumnName());
+            }
+            warnings.add("Failed to parse value '%s' for column '%s' with type %s: %s"
+                .formatted(value, mapping.dbColumnName(), mapping.dataType(), e.getMessage()));
+            return null;
+        }
+    }
+
+    private Object[] toTypedArray(Collection<?> collection, DataType elementType) {
+        var array = (Object[]) Array.newInstance(arrayComponentType(elementType), collection.size());
+        var i = 0;
+        for (var element : collection) {
+            array[i++] = elementType.valueOf(element);
+        }
+        return array;
+    }
+
+    private Object[] parseDelimitedCollectionValue(String value, ColumnMapping mapping, DataType elementType) {
+        if (value.isBlank()) {
+            return (Object[]) Array.newInstance(arrayComponentType(elementType), 0);
+        }
+
+        var separator = mapping.collectionSeparator();
+        if (separator == null || separator.isEmpty()) {
+            throw new IllegalStateException(
+                "Missing collection separator for list-typed column mapping: " + mapping.dbColumnName()
+            );
+        }
+
+        var parts = value.split(Pattern.quote(separator), -1);
+        var parsedValues = new ArrayList<>(parts.length);
+        for (var part : parts) {
+            var trimmed = part.trim();
+            if (trimmed.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "Empty collection element for column '%s'".formatted(mapping.dbColumnName())
+                );
+            }
+            var parsed = TypeParser.parseValue(trimmed, elementType);
+            parsedValues.add(elementType.valueOf(parsed));
+        }
+        return parsedValues.toArray((Object[]) Array.newInstance(arrayComponentType(elementType), parsedValues.size()));
+    }
+
+    private boolean isInvalidToken(@Nullable String value) {
+        var trimmed = value == null ? "" : value.trim();
+        return INVALID_TOKENS.contains(trimmed.toLowerCase());
+    }
+
     private boolean fitsWithinConstraints(Number number, DataType.NumericType numericType) {
         var decimal = new java.math.BigDecimal(number.toString());
         return NumericCoercionStrategy.fitsWithinPrecision(decimal, numericType.precision(), numericType.scale());
+    }
+
+    private Class<?> arrayComponentType(DataType elementType) {
+        var javaType = elementType.javaType();
+        return PRIMITIVE_TO_WRAPPER.getOrDefault(javaType, javaType);
     }
 }

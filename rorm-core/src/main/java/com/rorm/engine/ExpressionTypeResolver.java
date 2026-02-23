@@ -5,6 +5,7 @@ import com.rorm.engine.handler.TypeResolutionContext;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
 import com.rorm.metamodel.CollectionAttribute.CompositeElement;
+import com.rorm.metamodel.DataType.CategorcialType;
 import com.rorm.query.*;
 import com.rorm.query.Expression.*;
 import lombok.RequiredArgsConstructor;
@@ -147,7 +148,7 @@ public class ExpressionTypeResolver implements TypeResolutionContext {
             case LocalDateTime _, Instant _ -> new DataType.DateTimeType();
             case ZonedDateTime _, OffsetDateTime _ -> new DataType.TimezoneType();
             case DayOfWeek _ -> new DataType.DayOfWeekType();
-            case Enum<?> e -> new DataType.EnumType(getEnumValues(e.getClass()));
+            case Enum<?> e -> new CategorcialType(getEnumValues(e.getClass()));
             case List<?> list -> inferListType(list);
             default -> throw new TypeResolutionException("Unknown literal type: " + value.getClass().getName());
         };

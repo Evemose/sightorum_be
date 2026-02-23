@@ -2,8 +2,7 @@ create extension if not exists vector;
 
 create table vector_store
 (
-    id        uuid default uuid_generate_v4() not null
-        primary key,
+    id uuid not null primary key,
     content   text,
     metadata  json,
     embedding halfvec(3072)

@@ -93,7 +93,7 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         var detectionResult = modelSpaceDetector.detect(dataSources, overridesByRoot, ",");
         var schema = getSchemaName();
         var request = new ImportRequest(schema, dataSources, detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(8753);
 

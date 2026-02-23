@@ -22,7 +22,6 @@ public final class IsNotNullOperator implements BuiltInUnaryOperatorHandler {
     }
 
     @Override
-    @SuppressWarnings("rawtypes")
     public Field<?> transform(Expression operand, TransformContext ctx) {
         return ctx.transform(operand).isNotNull();
     }

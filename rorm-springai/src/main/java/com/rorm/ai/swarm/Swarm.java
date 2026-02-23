@@ -20,19 +20,19 @@ public class Swarm {
     private final ExecutorSwarmAgent executor;
     private final AnalyzerSwarmAgent analyzer;
 
-    public Swarm(SwarmConfig config, AiChatService chatService, ModelSpace modelSpace, VectorStore vectorStore) {
-        var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, modelSpace, ThinkingLevel.NONE);
+    public Swarm(SwarmConfig config, AiChatService chatService, String schema, ModelSpace modelSpace, VectorStore vectorStore) {
+        var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, schema, modelSpace, ThinkingLevel.NONE);
         var swarmMind = new SwarmMind(UUID.randomUUID().toString(), vectorStore);
 
         this.scout = new ScoutSwarmAgent(
-            new FirstLevelSwarmAgent(config.scout(), chatService, modelSpace, ThinkingLevel.HIGH),
+            new FirstLevelSwarmAgent(config.scout(), chatService, schema, modelSpace, ThinkingLevel.HIGH),
             summarizer
         );
 
-        var critic = new FirstLevelSwarmAgent(config.critic(), chatService, modelSpace, ThinkingLevel.HIGH);
+        var critic = new FirstLevelSwarmAgent(config.critic(), chatService, schema, modelSpace, ThinkingLevel.HIGH);
 
         this.planner = new PlannerSwarmAgent(
-            new FirstLevelSwarmAgent(config.planner(), chatService, modelSpace, ThinkingLevel.HIGH),
+            new FirstLevelSwarmAgent(config.planner(), chatService, schema, modelSpace, ThinkingLevel.HIGH),
             critic,
             summarizer,
             new PlanValidator()
@@ -40,14 +40,14 @@ public class Swarm {
 
         this.executor = new ExecutorSwarmAgent(
             swarmMind,
-            new FirstLevelSwarmAgent(config.executor(), chatService, modelSpace, ThinkingLevel.MEDIUM),
+            new FirstLevelSwarmAgent(config.executor(), chatService, schema, modelSpace, ThinkingLevel.MEDIUM),
             summarizer,
             new DependencyCoordinator()
         );
 
         this.analyzer = new AnalyzerSwarmAgent(
             swarmMind,
-            new FirstLevelSwarmAgent(config.analyzer(), chatService, modelSpace, ThinkingLevel.HIGH),
+            new FirstLevelSwarmAgent(config.analyzer(), chatService, schema, modelSpace, ThinkingLevel.HIGH),
             critic,
             summarizer
         );

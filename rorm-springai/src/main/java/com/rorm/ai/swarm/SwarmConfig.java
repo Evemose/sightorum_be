@@ -25,7 +25,7 @@ public record SwarmConfig(
         critic = Objects.requireNonNullElseGet(critic, () -> new ModelConfig(null, null));
         analyzer = Objects.requireNonNullElseGet(analyzer, () -> new ModelConfig(null, null));
         if (!hasText(scout.model)) {
-            scout = scout.withModel("gpt-5.2-pro-2025-12-11");
+            scout = scout.withModel("gpt-5.2-2025-12-11");
         }
         if (!hasText(scout.systemPrompt)) {
             scout = scout.withSystemPrompt(SwarmDefaultPrompts.SCOUT);
@@ -43,19 +43,19 @@ public record SwarmConfig(
             executor = executor.withSystemPrompt(SwarmDefaultPrompts.EXECUTOR);
         }
         if (!hasText(planner.model)) {
-            planner = planner.withModel("gpt-5.2-pro-2025-12-11");
+            planner = planner.withModel("gpt-5.2-2025-12-11");
         }
         if (!hasText(planner.systemPrompt)) {
             planner = planner.withSystemPrompt(SwarmDefaultPrompts.PLANNER);
         }
         if (!hasText(critic.model)) {
-            critic = critic.withModel("gpt-5.2-pro-2025-12-11");
+            critic = critic.withModel("gpt-5.2-2025-12-11");
         }
         if (!hasText(critic.systemPrompt)) {
             critic = critic.withSystemPrompt(SwarmDefaultPrompts.CRITIC);
         }
         if (!hasText(analyzer.model)) {
-            analyzer = analyzer.withModel("gpt-5.2-pro-2025-12-11");
+            analyzer = analyzer.withModel("gpt-5.2-2025-12-11");
         }
         if (!hasText(analyzer.systemPrompt)) {
             analyzer = analyzer.withSystemPrompt(SwarmDefaultPrompts.ANALYZER);

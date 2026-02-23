@@ -5,6 +5,7 @@ plugins {
 tasks.test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
+    jvmArgs("--enable-preview")
     jvmArgs("-XX:+EnableDynamicAgentLoading")
 }
 

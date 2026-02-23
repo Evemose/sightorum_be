@@ -181,7 +181,7 @@ public class MetamodelContextBuilder {
             case TimezoneType _ -> "timezone";
             case DateTimeType _ -> "datetime";
             case DayOfWeekType _ -> "day of week";
-            case EnumType e -> "enum(" + String.join(", ", e.values()) + ")";
+            case DataType.CategorcialType e -> "enum(" + String.join(", ", e.values()) + ")";
             case ListType l -> "list of " + describeDataType(l.elementType());
         };
     }

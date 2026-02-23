@@ -36,6 +36,7 @@ class JoinedRootQueryTest extends AbstractPostgresTest {
     private static BasicAttribute orderId;
     private static BasicAttribute orderTotal;
     private static BasicAttribute orderCustomerId;
+    private static SingularReferenceAttribute orderCustomer;
     private static BasicAttribute productId;
     private static BasicAttribute productName;
 
@@ -58,7 +59,9 @@ class JoinedRootQueryTest extends AbstractPostgresTest {
         orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
         orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"), new DataType.NumericType(10, 2));
         orderCustomerId = new BasicAttribute("customer_id", new AttributeLocation("orders", "customer_id"), new DataType.NumericType(19, 0));
-        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId), IdDescriptor.longId("orders"));
+        orderCustomer = new SingularReferenceAttribute("customer", customerRoot,
+            new ReferenceAttribute.SameTableColumn("customer_id"));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomerId, orderCustomer), IdDescriptor.longId("orders"));
     }
 
     @BeforeEach
@@ -259,6 +262,42 @@ class JoinedRootQueryTest extends AbstractPostgresTest {
                 .hasSize(2)
                 .extracting(r -> r.get("customer_name"), r -> r.get("order_total"))
                 .containsExactlyInAnyOrder(
+                    tuple("Alice", new java.math.BigDecimal("200.00")),
+                    tuple("Bob", new java.math.BigDecimal("150.00"))
+                );
+        }
+
+        @Test
+        @DisplayName("supports path navigation inside explicit join ON condition")
+        void supportsPathNavigationInsideExplicitJoinOnCondition() {
+            var joinedCustomers = AliasedRoot.of(customerRoot, "c");
+            var orderCustomerNamePath = new Path(customerName, new Path(orderCustomer, null));
+            var joinedCustomerNamePath = new Path(customerName, new Path(joinedCustomers, null));
+            var joinCondition = new BinaryExpression(
+                orderCustomerNamePath,
+                StandardOperator.Binary.EQUALS.identifier(),
+                joinedCustomerNamePath
+            );
+
+            var query = Query.builder()
+                .from(AliasedRoot.of(orderRoot))
+                .joins(joins(new Join(joinedCustomers, JoinType.INNER, joinCondition)))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(joinedCustomerNamePath, "customer_name"),
+                    new SelectedExpression(new Path(orderTotal, null), "order_total")
+                ), false))
+                .build();
+
+            var sql = transformer.transform(query);
+
+            @SuppressWarnings("unchecked")
+            var result = (Result<Record>) dsl.fetch(sql);
+
+            assertThat(result)
+                .hasSize(3)
+                .extracting(r -> r.get("customer_name"), r -> r.get("order_total"))
+                .containsExactlyInAnyOrder(
+                    tuple("Alice", new java.math.BigDecimal("100.00")),
                     tuple("Alice", new java.math.BigDecimal("200.00")),
                     tuple("Bob", new java.math.BigDecimal("150.00"))
                 );

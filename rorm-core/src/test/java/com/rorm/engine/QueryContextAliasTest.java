@@ -1,6 +1,12 @@
 package com.rorm.engine;
 
 import com.rorm.metamodel.*;
+import com.rorm.query.Path;
+import com.rorm.query.Query;
+import com.rorm.query.Selector.SingleExprSelector;
+import com.rorm.testutil.TestHandlerRegistry;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,16 +22,20 @@ class QueryContextAliasTest {
     private static Root customerRoot;
     private static Root orderRoot;
     private static Root productRoot;
+    private static BasicAttribute customerName;
+    private static SingularReferenceAttribute orderCustomer;
 
     @BeforeAll
     static void setupMetamodel() {
         var customerId = new BasicAttribute("id", new AttributeLocation("customers", "id"), new DataType.NumericType(19, 0));
-        var customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"), new DataType.StringType());
+        customerName = new BasicAttribute("name", new AttributeLocation("customers", "name"), new DataType.StringType());
         customerRoot = new Root("customers", List.of(customerId, customerName), IdDescriptor.longId("customers"));
 
         var orderId = new BasicAttribute("id", new AttributeLocation("orders", "id"), new DataType.NumericType(19, 0));
         var orderTotal = new BasicAttribute("total", new AttributeLocation("orders", "total"), new DataType.NumericType(10, 2));
-        orderRoot = new Root("orders", List.of(orderId, orderTotal), IdDescriptor.longId("orders"));
+        orderCustomer = new SingularReferenceAttribute("customer", customerRoot,
+            new ReferenceAttribute.SameTableColumn("customer_id"));
+        orderRoot = new Root("orders", List.of(orderId, orderTotal, orderCustomer), IdDescriptor.longId("orders"));
 
         var productId = new BasicAttribute("id", new AttributeLocation("products", "id"), new DataType.NumericType(19, 0));
         var productName = new BasicAttribute("name", new AttributeLocation("products", "name"), new DataType.StringType());
@@ -216,6 +226,31 @@ class QueryContextAliasTest {
                 .startsWith("t1_");
             assertThat(deepInfo.table().getName())
                 .startsWith("t2_");
+        }
+    }
+
+    @Nested
+    @DisplayName("Schema qualification")
+    class SchemaQualification {
+
+        @Test
+        @DisplayName("qualifies auto-joined reference tables when schema is provided")
+        void qualifiesAutoJoinedReferenceTablesWhenSchemaProvided() {
+            var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
+            var expressionTransformer = new ExpressionTransformer(handlerRegistry);
+            var transformer = new QueryTransformer(DSL.using(SQLDialect.POSTGRES), expressionTransformer, new JoinCollector(expressionTransformer));
+
+            var customerNameViaReference = new Path(customerName, new Path(orderCustomer, null));
+            var query = Query.builder()
+                .from(AliasedRoot.of(orderRoot))
+                .selector(new SingleExprSelector(customerNameViaReference, false, "customer_name"))
+                .build();
+
+            var sql = transformer.transform(query, "works").getSQL().toLowerCase();
+
+            assertThat(sql)
+                .contains("\"works\".\"orders\"")
+                .contains("\"works\".\"customers\"");
         }
     }
 }

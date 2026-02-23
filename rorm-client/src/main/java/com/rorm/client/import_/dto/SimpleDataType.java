@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.rorm.metamodel.DataType;
+import com.rorm.metamodel.DataType.CategorcialType;
 
 import java.io.IOException;
 import java.util.LinkedHashSet;
@@ -60,7 +61,7 @@ public sealed interface SimpleDataType permits
             case DataType.DateTimeType _ -> TIMESTAMP;
             case DataType.DateType _ -> DATE;
             case DataType.TimeType _ -> TIME;
-            case DataType.EnumType e -> e.values() != null && e.values().length > 0
+            case DataType.CategorcialType e -> e.values() != null && e.values().length > 0
                 ? new Enum(new LinkedHashSet<>(List.of(e.values())))
                 : new Enum(null);
             case DataType.ListType l -> new ListType(fromMetamodel(l.elementType()));
@@ -100,7 +101,7 @@ public sealed interface SimpleDataType permits
             case Date _ -> new DataType.DateType();
             case Time _ -> new DataType.TimeType();
             case Timestamp _ -> new DataType.DateTimeType();
-            case Enum e -> new DataType.EnumType(
+            case Enum e -> new CategorcialType(
                 e.values() != null ? e.values().toArray(String[]::new) : new String[0]
             );
             case ListType l -> new DataType.ListType(l.elementType().toMetamodel());

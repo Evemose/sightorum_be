@@ -1,7 +1,10 @@
 package com.rorm.dataimport.pipeline;
 
+import com.rorm.dataimport.hierarchical.JsonDataSource;
 import com.rorm.dataimport.override.SchemaOverride.BasicAttributeOverride;
+import com.rorm.dataimport.override.SchemaOverride.CollectionAttributeOverride;
 import com.rorm.dataimport.source.CsvDataSource;
+import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.DataType.StringType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -48,7 +52,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -98,7 +102,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -161,7 +165,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -215,7 +219,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(categoriesSource, productsSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(6);
 
@@ -273,7 +277,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -321,7 +325,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.users ORDER BY id".formatted(schema));
         assertThat(rows).hasSize(3);
@@ -378,7 +382,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.locations ORDER BY id".formatted(schema));
         assertThat(rows).hasSize(2);
@@ -391,6 +395,104 @@ class ComplexAttributeImportTest extends AbstractImportTest {
             .containsEntry("address_city_name", "Springfield")
             .containsEntry("address_city_state", "IL")
             .containsEntry("address_city_country", "USA");
+
+        dataSource.close();
+    }
+
+    @Test
+    @DisplayName("imports hierarchical peak_season_months without numeric parse warnings")
+    void importHierarchicalPeakSeasonMonthsWithoutNumericParseWarnings() throws Exception {
+        var jsonFile = tempDir.resolve("products.json");
+        Files.writeString(jsonFile, """
+            [
+              {"id": 1, "sku": "SKU000001", "peak_season_months": [1, 12, 2]},
+              {"id": 2, "sku": "SKU000002", "peak_season_months": []},
+              {"id": 4, "sku": "SKU000004", "peak_season_months": [10, 6, 12, 4]}
+            ]
+            """);
+
+        var dataSource = new JsonDataSource(jsonFile);
+        var detectionResult = modelSpaceDetector.detect(List.of(dataSource), Map.of(), ";");
+
+        var schema = getSchemaName();
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var progress = result.progress().blockLast(Duration.ofSeconds(30));
+
+        assertThat(progress).isNotNull();
+        assertThat(warningsForColumn(progress.events(), "peak_season_months")).isEmpty();
+
+        var rows = jdbcTemplate.queryForList(
+            "SELECT id, peak_season_months FROM %s.products ORDER BY id".formatted(schema)
+        );
+        assertThat(rows).hasSize(3);
+        assertThat(rows)
+            .filteredOn(row -> ((Number) row.get("id")).longValue() == 1L)
+            .singleElement()
+            .extracting(row -> row.get("peak_season_months"))
+            .isNotNull();
+        assertThat(rows)
+            .filteredOn(row -> ((Number) row.get("id")).longValue() == 4L)
+            .singleElement()
+            .extracting(row -> row.get("peak_season_months"))
+            .isNotNull();
+
+        dataSource.close();
+    }
+
+    private List<String> warningsForColumn(List<ImportEvent> events, String columnName) {
+        return events.stream()
+            .filter(ImportEvent.ChunkProcessed.class::isInstance)
+            .map(ImportEvent.ChunkProcessed.class::cast)
+            .flatMap(event -> event.warnings().stream())
+            .filter(warning -> warning.contains(columnName))
+            .toList();
+    }
+
+    @Test
+    @DisplayName("imports flat peak_season_months without numeric parse warnings when collection override is numeric")
+    void importFlatPeakSeasonMonthsWithNumericCollectionOverrideWithoutParseWarnings() throws Exception {
+        var csvFile = tempDir.resolve("products_flat.csv");
+        Files.writeString(csvFile, """
+            id,peak_season_months
+            1,1;12;2
+            2,
+            4,10;6;12;4
+            """);
+
+        var dataSource = new CsvDataSource(csvFile);
+        var overrides = Map.of(
+            "products_flat",
+            List.of(new CollectionAttributeOverride(
+                "peakSeasonMonths",
+                new DataType.NumericType(19, 0),
+                ";"
+            ))
+        );
+        var detectionResult = modelSpaceDetector.detect(List.of(dataSource), overrides, ";");
+
+        var schema = getSchemaName();
+        var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var progress = result.progress().blockLast(Duration.ofSeconds(30));
+
+        assertThat(progress).isNotNull();
+        assertThat(warningsForColumn(progress.events(), "peak_season_months")).isEmpty();
+
+        var rows = jdbcTemplate.queryForList(
+            "SELECT id, peak_season_months FROM %s.products_flat ORDER BY id".formatted(schema)
+        );
+        assertThat(rows).hasSize(3);
+        assertThat(rows)
+            .filteredOn(row -> ((Number) row.get("id")).longValue() == 1L)
+            .singleElement()
+            .extracting(row -> row.get("peak_season_months"))
+            .isNotNull();
+        assertThat(rows)
+            .filteredOn(row -> ((Number) row.get("id")).longValue() == 4L)
+            .singleElement()
+            .extracting(row -> row.get("peak_season_months"))
+            .isNotNull();
 
         dataSource.close();
     }

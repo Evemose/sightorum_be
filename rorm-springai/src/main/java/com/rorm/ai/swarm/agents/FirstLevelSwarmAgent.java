@@ -6,34 +6,38 @@ import com.rorm.ai.chat.ChatRequest.Builder;
 import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.swarm.SwarmConfig.ModelConfig;
 import com.rorm.metamodel.ModelSpace;
-import lombok.AccessLevel;
-import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 
+import java.util.Map;
 import java.util.function.UnaryOperator;
 
 public class FirstLevelSwarmAgent {
 
+    private static final String USER_QUERY_PLACEHOLDER = "USER_QUERY";
+
     private final String modelName;
     private final String promptTemplate;
     private final AiChatService chatService;
+    private final String schema;
     private final ModelSpace modelSpace;
     private final ThinkingLevel thinkingLevel;
-    @Getter(lazy = true, value = AccessLevel.PRIVATE)
-    private final String systemPrompt = buildSystemPrompt();
+    private final SwarmPromptTemplateRenderer promptRenderer;
 
     public FirstLevelSwarmAgent(
         ModelConfig modelConfig,
         AiChatService chatService,
+        String schema,
         ModelSpace modelSpace,
         ThinkingLevel thinkingLevel
     ) {
         this.modelName = modelConfig.model();
         this.promptTemplate = modelConfig.systemPrompt();
         this.chatService = chatService;
+        this.schema = schema;
         this.modelSpace = modelSpace;
         this.thinkingLevel = thinkingLevel;
+        this.promptRenderer = new SwarmPromptTemplateRenderer(modelSpace);
     }
 
     public Flux<String> stream(String input, String conversationId) {
@@ -42,8 +46,8 @@ public class FirstLevelSwarmAgent {
 
     private ChatRequest<String> buildRequest(String input, @Nullable String conversationId, UnaryOperator<Builder> requestBuilderCustomizer) {
         return requestBuilderCustomizer.apply(
-            ChatRequest.usingData("", modelSpace)
-                .withSystemPrompt(getSystemPrompt())
+            ChatRequest.usingData(schema, modelSpace)
+                .withSystemPrompt(buildSystemPrompt(input))
                 .withThinkingLevel(thinkingLevel)
                 .withModelName(modelName)
                 .withChatId(conversationId)
@@ -54,8 +58,8 @@ public class FirstLevelSwarmAgent {
         return chatService.stream(buildRequest(input, null, requestBuilderCustomizer));
     }
 
-    private String buildSystemPrompt() {
-        return promptTemplate;
+    private String buildSystemPrompt(String input) {
+        return promptRenderer.render(promptTemplate, Map.of(USER_QUERY_PLACEHOLDER, input));
     }
 
 }

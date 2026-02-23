@@ -83,6 +83,7 @@ public class ExecutorSwarmAgent extends SwarmAgent {
         Many<SwarmEvent> eventSink
     ) {
         var branchSink = createTokenSink();
+        var branchRawOutput = new StringBuffer();
         var branchId = branch.branchId();
         eventSink.tryEmitNext(new BranchExecutionStarted(branchId, branchSink.asFlux()));
 
@@ -91,14 +92,12 @@ public class ExecutorSwarmAgent extends SwarmAgent {
             for (var i = 0; i < steps.size(); i++) {
                 var step = steps.get(i);
                 var previousStepId = i == 0 ? null : steps.get(i - 1).stepId();
-                scope.fork(() -> executeStep(branchId, step, previousStepId, dependentsMap, branchSink, eventSink));
+                scope.fork(() -> executeStep(branchId, step, previousStepId, dependentsMap, branchSink, branchRawOutput, eventSink));
             }
             scope.join();
+            branchSink.tryEmitComplete();
             // TODO: enhance input
-            var result = structurize(
-                branchSink.asFlux().reduce(new StringBuffer(), StringBuffer::append).map(StringBuffer::toString).block(),
-                BranchExecutionResultDTO.class
-            );
+            var result = structurize(branchRawOutput.toString(), BranchExecutionResultDTO.class);
             eventSink.tryEmitNext(new BranchExecutionFinished(branchId, result, "Branch execution completed"));
             return Map.entry(branchId, result);
         } catch (InterruptedException e) {
@@ -113,6 +112,7 @@ public class ExecutorSwarmAgent extends SwarmAgent {
         String previousStepId,
         Map<StepRef, List<StepRef>> dependentsMap,
         Many<String> branchSink,
+        StringBuffer branchRawOutput,
         Many<SwarmEvent> eventSink
     ) throws InterruptedException {
         var stepRef = new StepRef(branchId, step.stepId());
@@ -138,10 +138,10 @@ public class ExecutorSwarmAgent extends SwarmAgent {
                 .tokenConsumer(f -> f.subscribe(
                     token -> {
                         sb.append(token);
+                        branchRawOutput.append(token);
                         branchSink.tryEmitNext(token);
                     },
-                    branchSink::tryEmitError,
-                    branchSink::tryEmitComplete
+                    branchSink::tryEmitError
                 ))
                 .build(),
             eventSink

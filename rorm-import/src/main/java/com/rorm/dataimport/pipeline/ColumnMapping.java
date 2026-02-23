@@ -15,12 +15,22 @@ record ColumnMapping(
     String dbColumnName,
     String sourceColumn,
     @Nullable String sourceDataSource,
-    DataType dataType
+    DataType dataType,
+    @Nullable String collectionSeparator
 ) {
+    ColumnMapping(
+        String dbColumnName,
+        String sourceColumn,
+        @Nullable String sourceDataSource,
+        DataType dataType
+    ) {
+        this(dbColumnName, sourceColumn, sourceDataSource, dataType, null);
+    }
+
     /**
      * Constructor for backward compatibility when source is the same datasource.
      */
     ColumnMapping(String dbColumnName, String sourceColumn, DataType dataType) {
-        this(dbColumnName, sourceColumn, null, dataType);
+        this(dbColumnName, sourceColumn, null, dataType, null);
     }
 }

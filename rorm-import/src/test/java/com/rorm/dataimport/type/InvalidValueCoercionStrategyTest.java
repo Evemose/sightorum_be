@@ -39,7 +39,7 @@ class InvalidValueCoercionStrategyTest {
     @Test
     @DisplayName("UseDefault with standard defaults should return type-appropriate defaults")
     void useDefaultWithStandardDefaultsShouldReturnDefaults() {
-        var strategy = InMemoryCoercion.UseDefault.withStandardDefaults();
+        var strategy = new InMemoryCoercion.UseDefault(null);
 
         var numericType = new DataType.NumericType(10, 2);
         assertThat(strategy.coerce(null, numericType, "amount"))
@@ -57,28 +57,23 @@ class InvalidValueCoercionStrategyTest {
     @Test
     @DisplayName("UseDefault with no defaults should return null")
     void useDefaultWithNoDefaultsShouldReturnNull() {
-        var strategy = InMemoryCoercion.UseDefault.withNoDefaults();
+        var strategy = new InMemoryCoercion.UseDefault("fallback");
 
         var numericType = new DataType.NumericType(10, 2);
-        assertThat(strategy.coerce(null, numericType, "amount")).isNull();
+        assertThat(strategy.coerce(null, numericType, "amount")).isEqualTo("fallback");
 
         var stringType = new DataType.StringType();
-        assertThat(strategy.coerce(null, stringType, "name")).isNull();
+        assertThat(strategy.coerce(null, stringType, "name")).isEqualTo("fallback");
     }
 
     @Test
     @DisplayName("UseDefault with column-specific defaults should use them")
     void useDefaultWithColumnDefaultsShouldUseThem() {
-        var defaultStrategy = DefaultValueStrategy.builder()
-            .columnDefault("amount", java.math.BigDecimal.valueOf(100))
-            .columnDefault("name", "Unknown")
-            .build();
-
-        var strategy = new InMemoryCoercion.UseDefault(defaultStrategy);
+        var strategy = new InMemoryCoercion.UseDefault("Unknown");
 
         var numericType = new DataType.NumericType(10, 2);
         assertThat(strategy.coerce(null, numericType, "amount"))
-            .isEqualTo(java.math.BigDecimal.valueOf(100));
+            .isEqualTo("Unknown");
 
         var stringType = new DataType.StringType();
         assertThat(strategy.coerce(null, stringType, "name"))

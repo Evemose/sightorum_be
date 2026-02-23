@@ -7,6 +7,7 @@ public sealed interface Operator permits
 
     enum UnaryOperator implements Operator {
         IS_NULL,
+        IS_NOT_NULL,
         IS_TRUE,
         IS_FALSE,
         NEGATE,

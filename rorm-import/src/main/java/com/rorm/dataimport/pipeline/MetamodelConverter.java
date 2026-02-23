@@ -4,7 +4,6 @@ import com.rorm.dataimport.attribute.DetectedAttribute;
 import com.rorm.metamodel.*;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -14,43 +13,25 @@ import java.util.stream.Collectors;
  */
 public class MetamodelConverter {
 
-    private HashMap<String, Root> createMutableRootMap(DetectedSchema detectedSchema) {
-        var rootMap = new HashMap<String, Root>();
-
-        for (var detectedRoot : detectedSchema.roots().values()) {
-            var rootName = detectedRoot.name();
-            var idColumn = detectedRoot.idColumn();
-            var idDescriptor = new IdDescriptor(new BasicAttribute(
-                idColumn.attributeName(),
-                new AttributeLocation(rootName, idColumn.columnName()),
-                idColumn.dataType()
-            ));
-            rootMap.put(rootName, new Root(rootName, new ArrayList<>(), idDescriptor));
-        }
-        return rootMap;
-    }
-
     /**
      * Converts detected schema to ModelSpace.
      */
     public ModelSpace convertToModelSpace(DetectedSchema detectedSchema) {
-        var rootMap = createMutableRootMap(detectedSchema);
+        var specs = detectedSchema.roots().values().stream()
+            .map(RootBuildSpec::from)
+            .toList();
 
-        for (var detectedRoot : detectedSchema.roots().values()) {
-            var rootName = detectedRoot.name();
-            var root = rootMap.get(rootName);
+        // Mutable root map — references need to see attributes added later
+        var rootMap = specs.stream()
+            .collect(Collectors.toMap(
+                RootBuildSpec::name,
+                spec -> new Root(spec.name(), new ArrayList<>(), spec.idDescriptor())
+            ));
 
-            // Add the ID attribute from the IdDescriptor to the attributes list
-            // The ID should be both in the descriptor AND in the attributes
-            root.attributes().add(root.idDescriptor().idAttribute());
-
-            // Add all other attributes
-            var attributes = convertToAttributes(
-                detectedRoot.attributes(),
-                rootName,
-                rootMap
-            );
-            root.attributes().addAll(attributes);
+        for (var spec : specs) {
+            var root = rootMap.get(spec.name());
+            root.attributes().add(spec.idDescriptor().idAttribute());
+            root.attributes().addAll(convertToAttributes(spec.attrs(), spec.name(), rootMap));
         }
 
         return new ModelSpace(
@@ -58,6 +39,19 @@ public class MetamodelConverter {
                 .map(root -> new Root(root.primaryTableName(), List.copyOf(root.attributes()), root.idDescriptor()))
                 .collect(Collectors.toUnmodifiableSet())
         );
+    }
+
+    // 6A: RootBuildSpec eliminates mutable root.attributes().add() pattern
+    private record RootBuildSpec(String name, IdDescriptor idDescriptor, Map<String, DetectedAttribute> attrs) {
+        static RootBuildSpec from(SchemaDetector.DetectedRoot dr) {
+            var idColumn = dr.idColumn();
+            var idDescriptor = new IdDescriptor(new BasicAttribute(
+                idColumn.attributeName(),
+                new AttributeLocation(dr.name(), idColumn.columnName()),
+                idColumn.dataType()
+            ));
+            return new RootBuildSpec(dr.name(), idDescriptor, dr.attributes());
+        }
     }
 
     private List<Attribute> convertToAttributes(

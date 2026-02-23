@@ -55,7 +55,7 @@ public enum TypeCategory {
         return switch (dataType) {
             case DataType.NumericType _ -> NUMERIC;
             case DataType.StringType _ -> CATEGORICAL;
-            case DataType.EnumType _ -> CATEGORICAL;
+            case DataType.CategorcialType _ -> CATEGORICAL;
             case DataType.DayOfWeekType _ -> CATEGORICAL;
             case DataType.BooleanType _ -> BOOLEAN;
             case DataType.DateType _ -> TEMPORAL;

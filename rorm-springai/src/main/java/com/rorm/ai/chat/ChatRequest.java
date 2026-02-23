@@ -60,9 +60,9 @@ public record ChatRequest<T>(
                 modelSpace,
                 userPrompt,
                 responseType,
+                chatId,
                 systemPrompt,
                 modelName,
-                chatId,
                 thinkingLevel,
                 additionalTools != null ? additionalTools : List.of(),
                 additionalAdvisors != null ? additionalAdvisors : List.of()

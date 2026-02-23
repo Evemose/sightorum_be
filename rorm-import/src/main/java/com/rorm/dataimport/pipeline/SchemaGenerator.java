@@ -48,7 +48,7 @@ class SchemaGenerator {
             columnDefinitions.addAll(generateColumnDefinitions(attribute));
         }
 
-        return "CREATE TABLE IF NOT EXISTS " + qualifiedTableName + " (" + String.join(", ", columnDefinitions) + ")";
+        return "CREATE TABLE " + qualifiedTableName + " (" + String.join(", ", columnDefinitions) + ")";
     }
 
     private List<String> generateColumnDefinitions(Attribute attribute) {
@@ -59,7 +59,7 @@ class SchemaGenerator {
             case CollectionAttribute collection -> switch (collection.elementType()) {
                 case CollectionAttribute.BasicElement basicElement -> List.of(
                     quoteIdentifier(basicElement.location().column()) + " " +
-                    mapDataTypeToSql(basicElement.dataType())
+                    mapDataTypeToSql(new DataType.ListType(basicElement.dataType()))
                 );
                 case CollectionAttribute.CompositeElement _ -> List.of();
             };
@@ -93,7 +93,7 @@ class SchemaGenerator {
         var ownerIdType = mapIdTypeToSql(ownerRoot.idDescriptor().dataType());
         var targetIdType = mapIdTypeToSql(targetRoot.idDescriptor().dataType());
 
-        return "CREATE TABLE IF NOT EXISTS " + joinTableName + " (" +
+        return "CREATE TABLE " + joinTableName + " (" +
                ownerColumnName + " " + ownerIdType + ", " +
                targetColumnName + " " + targetIdType + ", " +
                "PRIMARY KEY (" + ownerColumnName + ", " + targetColumnName + "))";
@@ -127,7 +127,7 @@ class SchemaGenerator {
             case DataType.DateTimeType _ -> "TIMESTAMP WITH TIME ZONE";
             case DataType.TimezoneType _ -> "TEXT"; // Store as ISO string
             case DataType.DayOfWeekType _ -> "TEXT"; // Store as day name
-            case DataType.EnumType _ -> "TEXT"; // Store as enum value string
+            case DataType.CategorcialType _ -> "TEXT"; // Store as enum value string
             case DataType.ListType listType -> {
                 // For list types, we store as TEXT array or JSON depending on element type
                 // For now, use TEXT[] for simple types

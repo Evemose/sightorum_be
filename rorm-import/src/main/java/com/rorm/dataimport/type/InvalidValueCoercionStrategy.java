@@ -34,7 +34,20 @@ public sealed interface InvalidValueCoercionStrategy permits InMemoryCoercion, D
             return null;
         }
         var trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        // Common placeholder tokens should not dominate type inference.
+        if (
+            trimmed.equalsIgnoreCase("invalid") ||
+            trimmed.equalsIgnoreCase("n/a") ||
+            trimmed.equalsIgnoreCase("na") ||
+            trimmed.equalsIgnoreCase("null")
+        ) {
+            return null;
+        }
+
+        return trimmed;
     }
 }
-

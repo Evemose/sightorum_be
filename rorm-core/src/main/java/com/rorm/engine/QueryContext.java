@@ -148,20 +148,20 @@ final class QueryContext {
 
         return switch (ref.mappingStrategy()) {
             case InverseRootTableColumn inv -> {
-                var joined = table(name(targetTable)).as(generateAlias());
+                var joined = tableWithSchema(targetTable).as(generateAlias());
                 yield new JoinInfo(joined, targetTable,
                     field(name(parent.table().getName(), Objects.requireNonNullElse(this.parent, this).root.idDescriptor().columnName())),
                     field(name(joined.getName(), inv.columnName())));
             }
             case JoinTableMapping jtm -> {
                 var joinTableName = jtm.joinColumnLocation().table();
-                var joined = table(name(joinTableName)).as(generateAlias());
+                var joined = tableWithSchema(joinTableName).as(generateAlias());
                 yield new JoinInfo(joined, joinTableName,
                     field(name(parent.table().getName(), Objects.requireNonNull(this.parent).root.idDescriptor().columnName())),
                     field(name(joined.getName(), jtm.joinColumnLocation().column())));
             }
             case SameTableColumn stc -> {
-                var joined = table(name(targetTable)).as(generateAlias());
+                var joined = tableWithSchema(targetTable).as(generateAlias());
                 yield new JoinInfo(joined, targetTable,
                     field(name(parent.table().getName(), stc.columnName())),
                     field(name(joined.getName(), ref.targetRoot().idDescriptor().columnName())));
@@ -175,7 +175,7 @@ final class QueryContext {
             return parent;
         }
 
-        var joined = table(name(tableName)).as(generateAlias());
+        var joined = tableWithSchema(tableName).as(generateAlias());
         var underscoreIdx = tableName.lastIndexOf('_');
         var ownerSingular = underscoreIdx > 0 ? tableName.substring(0, underscoreIdx) : tableName;
         var fkColumn = ownerSingular + "_id";
@@ -222,7 +222,7 @@ final class QueryContext {
         }
 
         var targetTable = aliasedRoot.root().primaryTableName();
-        var aliasedTable = table(name(targetTable)).as(generateAlias());
+        var aliasedTable = tableWithSchema(targetTable).as(generateAlias());
         var info = new JoinedRootInfo(aliasedRoot, aliasedTable);
         aliasRegistry.put(alias, info);
         return info;

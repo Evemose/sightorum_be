@@ -5,31 +5,37 @@ import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.swarm.SwarmConfig.ModelConfig;
 import com.rorm.metamodel.ModelSpace;
-import lombok.AccessLevel;
-import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Map;
+
 public class SecondarySwarmAgent {
+
+    private static final String DTO_TYPE_PLACEHOLDER = "DTO_TYPE";
+    private static final String RAW_OUTPUT_PLACEHOLDER = "RAW_OUTPUT";
 
     private final String modelName;
     private final String promptTemplate;
     private final AiChatService chatService;
+    private final String schema;
     private final ModelSpace modelSpace;
     private final ThinkingLevel thinkingLevel;
-    @Getter(lazy = true, value = AccessLevel.PRIVATE)
-    private final String systemPrompt = buildSystemPrompt();
+    private final SwarmPromptTemplateRenderer promptRenderer;
 
     public SecondarySwarmAgent(
         ModelConfig modelConfig,
         AiChatService chatService,
+        String schema,
         ModelSpace modelSpace,
         ThinkingLevel thinkingLevel
     ) {
         this.modelName = modelConfig.model();
         this.promptTemplate = modelConfig.systemPrompt();
         this.chatService = chatService;
+        this.schema = schema;
         this.modelSpace = modelSpace;
         this.thinkingLevel = thinkingLevel;
+        this.promptRenderer = new SwarmPromptTemplateRenderer(modelSpace);
     }
 
     public <T> T call(String input, @Nullable String conversationId, Class<T> responseType) {
@@ -37,8 +43,8 @@ public class SecondarySwarmAgent {
     }
 
     private <T> ChatRequest<T> buildRequest(String input, @Nullable String conversationId, Class<T> responseType) {
-        return ChatRequest.usingData("", modelSpace)
-            .withSystemPrompt(getSystemPrompt())
+        return ChatRequest.usingData(schema, modelSpace)
+            .withSystemPrompt(buildSystemPrompt(input, responseType))
             .withThinkingLevel(thinkingLevel)
             .withModelName(modelName)
             .withChatId(conversationId)
@@ -49,9 +55,11 @@ public class SecondarySwarmAgent {
         return chatService.call(buildRequest(input, null, responseType));
     }
 
-    private String buildSystemPrompt() {
-        // In a real implementation, this would use the promptTemplate and possibly other context to build the system prompt
-        return promptTemplate;
+    private String buildSystemPrompt(String input, Class<?> responseType) {
+        return promptRenderer.render(promptTemplate, Map.of(
+            DTO_TYPE_PLACEHOLDER, responseType.getSimpleName(),
+            RAW_OUTPUT_PLACEHOLDER, input
+        ));
     }
 
 }

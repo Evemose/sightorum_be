@@ -41,7 +41,7 @@ class DataImportPipelineTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.targetSchema()).isEqualTo(schema);
         assertThat(result.totalRowsImported()).isEqualTo(3);
@@ -89,7 +89,7 @@ class DataImportPipelineTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(2);
 
@@ -129,7 +129,7 @@ class DataImportPipelineTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var ids = jdbcTemplate.queryForList(
             "SELECT id FROM %s.categories ORDER BY id".formatted(schema),
@@ -158,7 +158,7 @@ class DataImportPipelineTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(0);
 
@@ -191,7 +191,7 @@ class DataImportPipelineTest extends AbstractImportTest {
         var request = new ImportRequest(newSchema, List.of(dataSource), detectionResult);
 
         try {
-            dataImportPipeline.importData(request);
+            awaitImportCompletion(dataImportPipeline.importData(request));
 
             var schemaExists = jdbcTemplate.queryForObject(
                 "select exists(select 1 from pg_namespace where nspname = ?)",
@@ -225,7 +225,7 @@ class DataImportPipelineTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        dataImportPipeline.importData(request);
+        awaitImportCompletion(dataImportPipeline.importData(request));
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.users ORDER BY id".formatted(schema));
         assertThat(rows).hasSize(2);

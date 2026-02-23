@@ -1,6 +1,7 @@
 package com.rorm.dataimport.pipeline;
 
 import com.rorm.metamodel.*;
+import com.rorm.metamodel.DataType.CategorcialType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -67,6 +68,27 @@ class SchemaGeneratorTest {
         assertThat(ddl).singleElement(STRING)
             .contains("\"address_street\" TEXT")
             .contains("\"address_city\" TEXT");
+    }
+
+    @Test
+    @DisplayName("generates array column for basic collection attributes")
+    void generateBasicCollectionAttributeColumn() {
+        var root = new Root("products", List.of(
+            new CollectionAttribute(
+                "peakSeasonMonths",
+                "products",
+                new CollectionAttribute.BasicElement(
+                    new AttributeLocation("products", "peak_season_months"),
+                    new DataType.NumericType(19, 0)
+                )
+            )
+        ), IdDescriptor.longId("products"));
+
+        var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));
+
+        assertThat(ddl).singleElement(STRING)
+            .contains("\"peak_season_months\" BIGINT[]")
+            .doesNotContain("\"peak_season_months\" BIGINT,");
     }
 
     @Test
@@ -189,7 +211,7 @@ class SchemaGeneratorTest {
             new BasicAttribute("datetime_col", new AttributeLocation("types", "datetime_col"), new DataType.DateTimeType()),
             new BasicAttribute("timezone_col", new AttributeLocation("types", "timezone_col"), new DataType.TimezoneType()),
             new BasicAttribute("day_col", new AttributeLocation("types", "day_col"), new DataType.DayOfWeekType()),
-            new BasicAttribute("enum_col", new AttributeLocation("types", "enum_col"), new DataType.EnumType(new String[]{"A", "B"}))
+            new BasicAttribute("enum_col", new AttributeLocation("types", "enum_col"), new CategorcialType(new String[]{"A", "B"}))
         ), IdDescriptor.longId("types"));
 
         var ddl = generator.generateAllTablesDdl("test_schema", new ModelSpace(Set.of(root)));

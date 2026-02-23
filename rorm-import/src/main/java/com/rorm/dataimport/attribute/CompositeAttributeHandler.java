@@ -49,7 +49,7 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
 
         prefixGroups.entrySet().stream()
             .filter(entry -> entry.getValue().size() > 1)
-            .map(entry -> buildCompositeAttribute(entry, claimedColumns))
+            .map(entry -> buildCompositeAttribute(entry.getKey(), entry.getValue(), claimedColumns))
             .flatMap(Optional::stream)
             .forEach(entry -> result.put(entry.getKey(), entry.getValue()));
 
@@ -68,48 +68,54 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
             ));
     }
 
+    // 5C: Flattened with early returns and extracted helpers
     private Optional<Map.Entry<String, DetectedAttribute>> buildCompositeAttribute(
-        Map.Entry<String, List<String>> prefixGroup,
+        String prefix,
+        List<String> columns,
         Set<String> claimedColumns
     ) {
-        var prefix = prefixGroup.getKey();
-        var columns = prefixGroup.getValue();
-        var prefixParts = namingStyle.split(prefix);
-        var compositeName = NamingStyle.toCamelCase(prefixParts);
+        var compositeName = toAttributeName(prefix);
 
-        // Skip if an override exists for this attribute name
         if (overrideMap.containsKey(compositeName)) {
             return Optional.empty();
         }
 
         if (isOneToOneRoot(columns, prefix)) {
-            var subAttrs = createSubAttributes(columns, claimedColumns);
+            var subAttrs = createSubAttributes(columns);
+            claimedColumns.addAll(columns);
             return Optional.of(Map.entry(
                 compositeName,
                 new DetectedAttribute.OneToOneRoot(compositeName, prefix, subAttrs)
             ));
         }
 
-        // If prefix is an available root and there's an id column, exclude it from the composite
-        // (it will be handled by ReferenceAttributeHandler)
-        var columnsToProcess = columns;
-        if (availableRootNames.contains(prefix)) {
-            var idColumn = namingStyle.join(prefix, "id");
-            columnsToProcess = columns.stream()
-                .filter(col -> !col.equals(idColumn))
-                .toList();
-        }
-
-        // Only create composite if there are still columns to process
+        var columnsToProcess = excludeRootIdColumn(columns, prefix);
         if (columnsToProcess.isEmpty()) {
             return Optional.empty();
         }
 
-        var subAttrs = createSubAttributes(columnsToProcess, claimedColumns);
+        var subAttrs = createSubAttributes(columnsToProcess);
+        claimedColumns.addAll(columnsToProcess);
         return Optional.of(Map.entry(
             compositeName,
             new DetectedAttribute.Composite(compositeName, subAttrs)
         ));
+    }
+
+    private String toAttributeName(String prefix) {
+        return NamingStyle.toCamelCase(namingStyle.split(prefix));
+    }
+
+    // 5A: Removed peek side-effect; 5B: Extracted columnToSubAttribute
+    private Map<String, DetectedAttribute> createSubAttributes(List<String> columns) {
+        return columns.stream()
+            .map(this::columnToSubAttribute)
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (a, _) -> a,
+                LinkedHashMap::new
+            ));
     }
 
     private Optional<Map.Entry<String, String>> extractPrefixAndColumn(String column) {
@@ -127,27 +133,21 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
         return hasIdColumn && !availableRootNames.contains(prefix);
     }
 
-    private Map<String, DetectedAttribute> createSubAttributes(
-        List<String> columns,
-        Set<String> claimedColumns
-    ) {
+    private List<String> excludeRootIdColumn(List<String> columns, String prefix) {
+        if (!availableRootNames.contains(prefix)) {
+            return columns;
+        }
+        var idColumn = namingStyle.join(prefix, "id");
         return columns.stream()
-            .peek(claimedColumns::add)
-            .map(column -> {
-                var parts = namingStyle.split(column);
-                var suffix = parts[parts.length - 1];
-                var subAttrName = NamingStyle.toCamelCase(new String[]{suffix});
-                var source = new SourceMapping(dataSourceName, column);
-                return Map.entry(
-                    subAttrName,
-                    (DetectedAttribute) new DetectedAttribute.Basic(subAttrName, source, null)
-                );
-            })
-            .collect(Collectors.toMap(
-                Map.Entry::getKey,
-                Map.Entry::getValue,
-                (a, _) -> a,
-                LinkedHashMap::new
-            ));
+            .filter(col -> !col.equals(idColumn))
+            .toList();
+    }
+
+    private Map.Entry<String, DetectedAttribute> columnToSubAttribute(String column) {
+        var parts = namingStyle.split(column);
+        var suffix = parts[parts.length - 1];
+        var subAttrName = NamingStyle.toCamelCase(new String[]{suffix});
+        var source = new SourceMapping(dataSourceName, column);
+        return Map.entry(subAttrName, new DetectedAttribute.Basic(subAttrName, source, null));
     }
 }

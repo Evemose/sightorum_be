@@ -178,6 +178,16 @@ public record ImportRequest(
 
         @Override
         public void useDefault(Object defaultValue) {
+            var dataType = ((DetectedAttribute.Basic) attribute).dataType();
+            if (dataType == null) {
+                throw new IllegalStateException("Attribute data type is not available for: " + attribute.name());
+            }
+            if (!isCompatibleType(defaultValue, dataType)) {
+                throw new IllegalArgumentException(
+                    "Default value '%s' is incompatible with attribute '%s' of type %s"
+                        .formatted(defaultValue, attribute.name(), dataType.getClass().getSimpleName())
+                );
+            }
             using(new com.rorm.dataimport.type.InMemoryCoercion.UseDefault(defaultValue));
         }
 
@@ -192,7 +202,7 @@ public record ImportRequest(
                 case DataType.TimezoneType _ ->
                     value instanceof java.time.ZoneOffset || value instanceof java.time.ZoneId;
                 case DataType.DayOfWeekType _ -> value instanceof java.time.DayOfWeek;
-                case DataType.EnumType _ -> value instanceof String;
+                case DataType.CategorcialType _ -> value instanceof String;
                 case DataType.ListType _ -> false;
             };
         }

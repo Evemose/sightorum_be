@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import com.rorm.metamodel.*;
+import com.rorm.metamodel.DataType.CategorcialType;
 
 /**
  * Jackson mixins for ModelSpace serialization with full fidelity.
@@ -40,7 +41,7 @@ public class ModelSpaceSerializationMixins {
         @JsonSubTypes.Type(value = DataType.TimezoneType.class, name = "timezone"),
         @JsonSubTypes.Type(value = DataType.DateTimeType.class, name = "datetime"),
         @JsonSubTypes.Type(value = DataType.DayOfWeekType.class, name = "dayOfWeek"),
-        @JsonSubTypes.Type(value = DataType.EnumType.class, name = "enum"),
+        @JsonSubTypes.Type(value = CategorcialType.class, name = "enum"),
         @JsonSubTypes.Type(value = DataType.ListType.class, name = "list")
     })
     public abstract static class DataTypeMixin {

@@ -60,7 +60,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
         );
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(studentsSource, coursesSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(600); // 500 students + 100 courses
 
@@ -167,7 +167,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
         var request = new ImportRequest(schema,
             List.of(studentsSource, coursesSource, enrollmentsSource),
             detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         // Verify import totals
         assertThat(result.totalRowsImported()).isEqualTo(2600); // 500 + 100 + 2000
@@ -237,7 +237,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, dataSources, detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         // Verify total import count
         assertThat(result.totalRowsImported()).isEqualTo(8753); // 500 + 100 + 2000 + 5000 + 1153
@@ -362,7 +362,7 @@ class CoursesDataIntegrationTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(studentsSource), detectionResult);
-        var result = dataImportPipeline.importData(request);
+        var result = awaitImportCompletion(dataImportPipeline.importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(500);
 

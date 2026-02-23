@@ -3,6 +3,7 @@ package com.rorm.dataimport.hierarchical;
 import com.rorm.dataimport.attribute.DetectedAttribute;
 import com.rorm.dataimport.hierarchical.HierarchicalStructure.DetectedField;
 import com.rorm.metamodel.DataType;
+import com.rorm.metamodel.DataType.CategorcialType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -260,7 +261,7 @@ class YamlDataSourceTest {
         Files.writeString(yamlFile, yamlContent);
 
         List<HierarchicalOverride> overrides = List.of(
-            new HierarchicalOverride.DataTypeOverride("status", new DataType.EnumType(new String[]{"active", "inactive"}))
+            new HierarchicalOverride.DataTypeOverride("status", new CategorcialType(new String[]{"active", "inactive"}))
         );
 
         var dataSource = new YamlDataSource(yamlFile);
@@ -273,7 +274,7 @@ class YamlDataSourceTest {
         // Convert with override - should apply EnumType
         var schema = converter.convert(structure, "items", Set.of(), overrides);
         var statusAttr = (DetectedAttribute.Basic) schema.roots().get("items").attributes().get("status");
-        assertThat(statusAttr.dataType()).isInstanceOf(DataType.EnumType.class);
+        assertThat(statusAttr.dataType()).isInstanceOf(CategorcialType.class);
 
         dataSource.close();
     }
@@ -541,7 +542,7 @@ class YamlDataSourceTest {
         List<HierarchicalOverride> overrides = List.of(
             new HierarchicalOverride.DataTypeOverride(
                 "address.type",
-                new DataType.EnumType(new String[]{"home", "work", "other"})
+                new CategorcialType(new String[]{"home", "work", "other"})
             )
         );
 
@@ -553,7 +554,7 @@ class YamlDataSourceTest {
 
         var addressAttr = (DetectedAttribute.Composite) schema.roots().get("users").attributes().get("address");
         var typeAttr = (DetectedAttribute.Basic) addressAttr.subAttributes().get("type");
-        assertThat(typeAttr.dataType()).isInstanceOf(DataType.EnumType.class);
+        assertThat(typeAttr.dataType()).isInstanceOf(CategorcialType.class);
 
         dataSource.close();
     }
@@ -572,7 +573,7 @@ class YamlDataSourceTest {
 
         List<HierarchicalOverride> overrides = List.of(
             // Override data type
-            new HierarchicalOverride.DataTypeOverride("status", new DataType.EnumType(new String[]{"active", "inactive"})),
+            new HierarchicalOverride.DataTypeOverride("status", new CategorcialType(new String[]{"active", "inactive"})),
             // Force settings (no ID) to be separate root
             new HierarchicalOverride.ForceSeparateRoot("settings", HierarchicalOverride.IdStrategy.AutoGenerate.INSTANCE)
         );
@@ -585,7 +586,7 @@ class YamlDataSourceTest {
 
         // Status should be enum
         var statusAttr = (DetectedAttribute.Basic) schema.roots().get("users").attributes().get("status");
-        assertThat(statusAttr.dataType()).isInstanceOf(DataType.EnumType.class);
+        assertThat(statusAttr.dataType()).isInstanceOf(CategorcialType.class);
 
         // Settings should be separate root (via override)
         assertThat(schema.roots()).containsKeys("users", "users_setting");

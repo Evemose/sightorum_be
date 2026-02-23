@@ -3,6 +3,7 @@ package com.rorm.jpasupport;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
 import com.rorm.metamodel.CollectionAttribute.CompositeElement;
+import com.rorm.metamodel.DataType.CategorcialType;
 import com.rorm.metamodel.DataType.NumericType;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.metamodel.Attribute.PersistentAttributeType;
@@ -166,7 +167,7 @@ public class JpaModelSpaceSource {
         } else if (javaType.isEnum()) {
             var enumConstants = javaType.getEnumConstants();
             var values = Arrays.stream(enumConstants).map(Object::toString).toArray(String[]::new);
-            return new DataType.EnumType(values);
+            return new CategorcialType(values);
         } else {
             return new DataType.StringType();
         }

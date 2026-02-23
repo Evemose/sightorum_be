@@ -18,7 +18,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import reactor.core.publisher.Flux;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -72,16 +71,12 @@ public class AiChatService {
             ? request.systemPrompt()
             : promptBuilder.buildSystemMessage(modelSpace);
         var userMessage = request.userPrompt();
-        var advisors = new ArrayList<>(defaultAdvisors);
-        advisors.addAll(request.additionalAdvisors());
-        var tools = new ArrayList<>(defaultTools);
-        tools.addAll(request.additionalTools());
 
         var clientRequest = chatClient.prompt()
             .system(systemPrompt)
             .toolContext(context.toMap())
-            .advisors(advisors)
-            .tools(tools.toArray(new Object[0]))
+            .advisors(request.additionalAdvisors())
+            .tools(request.additionalTools().toArray(new Object[0]))
             .user(userMessage);
 
         if (request.chatId() != null) {

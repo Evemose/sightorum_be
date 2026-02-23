@@ -39,7 +39,8 @@ class ColumnMappingBuilder {
                     source.sourceColumn(), // db column name = source column name
                     source.sourceColumn(),
                     source.dataSourceName(),
-                    basic.dataType() != null ? basic.dataType() : new DataType.StringType()
+                    basic.dataType() != null ? basic.dataType() : new DataType.StringType(),
+                    null
                 ));
             }
             case DetectedAttribute.Collection coll -> {
@@ -48,7 +49,8 @@ class ColumnMappingBuilder {
                     source.sourceColumn(),
                     source.sourceColumn(),
                     source.dataSourceName(),
-                    coll.elementType() != null ? coll.elementType() : new DataType.StringType()
+                    new DataType.ListType(coll.elementType() != null ? coll.elementType() : new DataType.StringType()),
+                    coll.separator()
                 ));
             }
             case DetectedAttribute.SingularReference ref -> {
@@ -57,7 +59,8 @@ class ColumnMappingBuilder {
                     source.sourceColumn(),
                     source.sourceColumn(),
                     source.dataSourceName(),
-                    ref.dataType() != null ? ref.dataType() : new DataType.NumericType(19, 0)
+                    ref.dataType() != null ? ref.dataType() : new DataType.NumericType(19, 0),
+                    null
                 ));
             }
             case DetectedAttribute.PluralReference ref -> {
@@ -66,7 +69,8 @@ class ColumnMappingBuilder {
                     source.sourceColumn(),
                     source.sourceColumn(),
                     source.dataSourceName(),
-                    ref.dataType() != null ? ref.dataType() : new DataType.StringType()
+                    ref.dataType() != null ? ref.dataType() : new DataType.StringType(),
+                    null
                 ));
             }
             case DetectedAttribute.Composite composite -> {
