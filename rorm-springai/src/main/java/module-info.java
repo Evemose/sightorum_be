@@ -13,6 +13,7 @@ module rorm.rorm.springai.main {
     requires org.mapstruct;
     requires reactor.core;
     requires rorm.rorm.core;
+    requires rorm.rorm.dataimport;
     requires rorm.rorm.serialization;
     requires spring.beans;
     requires spring.boot;

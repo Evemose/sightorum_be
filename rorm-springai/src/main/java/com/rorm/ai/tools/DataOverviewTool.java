@@ -2,22 +2,22 @@ package com.rorm.ai.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.ai.DataOverviewService;
 import com.rorm.ai.RormAiProperties;
 import com.rorm.ai.RormToolContext;
+import com.rorm.dataimport.pipeline.profile.SchemaProfile;
+import com.rorm.dataimport.pipeline.profile.SchemaProfileStore;
 import com.rorm.dto.ExpressionDTO;
 import com.rorm.dto.QueryDTO;
-import com.rorm.engine.ExpressionTypeResolver;
-import com.rorm.engine.TypeCategory;
-import com.rorm.fetcher.Fetcher;
+import com.rorm.engine.ExpressionAnalyzer;
 import com.rorm.mapper.ExpressionMapper;
+import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
 import com.rorm.query.Expression;
 import com.rorm.query.Path;
-import com.rorm.query.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -32,12 +32,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DataOverviewTool {
 
-    private final DataOverviewService dataOverviewService;
-    private final ExpressionTypeResolver typeResolver;
+    private final ExpressionAnalyzer expressionAnalyzer;
     private final ExpressionMapper expressionMapper;
-    private final Fetcher fetcher;
     private final ObjectMapper objectMapper;
     private final RormAiProperties properties;
+    private final SchemaProfileStore profileStore;
 
     @Tool(
         name = "analyzeExpression",
@@ -62,41 +61,30 @@ public class DataOverviewTool {
         try {
             log.info("Analyzing expression on root '{}': {}", rootName, expressionDTO);
 
-            // Extract context
             var context = RormToolContext.from(toolContext);
             var modelSpace = context.modelSpace();
-
-            // Find root
             var root = findRootByName(rootName, modelSpace);
 
-            // Convert expression DTO to entity (use a dummy query DTO for context)
             var dummyQueryDTO = createDummyQueryDTO(rootName);
             var expression = expressionMapper.toEntity(expressionDTO, modelSpace, dummyQueryDTO);
 
-            // Determine expression type category
-            var category = typeResolver.categorize(expression, root);
-            log.info("Expression category: {}", category);
+            // Short-circuit: if expression is a simple attribute path, return pre-computed profile
+            var cached = tryCachedProfile(expression, rootName, context.schema());
+            if (cached != null) {
+                log.info("Returning pre-computed profile for {}.{}", rootName,
+                    ((BasicAttribute) ((Path) expression).target()).name());
+                return cached;
+            }
 
-            // Build appropriate query based on category
-            Query analysisQuery = buildAnalysisQuery(root, expression, category);
-
-            // Apply limit cap and execute
-            var effectiveQuery = applyLimitCap(analysisQuery);
-
-            log.info("Executing analysis query on schema: {}", context.schema());
-
-            // Execute query within schema context
-            @SuppressWarnings("unchecked")
-            var results = fetcher.withSchema(context.schema(), () ->
-                fetcher.queryForType(effectiveQuery, () -> (Class<Map<String, Object>>) (Class<?>) Map.class)
-            );
+            var result = expressionAnalyzer.analyze(context.schema(), root, expression);
+            log.info("Expression category: {}", result.category());
 
             var response = new AnalysisResponse(
                 true,
-                category.name(),
+                result.category().name(),
                 "Query executed successfully",
-                results.size(),
-                results,
+                result.rows().size(),
+                result.rows(),
                 null
             );
 
@@ -115,7 +103,6 @@ public class DataOverviewTool {
     }
 
     private QueryDTO createDummyQueryDTO(String rootName) {
-        // Create minimal QueryDTO for expression mapping context
         return new QueryDTO(
             rootName,
             null, // fromAlias
@@ -130,44 +117,126 @@ public class DataOverviewTool {
         );
     }
 
-    private Query buildAnalysisQuery(Root root, Expression expression, TypeCategory category) {
-        return switch (category) {
-            case NUMERIC -> dataOverviewService.buildNumericStatsQuery(root, expression);
-            case TEMPORAL -> dataOverviewService.buildTemporalRangeQuery(root, expression);
-            case BOOLEAN -> dataOverviewService.buildBooleanDistributionQuery(root, expression);
-            case CATEGORICAL -> dataOverviewService.buildCategoricalFrequencyQuery(root, expression, 20, false);
-            case REFERENCE -> {
-                // For reference attributes, check if it's a path and build appropriate query
-                if (expression instanceof Path path) {
-                    var resolvedType = typeResolver.resolveType(path, root);
-                    if (resolvedType instanceof ExpressionTypeResolver.ResolvedType.SingularReference) {
-                        yield dataOverviewService.buildSingularReferenceCountQuery(root, path);
-                    } else if (resolvedType instanceof ExpressionTypeResolver.ResolvedType.PluralReference) {
-                        yield dataOverviewService.buildPluralReferenceStatsQuery(root, path);
-                    }
-                }
-                throw new IllegalArgumentException("Reference analysis requires a path expression to a reference attribute");
-            }
-            case COLLECTION, UNKNOWN -> dataOverviewService.buildDistinctCountQuery(root, expression);
-        };
-    }
-
-    private Query applyLimitCap(Query query) {
-        int maxResults = properties.maxQueryResults();
-        Long currentLimit = query.limit();
-
-        if (currentLimit == null || currentLimit > maxResults) {
-            return query.withLimit((long) maxResults);
-        }
-        return query;
-    }
-
-
     private String errorResponse(String message) {
         try {
             return objectMapper.writeValueAsString(new AnalysisResponse(false, null, null, 0, null, message));
         } catch (JsonProcessingException e) {
             return "{\"success\":false,\"error\":\"" + message.replace("\"", "\\\"") + "\"}";
+        }
+    }
+
+    private @Nullable String tryCachedProfile(Expression expression, String rootName, @Nullable String schema) {
+        if (schema == null) {
+            return null;
+        }
+        if (!(expression instanceof Path(
+            com.rorm.metamodel.PathTarget target, Path parent
+        ) && parent == null && target instanceof BasicAttribute basic)) {
+            return null;
+        }
+        return profileStore.get(schema)
+            .flatMap(p -> p.findEntity(rootName))
+            .flatMap(e -> e.findAttribute(basic.name()))
+            .map(attr -> {
+                try {
+                    return objectMapper.writeValueAsString(attr.statistics());
+                } catch (JsonProcessingException e) {
+                    return null;
+                }
+            })
+            .orElse(null);
+    }
+
+    @Tool(
+        name = "getSchemaProfile",
+        description = """
+            Get the high-level schema profile (Tier 1): entity names, row counts, summary flags, \
+            and relationship graph. This is a compact overview of the entire imported dataset. \
+            Use this first to understand the data landscape before drilling into specific entities."""
+    )
+    public String getSchemaProfile(ToolContext toolContext) {
+        try {
+            var context = RormToolContext.from(toolContext);
+            if (context.schema() == null) {
+                return errorResponse("No schema in context");
+            }
+            return profileStore.get(context.schema())
+                .map(this::formatSchemaProfile)
+                .orElse(errorResponse("No profile available for schema: " + context.schema()));
+        } catch (Exception e) {
+            return errorResponse("Failed to get schema profile: " + e.getMessage());
+        }
+    }
+
+    private String formatSchemaProfile(SchemaProfile profile) {
+        try {
+            return objectMapper.writeValueAsString(profile);
+        } catch (JsonProcessingException e) {
+            return errorResponse("Failed to format schema profile");
+        }
+    }
+
+    @Tool(
+        name = "getEntityProfile",
+        description = """
+            Get the detailed profile for a specific entity (Tier 2): attribute names, types, \
+            categories, null counts, and distinct counts. Use this when you need to understand \
+            the structure and data quality of a specific entity."""
+    )
+    public String getEntityProfile(
+        @ToolParam(description = "The entity (table) name to inspect") String entityName,
+        ToolContext toolContext
+    ) {
+        try {
+            var context = RormToolContext.from(toolContext);
+            if (context.schema() == null) {
+                return errorResponse("No schema in context");
+            }
+            return profileStore.get(context.schema())
+                .flatMap(p -> p.findEntity(entityName))
+                .map(entity -> {
+                    try {
+                        return objectMapper.writeValueAsString(entity);
+                    } catch (JsonProcessingException e) {
+                        return errorResponse("Serialization failed");
+                    }
+                })
+                .orElse(errorResponse("Entity not found: " + entityName));
+        } catch (Exception e) {
+            return errorResponse("Failed to get entity profile: " + e.getMessage());
+        }
+    }
+
+    @Tool(
+        name = "getAttributeProfile",
+        description = """
+            Get the full distribution statistics for a specific attribute (Tier 3): \
+            numeric stats (min/max/avg/stddev), categorical top values, temporal ranges, \
+            or boolean distributions. Pre-computed — no query execution needed."""
+    )
+    public String getAttributeProfile(
+        @ToolParam(description = "The entity (table) name") String entityName,
+        @ToolParam(description = "The attribute name to inspect") String attributeName,
+        ToolContext toolContext
+    ) {
+        try {
+            var context = RormToolContext.from(toolContext);
+            if (context.schema() == null) {
+                return errorResponse("No schema in context");
+            }
+            return profileStore.get(context.schema())
+                .flatMap(p -> p.findEntity(entityName))
+                .flatMap(e -> e.findAttribute(attributeName))
+                .map(attr -> {
+                    try {
+                        return objectMapper.writeValueAsString(attr);
+                    } catch (JsonProcessingException e) {
+                        return errorResponse("Serialization failed");
+                    }
+                })
+                .orElse(errorResponse("Attribute not found: " + entityName + "." + attributeName));
+        } catch (Exception e) {
+            return errorResponse("Failed to get attribute profile: " + e.getMessage());
         }
     }
 

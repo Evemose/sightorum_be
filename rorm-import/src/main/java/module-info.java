@@ -25,6 +25,7 @@ open module rorm.rorm.dataimport {
     exports com.rorm.dataimport.hierarchical;
     exports com.rorm.dataimport.override;
     exports com.rorm.dataimport.pipeline;
+    exports com.rorm.dataimport.pipeline.profile;
     exports com.rorm.dataimport.source;
     exports com.rorm.dataimport.type;
     exports com.rorm.dataimport.attribute;
