@@ -150,6 +150,18 @@ public class AnthropicChatService implements AiChatService {
             .build();
     }
 
+    @SuppressWarnings("unchecked")
+    private static String formatServerToolStart(String name, JsonValue input) {
+        var map = (Map<String, JsonValue>) input.asObject().orElse(null);
+        if (map != null && map.containsKey("query")) {
+            var query = map.get("query").asString().orElse(null);
+            if (query != null) {
+                return "[" + name + "] " + query;
+            }
+        }
+        return "[" + name + "]";
+    }
+
     @Override
     public Flux<String> stream(ChatRequest<?> request) {
         var session = newSession(request, null);
@@ -208,12 +220,7 @@ public class AnthropicChatService implements AiChatService {
                         thinkingStarted[0] = false;
                         var serverTool = block.asServerToolUse();
                         var name = serverTool.name().toString();
-                        var query = serverTool._input().asObject()
-                            .map(m -> m.get("query"))
-                            .flatMap(JsonValue::asString);
-                        sink.next(query
-                            .map(q -> "[" + name + "] " + q)
-                            .orElse("[" + name + "]"));
+                        sink.next(formatServerToolStart(name, serverTool._input()));
                     } else if (block.isWebSearchToolResult()) {
                         var content = block.asWebSearchToolResult().content();
                         if (content.isResultBlocks()) {
