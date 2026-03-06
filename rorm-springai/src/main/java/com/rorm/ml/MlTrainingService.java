@@ -3,8 +3,10 @@ package com.rorm.ml;
 import com.rorm.ml.dto.*;
 import com.rorm.ml.exception.MlServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -13,9 +15,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+@Component
 @RequiredArgsConstructor
 public class MlTrainingService {
 
+    @Qualifier("mlRestClient")
     private final RestClient restClient;
 
     public TrainingJobResponse submitTraining(TrainingJobRequest request) {
@@ -100,6 +104,72 @@ public class MlTrainingService {
                 .body(new ParameterizedTypeReference<>() {});
         } catch (RestClientException e) {
             throw new MlServiceException("Failed to list available model types", e);
+        }
+    }
+
+    public AsyncJobResponse submitStabilitySelection(StabilitySelectionJobRequest request) {
+        try {
+            return restClient.post()
+                .uri("/analysis/stability-selection/async")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(AsyncJobResponse.class);
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to submit stability selection", e);
+        }
+    }
+
+    public List<Map<String, Object>> listStabilityRuns() {
+        try {
+            return restClient.get()
+                .uri("/analysis/stability-selection/runs")
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to list stability runs", e);
+        }
+    }
+
+    public Optional<ShapCurvesResponse> getShapCurves(String runId, List<String> features, int nBins) {
+        try {
+            var uri = features != null && !features.isEmpty()
+                ? "/analysis/stability-selection/{runId}/shap-curves?features={features}&n_bins={nBins}"
+                : "/analysis/stability-selection/{runId}/shap-curves?n_bins={nBins}";
+
+            var response = features != null && !features.isEmpty()
+                ? restClient.get()
+                .uri(uri, runId, String.join(",", features), nBins)
+                .retrieve()
+                .body(ShapCurvesResponse.class)
+                : restClient.get()
+                .uri(uri, runId, nBins)
+                .retrieve()
+                .body(ShapCurvesResponse.class);
+
+            return Optional.ofNullable(response);
+        } catch (RestClientException e) {
+            return Optional.empty();
+        }
+    }
+
+    public AsyncJobResponse submitShapCurvesAsync(ShapJobRequest request) {
+        try {
+            var uriBuilder = new StringBuilder("/analysis/stability-selection/")
+                .append(request.runId())
+                .append("/shap-curves/async?n_bins=").append(request.nBins())
+                .append("&n_breakpoints=").append(request.nBreakpoints());
+
+            if (request.features() != null && !request.features().isEmpty()) {
+                uriBuilder.append("&features=").append(String.join(",", request.features()));
+            }
+
+            return restClient.post()
+                .uri(uriBuilder.toString())
+                .retrieve()
+                .body(AsyncJobResponse.class);
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to submit async SHAP computation", e);
         }
     }
 

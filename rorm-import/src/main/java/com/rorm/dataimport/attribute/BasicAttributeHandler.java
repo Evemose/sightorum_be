@@ -23,7 +23,7 @@ class BasicAttributeHandler implements AttributeDetectionHandler {
         var claimedColumns = new HashSet<>(columnNames);
         columnNames.forEach(column -> {
             var parts = namingStyle.split(column);
-            var attrName = NamingStyle.toCamelCase(parts);
+            var attrName = NamingStyle.CAMEL_CASE.join(parts);
             var source = new SourceMapping(dataSourceName, column);
             result.put(attrName, new DetectedAttribute.Basic(attrName, source, null));
         });

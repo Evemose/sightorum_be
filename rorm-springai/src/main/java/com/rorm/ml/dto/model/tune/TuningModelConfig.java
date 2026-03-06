@@ -3,8 +3,9 @@ package com.rorm.ml.dto.model.tune;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
+import com.rorm.ml.dto.ModelConfig;
 import com.rorm.ml.dto.model.ModelNames;
-import com.rorm.ml.dto.model.train.ModelConfig;
+import com.rorm.ml.dto.model.TrainingModelSpec;
 
 /**
  * Sealed interface hierarchy for ML model tuning configurations.
@@ -34,7 +35,7 @@ import com.rorm.ml.dto.model.train.ModelConfig;
     @JsonSubTypes.Type(value = ArimaTuningConfig.class, name = ModelNames.ARIMA),
     @JsonSubTypes.Type(value = SarimaxTuningConfig.class, name = ModelNames.SARIMAX)
 })
-public sealed interface TuningModelConfig permits
+public sealed interface TuningModelConfig extends TrainingModelSpec permits
     // Classification
     RandomForestClassifierTuningConfig,
     LogisticRegressionTuningConfig,

@@ -6,6 +6,7 @@ import com.rorm.dataimport.hierarchical.HierarchicalSchemaConverter;
 import com.rorm.dataimport.override.DetectionOverride;
 import com.rorm.dataimport.source.ImportDataSource;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 
@@ -16,6 +17,7 @@ import java.util.*;
  * hierarchical sources can detect their structure organically from the data.
  * This strategy delegates to the existing HierarchicalSchemaConverter.
  */
+@Component
 @RequiredArgsConstructor
 public class HierarchicalDetectionStrategy implements DetectionStrategy<HierarchicalDataSource> {
 

@@ -3,6 +3,7 @@ package com.rorm.dataimport.pipeline;
 import com.rorm.dataimport.override.DetectionOverride;
 import com.rorm.dataimport.source.ImportDataSource;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.Map;
 /**
  * Orchestrates schema detection and metamodel conversion.
  */
+@Component
 @RequiredArgsConstructor
 public class ModelSpaceDetector {
 

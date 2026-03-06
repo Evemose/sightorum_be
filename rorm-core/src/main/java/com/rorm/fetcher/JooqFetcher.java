@@ -9,6 +9,7 @@ import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.Result;
 import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.lang.ScopedValue.CallableOp;
 import java.util.*;
@@ -16,6 +17,7 @@ import java.util.*;
 /**
  * JOOQ-based implementation of the Fetcher interface.
  */
+@Component
 @RequiredArgsConstructor
 public class JooqFetcher implements Fetcher {
 

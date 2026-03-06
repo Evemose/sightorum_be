@@ -79,9 +79,9 @@ class CompositeAttributeBuilder {
     private String extractAttributeName(String column, int prefixPartCount) {
         var parts = namingStyle.split(column);
         if (prefixPartCount == 0 || parts.length <= prefixPartCount) {
-            return NamingStyle.toCamelCase(parts);
+            return NamingStyle.CAMEL_CASE.join(parts);
         }
-        return NamingStyle.toCamelCase(Arrays.copyOfRange(parts, prefixPartCount, parts.length));
+        return NamingStyle.CAMEL_CASE.join(Arrays.copyOfRange(parts, prefixPartCount, parts.length));
     }
 
     private void validateNestedOverrides(@Nullable List<SchemaOverride> nestedOverrides) {

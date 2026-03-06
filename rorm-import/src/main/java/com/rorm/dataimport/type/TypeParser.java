@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
  * Parser for detecting and validating a specific DataType from string values.
  * Each parser attempts to parse values according to its type's rules.
  */
-// TODO (low priority): Clean up comments and javadocs throughout this file.
 public interface TypeParser {
 
     /**

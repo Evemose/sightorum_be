@@ -3,6 +3,7 @@ package com.rorm.ai.swarm.agents;
 import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.ThinkingLevel;
+import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.SwarmConfig.ModelConfig;
 import com.rorm.metamodel.ModelSpace;
 import org.jspecify.annotations.Nullable;
@@ -27,7 +28,8 @@ public class SecondarySwarmAgent {
         AiChatService chatService,
         String schema,
         ModelSpace modelSpace,
-        ThinkingLevel thinkingLevel
+        ThinkingLevel thinkingLevel,
+        PromptPlaceholders promptPlaceholders
     ) {
         this.modelName = modelConfig.model();
         this.promptTemplate = modelConfig.systemPrompt();
@@ -35,7 +37,7 @@ public class SecondarySwarmAgent {
         this.schema = schema;
         this.modelSpace = modelSpace;
         this.thinkingLevel = thinkingLevel;
-        this.promptRenderer = new SwarmPromptTemplateRenderer(modelSpace);
+        this.promptRenderer = new SwarmPromptTemplateRenderer(promptPlaceholders, modelSpace);
     }
 
     public <T> T call(String input, @Nullable String conversationId, Class<T> responseType) {

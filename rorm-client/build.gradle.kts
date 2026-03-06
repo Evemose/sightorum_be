@@ -11,7 +11,7 @@ plugins {
 tasks.test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
-    jvmArgs("-XX:+EnableDynamicAgentLoading")
+    jvmArgs("-XX:+EnableDynamicAgentLoading", "-Duser.timezone=UTC")
 }
 
 configure<FlywayExtension> {

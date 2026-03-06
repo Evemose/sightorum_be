@@ -6,6 +6,7 @@ import com.rorm.metamodel.CollectionAttribute.CompositeElement;
 import com.rorm.metamodel.DataType.*;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,25 +14,11 @@ import java.util.stream.Collectors;
 /**
  * Converts a ModelSpace into a human-readable schema description
  * that can be included in AI prompts for natural language query generation.
- *
- * <p>Following best practices for LLM schema formatting:
- * <ul>
- *   <li>Uses XML tags for clear structural boundaries</li>
- *   <li>Formats for readability, not raw JSON dumps</li>
- *   <li>Includes metadata that helps agents make better decisions</li>
- *   <li>Clearly documents relationships between entities</li>
- * </ul>
- *
- * <p>The output is designed to be included in the system userPrompt and cached
- * across multiple agent interactions for the same ModelSpace.
  */
+@Component
 @RequiredArgsConstructor
 public class MetamodelContextBuilder {
 
-    /**
-     * Optional metadata provider for enriching schema with runtime statistics.
-     * When provided, includes row counts, common values, and index information.
-     */
     @Nullable
     private final SchemaMetadataProvider metadataProvider;
 

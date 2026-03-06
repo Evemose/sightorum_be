@@ -104,8 +104,8 @@ public class CsvDataSource implements ImportDataSource {
             iterator = mapper.readerFor(Map.class).with(schema).readValues(inputStream);
 
             return StreamSupport.stream(
-                Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED),
-                false
+                    Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED),
+                    false
                 )
                 .map(this::transformRowKeys)
                 .onClose(this::close);

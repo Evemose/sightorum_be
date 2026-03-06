@@ -5,16 +5,24 @@ import com.rorm.query.Query;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.jooq.*;
+import org.springframework.stereotype.Component;
 
 import static org.jooq.impl.DSL.*;
 
+@Component
 @RequiredArgsConstructor
 class SubqueryTransformer {
 
     private final ExpressionTransformer expr;
     private final JoinCollector joinCollector;
+
+    @PostConstruct
+    void init() {
+        expr.setSubqueryTransformer(this);
+    }
 
     Field<?> transform(Query query) {
         var nestedCtx = expr.ctx().nested(query.from());

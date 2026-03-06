@@ -11,7 +11,9 @@ import org.hibernate.metamodel.mapping.*;
 import org.hibernate.metamodel.mapping.internal.ToOneAttributeMapping;
 import org.hibernate.persister.collection.AbstractCollectionPersister;
 import org.hibernate.persister.entity.EntityPersister;
+import org.springframework.stereotype.Component;
 
+@Component
 public class HibernatePhysicalMappingResolver implements JpaPhysicalMappingResolver {
 
     private final MappingMetamodel mappingMetamodel;

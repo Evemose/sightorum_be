@@ -29,7 +29,6 @@ abstract class SwarmAgent {
     protected <T> T streamAndStructurize(StepParams<T> params, Many<SwarmEvent> eventSink) {
         var ownsTokenSink = params.tokenSink() == null;
         var tokenSink = ownsTokenSink ? createTokenSink() : params.tokenSink();
-        var convId = UUID.randomUUID().toString();
 
         if (params.tokenConsumer() != null) {
             params.tokenConsumer().accept(tokenSink.asFlux());
@@ -37,8 +36,6 @@ abstract class SwarmAgent {
         var id = params.eventId() != null ? params.eventId() : UUID.randomUUID().toString();
 
         var response = params.agent.stream(params.userPrompt(), params.requestBuilderCustomizer())
-            .scan(new StringBuffer(), StringBuffer::append)
-            .map(StringBuffer::toString)
             .doOnSubscribe(_ -> eventSink.tryEmitNext(params.startEventFactory.apply(id, tokenSink.asFlux())))
             .doOnNext(tokenSink::tryEmitNext)
             .doOnError(tokenSink::tryEmitError)
@@ -47,9 +44,11 @@ abstract class SwarmAgent {
                     tokenSink.tryEmitComplete();
                 }
             })
-            .blockLast();
+            .reduce(new StringBuilder(), StringBuilder::append)
+            .map(StringBuilder::toString)
+            .block();
 
-        var callResult = summarizer.call(response, convId, params.responseType());
+        var callResult = summarizer.call(response, null, params.responseType());
         eventSink.tryEmitNext(params.endEventFactory.apply(id, callResult, response));
         return callResult;
     }

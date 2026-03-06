@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 /**
  * Converts detected schema to metamodel (Roots and Attributes).
  */
+@org.springframework.stereotype.Component
 public class MetamodelConverter {
 
     /**
@@ -39,19 +40,6 @@ public class MetamodelConverter {
                 .map(root -> new Root(root.primaryTableName(), List.copyOf(root.attributes()), root.idDescriptor()))
                 .collect(Collectors.toUnmodifiableSet())
         );
-    }
-
-    // 6A: RootBuildSpec eliminates mutable root.attributes().add() pattern
-    private record RootBuildSpec(String name, IdDescriptor idDescriptor, Map<String, DetectedAttribute> attrs) {
-        static RootBuildSpec from(SchemaDetector.DetectedRoot dr) {
-            var idColumn = dr.idColumn();
-            var idDescriptor = new IdDescriptor(new BasicAttribute(
-                idColumn.attributeName(),
-                new AttributeLocation(dr.name(), idColumn.columnName()),
-                idColumn.dataType()
-            ));
-            return new RootBuildSpec(dr.name(), idDescriptor, dr.attributes());
-        }
     }
 
     private List<Attribute> convertToAttributes(
@@ -123,5 +111,18 @@ public class MetamodelConverter {
                 );
             }
         };
+    }
+
+    // 6A: RootBuildSpec eliminates mutable root.attributes().add() pattern
+    private record RootBuildSpec(String name, IdDescriptor idDescriptor, Map<String, DetectedAttribute> attrs) {
+        static RootBuildSpec from(SchemaDetector.DetectedRoot dr) {
+            var idColumn = dr.idColumn();
+            var idDescriptor = new IdDescriptor(new BasicAttribute(
+                idColumn.attributeName(),
+                new AttributeLocation(dr.name(), idColumn.columnName()),
+                idColumn.dataType()
+            ));
+            return new RootBuildSpec(dr.name(), idDescriptor, dr.attributes());
+        }
     }
 }

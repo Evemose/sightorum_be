@@ -44,14 +44,121 @@ public record PlanCritiqueDTO(
     @JsonProperty(required = true)
     Instant timestamp
 ) {
+    /**
+     * Challenge types organized into two categories:
+     * <p>
+     * Conceptual (research design quality):
+     * FLAWED_HYPOTHESIS, CONFOUNDED_ANALYSIS, CAUSAL_OVERCLAIM,
+     * MISSING_CONTROL_GROUP, SELECTION_BIAS, ECOLOGICAL_FALLACY,
+     * WEAK_RESEARCH_DESIGN
+     * <p>
+     * Structural (plan mechanics):
+     * MISSING_BRANCH, UNCLEAR_OBJECTIVE, INFEASIBLE_STEP,
+     * WRONG_DEPENDENCY, REDUNDANT, SCOPE_CREEP,
+     * INCOMPLETE_DECOMPOSITION, IGNORES_PREVIOUS_FINDINGS,
+     * REQUIRES_ITERATION, VAGUE_APPROACH, TOOL_MISMATCH
+     */
     public enum PlanChallengeType {
-        MISSING_BRANCH, UNCLEAR_OBJECTIVE, INFEASIBLE_STEP,
-        WRONG_DEPENDENCY, REDUNDANT, SCOPE_CREEP, INCOMPLETE_DECOMPOSITION
+        // --- Conceptual challenges (research design quality) ---
+
+        /**
+         * Branch hypothesis is unfalsifiable, circular, or poorly framed
+         */
+        FLAWED_HYPOTHESIS,
+
+        /**
+         * Analysis doesn't control for confounding variables that could explain results
+         */
+        CONFOUNDED_ANALYSIS,
+
+        /**
+         * Plan assumes causal conclusions from correlational design without justification
+         */
+        CAUSAL_OVERCLAIM,
+
+        /**
+         * No baseline or comparison group defined to contextualize findings
+         */
+        MISSING_CONTROL_GROUP,
+
+        /**
+         * Filtering or sampling strategy introduces systematic bias into results
+         */
+        SELECTION_BIAS,
+
+        /**
+         * Plan draws individual-level conclusions from aggregate data or vice versa
+         */
+        ECOLOGICAL_FALLACY,
+
+        /**
+         * Overall research logic is weak: branches don't test meaningful hypotheses,
+         * steps don't build toward insight, or analytical reasoning is shallow
+         */
+        WEAK_RESEARCH_DESIGN,
+
+        // --- Structural challenges (plan mechanics) ---
+
+        /**
+         * Key aspect of the query is not investigated by any branch
+         */
+        MISSING_BRANCH,
+
+        /**
+         * Step goal is vague, ambiguous, or not measurable
+         */
+        UNCLEAR_OBJECTIVE,
+
+        /**
+         * Step cannot be accomplished with available data or tools
+         */
+        INFEASIBLE_STEP,
+
+        /**
+         * Incorrect, missing, or circular dependency reference
+         */
+        WRONG_DEPENDENCY,
+
+        /**
+         * Duplicate work across steps or branches
+         */
+        REDUNDANT,
+
+        /**
+         * Plan is too ambitious or wanders beyond what was asked
+         */
+        SCOPE_CREEP,
+
+        /**
+         * Not broken down enough for single-execution steps
+         */
+        INCOMPLETE_DECOMPOSITION,
+
+        /**
+         * Plan ignores or conflicts with Scout or previous agent findings
+         */
+        IGNORES_PREVIOUS_FINDINGS,
+
+        /**
+         * Step requires multiple attempts or iterative refinement
+         */
+        REQUIRES_ITERATION,
+
+        /**
+         * Suggested approach is too vague for Executor to act on
+         */
+        VAGUE_APPROACH,
+
+        /**
+         * Suggests tools that don't exist or misuses available tools
+         */
+        TOOL_MISMATCH
     }
 
     public enum ModificationType {
         ADD_BRANCH, REMOVE_BRANCH, MODIFY_STEP, CLARIFY_OBJECTIVE,
-        REORDER_DEPENDENCIES, MERGE_BRANCHES
+        REORDER_DEPENDENCIES, MERGE_BRANCHES,
+        REFORMULATE_HYPOTHESIS, ADD_CONTROL_GROUP, ADD_CONFOUND_CONTROL
     }
 
     public enum Severity {
@@ -64,14 +171,29 @@ public record PlanCritiqueDTO(
 
     @JsonClassDescription("Challenge to research plan structure or strategy")
     public record PlanChallenge(
-        @JsonPropertyDescription("Which branch or step is challenged")
+        @JsonPropertyDescription("Which branch or step is challenged (e.g. 'branch:churn_analysis' or 'branch:churn_analysis:step:step_2')")
         @JsonProperty(required = true)
         String targetElement,
 
         @JsonPropertyDescription("""
-            Type: MISSING_BRANCH (strategy gap), UNCLEAR_OBJECTIVE (vague goal),
+            Challenge type. Conceptual types (research design):
+            FLAWED_HYPOTHESIS (unfalsifiable/circular hypothesis),
+            CONFOUNDED_ANALYSIS (uncontrolled confounding variables),
+            CAUSAL_OVERCLAIM (assumes causation from correlation),
+            MISSING_CONTROL_GROUP (no baseline comparison),
+            SELECTION_BIAS (biased sampling/filtering),
+            ECOLOGICAL_FALLACY (wrong level of analysis),
+            WEAK_RESEARCH_DESIGN (shallow analytical reasoning).
+            
+            Structural types (plan mechanics):
+            MISSING_BRANCH (strategy gap), UNCLEAR_OBJECTIVE (vague goal),
             INFEASIBLE_STEP (can't be executed), WRONG_DEPENDENCY (incorrect order),
-            REDUNDANT (duplicates other branch), SCOPE_CREEP (out of scope)
+            REDUNDANT (duplicates other branch), SCOPE_CREEP (out of scope),
+            INCOMPLETE_DECOMPOSITION (needs further breakdown),
+            IGNORES_PREVIOUS_FINDINGS (missed or conflicts with discovered fact),
+            REQUIRES_ITERATION (needs multiple attempts),
+            VAGUE_APPROACH (insufficient guidance for Executor),
+            TOOL_MISMATCH (wrong tool usage)
             """)
         @JsonProperty(required = true)
         PlanChallengeType type,
@@ -80,7 +202,7 @@ public record PlanCritiqueDTO(
         @JsonProperty(required = true)
         String issue,
 
-        @JsonPropertyDescription("How to fix: add branch, clarify step, reorder, etc.")
+        @JsonPropertyDescription("How to fix: reformulate hypothesis, add control group, clarify step, etc.")
         @JsonProperty(required = true)
         String suggestedFix,
 
@@ -91,7 +213,11 @@ public record PlanCritiqueDTO(
 
     @JsonClassDescription("Specific modification needed to approve plan")
     public record PlanModification(
-        @JsonPropertyDescription("ADD_BRANCH, REMOVE_BRANCH, MODIFY_STEP, CLARIFY_OBJECTIVE, REORDER_DEPENDENCIES")
+        @JsonPropertyDescription("""
+            ADD_BRANCH, REMOVE_BRANCH, MODIFY_STEP, CLARIFY_OBJECTIVE,
+            REORDER_DEPENDENCIES, MERGE_BRANCHES,
+            REFORMULATE_HYPOTHESIS, ADD_CONTROL_GROUP, ADD_CONFOUND_CONTROL
+            """)
         @JsonProperty(required = true)
         ModificationType type,
 

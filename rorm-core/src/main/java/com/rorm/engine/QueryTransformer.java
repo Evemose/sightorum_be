@@ -9,6 +9,7 @@ import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import lombok.RequiredArgsConstructor;
 import org.jooq.*;
+import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.Set;
 
 import static org.jooq.impl.DSL.noCondition;
 
+@Component
 @RequiredArgsConstructor
 public class QueryTransformer {
 

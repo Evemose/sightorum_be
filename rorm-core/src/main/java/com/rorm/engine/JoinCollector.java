@@ -3,12 +3,14 @@ package com.rorm.engine;
 import com.rorm.query.*;
 import com.rorm.query.Expression.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+@Component
 @RequiredArgsConstructor
 class JoinCollector {
 

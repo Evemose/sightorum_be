@@ -13,10 +13,8 @@ spring:
             initialize-schema: always
     openai:
       api-key: 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
-      chat:
-        options:
-          model: gpt-5.2-2025-12-11
-          temperature: 1.0
       embedding:
         options:
           model: text-embedding-3-large
+    anthropic:
+      api-key: ***REMOVED-ANTHROPIC-API-KEY***

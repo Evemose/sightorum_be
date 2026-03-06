@@ -8,6 +8,7 @@ import com.rorm.metamodel.DataType;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 
@@ -17,6 +18,7 @@ import java.util.*;
  * This class partitions incoming data sources by type (flat vs hierarchical)
  * and dispatches to the appropriate detection strategy, then merges the results.
  */
+@Component
 @RequiredArgsConstructor
 public class SchemaDetector {
 

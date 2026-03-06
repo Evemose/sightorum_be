@@ -159,12 +159,14 @@ class TrainingService:
                     logger.info(f"Model saved with UUID: {model_uuid}")
 
                 elif trained_model.category in [ModelCategory.CLUSTERING, ModelCategory.DIMENSIONALITY,
-                                                ModelCategory.ASSOCIATION]:
+                                                ModelCategory.ASSOCIATION, ModelCategory.CAUSAL]:
                     # Unsupervised model - save results to dynamic table
                     logger.info(f"Saving unsupervised results to database")
 
                     # Get transformed data or cluster assignments
-                    if hasattr(trained_model.model, 'labels_'):
+                    if hasattr(trained_model.model, 'results_data'):
+                        results_df = pl.DataFrame(trained_model.model.results_data)
+                    elif hasattr(trained_model.model, 'labels_'):
                         # Clustering models have labels_
                         results_df = df.with_columns(
                             pl.Series('cluster', trained_model.model.labels_)

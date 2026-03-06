@@ -4,8 +4,6 @@ import lombok.Getter;
 
 import java.util.Arrays;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public enum NamingStyle {
     CAMEL_CASE(Pattern.compile("^[a-z][a-zA-Z0-9]*$"), ""),
@@ -39,22 +37,13 @@ public enum NamingStyle {
 
     public String join(String... parts) {
         return switch (this) {
-            case CAMEL_CASE, PASCAL_CASE -> toCamelCase(parts);
+            case CAMEL_CASE, PASCAL_CASE -> {
+                var capitalizedParts = Arrays.stream(parts).map(NamingStyle::capitalize).toArray(String[]::new);
+                capitalizedParts[0] = this == CAMEL_CASE ? capitalizedParts[0].toLowerCase() : capitalize(capitalizedParts[0]);
+                yield String.join("", capitalizedParts);
+            }
             case SNAKE_CASE, KEBAB_CASE -> String.join(separator, parts).toLowerCase();
         };
-    }
-
-    public static String toCamelCase(String[] parts) {
-        if (parts.length == 0) {
-            return "";
-        }
-
-        return Stream.concat(
-            Stream.of(parts[0].toLowerCase()),
-            Arrays.stream(parts, 1, parts.length)
-                .map(String::toLowerCase)
-                .map(NamingStyle::capitalize)
-        ).collect(Collectors.joining());
     }
 
     private static String capitalize(String str) {

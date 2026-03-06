@@ -45,7 +45,13 @@ class QueryMapperJoinedRootTest {
 
     static {
         mapper = Mappers.getMapper(QueryMapper.class);
-        mapper.setPathResolver(new PathResolver());
+        try {
+            var field = QueryMapper.class.getDeclaredField("pathResolver");
+            field.setAccessible(true);
+            field.set(mapper, new PathResolver());
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @BeforeAll

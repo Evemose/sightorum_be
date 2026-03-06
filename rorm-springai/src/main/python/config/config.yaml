@@ -34,9 +34,11 @@ pipeline:
     tuning_requests: ml_training:tuning_requests
     training_requests: ml_training:training_requests
     training_results: ml_training:training_results
+    stability_selection_requests: ml_training:stability_selection_requests
   consumer_groups:
     tuning: tuning_workers
     training: training_workers
+    stability_selection: analysis_workers
 
 logging:
   level: INFO

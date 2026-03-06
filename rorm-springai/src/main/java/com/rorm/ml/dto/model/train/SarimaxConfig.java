@@ -2,6 +2,7 @@ package com.rorm.ml.dto.model.train;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.rorm.ml.dto.ModelConfig;
 
 /**
  * Configuration for SARIMAX (Seasonal ARIMA with eXogenous variables).

@@ -2,6 +2,7 @@ package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.attribute.AttributeTypeDetector;
 import com.rorm.dataimport.attribute.DetectedAttribute;
+import com.rorm.dataimport.attribute.NameUtils;
 import com.rorm.dataimport.hierarchical.HierarchicalDataSource;
 import com.rorm.dataimport.naming.NamingStyle;
 import com.rorm.dataimport.naming.NamingStyleDetector;
@@ -13,8 +14,10 @@ import com.rorm.dataimport.source.ImportDataSource;
 import com.rorm.dataimport.type.DataTypeDetector;
 import com.rorm.dataimport.type.InMemoryCoercion;
 import com.rorm.metamodel.DataType;
+import com.rorm.metamodel.DataType.NumericType;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -29,6 +32,7 @@ import java.util.stream.Stream;
  * - References from *_id columns matching known roots
  * - OneToOneRoot from *_id columns with additional prefixed columns
  */
+@Component
 @RequiredArgsConstructor
 public class FlatDetectionStrategy implements DetectionStrategy<ImportDataSource> {
 
@@ -90,7 +94,7 @@ public class FlatDetectionStrategy implements DetectionStrategy<ImportDataSource
         }
 
         try (var stream = dataSource.stream()) {
-            stream.limit(100).forEach(row -> {
+            stream.limit(1000).forEach(row -> {
                 for (var columnName : columnNames) {
                     columnSamples.get(columnName).add(row.get(columnName));
                 }
@@ -361,6 +365,7 @@ public class FlatDetectionStrategy implements DetectionStrategy<ImportDataSource
         List<SchemaOverride> overrides,
         Map<String, DataType> columnDataTypes
     ) {
+        var naming = namingStyleDetector.detect(dataSource.getColumnNames());
         var overrideCandidate = overrides.stream()
             .filter(o -> o instanceof SchemaOverride.IdAttributeOverride)
             .map(o -> (SchemaOverride.IdAttributeOverride) o)
@@ -369,17 +374,19 @@ public class FlatDetectionStrategy implements DetectionStrategy<ImportDataSource
                 var dataType = override.dataType() != null
                     ? override.dataType()
                     : columnDataTypes.getOrDefault(override.columnName(), new DataType.NumericType(19, 0));
-                var naming = namingStyleDetector.detect(dataSource.getColumnNames());
                 var attrName = Objects.requireNonNullElse(override.attributeName(), naming.forceAdjust(override.columnName()));
                 return new DetectedIdColumn(attrName, override.columnName(), dataType);
             })
             .orElse(null);
 
         var heuristicCandidate = dataSource.getColumnNames().stream()
-            .filter(c -> c.equalsIgnoreCase("id"))
+            .filter(c ->
+                c.equalsIgnoreCase("id") ||
+                naming.join(NameUtils.singularize(dataSource.getRootName()), "id").equalsIgnoreCase(c)
+            )
             .findFirst()
-            .map(idColumn -> new DetectedIdColumn("id", idColumn,
-                columnDataTypes.getOrDefault(idColumn, new DataType.NumericType(19, 0))))
+            .map(idColumn -> new DetectedIdColumn(NamingStyle.CAMEL_CASE.forceAdjust(idColumn), idColumn,
+                columnDataTypes.getOrDefault(idColumn, new NumericType(19, 0))))
             .orElse(null);
 
         return new IdCandidates(overrideCandidate, heuristicCandidate).resolve();

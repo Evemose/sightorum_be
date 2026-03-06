@@ -5,6 +5,7 @@ import com.rorm.dto.QueryDTO.JoinDTO;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.CompositeElement;
 import com.rorm.query.Path;
+import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+@Component
 class PathResolver {
 
     /// Resolve a path string to a Path object within the given ModelSpace

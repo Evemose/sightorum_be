@@ -8,17 +8,39 @@ Provides SQL-based data fetching with:
 - Timeout management
 """
 
+import logging
 import polars as pl
 import psycopg
 import re
+import sqlglot
 import time
 from config.settings import DatabaseConfig
 from core.exceptions import DatasourceError
+from psycopg.types.numeric import NumericLoader
 from psycopg_pool import ConnectionPool
+from sqlglot import exp
 from typing import Any, Optional
 
 from .interface import Datasource, DataSourceResult, SizeEstimate
 from .throttler import QueryThrottler
+
+logger = logging.getLogger(__name__)
+
+
+class _FloatNumericLoader(NumericLoader):
+    """Return PostgreSQL numeric/decimal values as Python float instead of Decimal.
+
+    Prevents Polars from creating Object-dtype columns for numeric(p,s) fields,
+    which would cause pd.get_dummies() to one-hot encode every distinct value.
+    """
+
+    def load(self, data: bytes) -> float:
+        return float(super().load(data))
+
+
+def _configure_connection(conn: psycopg.Connection) -> None:
+    """Configure each pooled connection to return floats for numeric types."""
+    conn.adapters.register_loader("numeric", _FloatNumericLoader)
 
 
 def create_connection_pool(config: DatabaseConfig) -> ConnectionPool:
@@ -35,6 +57,7 @@ def create_connection_pool(config: DatabaseConfig) -> ConnectionPool:
         config.get_connection_string(),
         min_size=config.min_connections,
         max_size=config.max_connections,
+        configure=_configure_connection,
         open=True,
     )
 
@@ -94,7 +117,7 @@ class PostgreSQLDatasource(Datasource):
 
         normalized = query_config.strip().upper()
 
-        if not normalized.startswith("SELECT"):
+        if not normalized.startswith("SELECT") and not normalized.startswith("WITH"):
             errors.append("Only SELECT statements are allowed")
 
         # Check for multiple statements
@@ -109,10 +132,8 @@ class PostgreSQLDatasource(Datasource):
                     prepared_sql, params = self._prepare_query(
                         query_config, bind_variables or {}
                     )
-                    cur.execute(
-                        f"EXPLAIN {prepared_sql}",
-                        params,
-                    )
+                    explain_sql = self._wrap_with_explain(prepared_sql)
+                    cur.execute(explain_sql, params)
         except psycopg.Error as e:
             errors.append(f"SQL syntax error: {str(e)}")
 
@@ -175,12 +196,13 @@ class PostgreSQLDatasource(Datasource):
             Tuple of (estimated_rows, estimated_width_bytes) or None if estimation fails
         """
         prepared_sql, params = self._prepare_query(query, bind_vars)
+        explain_sql = self._wrap_with_explain(prepared_sql, analyze=True)
 
         with self._pool.connection() as conn:
             conn.execute(f"SET statement_timeout = {self._explain_timeout * 1000}")
             try:
                 with conn.cursor() as cur:
-                    cur.execute(f"EXPLAIN ANALYZE {prepared_sql}", params)
+                    cur.execute(explain_sql, params)
                     result = cur.fetchall()
 
                     # Parse the EXPLAIN output for row and width estimates
@@ -203,15 +225,21 @@ class PostgreSQLDatasource(Datasource):
                         # Return when we find the first node with both estimates
                         if rows_estimate is not None and width_estimate is not None:
                             return (rows_estimate, width_estimate)
+            except psycopg.Error:
+                conn.rollback()
+                raise
             finally:
-                conn.execute("RESET statement_timeout")
+                try:
+                    conn.execute("RESET statement_timeout")
+                except psycopg.Error:
+                    conn.rollback()
 
         return None
 
     def _estimate_with_count(self, query: str, bind_vars: dict[str, Any]) -> int:
-        """Estimate rows using COUNT wrapper."""
+        """Estimate rows using COUNT wrapper built with sqlglot."""
         prepared_sql, params = self._prepare_query(query, bind_vars)
-        count_query = f"SELECT COUNT(*) FROM ({prepared_sql}) AS count_subquery"
+        count_query = self._wrap_with_count(prepared_sql)
 
         with self._pool.connection() as conn:
             conn.execute(f"SET statement_timeout = {self._explain_timeout * 1000}")
@@ -220,8 +248,14 @@ class PostgreSQLDatasource(Datasource):
                     cur.execute(count_query, params)
                     result = cur.fetchone()
                     return result[0] if result else 0
+            except psycopg.Error:
+                conn.rollback()
+                raise
             finally:
-                conn.execute("RESET statement_timeout")
+                try:
+                    conn.execute("RESET statement_timeout")
+                except psycopg.Error:
+                    conn.rollback()
 
     def fetch(
             self,
@@ -276,8 +310,14 @@ class PostgreSQLDatasource(Datasource):
                                 )
                             else:
                                 rows = cur.fetchall()
+                    except psycopg.Error:
+                        conn.rollback()
+                        raise
                     finally:
-                        conn.execute("RESET statement_timeout")
+                        try:
+                            conn.execute("RESET statement_timeout")
+                        except psycopg.Error:
+                            conn.rollback()
 
             except psycopg.errors.QueryCanceled:
                 raise DatasourceError.query_timeout(self._query_timeout)
@@ -317,6 +357,49 @@ class PostgreSQLDatasource(Datasource):
                 f"Estimated memory: {size_gb:.2f}GB exceeds absolute limit of {limit_gb:.2f}GB. "
                 f"This would likely cause OOM errors."
             )
+
+    @staticmethod
+    def _wrap_with_explain(sql: str, analyze: bool = False) -> str:
+        """
+        Wrap a SQL query with EXPLAIN (or EXPLAIN ANALYZE) using sqlglot.
+
+        Args:
+            sql: The SQL query string (may contain %(param)s placeholders)
+            analyze: If True, use EXPLAIN ANALYZE
+
+        Returns:
+            The EXPLAIN-wrapped SQL string
+        """
+        prefix = "EXPLAIN ANALYZE" if analyze else "EXPLAIN"
+        try:
+            # sqlglot can't parse psycopg %(name)s params, so we use raw prefix
+            parsed = sqlglot.parse_one(sql, dialect="postgres")
+            return f"{prefix} {parsed.sql(dialect='postgres')}"
+        except Exception:
+            logger.debug("sqlglot parse failed for EXPLAIN wrapping, using raw prefix")
+            return f"{prefix} {sql}"
+
+    @staticmethod
+    def _wrap_with_count(sql: str) -> str:
+        """
+        Wrap a SQL query with SELECT COUNT(*) using sqlglot.
+
+        Args:
+            sql: The SQL query string (may contain %(param)s placeholders)
+
+        Returns:
+            The COUNT-wrapped SQL string
+        """
+        try:
+            parsed = sqlglot.parse_one(sql, dialect="postgres")
+            count_expr = (
+                exp.select(exp.Count(this=exp.Star()))
+                .from_(parsed.subquery("count_subquery"))
+            )
+            return count_expr.sql(dialect="postgres")
+        except Exception:
+            logger.debug("sqlglot parse failed for COUNT wrapping, using string fallback")
+            return f"SELECT COUNT(*) FROM ({sql}) AS count_subquery"
 
     def _prepare_query(
             self, query: str, bind_vars: dict[str, Any]

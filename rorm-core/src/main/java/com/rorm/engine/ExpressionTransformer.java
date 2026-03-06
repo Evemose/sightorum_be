@@ -12,12 +12,14 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.jooq.Field;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.function.Supplier;
 
 import static org.jooq.impl.DSL.*;
 
+@Component
 @RequiredArgsConstructor
 class ExpressionTransformer implements TransformContext {
 

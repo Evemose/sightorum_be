@@ -42,7 +42,7 @@ public class JsonDataSource extends AbstractHierarchicalDataSource {
             }
 
             var sampleNodes = new ArrayList<JsonNode>();
-            int count = 0;
+            var count = 0;
 
             while (parser.nextToken() != JsonToken.END_ARRAY && count < STRUCTURE_SAMPLE_SIZE) {
                 var node = objectMapper.readValue(parser, JsonNode.class);

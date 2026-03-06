@@ -11,7 +11,7 @@ public record TrainingJobResponse(
     UUID trainingId,
     String message
 ) {
-    public boolean isAccepted() {
-        return "accepted".equals(status);
+    public boolean isNotAccepted() {
+        return !"accepted".equals(status);
     }
 }

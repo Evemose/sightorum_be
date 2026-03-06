@@ -6,6 +6,7 @@ plugins {
 dependencies {
     api("org.jooq:jooq")
     api("org.springframework.boot:spring-boot-autoconfigure")
+    implementation("jakarta.annotation:jakarta.annotation-api")
 
     compileOnly("org.projectlombok:lombok")
     compileOnly("org.jspecify:jspecify")

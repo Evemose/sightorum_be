@@ -64,12 +64,16 @@ class PipelineStreams:
     tuning_requests: str = "ml_training:tuning_requests"
     training_requests: str = "ml_training:training_requests"
     training_results: str = "ml_training:training_results"
+    stability_selection_requests: str = "ml_training:stability_selection_requests"
+    shap_requests: str = "ml_training:shap_requests"
 
 
 @dataclass
 class PipelineConsumerGroups:
     tuning: str = "tuning_workers"
     training: str = "training_workers"
+    stability_selection: str = "analysis_workers"
+    shap: str = "shap_workers"
 
 
 @dataclass

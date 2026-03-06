@@ -2,9 +2,8 @@ package com.rorm.ml.stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.ai.chat.ChatProgress;
-import com.rorm.ai.chat.ChatProgressRepository;
-import com.rorm.ai.chat.TrainingEventsSupport;
+import com.rorm.ml.peristence.MLJobInfo;
+import com.rorm.ml.peristence.MLPersistence;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -16,12 +15,13 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 @Slf4j
+@org.springframework.stereotype.Component
 @RequiredArgsConstructor
 public class TrainingStreamListener implements StreamListener<String, MapRecord<String, String, String>> {
 
-    private final ChatProgressRepository chatProgressRepository;
     private final TrainingEventsSupport trainingEventsSupport;
     private final ObjectMapper objectMapper;
+    private final MLPersistence MLPersistence;
 
     @Override
     public void onMessage(MapRecord<String, String, String> message) {
@@ -78,27 +78,27 @@ public class TrainingStreamListener implements StreamListener<String, MapRecord<
             event.trainingId(),
             event.progress() != null ? String.format("%.1f", event.progress() * 100) : "unknown");
 
-        doWithChatProgress(event, progress -> trainingEventsSupport.handleTrainingProgress(progress, event));
+        doWithTrainingInfo(event, progress -> trainingEventsSupport.handleTrainingProgress(progress, event));
+    }
+
+    private void doWithTrainingInfo(TrainingEvent event, Consumer<MLJobInfo> consumer) {
+        MLPersistence.findByJobId(event.trainingId())
+            .ifPresentOrElse(
+                consumer,
+                () -> log.debug("No job info found for id {}", event.trainingId())
+            );
     }
 
     private void handleSuccess(TrainingEvent event) {
         log.info("Training succeeded: {} - {}", event.trainingId(), event.message());
 
-        doWithChatProgress(event, progress -> trainingEventsSupport.resumeChat(progress, event));
+        doWithTrainingInfo(event, progress -> trainingEventsSupport.resumeChat(progress, event));
     }
 
     private void handleFailed(TrainingEvent event) {
         log.warn("Training failed: {} - {} ({})",
             event.trainingId(), event.error(), event.errorCode());
 
-        doWithChatProgress(event, progress -> trainingEventsSupport.handleTrainingFailure(progress, event));
-    }
-
-    private void doWithChatProgress(TrainingEvent event, Consumer<ChatProgress> consumer) {
-        chatProgressRepository.findByTrainingId(event.trainingId())
-            .ifPresentOrElse(
-                consumer,
-                () -> log.debug("No chat progress found for training {}", event.trainingId())
-            );
+        doWithTrainingInfo(event, progress -> trainingEventsSupport.handleTrainingFailure(progress, event));
     }
 }

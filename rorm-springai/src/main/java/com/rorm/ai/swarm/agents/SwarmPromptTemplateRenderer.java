@@ -1,27 +1,27 @@
 package com.rorm.ai.swarm.agents;
 
-import com.rorm.ai.MetamodelContextBuilder;
+import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.metamodel.ModelSpace;
 
 import java.util.Map;
 
 final class SwarmPromptTemplateRenderer {
 
-    private static final String METAMODEL_PLACEHOLDER = "{{METAMODEL}}";
+    private final PromptPlaceholders placeholders;
+    private final ModelSpace modelSpace;
 
-    private final String metamodelContext;
-
-    SwarmPromptTemplateRenderer(ModelSpace modelSpace) {
-        this.metamodelContext = new MetamodelContextBuilder().buildContext(modelSpace);
+    SwarmPromptTemplateRenderer(PromptPlaceholders placeholders, ModelSpace modelSpace) {
+        this.placeholders = placeholders;
+        this.modelSpace = modelSpace;
     }
 
     String render(String template) {
         return render(template, Map.of());
     }
 
-    String render(String template, Map<String, String> placeholders) {
-        var rendered = template.replace(METAMODEL_PLACEHOLDER, metamodelContext);
-        for (var entry : placeholders.entrySet()) {
+    String render(String template, Map<String, String> extra) {
+        var rendered = placeholders.resolve(template, modelSpace);
+        for (var entry : extra.entrySet()) {
             rendered = rendered.replace("{{" + entry.getKey() + "}}", entry.getValue());
         }
         return rendered;
