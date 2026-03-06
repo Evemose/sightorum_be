@@ -12,6 +12,7 @@ import jakarta.persistence.metamodel.MapAttribute;
 import jakarta.persistence.metamodel.PluralAttribute;
 import jakarta.persistence.metamodel.SingularAttribute;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.sql.Date;
 import java.sql.Time;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 
 import static jakarta.persistence.metamodel.Attribute.PersistentAttributeType.*;
 
+@Component
 @RequiredArgsConstructor
 public class JpaModelSpaceSource {
 

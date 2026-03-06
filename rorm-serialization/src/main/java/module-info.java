@@ -11,4 +11,5 @@ open module rorm.rorm.serialization {
 
     exports com.rorm.dto;
     exports com.rorm.mapper;
+    exports com.rorm.serialization.metamodel;
 }

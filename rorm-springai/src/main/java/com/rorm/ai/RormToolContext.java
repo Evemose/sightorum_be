@@ -1,8 +1,6 @@
 package com.rorm.ai;
 
-import com.rorm.ai.chat.ChatProgress;
 import com.rorm.metamodel.ModelSpace;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
 
@@ -12,7 +10,6 @@ import java.util.Map;
 /**
  * Typed wrapper for Spring AI ToolContext providing type-safe access to RORM-specific context data.
  */
-@Slf4j
 public record RormToolContext(
     ModelSpace modelSpace,
     @Nullable String schema
@@ -31,13 +28,6 @@ public record RormToolContext(
             (ModelSpace) context.get("modelSpace"),
             (String) context.get("schema")
         );
-    }
-
-    // TODO: Remove when ML module is refactored to use ModelSpace directly
-    @Deprecated(forRemoval = true)
-    public ChatProgress chatProgress() {
-        log.warn("chatProgress() is deprecated - ML module should be refactored to use modelSpace() directly");
-        return new ChatProgress(modelSpace);
     }
 
     /**

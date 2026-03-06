@@ -8,7 +8,6 @@ import com.rorm.dataimport.type.DbLevelCoercion;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
-import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.JobParameters;
@@ -18,8 +17,11 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.support.SynchronizedItemReader;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import reactor.core.publisher.Flux;
@@ -27,16 +29,13 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-@RequiredArgsConstructor
+@Component
 public class DataImportPipeline {
 
     private final JdbcTemplate jdbcTemplate;
@@ -48,6 +47,27 @@ public class DataImportPipeline {
     private final MetamodelConverter metamodelConverter;
     private final TransactionTemplate transactionTemplate;
     private final Executor executor = Executors.newVirtualThreadPerTaskExecutor();
+
+    public DataImportPipeline(
+        JdbcTemplate jdbcTemplate,
+        JobLauncher jobLauncher,
+        JobRepository jobRepository,
+        PlatformTransactionManager transactionManager,
+        SchemaGenerator schemaGenerator,
+        @ImportTaskExecutor Optional<TaskExecutor> importTaskExecutor,
+        ObjectProvider<TaskExecutor> defaultTaskExecutor,
+        MetamodelConverter metamodelConverter,
+        TransactionTemplate transactionTemplate
+    ) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.jobLauncher = jobLauncher;
+        this.jobRepository = jobRepository;
+        this.transactionManager = transactionManager;
+        this.schemaGenerator = schemaGenerator;
+        this.taskExecutor = importTaskExecutor.orElseGet(() -> defaultTaskExecutor.getIfUnique(SimpleAsyncTaskExecutor::new));
+        this.metamodelConverter = metamodelConverter;
+        this.transactionTemplate = transactionTemplate;
+    }
 
     public ImportResult importData(ImportRequest request) {
         // 3A: Direct return from transactionTemplate.execute() eliminates box pattern

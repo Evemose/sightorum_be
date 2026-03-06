@@ -1,6 +1,7 @@
 package com.rorm.client.research;
 
 import com.rorm.ai.swarm.SwarmEvent;
+import com.rorm.ai.swarm.SwarmEvent.*;
 import com.rorm.client.stream.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,24 +43,26 @@ public class SwarmEventPublisher {
 
     private String determineEventType(SwarmEvent event) {
         return switch (event) {
-            case SwarmEvent.ScoutStarted _ -> "scout-started";
-            case SwarmEvent.ScoutFinished _ -> "scout-finished";
-            case SwarmEvent.PlanNegotiationStarted _ -> "plan-negotiation-started";
-            case SwarmEvent.PlanNegotiationFinished _ -> "plan-negotiation-finished";
-            case SwarmEvent.PlanVersionCreationStarted _ -> "plan-version-creation-started";
-            case SwarmEvent.PlanVersionCreationFinished _ -> "plan-version-creation-finished";
-            case SwarmEvent.PlanVersionCritiqueStarted _ -> "plan-version-critique-started";
-            case SwarmEvent.PlanVersionCritiqueFinished _ -> "plan-version-critique-finished";
-            case SwarmEvent.BranchExecutionStarted _ -> "branch-execution-started";
-            case SwarmEvent.BranchExecutionFinished _ -> "branch-execution-finished";
-            case SwarmEvent.StepExecutionStarted _ -> "step-execution-started";
-            case SwarmEvent.StepExecutionFinished _ -> "step-execution-finished";
-            case SwarmEvent.AnalysisNegotiationStarted _ -> "analysis-negotiation-started";
-            case SwarmEvent.AnalysisNegotiationFinished _ -> "analysis-negotiation-finished";
-            case SwarmEvent.AnalysisVersionCreationStarted _ -> "analysis-version-creation-started";
-            case SwarmEvent.AnalysisVersionCreationFinished _ -> "analysis-version-creation-finished";
-            case SwarmEvent.AnalysisVersionCritiqueStarted _ -> "analysis-version-critique-started";
-            case SwarmEvent.AnalysisVersionCritiqueFinished _ -> "analysis-version-critique-finished";
+            case ScoutStarted _ -> "scout-started";
+            case ScoutFinished _ -> "scout-finished";
+            case PlanNegotiationStarted _ -> "plan-negotiation-started";
+            case PlanNegotiationFinished _ -> "plan-negotiation-finished";
+            case PlanVersionCreationStarted _ -> "plan-version-creation-started";
+            case PlanVersionCreationFinished _ -> "plan-version-creation-finished";
+            case PlanVersionCritiqueStarted _ -> "plan-version-critique-started";
+            case PlanVersionCritiqueFinished _ -> "plan-version-critique-finished";
+            case BranchExecutionStarted _ -> "branch-execution-started";
+            case BranchExecutionFinished _ -> "branch-execution-finished";
+            case StepExecutionStarted _ -> "step-execution-started";
+            case StepExecutionFinished _ -> "step-execution-finished";
+            case AnalysisNegotiationStarted _ -> "analysis-negotiation-started";
+            case AnalysisNegotiationFinished _ -> "analysis-negotiation-finished";
+            case AnalysisVersionCreationStarted _ -> "analysis-version-creation-started";
+            case AnalysisVersionCreationFinished _ -> "analysis-version-creation-finished";
+            case AnalysisVersionCritiqueStarted _ -> "analysis-version-critique-started";
+            case AnalysisVersionCritiqueFinished _ -> "analysis-version-critique-finished";
+            case StepTrainingAwaitStarted _ -> "step-training-await-started";
+            case StepTrainingCompleted _ -> "step-training-completed";
         };
     }
 }

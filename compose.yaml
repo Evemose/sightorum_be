@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: mydatabase
+      TZ: UTC
+      PGTZ: UTC
     ports:
       - "5444:5432"
     volumes:

@@ -180,7 +180,6 @@ class CoursesDataIntegrationQueriesTest extends AbstractImportTest {
         return new ClassPathResource(resourcePath).getFile().toPath();
     }
 
-    // TODO: joins
     @Test
     @DisplayName("Query 2: Count students with scholarship")
     void testCountStudentsWithScholarship() {

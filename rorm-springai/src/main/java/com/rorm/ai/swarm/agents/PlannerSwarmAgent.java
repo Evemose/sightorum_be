@@ -10,6 +10,7 @@ import reactor.core.publisher.Sinks.Many;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -33,6 +34,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
         this.validator = validator;
     }
 
+    @SuppressWarnings("StringBufferMayBeStringBuilder")
     public ResearchPlanDTO negotiate(String input, ScoutOverviewDTO scoutResult, Many<SwarmEvent> eventSink) {
         var tokenSink = createTokenSink();
         var rawResponse = new StringBuffer();
@@ -42,11 +44,12 @@ public class PlannerSwarmAgent extends SwarmAgent {
 
         var scores = new ArrayList<Double>();
         var cycles = List.<List<StepRef>>of();
+        var convId = UUID.randomUUID().toString();
 
         for (var iteration = 0; ; iteration++) {
             tokenSink.tryEmitNext("Iteration " + (iteration + 1) + ":\nPlanner:\n\n");
 
-            var draftPlan = createPlan(input, scoutResult, cycles, tokenSink, eventSink, iteration);
+            var draftPlan = createPlan(input, scoutResult, cycles, tokenSink, eventSink, iteration, convId);
             cycles = validator.findCycles(draftPlan);
 
             if (!cycles.isEmpty()) {
@@ -56,7 +59,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
             }
 
             tokenSink.tryEmitNext("\nCritic:\n\n");
-            var critique = critiquePlan(draftPlan, input, tokenSink, eventSink, iteration);
+            var critique = critiquePlan(draftPlan, input, tokenSink, eventSink, iteration, convId);
             scores.add(critique.planScore());
 
             var finishReason = NegotiationBreaker.shouldFinish(scores, iteration + 1);
@@ -80,7 +83,8 @@ public class PlannerSwarmAgent extends SwarmAgent {
         List<List<StepRef>> cycles,
         Many<String> tokenSink,
         Many<SwarmEvent> eventSink,
-        int iteration
+        int iteration,
+        String convId
     ) {
         var userPrompt = input + "\n\nScout's findings:\n" + scoutResult + buildCycleWarning(cycles);
 
@@ -96,6 +100,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
                 .endEventFactory((id, version, raw) ->
                     new PlanVersionCreationFinished(id, iteration, version, raw)
                 )
+                .requestBuilderCustomizer(b -> b.withChatId(convId))
                 .tokenSink(tokenSink)
                 .build(),
             eventSink
@@ -127,7 +132,8 @@ public class PlannerSwarmAgent extends SwarmAgent {
         String originalInput,
         Many<String> tokenSink,
         Many<SwarmEvent> eventSink,
-        int iteration
+        int iteration,
+        String convId
     ) {
         return streamAndStructurize(
             StepParams.<PlanCritiqueDTO>builder()
@@ -142,6 +148,7 @@ public class PlannerSwarmAgent extends SwarmAgent {
                     new PlanVersionCritiqueFinished(id, iteration, version, raw)
                 )
                 .tokenSink(tokenSink)
+                .requestBuilderCustomizer(b -> b.withChatId(convId))
                 .build(),
             eventSink
         );

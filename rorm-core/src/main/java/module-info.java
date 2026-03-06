@@ -2,6 +2,7 @@ open module rorm.rorm.core {
     requires static lombok;
     requires org.jooq;
     requires org.jspecify;
+    requires jakarta.annotation;
     requires spring.context;
     requires spring.boot.autoconfigure;
     requires spring.core;
@@ -10,4 +11,6 @@ open module rorm.rorm.core {
     exports com.rorm.query;
     exports com.rorm.engine;
     exports com.rorm.metamodel;
+    exports com.rorm.misc;
+    exports com.rorm.fetcher;
 }

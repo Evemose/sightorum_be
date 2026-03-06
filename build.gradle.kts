@@ -51,11 +51,13 @@ subprojects {
         mavenCentral()
     }
 
+    extra["spring-ai.version"] = "1.1.2"
+
     the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.9")
             mavenBom("org.springframework.modulith:spring-modulith-bom:1.4.6")
-            mavenBom("org.springframework.ai:spring-ai-bom:1.0.0")
+            mavenBom("org.springframework.ai:spring-ai-bom:${property("spring-ai.version")}")
         }
     }
 
@@ -80,18 +82,6 @@ subprojects {
     tasks.withType<JavaCompile> {
         options.compilerArgs.add("--enable-preview")
     }
-}
-
-dependencies {
-    implementation(project(":rorm-core"))
-    implementation(project(":rorm-jpasupport"))
-    implementation(project(":rorm-serialization"))
-    implementation(project(":rorm-springai"))
-
-    implementation("org.springframework.boot:spring-boot-starter")
-
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 dependencyManagement {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.rorm.ai.chat.AiChatService;
+import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.Swarm;
 import com.rorm.ai.swarm.SwarmConfig;
 import com.rorm.ai.swarm.SwarmEvent;
@@ -14,6 +15,8 @@ import com.rorm.client.research.dto.ResearchNodeResponse;
 import com.rorm.client.research.dto.ResearchNodeStructuralInfo;
 import com.rorm.client.research.dto.ResearchResponse;
 import com.rorm.client.research.dto.StartResearchRequest;
+import com.rorm.ml.peristence.MLPersistence;
+import com.rorm.ml.stream.TrainingFutureRegistry;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +44,9 @@ public class ResearchService {
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
     private final Outbox outbox;
+    private final TrainingFutureRegistry trainingFutureRegistry;
+    private final MLPersistence MLPersistence;
+    private final PromptPlaceholders promptPlaceholders;
 
     public ResearchResponse startResearch(StartResearchRequest request) {
         var metamodel = metamodelRepository.findBySchemaName(request.schemaName())
@@ -68,7 +74,7 @@ public class ResearchService {
     private Swarm createSwarm(String schemaName, com.rorm.metamodel.ModelSpace modelSpace) {
         var store = vectorStore.orElseThrow(() ->
             new IllegalStateException("VectorStore is required to run real swarm research"));
-        return new Swarm(swarmConfig, aiChatService, schemaName, modelSpace, store);
+        return new Swarm(swarmConfig, aiChatService, schemaName, modelSpace, store, trainingFutureRegistry, MLPersistence, promptPlaceholders);
     }
 
     private void handleEvent(UUID researchId, SwarmEvent event) {
@@ -220,6 +226,9 @@ public class ResearchService {
             case SwarmEvent.AnalysisVersionCritiqueStarted analysisCritique ->
                 new NodeDescriptor(analysisCritique.analysisId() + ":v" + analysisCritique.versionNumber() + ":critique", ResearchNodeType.ANALYSIS,
                     analysisCritique.analysisId(), null, null, null, List.of(), false);
+            case SwarmEvent.StepTrainingAwaitStarted await ->
+                new NodeDescriptor(await.branchId() + ":" + await.stepId() + ":training:" + await.trainingId(), ResearchNodeType.STEP,
+                    await.branchId() + ":" + await.stepId(), await.branchId(), await.stepId(), null, List.of(), false);
         };
     }
 
@@ -264,6 +273,9 @@ public class ResearchService {
             case SwarmEvent.AnalysisVersionCritiqueFinished analysisCritique ->
                 new NodeDescriptor(analysisCritique.analysisId() + ":v" + analysisCritique.versionNumber() + ":critique", ResearchNodeType.ANALYSIS,
                     analysisCritique.analysisId(), null, null, null, List.of(), false);
+            case SwarmEvent.StepTrainingCompleted completed ->
+                new NodeDescriptor(completed.branchId() + ":" + completed.stepId() + ":training:" + completed.trainingId(), ResearchNodeType.STEP,
+                    completed.branchId() + ":" + completed.stepId(), completed.branchId(), completed.stepId(), null, List.of(), false);
         };
     }
 

@@ -18,6 +18,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.lang.reflect.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.temporal.Temporal;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -72,7 +75,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
         Map<ImportRequest.AttributeKey, com.rorm.dataimport.type.InvalidValueCoercionStrategy> coercionStrategies
     ) {
         this.jdbcTemplate = jdbcTemplate;
-        this.qualifiedTableName = "%s.%s".formatted(schema, tableName);
+        this.qualifiedTableName = quoteIdentifier(schema) + "." + quoteIdentifier(tableName);
         this.idDescriptor = idDescriptor;
 
         // Filter to only InMemoryCoercion strategies - DbLevelCoercion executes post-import
@@ -98,17 +101,9 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
         this.rowCounter = new AtomicLong(0);
     }
 
-    private String buildInsertSql() {
-        var allColumns = Stream.concat(
-            Stream.of(idDescriptor.columnName()),
-            dataColumnMappings.stream().map(ColumnMapping::dbColumnName)
-        ).toList();
-        var placeholders = allColumns.stream().map(_ -> "?").toList();
-        return "INSERT INTO %s (%s) VALUES (%s)".formatted(
-            qualifiedTableName,
-            String.join(", ", allColumns),
-            String.join(", ", placeholders)
-        );
+    private String quoteIdentifier(String identifier) {
+        // Escape any existing double quotes and wrap in quotes
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
     @Override
@@ -253,13 +248,31 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
                && mapping.dataType() instanceof DataType.NumericType;
     }
 
+    private String buildInsertSql() {
+        var allColumns = Stream.concat(
+            Stream.of(quoteIdentifier(idDescriptor.columnName())),
+            dataColumnMappings.stream().map(m -> quoteIdentifier(m.dbColumnName()))
+        ).toList();
+        var placeholders = allColumns.stream().map(_ -> "?").toList();
+        return "INSERT INTO %s (%s) VALUES (%s) on conflict (%s) do nothing".formatted(
+            qualifiedTableName,
+            String.join(", ", allColumns),
+            String.join(", ", placeholders),
+            quoteIdentifier(idDescriptor.columnName())
+        );
+    }
+
     private boolean isCompatibleType(Object value, DataType dataType) {
         return switch (dataType) {
             case DataType.NumericType _ -> value instanceof Number;
             case DataType.BooleanType _ -> value instanceof Boolean;
             case DataType.StringType _ -> value instanceof String;
+            case DataType.DateType _ -> value instanceof LocalDate;
+            case DataType.TimeType _ -> value instanceof LocalTime;
+            case DataType.DateTimeType _ -> value instanceof Temporal;
             case DataType.ListType _ -> value instanceof List || value.getClass().isArray();
-            default -> false;
+            case DataType.DayOfWeekType _, DataType.TimezoneType _, DataType.CategorcialType _ ->
+                value instanceof String;
         };
     }
 
@@ -269,6 +282,7 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
     ) {
         try {
             var parsed = TypeParser.parseValue(value.toString(), mapping.dataType());
+            parsed = toJdbcCompatible(parsed, mapping.dataType());
             if (mapping.dataType() instanceof DataType.NumericType numericType
                 && parsed instanceof Number number
                 && !fitsWithinConstraints(number, numericType)) {
@@ -339,5 +353,14 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
     private Class<?> arrayComponentType(DataType elementType) {
         var javaType = elementType.javaType();
         return PRIMITIVE_TO_WRAPPER.getOrDefault(javaType, javaType);
+    }
+
+    private Object toJdbcCompatible(Object value, DataType dataType) {
+        return switch (dataType) {
+            case DataType.DayOfWeekType _ -> value.toString();
+            case DataType.TimezoneType _ -> value.toString();
+            case DataType.CategorcialType _ -> value.toString();
+            default -> value;
+        };
     }
 }

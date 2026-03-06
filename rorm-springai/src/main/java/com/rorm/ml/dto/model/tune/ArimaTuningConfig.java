@@ -1,8 +1,8 @@
 package com.rorm.ml.dto.model.tune;
 
 import com.rorm.ml.dto.IntSpace;
+import com.rorm.ml.dto.ModelConfig;
 import com.rorm.ml.dto.model.ModelNames;
-import com.rorm.ml.dto.model.train.ModelConfig;
 
 public record ArimaTuningConfig(
     IntSpace p,

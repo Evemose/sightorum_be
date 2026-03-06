@@ -103,7 +103,7 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
     }
 
     private String toAttributeName(String prefix) {
-        return NamingStyle.toCamelCase(namingStyle.split(prefix));
+        return NamingStyle.CAMEL_CASE.join(namingStyle.split(prefix));
     }
 
     // 5A: Removed peek side-effect; 5B: Extracted columnToSubAttribute
@@ -146,7 +146,7 @@ class CompositeAttributeHandler implements AttributeDetectionHandler {
     private Map.Entry<String, DetectedAttribute> columnToSubAttribute(String column) {
         var parts = namingStyle.split(column);
         var suffix = parts[parts.length - 1];
-        var subAttrName = NamingStyle.toCamelCase(new String[]{suffix});
+        var subAttrName = NamingStyle.CAMEL_CASE.join(suffix);
         var source = new SourceMapping(dataSourceName, column);
         return Map.entry(subAttrName, new DetectedAttribute.Basic(subAttrName, source, null));
     }

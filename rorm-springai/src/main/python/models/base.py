@@ -25,6 +25,7 @@ class ModelCategory(str, Enum):
     DIMENSIONALITY = "dimensionality_reduction"  # Alias for compatibility
     TEMPORAL = "temporal"
     ASSOCIATION = "association"
+    CAUSAL = "causal"
 
 
 @dataclass

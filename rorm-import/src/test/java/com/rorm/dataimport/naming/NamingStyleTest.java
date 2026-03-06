@@ -35,7 +35,7 @@ class NamingStyleTest {
     @Test
     @DisplayName("converts parts to camelCase")
     void convertsPartsToCamelCase() {
-        var result = NamingStyle.toCamelCase(new String[]{"first", "name"});
+        var result = NamingStyle.CAMEL_CASE.join("first", "name");
 
         assertThat(result).isEqualTo("firstName");
     }
@@ -43,7 +43,7 @@ class NamingStyleTest {
     @Test
     @DisplayName("converts single part to camelCase")
     void convertsSinglePartToCamelCase() {
-        var result = NamingStyle.toCamelCase(new String[]{"name"});
+        var result = NamingStyle.CAMEL_CASE.join("name");
 
         assertThat(result).isEqualTo("name");
     }

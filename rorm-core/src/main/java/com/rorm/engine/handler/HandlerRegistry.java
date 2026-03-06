@@ -1,9 +1,13 @@
 package com.rorm.engine.handler;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Registry for expression handlers.
@@ -13,6 +17,7 @@ import java.util.Optional;
  * <p>
  * Use {@link HandlerRegistryBuilder} to create instances with custom handlers.
  */
+@Component
 public class HandlerRegistry {
 
     private final Map<String, FunctionHandler> functions;
@@ -22,7 +27,28 @@ public class HandlerRegistry {
     private final Map<String, BinaryOperatorHandler> binaryOperators;
     private final Map<String, TernaryOperatorHandler> ternaryOperators;
 
+    @Autowired
     public HandlerRegistry(
+        List<FunctionHandler> functionHandlers,
+        List<AggregationHandler> aggregationHandlers,
+        List<WindowFunctionHandler> windowFunctionHandlers,
+        List<UnaryOperatorHandler> unaryOperatorHandlers,
+        List<BinaryOperatorHandler> binaryOperatorHandlers,
+        List<TernaryOperatorHandler> ternaryOperatorHandlers
+    ) {
+        this.functions = functionHandlers.stream().collect(Collectors.toMap(h -> normalize(h.name()), h -> h));
+        this.aggregations = aggregationHandlers.stream().collect(Collectors.toMap(h -> normalize(h.name()), h -> h));
+        this.windowFunctions = windowFunctionHandlers.stream().collect(Collectors.toMap(h -> normalize(h.name()), h -> h));
+        this.unaryOperators = unaryOperatorHandlers.stream().collect(Collectors.toMap(h -> normalize(h.name()), h -> h));
+        this.binaryOperators = binaryOperatorHandlers.stream().collect(Collectors.toMap(h -> normalize(h.name()), h -> h));
+        this.ternaryOperators = ternaryOperatorHandlers.stream().collect(Collectors.toMap(h -> normalize(h.name()), h -> h));
+    }
+
+    private static String normalize(String name) {
+        return name.toUpperCase();
+    }
+
+    private HandlerRegistry(
         Map<String, FunctionHandler> functions,
         Map<String, AggregationHandler> aggregations,
         Map<String, WindowFunctionHandler> windowFunctions,
@@ -37,7 +63,6 @@ public class HandlerRegistry {
         this.binaryOperators = Map.copyOf(binaryOperators);
         this.ternaryOperators = Map.copyOf(ternaryOperators);
     }
-
 
     /**
      * Creates a new builder for constructing a HandlerRegistry.
@@ -68,10 +93,6 @@ public class HandlerRegistry {
      */
     public Optional<FunctionHandler> findFunction(String name) {
         return Optional.ofNullable(functions.get(normalize(name)));
-    }
-
-    private static String normalize(String name) {
-        return name.toUpperCase();
     }
 
     /**

@@ -3,8 +3,8 @@ package com.rorm.ml.dto.model.tune;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.rorm.ml.dto.IntSpace;
+import com.rorm.ml.dto.ModelConfig;
 import com.rorm.ml.dto.model.ModelNames;
-import com.rorm.ml.dto.model.train.ModelConfig;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record SarimaxTuningConfig(

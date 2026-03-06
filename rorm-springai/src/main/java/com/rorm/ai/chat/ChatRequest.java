@@ -2,12 +2,12 @@ package com.rorm.ai.chat;
 
 import com.rorm.metamodel.ModelSpace;
 import lombok.*;
+import lombok.experimental.WithBy;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @With
 public record ChatRequest<T>(
@@ -19,21 +19,18 @@ public record ChatRequest<T>(
     @Nullable String systemPrompt,
     @Nullable String modelName,
     @NonNull ThinkingLevel thinkingLevel,
+    @NonNull Set<ToolGroup> toolGroups,
     @NonNull List<Object> additionalTools,
-    @NonNull List<Advisor> additionalAdvisors
+    @NonNull List<Advisor> additionalAdvisors,
+    @NonNull Map<String, Object> toolContextEntries
 ) {
 
     public static Builder usingData(@NonNull String schema, @NonNull ModelSpace modelSpace) {
         return new Builder(schema, modelSpace);
     }
 
-    // TODO: Remove when ML module is refactored to use usingData(schema, modelSpace) directly
-    @Deprecated(forRemoval = true)
-    public static Builder proceedingOnSchema(@NonNull String schema, @NonNull ChatProgress progress) {
-        return new Builder(schema, progress.getModelSpace());
-    }
-
     @With
+    @WithBy
     @Getter
     @AllArgsConstructor(access = AccessLevel.PRIVATE)
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
@@ -47,8 +44,10 @@ public record ChatRequest<T>(
         private ThinkingLevel thinkingLevel = ThinkingLevel.NONE;
         private String systemPrompt;
         private String modelName;
+        private Set<ToolGroup> toolGroups;
         private List<Object> additionalTools;
         private List<Advisor> additionalAdvisors;
+        private Map<String, Object> toolContextEntries;
 
         public ChatRequest<String> ask(String userPrompt) {
             return ask(userPrompt, String.class);
@@ -64,9 +63,16 @@ public record ChatRequest<T>(
                 systemPrompt,
                 modelName,
                 thinkingLevel,
+                toolGroups != null ? toolGroups : Set.of(),
                 additionalTools != null ? additionalTools : List.of(),
-                additionalAdvisors != null ? additionalAdvisors : List.of()
+                additionalAdvisors != null ? additionalAdvisors : List.of(),
+                toolContextEntries != null ? toolContextEntries : Map.of()
             );
+        }
+
+        public Builder withToolGroups(ToolGroup... groups) {
+            this.toolGroups = EnumSet.copyOf(List.of(groups));
+            return this;
         }
 
         public Builder withTool(Object tool) {
@@ -76,6 +82,16 @@ public record ChatRequest<T>(
                 additionalTools = new ArrayList<>(additionalTools);
                 additionalTools.add(tool);
             }
+            return this;
+        }
+
+        public Builder withToolContextEntry(String key, Object value) {
+            if (toolContextEntries == null) {
+                toolContextEntries = new HashMap<>();
+            } else if (!(toolContextEntries instanceof HashMap)) {
+                toolContextEntries = new HashMap<>(toolContextEntries);
+            }
+            toolContextEntries.put(key, value);
             return this;
         }
 

@@ -13,6 +13,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
+@org.springframework.stereotype.Component
 public class ModelSpaceObjectMapperSupplier implements ObjectMapperSupplier, ApplicationContextAware {
 
     private static Jackson2ObjectMapperBuilder springMapperBuilder;

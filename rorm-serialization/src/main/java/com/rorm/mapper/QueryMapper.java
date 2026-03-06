@@ -19,17 +19,16 @@ import com.rorm.query.Expression.*;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
-import lombok.AccessLevel;
-import lombok.Setter;
 import org.mapstruct.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.LinkedHashSet;
 import java.util.SequencedSet;
 
-@Mapper(builder = @Builder(disableBuilder = true))
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, builder = @Builder(disableBuilder = true))
 public abstract class QueryMapper {
 
-    @Setter(AccessLevel.PACKAGE)
+    @Autowired
     private PathResolver pathResolver;
 
     @Mapping(target = "fromAlias", source = "from.alias")

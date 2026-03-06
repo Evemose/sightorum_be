@@ -9,6 +9,7 @@ import java.util.List;
 /**
  * Generates SQL schema DDL from metamodel.
  */
+@org.springframework.stereotype.Component
 class SchemaGenerator {
 
     /**

@@ -387,6 +387,140 @@ Content-Type: application/json
   }
 }
 
+### 16. DoWhy
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "dowhy",
+  "model_name": "yellow_taxi_dowhy",
+  "datasource": {
+    "sql": "SELECT trip_miles, fare_amount, tip_amount, passenger_count, CASE WHEN payment_type = 1 THEN 1 ELSE 0 END AS card_payment FROM yts",
+    "bind_variables": {}
+  },
+  "target_column": "tip_amount",
+  "feature_columns": [
+    "card_payment",
+    "trip_miles",
+    "fare_amount",
+    "passenger_count"
+  ],
+  "model_params": {
+    "treatment_column": "card_payment",
+    "common_causes": [
+      "trip_miles",
+      "fare_amount",
+      "passenger_count"
+    ],
+    "method_name": "backdoor.linear_regression",
+    "control_value": 0,
+    "treatment_value": 1
+  }
+}
+
+### 17. CausalImpact
+POST {{baseUrl}}/train
+Content-Type: application/json
+
+{
+  "model_type": "causal_impact",
+  "model_name": "yellow_taxi_causal_impact",
+  "datasource": {
+    "sql": "SELECT trip_date, total_amount, trip_miles, passenger_count FROM daily_taxi_metrics ORDER BY trip_date",
+    "bind_variables": {}
+  },
+  "target_column": "total_amount",
+  "feature_columns": [
+    "trip_miles",
+    "passenger_count"
+  ],
+  "model_params": {
+    "pre_period_end": 20,
+    "post_period_start": 21,
+    "alpha": 0.05
+  }
+}
+
+### 18. Stability Selection (Regression)
+# @timeout 1000 m
+POST {{baseUrl}}/analysis/stability-selection
+Content-Type: application/json
+
+{
+  "datasource": {
+    "sql": "SELECT s.pre_departure_temp_c, s.container_age_months, s.container_insulation_type, s.node_refrig_health_pct, s.node_power_status, s.vehicle_cargo_volume_m3, s.stop_sequence, h.climate_zone, h.region, n.refrig_system_type, n.has_redundancy, n.capacity_pallets, n.refrig_system_age_months_at_start, nol.internal_temp_c, nol.utilization_pct, nol.door_open_count_per_hour, nol.staff_count, nol.node_log_refrig_health FROM cold_chain.shipments s JOIN cold_chain.hubs h ON s.hub_id = h.hub_id JOIN cold_chain.nodes n ON s.node_id = n.node_id JOIN (SELECT node_id, CAST(timestamp AS date) AS ops_date, AVG(internal_temp_c) AS internal_temp_c, AVG(utilization_pct) AS utilization_pct, AVG(door_open_count_per_hour) AS door_open_count_per_hour, AVG(staff_count) AS staff_count, AVG(refrig_health_pct) AS node_log_refrig_health FROM cold_chain.node_ops_logs GROUP BY node_id, CAST(timestamp AS date)) nol ON n.node_id = nol.node_id AND s.date = nol.ops_date",
+    "bind_variables": {}
+  },
+  "target_column": "pre_departure_temp_c",
+  "feature_columns": [
+    "container_age_months",
+    "container_insulation_type",
+    "node_refrig_health_pct",
+    "node_power_status",
+    "vehicle_cargo_volume_m3",
+    "stop_sequence",
+    "climate_zone",
+    "region",
+    "refrig_system_type",
+    "has_redundancy",
+    "capacity_pallets",
+    "refrig_system_age_months_at_start",
+    "internal_temp_c",
+    "utilization_pct",
+    "door_open_count_per_hour",
+    "staff_count",
+    "node_log_refrig_health"
+  ],
+  "problem_type": "regression",
+  "bootstrap_runs": 50,
+  "sample_fraction": 0.8,
+  "correlation_threshold": 0.8
+}
+
+### 19. Stability Selection (Classification)
+POST {{baseUrl}}/analysis/stability-selection
+Content-Type: application/json
+
+{
+  "datasource": {
+    "sql": "SELECT trip_miles, fare_amount, passenger_count, trip_duration_minutes, CASE WHEN tip_amount > 5 THEN 'high_tip' ELSE 'low_tip' END AS tip_band FROM yts",
+    "bind_variables": {}
+  },
+  "target_column": "tip_band",
+  "feature_columns": [
+    "trip_miles",
+    "fare_amount",
+    "passenger_count",
+    "trip_duration_minutes"
+  ],
+  "problem_type": "classification",
+  "bootstrap_runs": 50,
+  "sample_fraction": 0.8,
+  "correlation_threshold": 0.8
+}
+
+### 20. Stability Selection Async (Regression)
+POST {{baseUrl}}/analysis/stability-selection/async
+Content-Type: application/json
+
+{
+  "datasource": {
+    "sql": "SELECT trip_miles, fare_amount, passenger_count, trip_duration_minutes, total_amount FROM yts",
+    "bind_variables": {}
+  },
+  "target_column": "total_amount",
+  "feature_columns": [
+    "trip_miles",
+    "fare_amount",
+    "passenger_count",
+    "trip_duration_minutes"
+  ],
+  "problem_type": "regression",
+  "bootstrap_runs": 50,
+  "sample_fraction": 0.8,
+  "correlation_threshold": 0.8
+}
+
 ### ============================================
 ### ASSOCIATION MODELS
 ### ============================================
@@ -1112,6 +1246,10 @@ Content-Type: application/json
     "metric": "auto"
   }
 }
+
+### Get SHAP values for a stability selection
+# @timeout 1000 m
+GET {{baseUrl}}/analysis/stability-selection/569522fb-8814-45fc-b076-70b071428c2b/shap-curves
 
 ### ============================================
 ### UTILITY ENDPOINTS

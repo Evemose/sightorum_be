@@ -1,6 +1,6 @@
 package com.rorm.client.config;
 
-import com.rorm.dataimport.pipeline.RormImportAutoConfiguration.ImportTaskExecutor;
+import com.rorm.dataimport.pipeline.ImportTaskExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;

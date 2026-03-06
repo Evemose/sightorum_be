@@ -10,6 +10,7 @@ import com.rorm.query.Selector.SingleExprSelector;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
@@ -20,6 +21,7 @@ import java.util.Set;
  * This service builds Query objects for various statistical and analytical operations
  * without executing them. Query execution is the responsibility of the caller.
  */
+@Component
 @RequiredArgsConstructor
 public class DataOverviewService {
 

@@ -147,7 +147,7 @@ class ExplicitOverrideHandler implements AttributeDetectionHandler {
         return columnNames.stream()
             .filter(column -> {
                 var parts = namingStyle.split(column);
-                var attrName = NamingStyle.toCamelCase(parts);
+                var attrName = NamingStyle.CAMEL_CASE.join(parts);
                 return attrName.equals(attributeName);
             })
             .findFirst();

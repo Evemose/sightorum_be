@@ -12,11 +12,12 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from dependency_injector.wiring import inject, Provide
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
+from typing import Optional
 
 from config.settings import Settings
 from core.container import (ApplicationContainer)
-from dto import TrainingRequest
+from dto import TrainingRequest, StabilitySelectionRequest
 from service.prediction_service import PredictionService
 
 # Configure logging
@@ -43,9 +44,13 @@ async def lifespan(_: FastAPI):
     # Start pipeline nodes
     training_node = container.training_node()
     tuning_node = container.tuning_node()
+    stability_selection_node = container.stability_selection_node()
+    shap_node = container.shap_node()
 
     training_task = asyncio.create_task(training_node.start())
     tuning_task = asyncio.create_task(tuning_node.start())
+    stability_selection_task = asyncio.create_task(stability_selection_node.start())
+    shap_task = asyncio.create_task(shap_node.start())
 
     logger.info("Pipeline nodes started")
 
@@ -57,12 +62,22 @@ async def lifespan(_: FastAPI):
 
         await training_node.stop()
         await tuning_node.stop()
+        await stability_selection_node.stop()
+        await shap_node.stop()
 
         training_task.cancel()
         tuning_task.cancel()
+        stability_selection_task.cancel()
+        shap_task.cancel()
 
         try:
-            await asyncio.gather(training_task, tuning_task, return_exceptions=True)
+            await asyncio.gather(
+                training_task,
+                tuning_task,
+                stability_selection_task,
+                shap_task,
+                return_exceptions=True,
+            )
         except asyncio.CancelledError:
             pass
 
@@ -86,6 +101,7 @@ def create_app() -> FastAPI:
     _add_training_routes(app)
     _add_prediction_routes(app)
     _add_unsupervised_routes(app)
+    _add_analysis_routes(app)
     _add_info_routes(app)
 
     return app
@@ -347,6 +363,151 @@ def _add_unsupervised_routes(app: FastAPI):
             "deleted": True,
             "results_uuid": results_uuid,
             "message": "Unsupervised results deleted successfully"
+        }
+
+
+# ========== Analysis Routes ==========
+
+
+def _add_analysis_routes(app: FastAPI):
+    """Add analysis routes."""
+
+    @app.post("/analysis/stability-selection", response_model=dict, tags=["Analysis"])
+    @inject
+    async def stability_selection(
+            request: StabilitySelectionRequest,
+            stability_selection_service=Depends(Provide[ApplicationContainer.stability_selection_service]),
+            datasource=Depends(Provide[ApplicationContainer.datasource]),
+    ):
+        """Run stability selection analysis across multiple model families."""
+        return stability_selection_service.analyze(request, datasource)
+
+    @app.get("/analysis/stability-selection/runs", response_model=list, tags=["Analysis"])
+    @inject
+    async def list_stability_runs(
+            limit: int = 100,
+            db_storage=Depends(Provide[ApplicationContainer.db_storage]),
+    ):
+        """List stored stability selection runs."""
+        return db_storage.list_stability_runs(limit=limit)
+
+    @app.get("/analysis/stability-selection/{run_id}/shap-curves", response_model=dict, tags=["Analysis"])
+    @inject
+    async def shap_curves(
+            run_id: str,
+            features: Optional[str] = Query(None, description="Comma-separated feature names"),
+            n_bins: int = Query(100, ge=10, le=1000),
+            n_breakpoints: int = Query(1, ge=1, le=5),
+            shap_curve_service=Depends(Provide[ApplicationContainer.shap_curve_service]),
+    ):
+        """Compute averaged SHAP dependence curves for a stability selection run."""
+        feature_list = [f.strip() for f in features.split(",")] if features else None
+
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: shap_curve_service.compute_curves(
+                run_id=run_id,
+                features=feature_list,
+                n_bins=n_bins,
+                n_breakpoints=n_breakpoints,
+            ),
+        )
+
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Stability run not found: {run_id}")
+
+        return result
+
+    @app.post("/analysis/stability-selection/{run_id}/shap-curves/async", response_model=dict, tags=["Analysis"])
+    @inject
+    async def shap_curves_async(
+            run_id: str,
+            features: Optional[str] = Query(None, description="Comma-separated feature names"),
+            n_bins: int = Query(100, ge=10, le=1000),
+            n_breakpoints: int = Query(1, ge=1, le=5),
+            event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
+            config: Settings = Depends(Provide[ApplicationContainer.config]),
+    ):
+        """
+        Queue async SHAP curve computation for a stability selection run.
+
+        Returns analysis_id immediately. Monitor progress via the same event
+        channels used by training: ml_training.events and ml_training.<analysis_id>
+        """
+        analysis_id = str(uuid.uuid4())
+        feature_list = [f.strip() for f in features.split(",")] if features else None
+
+        await event_publisher.add_to_stream(
+            config.pipeline.streams.shap_requests,
+            {
+                "message_type": "shap_request",
+                "payload": json.dumps({
+                    "analysis_id": analysis_id,
+                    "request_data": {
+                        "run_id": run_id,
+                        "features": feature_list,
+                        "n_bins": n_bins,
+                        "n_breakpoints": n_breakpoints,
+                    },
+                }),
+                "metadata": json.dumps({}),
+                "timestamp": datetime.now().isoformat(),
+                "retry_count": "0",
+            }
+        )
+
+        return {
+            "status": "accepted",
+            "analysis_id": analysis_id,
+            "message": "SHAP curve computation request queued successfully",
+        }
+
+    @app.delete("/analysis/stability-selection/{run_id}", response_model=dict, tags=["Analysis"])
+    @inject
+    async def delete_stability_run(
+            run_id: str,
+            db_storage=Depends(Provide[ApplicationContainer.db_storage]),
+    ):
+        """Delete a stability selection run and its models."""
+        deleted = db_storage.delete_stability_run(run_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"Stability run not found: {run_id}")
+        return {"deleted": True, "run_id": run_id}
+
+    @app.post("/analysis/stability-selection/async", response_model=dict, tags=["Analysis"])
+    @inject
+    async def stability_selection_async(
+            request: StabilitySelectionRequest,
+            event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
+            config: Settings = Depends(Provide[ApplicationContainer.config]),
+    ):
+        """
+        Queue async stability selection analysis.
+
+        Returns analysis_id immediately. Monitor progress via the same event
+        channels used by training: ml_training.events and ml_training.<analysis_id>
+        """
+        analysis_id = str(uuid.uuid4())
+
+        await event_publisher.add_to_stream(
+            config.pipeline.streams.stability_selection_requests,
+            {
+                "message_type": "stability_selection_request",
+                "payload": json.dumps({
+                    "analysis_id": analysis_id,
+                    "request_data": request.to_dict(),
+                }),
+                "metadata": json.dumps({}),
+                "timestamp": datetime.now().isoformat(),
+                "retry_count": "0",
+            }
+        )
+
+        return {
+            "status": "accepted",
+            "analysis_id": analysis_id,
+            "message": "Stability selection request queued successfully",
         }
 
 

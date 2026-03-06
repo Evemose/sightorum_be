@@ -74,7 +74,7 @@ class ReferenceAttributeHandler implements AttributeDetectionHandler {
                 .filter(rn -> NameUtils.singularize(rn).equalsIgnoreCase(possiblySingularRootName))
                 .findFirst();
             if (rootOpt.isPresent()) {
-                var attrName = NamingStyle.toCamelCase(parts);
+                var attrName = NamingStyle.CAMEL_CASE.join(parts);
                 var source = new SourceMapping(dataSourceName, column);
                 return Optional.of(factory.create(attrName, source, rootOpt.get()));
             }

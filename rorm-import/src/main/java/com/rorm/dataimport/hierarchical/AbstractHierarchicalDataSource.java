@@ -24,7 +24,7 @@ import java.util.stream.StreamSupport;
 @Slf4j
 public abstract class AbstractHierarchicalDataSource implements HierarchicalDataSource {
 
-    protected static final int STRUCTURE_SAMPLE_SIZE = 100;
+    protected static final int STRUCTURE_SAMPLE_SIZE = 1000;
     private static final String ID_FIELD_NAME = "id";
 
     protected final String rootName;

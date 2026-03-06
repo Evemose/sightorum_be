@@ -5,11 +5,13 @@ import com.rorm.dto.QueryDTO;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.query.Expression;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * Standalone mapper for Expression <-> ExpressionDTO conversion.
  * Delegates to QueryMapper for actual mapping logic.
  */
+@Component
 @RequiredArgsConstructor
 public class ExpressionMapper {
 

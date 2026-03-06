@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.rorm.ml.dto.CategoricalSpace;
 import com.rorm.ml.dto.FloatSpace;
 import com.rorm.ml.dto.IntSpace;
+import com.rorm.ml.dto.ModelConfig;
 import com.rorm.ml.dto.model.ModelNames;
-import com.rorm.ml.dto.model.train.ModelConfig;
 
 @JsonNaming(SnakeCaseStrategy.class)
 public record SvmClassifierTuningConfig(

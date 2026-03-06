@@ -1,0 +1,313 @@
+package com.rorm.ml.tools;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ai.RormToolContext;
+import com.rorm.dto.QueryDTO;
+import com.rorm.engine.QueryTransformer;
+import com.rorm.mapper.QueryMapper;
+import com.rorm.ml.MlTrainingService;
+import com.rorm.ml.dto.DatasourceConfig;
+import com.rorm.ml.dto.ShapJobRequest;
+import com.rorm.ml.dto.StabilitySelectionJobRequest;
+import com.rorm.ml.peristence.MLPersistence;
+import com.rorm.ml.stream.TrainingFutureRegistry;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jooq.Query;
+import org.jspecify.annotations.Nullable;
+import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class DataRelationsTool {
+
+    private final MlTrainingService mlService;
+    private final ObjectMapper objectMapper;
+    private final QueryMapper queryMapper;
+    private final QueryTransformer queryTransformer;
+    private final MLPersistence MLPersistence;
+    private final TrainingFutureRegistry trainingFutureRegistry;
+
+    @Tool(
+        name = "discoverDataRelations",
+        description = """
+            ASYNC & EXPENSIVE: Discover which features genuinely drive a target variable using
+            stability selection — a statistically robust feature importance method.
+            
+            HOW IT WORKS:
+            Runs repeated bootstrap subsampling across multiple model families (random forest,
+            LightGBM, elastic net, logistic regression, extra trees) and measures how consistently
+            each feature appears as important. Features that appear important across many resamples
+            and model types are truly predictive, not just correlated by chance.
+            
+            RETURNS:
+            - Per-feature stability scores (0-1, higher = more reliably important)
+            - Consensus ranking across model families
+            - Polynomial interaction detection (degree 2 by default)
+            - Correlated feature groups (features above correlation_threshold are grouped)
+            
+            WHEN TO USE:
+            - Before training: identify which features matter before committing to a model
+            - Feature selection: reduce dimensionality by keeping only stable features
+            - Hypothesis validation: confirm suspected drivers with statistical rigor
+            - Exploratory analysis: understand data structure before deeper modeling
+            
+            WHEN NOT TO USE:
+            - When you already know the features (just train directly)
+            - For very small datasets (<100 rows) — bootstrap resampling needs volume
+            
+            AFTER CALLING THIS TOOL:
+            - Analysis runs in the background via the ML service
+            - Results include a run_id that can be used with getShapCurves for deeper analysis
+            - Continue with other analysis while waiting
+            """
+    )
+    public String discoverDataRelations(
+
+        @ToolParam(description = """
+            Brief explanation of WHAT RELATIONSHIPS you're trying to discover.
+            Focus on the analytical question, not the technique.
+            
+            Good: "Identify which customer attributes most reliably predict churn"
+            Bad: "Run stability selection"
+            """)
+        String reason,
+
+        @ToolParam(description = """
+            Query that returns the data to analyze. Use the same QueryDTO schema as executeQuery.
+            Should select the target column and all candidate feature columns.
+            """)
+        QueryDTO dataQuery,
+
+        @ToolParam(description = """
+            The outcome column to analyze. Which features drive THIS column?
+            Required — this is the variable whose drivers you want to discover.
+            """)
+        String targetColumn,
+
+        @ToolParam(description = """
+            Specific columns to evaluate as potential drivers. If null/empty,
+            all columns except target are analyzed.
+            """)
+        @Nullable List<String> featureColumns,
+
+        @ToolParam(description = """
+            Problem type: "regression" for numeric targets, "classification" for categorical.
+            If null, auto-detected from the target column.
+            """)
+        @Nullable String problemType,
+
+        @ToolParam(description = """
+            Number of bootstrap resampling rounds. More rounds = more statistical confidence
+            but longer runtime. Minimum 50, default 50. Use 100+ for publication-grade results.
+            """)
+        @Nullable Integer bootstrapRuns,
+
+        ToolContext toolContext
+    ) {
+        try {
+            log.info("Launching stability selection for target '{}'", targetColumn);
+
+            var context = RormToolContext.from(toolContext);
+            var query = queryMapper.toEntity(dataQuery, context.modelSpace());
+            var jooqQuery = queryTransformer.transform(query, context.schema());
+            var sql = jooqQuery.getSQL();
+            var bindValues = extractBindVariables(jooqQuery);
+
+            var request = StabilitySelectionJobRequest.builder()
+                .reason(reason)
+                .datasource(new DatasourceConfig(sql, bindValues))
+                .targetColumn(targetColumn)
+                .featureColumns(featureColumns)
+                .problemType(problemType)
+                .bootstrapRuns(bootstrapRuns != null ? bootstrapRuns : 50)
+                .sampleFraction(0.8)
+                .correlationThreshold(0.8)
+                .polynomialDegree(2)
+                .randomState(42)
+                .build();
+
+            var response = mlService.submitStabilitySelection(request);
+            MLPersistence.save(request, context.schema(), response.analysisId());
+
+            if (response.isNotAccepted()) {
+                return errorResponse("Stability selection was not accepted: " + response.message());
+            }
+
+            trainingFutureRegistry.register(response.analysisId());
+            trackLaunchedTraining(toolContext, response.analysisId());
+
+            return objectMapper.writeValueAsString(Map.of(
+                "success", true,
+                "analysisId", response.analysisId(),
+                "status", response.message(),
+                "instructions", """
+                    Stability selection analysis launched successfully.
+                    - Analysis ID: %s
+                    - Target: %s
+                    
+                    Results will be automatically available after the current step completes.
+                    Continue with other analysis and tool calls in this turn.
+                    When results arrive, use getShapCurves with the run_id for deeper analysis.
+                    """.formatted(response.analysisId(), targetColumn)
+            ));
+
+        } catch (Exception e) {
+            log.error("Failed to launch stability selection", e);
+            return errorResponse("Failed to launch data relations discovery: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> extractBindVariables(Query jooqQuery) {
+        var bindValues = jooqQuery.getBindValues();
+        if (bindValues.isEmpty()) {
+            return Map.of();
+        }
+        var result = new LinkedHashMap<String, Object>();
+        int i = 1;
+        for (var value : bindValues) {
+            result.put("p" + i++, value);
+        }
+        return result;
+    }
+
+    private String errorResponse(String message) {
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                "success", false,
+                "error", message
+            ));
+        } catch (JsonProcessingException e) {
+            return "{\"success\":false,\"error\":\"" + message.replace("\"", "\\\"") + "\"}";
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void trackLaunchedTraining(ToolContext toolContext, UUID trainingId) {
+        var launched = (List<UUID>) toolContext.getContext().get("launchedTrainings");
+        if (launched != null) {
+            launched.add(trainingId);
+        }
+    }
+
+    @Tool(
+        name = "getShapCurves",
+        description = """
+            ASYNC & EXPENSIVE: Compute SHAP dependence curves for a completed stability selection run.
+            
+            SHAP curves reveal HOW each feature affects the target:
+            - For numeric features: curve showing effect at each value (reveals thresholds, non-linearities)
+            - For categorical features: per-category impact magnitude
+            - Breakpoint detection: identifies threshold values where the relationship changes
+            
+            REQUIRES: A completed stability selection run_id from discoverDataRelations.
+            
+            USE THIS to go from "feature X is important" to "feature X matters because
+            values above 42 dramatically increase the target, with a threshold at 42".
+            
+            AFTER CALLING THIS TOOL:
+            - SHAP computation runs in the background via the ML service
+            - Results will be automatically available after the current step completes
+            - Continue with other analysis while waiting
+            """
+    )
+    public String getShapCurves(
+
+        @ToolParam(description = """
+            Brief explanation of WHY you need SHAP curves and what you expect to learn.
+            Focus on the analytical question.
+            
+            Good: "Understand how customer age affects churn probability — looking for threshold effects"
+            Bad: "Get SHAP curves"
+            """)
+        String reason,
+
+        @ToolParam(description = "Run ID from a completed stability selection analysis")
+        String runId,
+
+        @ToolParam(description = """
+            Specific features to compute curves for. If null, computes for all features
+            from the stability selection run. Use this to focus on the top important features.
+            """)
+        @Nullable List<String> features,
+
+        @ToolParam(description = "Number of bins for numeric feature curves. Default 100. Lower = smoother curves.")
+        @Nullable Integer nBins,
+
+        ToolContext toolContext
+
+    ) {
+        try {
+            log.info("Launching async SHAP curves for run '{}'", runId);
+
+            var request = new ShapJobRequest(
+                reason,
+                runId,
+                features,
+                nBins != null ? nBins : 100,
+                1
+            );
+
+            var response = mlService.submitShapCurvesAsync(request);
+            MLPersistence.save(request, response.analysisId());
+
+            if (response.isNotAccepted()) {
+                return errorResponse("SHAP computation was not accepted: " + response.message());
+            }
+
+            trainingFutureRegistry.register(response.analysisId());
+            trackLaunchedTraining(toolContext, response.analysisId());
+
+            return objectMapper.writeValueAsString(Map.of(
+                "success", true,
+                "analysisId", response.analysisId(),
+                "status", response.message(),
+                "instructions", """
+                    SHAP curve computation launched successfully.
+                    - Analysis ID: %s
+                    - Run ID: %s
+                    
+                    Results will be automatically available after the current step completes.
+                    Continue with other analysis and tool calls in this turn.
+                    """.formatted(response.analysisId(), runId)
+            ));
+
+        } catch (Exception e) {
+            log.error("Failed to launch SHAP curves", e);
+            return errorResponse("Failed to launch SHAP curves: " + e.getMessage());
+        }
+    }
+
+    @Tool(
+        name = "listStabilityRuns",
+        description = """
+            List all previous stability selection analysis runs.
+            Returns run IDs, target columns, problem types, and timestamps.
+            
+            Use this to find existing analyses before launching new ones —
+            the data relationships may have already been discovered.
+            """
+    )
+    public String listStabilityRuns() {
+        try {
+            var runs = mlService.listStabilityRuns();
+            return objectMapper.writeValueAsString(Map.of(
+                "success", true,
+                "runs", runs
+            ));
+        } catch (Exception e) {
+            log.error("Failed to list stability runs", e);
+            return errorResponse("Failed to list stability runs: " + e.getMessage());
+        }
+    }
+}

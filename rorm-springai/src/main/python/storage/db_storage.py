@@ -61,6 +61,40 @@ class DatabaseModelStorage:
                                 on trained_models (model_name)
                             """)
 
+                # Table for stability selection runs
+                cur.execute("""
+                            create table if not exists stability_runs
+                            (
+                                id              UUID primary key,
+                                problem_type    varchar(50) not null,
+                                feature_columns text[]      not null,
+                                encoded_columns text[]      not null,
+                                bootstrap_runs  integer     not null,
+                                encoded_data    BYTEA       not null,
+                                feature_values  BYTEA       not null,
+                                result_summary  JSONB,
+                                created_at      timestamp   not null default now()
+                            )
+                            """)
+
+                # Table for individual bootstrap models
+                cur.execute("""
+                            create table if not exists stability_run_models
+                            (
+                                id             serial primary key,
+                                run_id         UUID    not null references stability_runs (id) on delete cascade,
+                                model_index    integer not null,
+                                model_binary   BYTEA   not null,
+                                sample_indices BYTEA   not null,
+                                unique (run_id, model_index)
+                            )
+                            """)
+
+                cur.execute("""
+                            create index if not exists idx_stability_run_models_run_id
+                                on stability_run_models (run_id)
+                            """)
+
                 conn.commit()
 
     def save_supervised_model(self, trained_model: TrainedModel) -> str:
@@ -419,6 +453,120 @@ class DatabaseModelStorage:
                 cur.execute(f'DROP TABLE IF EXISTS "{table_name}"')
                 conn.commit()
                 return True
+
+    # ========== Stability Run Methods ==========
+
+    def save_stability_run(
+            self,
+            run_id: str,
+            problem_type: str,
+            feature_columns: list[str],
+            encoded_columns: list[str],
+            bootstrap_runs: int,
+            encoded_data: bytes,
+            feature_values: bytes,
+            result_summary: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                            insert into stability_runs
+                            (id, problem_type, feature_columns, encoded_columns,
+                             bootstrap_runs, encoded_data, feature_values, result_summary)
+                            values (%s, %s, %s, %s, %s, %s, %s, %s)
+                            """, (
+                                run_id, problem_type, feature_columns, encoded_columns,
+                                bootstrap_runs, encoded_data, feature_values,
+                                json.dumps(result_summary) if result_summary else None,
+                            ))
+                conn.commit()
+        return run_id
+
+    def save_stability_run_models_batch(
+            self,
+            run_id: str,
+            models: List[tuple],
+    ):
+        """Batch insert (model_index, model_binary, sample_indices_binary) tuples."""
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.executemany(
+                    """
+                    insert into stability_run_models (run_id, model_index, model_binary, sample_indices)
+                    values (%s, %s, %s, %s)
+                    """,
+                    [(run_id, idx, model_bin, indices_bin) for idx, model_bin, indices_bin in models],
+                )
+                conn.commit()
+
+    def load_stability_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+        if not self._is_valid_uuid(run_id):
+            return None
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("""
+                            select id,
+                                   problem_type,
+                                   feature_columns,
+                                   encoded_columns,
+                                   bootstrap_runs,
+                                   encoded_data,
+                                   feature_values,
+                                   result_summary,
+                                   created_at
+                            from stability_runs
+                            where id = %s
+                            """, (run_id,))
+                row = cur.fetchone()
+                return dict(row) if row else None
+
+    def load_stability_run_model(self, run_id: str, model_index: int) -> Optional[Dict[str, Any]]:
+        """Load a single model by run_id and model_index."""
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("""
+                            select model_binary, sample_indices
+                            from stability_run_models
+                            where run_id = %s
+                              and model_index = %s
+                            """, (run_id, model_index))
+                row = cur.fetchone()
+                return dict(row) if row else None
+
+    def count_stability_run_models(self, run_id: str) -> int:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                            select count(*)
+                            from stability_run_models
+                            where run_id = %s
+                            """, (run_id,))
+                return cur.fetchone()[0]
+
+    def list_stability_runs(self, limit: int = 100) -> List[Dict[str, Any]]:
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("""
+                            select id,
+                                   problem_type,
+                                   feature_columns,
+                                   bootstrap_runs,
+                                   result_summary,
+                                   created_at
+                            from stability_runs
+                            order by created_at desc
+                            limit %s
+                            """, (limit,))
+                return [dict(row) for row in cur.fetchall()]
+
+    def delete_stability_run(self, run_id: str) -> bool:
+        if not self._is_valid_uuid(run_id):
+            return False
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("delete from stability_runs where id = %s", (run_id,))
+                conn.commit()
+                return cur.rowcount > 0
 
     @staticmethod
     def _is_valid_uuid(uuid_string: str) -> bool:

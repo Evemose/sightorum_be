@@ -1,10 +1,12 @@
 package com.rorm.dataimport.hierarchical;
 
+import com.rorm.dataimport.attribute.NameUtils;
 import com.rorm.dataimport.hierarchical.HierarchicalOverride.DataTypeOverride;
 import com.rorm.dataimport.hierarchical.HierarchicalOverride.ForceSeparateRoot;
 import com.rorm.dataimport.hierarchical.HierarchicalOverride.IdOverride;
 import com.rorm.dataimport.hierarchical.HierarchicalStructure.DetectedField;
 import com.rorm.dataimport.hierarchical.HierarchicalStructure.DetectedRoot;
+import com.rorm.dataimport.naming.NamingStyle;
 import com.rorm.dataimport.pipeline.SchemaDetector.DetectedIdColumn;
 import com.rorm.metamodel.DataType;
 import org.jspecify.annotations.Nullable;
@@ -48,14 +50,20 @@ class IdColumnDetector {
     }
 
     private Optional<DetectedIdColumn> tryExistingIdField(DetectedRoot root, List<HierarchicalOverride> overrides) {
-        var idField = root.fields().get(DEFAULT_ID_COLUMN);
-        if (!(idField instanceof DetectedField.Scalar scalar)) {
+        var scalarOpt = Optional.ofNullable(root.fields().get(DEFAULT_ID_COLUMN))
+            .or(() -> Optional.ofNullable(root.fields().get(
+                NamingStyle.CAMEL_CASE.join(NameUtils.singularize(root.name()), DEFAULT_ID_COLUMN))
+            ))
+            .filter(f -> f instanceof DetectedField.Scalar)
+            .map(f -> (DetectedField.Scalar) f);
+
+        if (scalarOpt.isEmpty()) {
             return Optional.empty();
         }
 
         var dataType = overrideFinder.findOverride(overrides, DEFAULT_ID_COLUMN, DataTypeOverride.class)
             .map(DataTypeOverride::dataType)
-            .orElse(scalar.dataType());
+            .orElse(scalarOpt.get().dataType());
 
         return Optional.of(new DetectedIdColumn(DEFAULT_ID_COLUMN, DEFAULT_ID_COLUMN, dataType));
     }

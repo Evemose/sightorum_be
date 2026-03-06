@@ -411,6 +411,8 @@ class HyperparameterTuningNode(PipelineNode):
                 metric_name = "f1_score"
             elif model_category == "clustering":
                 metric_name = "silhouette_score"
+            elif model_category == "causal":
+                metric_name = "absolute_effect"
             else:
                 raise ValueError(f"No default metric for category '{model_category}'")
 

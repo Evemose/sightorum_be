@@ -4,6 +4,7 @@ import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.ChatRequest.Builder;
 import com.rorm.ai.chat.ThinkingLevel;
+import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.SwarmConfig.ModelConfig;
 import com.rorm.metamodel.ModelSpace;
 import org.jspecify.annotations.Nullable;
@@ -29,7 +30,8 @@ public class FirstLevelSwarmAgent {
         AiChatService chatService,
         String schema,
         ModelSpace modelSpace,
-        ThinkingLevel thinkingLevel
+        ThinkingLevel thinkingLevel,
+        PromptPlaceholders promptPlaceholders
     ) {
         this.modelName = modelConfig.model();
         this.promptTemplate = modelConfig.systemPrompt();
@@ -37,7 +39,7 @@ public class FirstLevelSwarmAgent {
         this.schema = schema;
         this.modelSpace = modelSpace;
         this.thinkingLevel = thinkingLevel;
-        this.promptRenderer = new SwarmPromptTemplateRenderer(modelSpace);
+        this.promptRenderer = new SwarmPromptTemplateRenderer(promptPlaceholders, modelSpace);
     }
 
     public Flux<String> stream(String input, String conversationId) {

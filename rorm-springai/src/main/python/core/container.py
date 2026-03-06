@@ -84,6 +84,11 @@ class ApplicationContainer(containers.DeclarativeContainer):
     arima_trainer = providers.Factory(lambda: _import_class("models.temporal.arima", "ARIMATrainer"))
     sarimax_trainer = providers.Factory(lambda: _import_class("models.temporal.sarimax", "SARIMAXTrainer"))
 
+    # Causal
+    dowhy_trainer = providers.Factory(lambda: _import_class("models.causal.dowhy", "DoWhyTrainer"))
+    causal_impact_trainer = providers.Factory(
+        lambda: _import_class("models.causal.causal_impact", "CausalImpactTrainer"))
+
     # Association
     apriori_trainer = providers.Factory(lambda: _import_class("models.association.apriori", "AprioriTrainer"))
     fpgrowth_trainer = providers.Factory(lambda: _import_class("models.association.fpgrowth", "FPGrowthTrainer"))
@@ -94,12 +99,12 @@ class ApplicationContainer(containers.DeclarativeContainer):
         lambda kmeans, dbscan, agglomerative, linear_regression, ridge_regression,
                random_forest_regressor, lgbm_regressor, logistic_regression,
                random_forest_classifier, svm_classifier, lgbm_classifier,
-               pca, tsne, arima, sarimax, apriori, fpgrowth, eclat:
+               pca, tsne, arima, sarimax, dowhy, causal_impact, apriori, fpgrowth, eclat:
         _create_model_registry_from_di(
             kmeans, dbscan, agglomerative, linear_regression, ridge_regression,
             random_forest_regressor, lgbm_regressor, logistic_regression,
             random_forest_classifier, svm_classifier, lgbm_classifier,
-            pca, tsne, arima, sarimax, apriori, fpgrowth, eclat
+            pca, tsne, arima, sarimax, dowhy, causal_impact, apriori, fpgrowth, eclat
         ),
         kmeans=kmeans_trainer,
         dbscan=dbscan_trainer,
@@ -116,6 +121,8 @@ class ApplicationContainer(containers.DeclarativeContainer):
         tsne=tsne_trainer,
         arima=arima_trainer,
         sarimax=sarimax_trainer,
+        dowhy=dowhy_trainer,
+        causal_impact=causal_impact_trainer,
         apriori=apriori_trainer,
         fpgrowth=fpgrowth_trainer,
         eclat=eclat_trainer,
@@ -144,6 +151,16 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
     prediction_service = providers.Singleton(
         lambda db_storage: _create_prediction_service(db_storage),
+        db_storage=db_storage,
+    )
+
+    stability_selection_service = providers.Singleton(
+        lambda db_storage: _create_stability_selection_service(db_storage),
+        db_storage=db_storage,
+    )
+
+    shap_curve_service = providers.Singleton(
+        lambda db_storage: _create_shap_curve_service(db_storage),
         db_storage=db_storage,
     )
 
@@ -176,6 +193,27 @@ class ApplicationContainer(containers.DeclarativeContainer):
         query_throttler=query_throttler,
         event_publisher=event_publisher,
         async_throttler=async_throttler,
+    )
+
+    stability_selection_node = providers.Singleton(
+        lambda cfg, stability_selection_service, pool, query_throttler, event_publisher, async_throttler:
+        _create_stability_selection_node(
+            cfg, stability_selection_service, pool, query_throttler, event_publisher, async_throttler
+        ),
+        cfg=config,
+        stability_selection_service=stability_selection_service,
+        pool=db_pool,
+        query_throttler=query_throttler,
+        event_publisher=event_publisher,
+        async_throttler=async_throttler,
+    )
+
+    shap_node = providers.Singleton(
+        lambda cfg, shap_curve_service, event_publisher:
+        _create_shap_node(cfg, shap_curve_service, event_publisher),
+        cfg=config,
+        shap_curve_service=shap_curve_service,
+        event_publisher=event_publisher,
     )
 
 
@@ -240,6 +278,8 @@ def _create_model_registry_from_di(
         tsne,
         arima,
         sarimax,
+        dowhy,
+        causal_impact,
         apriori,
         fpgrowth,
         eclat,
@@ -266,6 +306,8 @@ def _create_model_registry_from_di(
         "tsne": tsne,
         "arima": arima,
         "sarimax": sarimax,
+        "dowhy": dowhy,
+        "causal_impact": causal_impact,
         "apriori": apriori,
         "fpgrowth": fpgrowth,
         "eclat": eclat,
@@ -305,6 +347,18 @@ def _create_prediction_service(db_storage):
     """Create prediction service."""
     from service.prediction_service import PredictionService
     return PredictionService(db_storage)
+
+
+def _create_stability_selection_service(db_storage):
+    """Create stability selection service."""
+    from service.stability_selection_service import StabilitySelectionService
+    return StabilitySelectionService(db_storage=db_storage)
+
+
+def _create_shap_curve_service(db_storage):
+    """Create SHAP curve service."""
+    from service.shap_curve_service import ShapCurveService
+    return ShapCurveService(db_storage=db_storage)
 
 
 def _create_event_publisher(cfg: Settings):
@@ -367,4 +421,51 @@ def _create_tuning_node(cfg: Settings, training_service, pool, query_throttler, 
         throttler=async_throttler,
         system_max_tuning_time=cfg.tuning.max_tuning_time_seconds,
         consumer_group=cfg.pipeline.consumer_groups.tuning,
+    )
+
+
+def _create_stability_selection_node(
+        cfg: Settings,
+        stability_selection_service,
+        pool,
+        query_throttler,
+        event_publisher,
+        async_throttler,
+):
+    """Create async stability selection pipeline node."""
+    from processing.stability_selection_node import StabilitySelectionPipelineNode
+    from datasource.sql_datasource import PostgreSQLDatasource
+
+    def datasource_factory():
+        """Factory function to create new datasource instances."""
+        return PostgreSQLDatasource(
+            pool=pool,
+            throttler=query_throttler,
+            query_timeout=cfg.datasource.query_timeout_seconds,
+            explain_timeout=cfg.datasource.explain_analyze_timeout_seconds,
+            lazy_threshold_bytes=cfg.datasource.lazy_materialization_threshold_bytes,
+            absolute_max_bytes=cfg.datasource.absolute_max_bytes,
+        )
+
+    return StabilitySelectionPipelineNode(
+        redis_url=cfg.redis.url,
+        input_stream=cfg.pipeline.streams.stability_selection_requests,
+        stability_selection_service=stability_selection_service,
+        datasource_factory=datasource_factory,
+        event_publisher=event_publisher,
+        throttler=async_throttler,
+        consumer_group=cfg.pipeline.consumer_groups.stability_selection,
+    )
+
+
+def _create_shap_node(cfg: Settings, shap_curve_service, event_publisher):
+    """Create async SHAP curve computation pipeline node."""
+    from processing.shap_node import ShapPipelineNode
+
+    return ShapPipelineNode(
+        redis_url=cfg.redis.url,
+        input_stream=cfg.pipeline.streams.shap_requests,
+        shap_curve_service=shap_curve_service,
+        event_publisher=event_publisher,
+        consumer_group=cfg.pipeline.consumer_groups.shap,
     )

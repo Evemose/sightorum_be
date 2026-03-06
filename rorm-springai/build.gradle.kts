@@ -2,11 +2,22 @@ plugins {
     `java-library`
 }
 
+java {
+    modularity.inferModulePath = true
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.addAll(
+        listOf("--add-reads", "rorm.rorm.springai.main=ALL-UNNAMED")
+    )
+}
+
 tasks.test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
     jvmArgs("--enable-preview")
     jvmArgs("-XX:+EnableDynamicAgentLoading")
+    jvmArgs("--add-reads", "rorm.rorm.springai.main=ALL-UNNAMED")
 }
 
 repositories {
@@ -15,22 +26,14 @@ repositories {
     maven { url = uri("https://repo.spring.io/snapshot") }
 }
 
-val springAiVersion by extra("1.1.2")
 val hypersistenceVersion by extra("3.14.1")
 val mapstructVersion by extra("1.6.3")
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.ai:spring-ai-bom:$springAiVersion")
-    }
-}
 
 dependencies {
     api(project(":rorm-core"))
     api(project(":rorm-serialization"))
     api(project(":rorm-import"))
 
-    api(platform("org.springframework.ai:spring-ai-bom:$springAiVersion"))
     api("org.springframework.ai:spring-ai-starter-model-openai")
 
     implementation("org.springframework.boot:spring-boot-starter")
@@ -43,6 +46,7 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc")
     api("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
     api("org.springframework.ai:spring-ai-advisors-vector-store")
+    implementation("org.springframework.ai:spring-ai-starter-model-anthropic")
 
     compileOnly("org.jspecify:jspecify")
     compileOnly("org.projectlombok:lombok")

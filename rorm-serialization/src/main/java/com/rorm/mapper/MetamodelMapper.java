@@ -8,12 +8,13 @@ import com.rorm.metamodel.CollectionAttribute.CompositeElement;
 import com.rorm.metamodel.DataType.*;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
 import org.mapstruct.SubclassMapping;
 
 import java.util.List;
 import java.util.Set;
 
-@Mapper
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface MetamodelMapper {
 
     // ModelSpace

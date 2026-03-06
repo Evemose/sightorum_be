@@ -240,3 +240,152 @@ class TrainingRequest:
             "feature_columns": self.feature_columns,
             "model_params": self.model_params,
         }
+
+
+@dataclass
+class StabilitySelectionRequest:
+    """
+    Request DTO for stability selection analysis.
+
+    Runs repeated subsample fits across multiple model families and
+    compares feature importance stability for regression or classification.
+    """
+
+    datasource: SQLDatasourceConfig
+    target_column: str
+    feature_columns: Optional[list[str]] = None
+    problem_type: Optional[str] = None  # "regression" | "classification"
+    bootstrap_runs: int = 50
+    sample_fraction: float = 0.8
+    correlation_threshold: float = 0.8
+    polynomial_degree: int = 2
+    selection_top_k: Optional[int] = None
+    random_state: int = 42
+
+    def validate(self) -> ValidationResult:
+        """Validate the stability selection request."""
+        result = ValidationResult()
+
+        if self.datasource is None:
+            result.add_error("datasource", "datasource configuration is required")
+        else:
+            result.merge(self.datasource.validate())
+
+        target_validator = Validator()
+        target_validator.field("target_column", self.target_column).required(
+            "target_column is required. Specify the outcome column to analyze."
+        ).is_type(str)
+        result.merge(target_validator.validate())
+
+        if self.problem_type is not None:
+            problem_validator = Validator()
+            problem_validator.field("problem_type", self.problem_type).is_type(str).in_list(
+                ["regression", "classification"],
+                "problem_type must be either 'regression' or 'classification'",
+            )
+            result.merge(problem_validator.validate())
+
+        if self.feature_columns is not None:
+            if not isinstance(self.feature_columns, list):
+                result.add_error(
+                    "feature_columns",
+                    f"feature_columns must be a list, got {type(self.feature_columns).__name__}",
+                )
+            elif len(self.feature_columns) == 0:
+                result.add_error(
+                    "feature_columns",
+                    "feature_columns list cannot be empty. Omit it to use all non-target columns.",
+                )
+            else:
+                seen = set()
+                duplicates = []
+                for index, column in enumerate(self.feature_columns):
+                    if not isinstance(column, str):
+                        result.add_error(
+                            "feature_columns",
+                            f"feature_columns[{index}] must be a string, got {type(column).__name__}",
+                        )
+                        continue
+                    if not column.strip():
+                        result.add_error(
+                            "feature_columns",
+                            f"feature_columns[{index}] cannot be empty",
+                        )
+                    if column in seen:
+                        duplicates.append(column)
+                    seen.add(column)
+                if duplicates:
+                    result.add_error(
+                        "feature_columns",
+                        f"Duplicate columns found: {', '.join(sorted(set(duplicates)))}",
+                    )
+                if self.target_column in self.feature_columns:
+                    result.add_error(
+                        "feature_columns",
+                        "feature_columns must not include target_column",
+                    )
+
+        bootstrap_validator = Validator()
+        bootstrap_validator.field("bootstrap_runs", self.bootstrap_runs).is_type(int).min_value(
+            50, "bootstrap_runs must be at least 50"
+        )
+        result.merge(bootstrap_validator.validate())
+
+        if not isinstance(self.sample_fraction, (int, float)):
+            result.add_error("sample_fraction", "sample_fraction must be a number")
+        else:
+            sample_validator = Validator()
+            sample_validator.field("sample_fraction", float(self.sample_fraction)).min_value(
+                0.5, "sample_fraction must be at least 0.5"
+            ).max_value(
+                1.0, "sample_fraction must be at most 1.0"
+            )
+            result.merge(sample_validator.validate())
+
+        if not isinstance(self.correlation_threshold, (int, float)):
+            result.add_error("correlation_threshold", "correlation_threshold must be a number")
+        else:
+            correlation_validator = Validator()
+            correlation_validator.field(
+                "correlation_threshold",
+                float(self.correlation_threshold),
+            ).min_value(
+                0.0, "correlation_threshold must be between 0 and 1"
+            ).max_value(
+                1.0, "correlation_threshold must be between 0 and 1"
+            )
+            result.merge(correlation_validator.validate())
+
+        polynomial_validator = Validator()
+        polynomial_validator.field("polynomial_degree", self.polynomial_degree).is_type(int).min_value(
+            1, "polynomial_degree must be at least 1"
+        ).max_value(3, "polynomial_degree must be at most 3 to avoid feature explosion")
+        polynomial_validator.field("random_state", self.random_state).is_type(int)
+        result.merge(polynomial_validator.validate())
+
+        if self.selection_top_k is not None:
+            top_k_validator = Validator()
+            top_k_validator.field("selection_top_k", self.selection_top_k).is_type(int).min_value(
+                1, "selection_top_k must be at least 1"
+            )
+            result.merge(top_k_validator.validate())
+
+        return result
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "datasource": {
+                "sql": self.datasource.sql,
+                "bind_variables": self.datasource.bind_variables,
+            },
+            "target_column": self.target_column,
+            "feature_columns": self.feature_columns,
+            "problem_type": self.problem_type,
+            "bootstrap_runs": self.bootstrap_runs,
+            "sample_fraction": self.sample_fraction,
+            "correlation_threshold": self.correlation_threshold,
+            "polynomial_degree": self.polynomial_degree,
+            "selection_top_k": self.selection_top_k,
+            "random_state": self.random_state,
+        }

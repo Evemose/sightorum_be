@@ -2,7 +2,7 @@ spring:
   datasource:
     password: mypassword
     username: myuser
-    url: jdbc:postgresql://localhost:5444/mydatabase
+    url: jdbc:postgresql://localhost:5444/mydatabase?options=-c%20TimeZone%3DEurope/Kyiv
   jpa:
     hibernate:
       ddl-auto: update

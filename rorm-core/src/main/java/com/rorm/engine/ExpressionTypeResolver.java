@@ -10,6 +10,7 @@ import com.rorm.query.*;
 import com.rorm.query.Expression.*;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.*;
@@ -22,6 +23,7 @@ import java.util.List;
  * which can be used for validation, optimizations, and determining appropriate
  * data analysis operations.
  */
+@Component
 @RequiredArgsConstructor
 public class ExpressionTypeResolver implements TypeResolutionContext {
 

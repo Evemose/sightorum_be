@@ -28,6 +28,7 @@ import java.util.*;
  *   <li>IdOverride - Override ID column configuration</li>
  * </ul>
  */
+@org.springframework.stereotype.Component
 public class HierarchicalSchemaConverter {
 
     private static final ScopedValue<TransformationContext> CONTEXT = ScopedValue.newInstance();

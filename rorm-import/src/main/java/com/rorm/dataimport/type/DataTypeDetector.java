@@ -1,6 +1,8 @@
 package com.rorm.dataimport.type;
 
 import com.rorm.metamodel.DataType;
+import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 
@@ -8,6 +10,7 @@ import java.util.*;
  * Detects DataType from sample values using a parser-based approach.
  * Each type parser attempts to parse values, and the first successful match wins.
  */
+@Component
 public class DataTypeDetector {
 
     private static final int ENUM_MAX_DISTINCT_VALUES = 20;
@@ -54,7 +57,7 @@ public class DataTypeDetector {
      * Detects if all samples are of a native type (Boolean, Number, List).
      * Returns the DataType if consistent, null otherwise.
      */
-    private @org.jspecify.annotations.Nullable DataType detectNativeType(Collection<?> samples) {
+    private @Nullable DataType detectNativeType(Collection<?> samples) {
         var nonNullSamples = samples.stream()
             .filter(Objects::nonNull)
             .toList();

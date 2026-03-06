@@ -3,16 +3,17 @@ package com.rorm.ml.tools;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.RormToolContext;
-import com.rorm.ai.chat.ChatForkService;
 import com.rorm.dto.QueryDTO;
 import com.rorm.engine.QueryTransformer;
 import com.rorm.mapper.QueryMapper;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.*;
-import com.rorm.ml.dto.model.train.ModelConfig;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
+import com.rorm.ml.peristence.MLPersistence;
+import com.rorm.ml.stream.TrainingFutureRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jooq.Query;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -23,12 +24,13 @@ import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
+@org.springframework.stereotype.Component
 @RequiredArgsConstructor
 public class MlTrainingTool {
 
     private static final String REASON_DESCRIPTION = """
         Brief explanation of WHY you're training this model and WHAT QUESTION you're trying to answer.
-        This will be shown to the user and available to the subagent that analyzes results.
+        This will be shown to the user and available when reviewing training results.
         
         Focus on the analytical goal in business terms, not technical implementation.
         
@@ -45,12 +47,10 @@ public class MlTrainingTool {
         """;
 
     private static final String INSTRUCTIONS_DESCRIPTION = """
-        Actionable instructions for the subagent analyzing the trained model results.
+        Actionable instructions for reviewing the trained model results.
         
-        The subagent will have access to:
-        - Your recent action history (last N steps traced linearly back)
+        The result review flow will have access to:
         - Model performance metrics and feature importance
-        - Ability to query full details of any previous node by ID on demand
         
         Provide SPECIFIC ANALYSIS GUIDANCE and CONDITIONAL NEXT STEPS:
         
@@ -58,10 +58,10 @@ public class MlTrainingTool {
         1. Key metrics to prioritize (e.g., "focus on recall over precision - false negatives cost $5K each")
         2. Performance thresholds that determine next actions (e.g., "if accuracy >75% proceed to scoring entire dataset; if <75% check node #47 for feature engineering ideas")
         3. Specific hypotheses to validate (e.g., "verify if recency_days dominates feature importance as expected from correlation analysis")
-        4. References to relevant previous nodes if needed (e.g., "if model underperforms, review the data distribution analysis in node #23")
+        4. References to relevant prior analysis context if needed
         5. What to do with good/bad results (e.g., "on success, generate predictions and create visualization comparing predicted vs actual; on failure, query for additional temporal features")
         
-        The subagent can access history but you should guide its attention to what matters.
+        Be specific and guide attention to what matters.
         
         Good example:
         "Prioritize F1-score since we need balance. If F1 >0.72, this is production-ready - score all active customers and flag top 100 highest risk for review. Check if customer_tenure and support_tickets_count are in top 3 features - this validates our hypothesis from the earlier segmentation. If F1 <0.65, the issue is likely class imbalance - check node #31 where we saw 90/10 split and consider SMOTE resampling."
@@ -75,10 +75,11 @@ public class MlTrainingTool {
         """;
 
     private final MlTrainingService trainingService;
-    private final ChatForkService chatForkService;
     private final ObjectMapper objectMapper;
     private final QueryMapper queryMapper;
     private final QueryTransformer queryTransformer;
+    private final MLPersistence MLPersistence;
+    private final TrainingFutureRegistry trainingFutureRegistry;
 
     @Tool(
         name = "launchModelTraining",
@@ -89,14 +90,12 @@ public class MlTrainingTool {
             - This operation is ASYNCHRONOUS - training runs in background and takes significant time
             - This operation is EXPENSIVE - consumes substantial compute resources
             - Use ONLY when there is substantial evidence that ML training is necessary
-            - This session will NOT receive training results - a separate forked session handles completion
+            - Training results will be available after the current step completes
             
             AFTER CALLING THIS TOOL:
-            - The current conversation is forked; a background session will process training results
-            - You should either:
-              a) YIELD CONTROL: Inform the user that training has started and they will be notified upon completion
-              b) CONTINUE RESEARCH: Proceed with other analysis/research unrelated to the pending training
-            - Do NOT wait for or expect training results in this session
+            - Training runs in the background
+            - CONTINUE RESEARCH: Proceed with other analysis, queries, and tool calls in this turn
+            - Training results will be automatically awaited and interpreted after this step finishes
             
             PREREQUISITES:
             - Use the executeQuery tool first to verify the query returns expected data
@@ -173,10 +172,8 @@ public class MlTrainingTool {
 
             // Extract context
             var context = RormToolContext.from(toolContext);
-            var currentProgress = context.chatProgress();
-
-            var query = queryMapper.toEntity(dataQuery, currentProgress.getModelSpace());
-            var jooqQuery = queryTransformer.transform(query);
+            var query = queryMapper.toEntity(dataQuery, context.modelSpace());
+            var jooqQuery = queryTransformer.transform(query, context.schema());
             var sql = jooqQuery.getSQL();
             var bindValues = extractBindVariables(jooqQuery);
 
@@ -190,28 +187,27 @@ public class MlTrainingTool {
                 .build();
 
             var response = trainingService.submitTraining(request);
+            MLPersistence.save(request, context.schema(), response.trainingId());
 
-            if (!response.isAccepted()) {
+            if (response.isNotAccepted()) {
                 return errorResponse("Training job was not accepted: " + response.message());
             }
 
-            var forkedProgress = chatForkService.forkForTraining(currentProgress, request, response);
+            trainingFutureRegistry.register(response.trainingId());
+            trackLaunchedTraining(toolContext, response.trainingId());
 
             var result = new TrainingLaunchResult(
                 true,
                 response.trainingId(),
-                forkedProgress.getConversationId(),
                 response.message(),
                 """
                     Training job launched successfully.
                     - Training ID: %s
                     - Model Type: %s
-                    - Forked conversation: %s
                     
-                    IMPORTANT: This session will NOT receive training results.
-                    The forked session will be notified when training completes.
-                    You should now either yield control or continue with other research.
-                    """.formatted(response.trainingId(), modelConfig.modelType(), forkedProgress.getConversationId()),
+                    Training results will be automatically available after the current step completes.
+                    Continue with other analysis and tool calls in this turn.
+                    """.formatted(response.trainingId(), modelConfig.modelType()),
                 null
             );
 
@@ -223,7 +219,7 @@ public class MlTrainingTool {
         }
     }
 
-    private Map<String, Object> extractBindVariables(org.jooq.Query jooqQuery) {
+    private Map<String, Object> extractBindVariables(Query jooqQuery) {
         var bindValues = jooqQuery.getBindValues();
         if (bindValues.isEmpty()) {
             return Map.of();
@@ -234,6 +230,14 @@ public class MlTrainingTool {
             result.put("p" + i++, value);
         }
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void trackLaunchedTraining(ToolContext toolContext, UUID trainingId) {
+        var launched = (List<UUID>) toolContext.getContext().get("launchedTrainings");
+        if (launched != null) {
+            launched.add(trainingId);
+        }
     }
 
     private String errorResponse(String message) {
@@ -318,19 +322,17 @@ public class MlTrainingTool {
             - This operation is ASYNCHRONOUS - tuning + training runs in background
             - This operation is VERY EXPENSIVE - runs multiple training trials for optimization
             - Use ONLY when hyperparameter optimization is critical for model performance
-            - This session will NOT receive results - a separate forked session handles completion
+            - Training results will be available after the current step completes
             
             WORKFLOW:
             1. Hyperparameter tuning with Optuna (multiple trials)
             2. Training final model with best parameters
-            3. Results delivered to forked session
+            3. Results are automatically awaited and interpreted after this step finishes
             
             AFTER CALLING THIS TOOL:
-            - The current conversation is forked; a background session will process results
-            - You should either:
-              a) YIELD CONTROL: Inform the user that tuning has started
-              b) CONTINUE RESEARCH: Proceed with other analysis unrelated to pending tuning
-            - Do NOT wait for or expect tuning/training results in this session
+            - Tuning/training runs in the background
+            - CONTINUE RESEARCH: Proceed with other analysis and tool calls in this turn
+            - Training results will be automatically awaited and interpreted after this step finishes
             
             PREREQUISITES:
             - Use the executeQuery tool first to verify the query returns expected data
@@ -398,9 +400,7 @@ public class MlTrainingTool {
 
             // Extract context
             var context = RormToolContext.from(toolContext);
-            var currentProgress = context.chatProgress();
-
-            var query = queryMapper.toEntity(dataQuery, currentProgress.getModelSpace());
+            var query = queryMapper.toEntity(dataQuery, context.modelSpace());
             var jooqQuery = queryTransformer.transform(query);
             var sql = jooqQuery.getSQL();
             var bindValues = extractBindVariables(jooqQuery);
@@ -423,33 +423,31 @@ public class MlTrainingTool {
                 .build();
 
             var response = trainingService.submitTuningThenTraining(request);
+            MLPersistence.save(request, context.schema(), response.trainingId());
 
-            if (!response.isAccepted()) {
+            if (response.isNotAccepted()) {
                 return errorResponse("Tuning job was not accepted: " + response.message());
             }
 
-            var forkedProgress = chatForkService.forkForTraining(currentProgress, request, response);
+            trainingFutureRegistry.register(response.trainingId());
+            trackLaunchedTraining(toolContext, response.trainingId());
 
             var result = new TuningLaunchResult(
                 true,
                 response.trainingId(),
-                forkedProgress.getConversationId(),
                 response.message(),
                 """
                     Hyperparameter tuning job launched successfully.
                     - Training ID: %s
                     - Model Type: %s
                     - Tuning Trials: %d
-                    - Forked conversation: %s
                     
-                    IMPORTANT: This session will NOT receive tuning/training results.
-                    The forked session will be notified when optimization completes.
-                    You should now either yield control or continue with other research.
+                    Training results will be automatically available after the current step completes.
+                    Continue with other analysis and tool calls in this turn.
                     """.formatted(
                     response.trainingId(),
                     tuningConfig.modelType(),
-                    tuningSettings != null ? tuningSettings.nTrials() : 50,
-                    forkedProgress.getConversationId()
+                    tuningSettings != null ? tuningSettings.nTrials() : 50
                 ),
                 null
             );
@@ -465,7 +463,6 @@ public class MlTrainingTool {
     public record TrainingLaunchResult(
         boolean success,
         UUID trainingId,
-        UUID forkedConversationId,
         String status,
         String instructions,
         String error
@@ -474,7 +471,6 @@ public class MlTrainingTool {
     public record TuningLaunchResult(
         boolean success,
         UUID trainingId,
-        UUID forkedConversationId,
         String status,
         String instructions,
         String error
