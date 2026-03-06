@@ -38,7 +38,9 @@ public abstract class AbstractImportTest {
     @Autowired
     protected ModelSpaceDetector modelSpaceDetector;
     @Autowired
-    protected DataImportPipeline dataImportPipeline;
+    protected PrepareSchemaStep prepareSchemaStep;
+    @Autowired
+    protected RunBatchImportStep runBatchImportStep;
     @Autowired
     protected JdbcTemplate jdbcTemplate;
     protected String testSchema;
@@ -70,6 +72,11 @@ public abstract class AbstractImportTest {
 
     protected String getSchemaName() {
         return testSchema;
+    }
+
+    protected ImportResult importData(ImportRequest request) {
+        var prepared = prepareSchemaStep.execute(request);
+        return runBatchImportStep.execute(prepared);
     }
 
     protected ImportResult awaitImportCompletion(ImportResult result) {

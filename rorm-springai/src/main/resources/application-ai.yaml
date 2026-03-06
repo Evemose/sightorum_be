@@ -16,5 +16,6 @@ spring:
       embedding:
         options:
           model: text-embedding-3-large
-    anthropic:
-      api-key: ***REMOVED-ANTHROPIC-API-KEY***
+anthropic:
+  api-key: ***REMOVED-ANTHROPIC-API-KEY***
+

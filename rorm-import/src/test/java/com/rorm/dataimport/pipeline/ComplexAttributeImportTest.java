@@ -52,7 +52,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -102,7 +102,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -165,7 +165,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -219,7 +219,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(categoriesSource, productsSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(6);
 
@@ -277,7 +277,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(3);
 
@@ -325,7 +325,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        awaitImportCompletion(dataImportPipeline.importData(request));
+        awaitImportCompletion(importData(request));
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.users ORDER BY id".formatted(schema));
         assertThat(rows).hasSize(3);
@@ -382,7 +382,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        awaitImportCompletion(dataImportPipeline.importData(request));
+        awaitImportCompletion(importData(request));
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.locations ORDER BY id".formatted(schema));
         assertThat(rows).hasSize(2);
@@ -416,7 +416,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
         var progress = result.progress().blockLast(Duration.ofSeconds(30));
 
         assertThat(progress).isNotNull();
@@ -473,7 +473,7 @@ class ComplexAttributeImportTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
         var progress = result.progress().blockLast(Duration.ofSeconds(30));
 
         assertThat(progress).isNotNull();

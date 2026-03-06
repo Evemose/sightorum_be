@@ -38,6 +38,13 @@ public class ChatRequestPreprocessor {
         return promptBuilder.buildSystemMessage(request.modelSpace());
     }
 
+    /**
+     * Resolves common placeholders ({{METAMODEL}}, {{QUERY_STRUCTURE}}) in the user prompt.
+     */
+    public String resolveUserPrompt(ChatRequest<?> request) {
+        return placeholders.resolve(request.userPrompt(), request.modelSpace());
+    }
+
     public List<ToolCallback> resolveToolCallbacks(ChatRequest<?> request) {
         var toolObjects = new ArrayList<>(toolGroupResolver.resolve(request.toolGroups()));
         toolObjects.addAll(request.additionalTools());

@@ -54,7 +54,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(userSource, orderSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(5);
         assertThat(result.modelSpace().roots()).hasSize(2);
@@ -88,7 +88,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult, 500); // chunk size 500
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(5000);
 
@@ -124,7 +124,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        awaitImportCompletion(dataImportPipeline.importData(request));
+        awaitImportCompletion(importData(request));
 
         // Verify job execution (job name includes timestamp, so search by prefix)
         var allInstances = jobExplorer.getJobNames();
@@ -168,7 +168,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult, 2); // small chunks
-        awaitImportCompletion(dataImportPipeline.importData(request));
+        awaitImportCompletion(importData(request));
 
         var allInstances = jobExplorer.getJobNames();
         var jobInstances = allInstances.stream()
@@ -217,7 +217,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
 
         // The import should throw an exception when encountering invalid numeric ID
-        assertThatThrownBy(() -> awaitImportCompletion(dataImportPipeline.importData(request)))
+        assertThatThrownBy(() -> awaitImportCompletion(importData(request)))
             .hasRootCauseInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Invalid numeric ID");
 
@@ -244,7 +244,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(dataSource), detectionResult);
-        awaitImportCompletion(dataImportPipeline.importData(request));
+        awaitImportCompletion(importData(request));
 
         var rows = jdbcTemplate.queryForList("SELECT * FROM %s.special ORDER BY id".formatted(schema));
         assertThat(rows).hasSize(2);
@@ -281,8 +281,8 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
         var request2 = new ImportRequest(schema2, List.of(dataSource2), detectionResult2, 25);
 
         try {
-            awaitImportCompletion(dataImportPipeline.importData(request1));
-            awaitImportCompletion(dataImportPipeline.importData(request2));
+            awaitImportCompletion(importData(request1));
+            awaitImportCompletion(importData(request2));
 
             var count1 = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM " + schema1 + ".chunk_test",
@@ -337,7 +337,7 @@ class DataImportPipelineComplexTest extends AbstractImportTest {
 
         var schema = getSchemaName();
         var request = new ImportRequest(schema, List.of(categorySource, productSource), detectionResult);
-        var result = awaitImportCompletion(dataImportPipeline.importData(request));
+        var result = awaitImportCompletion(importData(request));
 
         assertThat(result.totalRowsImported()).isEqualTo(6); // 3 categories + 3 products
 

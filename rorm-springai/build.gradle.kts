@@ -46,7 +46,7 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc")
     api("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
     api("org.springframework.ai:spring-ai-advisors-vector-store")
-    implementation("org.springframework.ai:spring-ai-starter-model-anthropic")
+    implementation("com.anthropic:anthropic-java:2.15.0")
 
     compileOnly("org.jspecify:jspecify")
     compileOnly("org.projectlombok:lombok")
