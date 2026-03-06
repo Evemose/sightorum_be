@@ -16,5 +16,6 @@ spring:
       embedding:
         options:
           model: text-embedding-3-large
-    anthropic:
-      api-key: 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
+anthropic:
+  api-key: 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
+

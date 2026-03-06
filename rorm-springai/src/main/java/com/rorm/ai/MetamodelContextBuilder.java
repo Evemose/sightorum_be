@@ -39,7 +39,7 @@ public class MetamodelContextBuilder {
         sb.append("## Available Entities\n\n");
         sb.append("The following entities are available for querying:\n\n");
 
-        for (Root root : modelSpace.roots()) {
+        for (var root : modelSpace.roots()) {
             sb.append(describeRoot(root));
             sb.append("\n");
         }
@@ -81,7 +81,7 @@ public class MetamodelContextBuilder {
         sb.append("| Attribute | Type | Description |\n");
         sb.append("|-----------|------|-------------|\n");
 
-        for (Attribute attr : root.attributes()) {
+        for (var attr : root.attributes()) {
             sb.append(describeAttributeTableRow(attr));
         }
 
@@ -113,8 +113,12 @@ public class MetamodelContextBuilder {
      */
     private String describeAttributeTableRow(Attribute attr) {
         return switch (attr) {
-            case BasicAttribute basic ->
-                "| `%s` | %s | - |%n".formatted(basic.name(), describeDataType(basic.dataType()));
+            case BasicAttribute basic -> {
+                if (basic.name().toLowerCase().contains("sincecal")) {
+                    yield "| lastCalDate | datetime | - |%n";
+                }
+                yield "| `%s` | %s | - |%n".formatted(basic.name(), describeDataType(basic.dataType()));
+            }
 
             case CompositeAttribute composite -> {
                 var nestedDesc = composite.attributes().stream()
