@@ -1,7 +1,11 @@
 package com.rorm.ml;
 
+import com.rorm.durable.DurableJobRuntime;
+import com.rorm.durable.InMemoryDurableJobRuntime;
 import com.rorm.misc.YamlPropertySource;
+import com.rorm.ml.jobs.JobExecutor;
 import com.rorm.ml.stream.JobStreamListener;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +42,17 @@ public class RormMlConfiguration {
             .baseUrl(properties.serviceBaseUrl())
             .requestFactory(factory)
             .build();
+    }
+
+    @Bean
+    public JobExecutor jobExecutor(org.springframework.context.ApplicationContext applicationContext) {
+        return new JobExecutor(applicationContext);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public DurableJobRuntime inMemoryDurableJobRuntime(JobExecutor jobExecutor) {
+        return new InMemoryDurableJobRuntime(jobExecutor::execute);
     }
 
     @Bean

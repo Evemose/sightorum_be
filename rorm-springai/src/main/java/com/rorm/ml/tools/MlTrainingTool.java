@@ -6,10 +6,11 @@ import com.rorm.ai.RormToolContext;
 import com.rorm.dto.QueryDTO;
 import com.rorm.engine.QueryTransformer;
 import com.rorm.mapper.QueryMapper;
-import com.rorm.ml.AsyncJobGateway;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.*;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
+import com.rorm.ml.jobs.TrainingJobSubmitter;
+import com.rorm.ml.jobs.TuningJobSubmitter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Query;
@@ -77,7 +78,8 @@ public class MlTrainingTool {
     private final ObjectMapper objectMapper;
     private final QueryMapper queryMapper;
     private final QueryTransformer queryTransformer;
-    private final AsyncJobGateway jobGateway;
+    private final TrainingJobSubmitter trainingJobSubmitter;
+    private final TuningJobSubmitter tuningJobSubmitter;
 
     @Tool(
         name = "launchModelTraining",
@@ -181,12 +183,12 @@ public class MlTrainingTool {
                 .modelConfig(modelConfig)
                 .build();
 
-            var jobId = jobGateway.submit(request, context.schema());
-            trackJob(toolContext, jobId);
+            var awaitable = trainingJobSubmitter.submit(request, context.schema());
+            trackJob(toolContext, awaitable.jobId());
 
             var result = new TrainingLaunchResult(
                 true,
-                jobId,
+                awaitable.jobId(),
                 "accepted",
                 """
                     Training job launched successfully.
@@ -195,7 +197,7 @@ public class MlTrainingTool {
                     
                     Training results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
-                    """.formatted(jobId, modelConfig.modelType()),
+                    """.formatted(awaitable.jobId(), modelConfig.modelType()),
                 null
             );
 
@@ -407,23 +409,23 @@ public class MlTrainingTool {
                 .tuningConfig(tuningSettings != null ? tuningSettings : TuningConfig.defaults())
                 .build();
 
-            var jobId = jobGateway.submit(request, context.schema());
-            trackJob(toolContext, jobId);
+            var awaitable = tuningJobSubmitter.submit(request, context.schema());
+            trackJob(toolContext, awaitable.jobId());
 
             var result = new TuningLaunchResult(
                 true,
-                jobId,
+                awaitable.jobId(),
                 "accepted",
                 """
                     Hyperparameter tuning job launched successfully.
                     - Training ID: %s
                     - Model Type: %s
                     - Tuning Trials: %d
-                    
+
                     Training results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
                     """.formatted(
-                    jobId,
+                    awaitable.jobId(),
                     tuningConfig.modelType(),
                     tuningSettings != null ? tuningSettings.nTrials() : 50
                 ),

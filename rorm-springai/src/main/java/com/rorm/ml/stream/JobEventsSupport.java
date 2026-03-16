@@ -6,9 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @org.springframework.stereotype.Component
-@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
-    name = "rorm.ml.durable-execution", havingValue = "false", matchIfMissing = true
-)
+@org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(JobCompletionHandler.class)
 @RequiredArgsConstructor
 public class JobEventsSupport implements JobCompletionHandler {
 

@@ -1,7 +1,6 @@
 package com.rorm.ml.peristence;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.ml.JobMetadataStore;
 import com.rorm.ml.dto.AsyncJobRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -11,12 +10,11 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
-public class MLJobMetadataStore implements JobMetadataStore {
+public class MLJobMetadataStore {
 
     private final MLJobRepository repo;
     private final ObjectMapper objectMapper;
 
-    @Override
     public Optional<MLJobInfo> findByJobId(UUID jobId) {
         return repo.findByJobId(jobId).map(MLJob::toInfo);
     }
