@@ -10,9 +10,9 @@ import com.rorm.ai.swarm.dto.ResearchPlanDTO.ResearchBranch;
 import com.rorm.ai.swarm.dto.ResearchPlanDTO.ResearchStep;
 import com.rorm.ai.swarm.dto.StepExecutionResultDTO;
 import com.rorm.ai.swarm.dto.StepRef;
-import com.rorm.ml.JobMetadataStore;
-import com.rorm.ml.JobResultAwaiter;
+import com.rorm.ml.peristence.MLJobMetadataStore;
 import com.rorm.ml.stream.JobEvent;
+import com.rorm.ml.stream.JobFutureRegistry;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Sinks.Many;
 
@@ -38,22 +38,22 @@ public class ExecutorSwarmAgent extends SwarmAgent {
     private final SwarmMind swarmMind;
     private final FirstLevelSwarmAgent executor;
     private final DependencyCoordinator coordinator;
-    private final JobResultAwaiter jobResultAwaiter;
-    private final JobMetadataStore jobMetadataStore;
+    private final JobFutureRegistry jobFutureRegistry;
+    private final MLJobMetadataStore jobMetadataStore;
 
     public ExecutorSwarmAgent(
         SwarmMind swarmMind,
         FirstLevelSwarmAgent executor,
         SecondarySwarmAgent summarizer,
         DependencyCoordinator coordinator,
-        JobResultAwaiter jobResultAwaiter,
-        JobMetadataStore jobMetadataStore
+        JobFutureRegistry jobFutureRegistry,
+        MLJobMetadataStore jobMetadataStore
     ) {
         super(summarizer);
         this.swarmMind = swarmMind;
         this.executor = executor;
         this.coordinator = coordinator;
-        this.jobResultAwaiter = jobResultAwaiter;
+        this.jobFutureRegistry = jobFutureRegistry;
         this.jobMetadataStore = jobMetadataStore;
     }
 
@@ -285,12 +285,12 @@ public class ExecutorSwarmAgent extends SwarmAgent {
 
             JobEvent event;
             try {
-                event = jobResultAwaiter.await(jobId, JOB_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+                event = jobFutureRegistry.await(jobId, JOB_TIMEOUT_MINUTES, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Thread interrupted while awaiting job", e);
             } finally {
-                jobResultAwaiter.remove(jobId);
+                jobFutureRegistry.remove(jobId);
             }
 
             results.add(event);

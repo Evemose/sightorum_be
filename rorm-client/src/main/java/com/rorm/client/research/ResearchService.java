@@ -15,8 +15,8 @@ import com.rorm.client.research.dto.ResearchNodeResponse;
 import com.rorm.client.research.dto.ResearchNodeStructuralInfo;
 import com.rorm.client.research.dto.ResearchResponse;
 import com.rorm.client.research.dto.StartResearchRequest;
-import com.rorm.ml.JobMetadataStore;
-import com.rorm.ml.JobResultAwaiter;
+import com.rorm.ml.peristence.MLJobMetadataStore;
+import com.rorm.ml.stream.JobFutureRegistry;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +44,8 @@ public class ResearchService {
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
     private final Outbox outbox;
-    private final JobResultAwaiter jobResultAwaiter;
-    private final JobMetadataStore jobMetadataStore;
+    private final JobFutureRegistry jobFutureRegistry;
+    private final MLJobMetadataStore jobMetadataStore;
     private final PromptPlaceholders promptPlaceholders;
 
     public ResearchResponse startResearch(StartResearchRequest request) {
@@ -74,7 +74,7 @@ public class ResearchService {
     private Swarm createSwarm(String schemaName, com.rorm.metamodel.ModelSpace modelSpace) {
         var store = vectorStore.orElseThrow(() ->
             new IllegalStateException("VectorStore is required to run real swarm research"));
-        return new Swarm(swarmConfig, aiChatService, schemaName, modelSpace, store, jobResultAwaiter, jobMetadataStore, promptPlaceholders);
+        return new Swarm(swarmConfig, aiChatService, schemaName, modelSpace, store, jobFutureRegistry, jobMetadataStore, promptPlaceholders);
     }
 
     private void handleEvent(UUID researchId, SwarmEvent event) {

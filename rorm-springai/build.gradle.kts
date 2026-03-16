@@ -52,6 +52,8 @@ dependencies {
     // Restate durable execution (conditional via rorm.ml.durable-execution=true)
     implementation("dev.restate:sdk-spring-boot-starter:$restateVersion")
     implementation("dev.restate:admin-client:$restateVersion")
+    api(project(":rorm-durable-jobs"))
+    annotationProcessor(project(":rorm-durable-jobs-processor"))
     annotationProcessor("dev.restate:sdk-api-gen:$restateVersion")
 
     compileOnly("org.jspecify:jspecify")

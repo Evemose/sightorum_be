@@ -22,7 +22,7 @@ class JobEventsSupportTest {
     private JobEventsSupport support;
 
     private static MLJobInfo jobInfo(UUID jobId) {
-        return new MLJobInfo(jobId, "Test reason", "Check metrics", null, null);
+        return new MLJobInfo(jobId, "Test reason", "Check metrics");
     }
 
     private static JobEvent successEvent(UUID jobId) {

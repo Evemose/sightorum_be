@@ -6,11 +6,12 @@ import com.rorm.ai.RormToolContext;
 import com.rorm.dto.QueryDTO;
 import com.rorm.engine.QueryTransformer;
 import com.rorm.mapper.QueryMapper;
-import com.rorm.ml.AsyncJobGateway;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.DatasourceConfig;
 import com.rorm.ml.dto.ShapJobRequest;
 import com.rorm.ml.dto.StabilitySelectionJobRequest;
+import com.rorm.ml.jobs.ShapJobSubmitter;
+import com.rorm.ml.jobs.StabilitySelectionJobSubmitter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Query;
@@ -34,7 +35,8 @@ public class DataRelationsTool {
     private final ObjectMapper objectMapper;
     private final QueryMapper queryMapper;
     private final QueryTransformer queryTransformer;
-    private final AsyncJobGateway jobGateway;
+    private final StabilitySelectionJobSubmitter stabilitySelectionJobSubmitter;
+    private final ShapJobSubmitter shapJobSubmitter;
 
     @Tool(
         name = "discoverDataRelations",
@@ -132,22 +134,22 @@ public class DataRelationsTool {
                 .randomState(42)
                 .build();
 
-            var jobId = jobGateway.submit(request, context.schema());
-            trackJob(toolContext, jobId);
+            var awaitable = stabilitySelectionJobSubmitter.submit(request, context.schema());
+            trackJob(toolContext, awaitable.jobId());
 
             return objectMapper.writeValueAsString(Map.of(
                 "success", true,
-                "analysisId", jobId,
+                "analysisId", awaitable.jobId(),
                 "status", "accepted",
                 "instructions", """
                     Stability selection analysis launched successfully.
                     - Analysis ID: %s
                     - Target: %s
-                    
+
                     Results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
                     When results arrive, use getShapCurves with the run_id for deeper analysis.
-                    """.formatted(jobId, targetColumn)
+                    """.formatted(awaitable.jobId(), targetColumn)
             ));
 
         } catch (Exception e) {
@@ -247,12 +249,12 @@ public class DataRelationsTool {
             );
 
             var context = RormToolContext.from(toolContext);
-            var jobId = jobGateway.submit(request, context.schema());
-            trackJob(toolContext, jobId);
+            var awaitable = shapJobSubmitter.submit(request, context.schema());
+            trackJob(toolContext, awaitable.jobId());
 
             return objectMapper.writeValueAsString(Map.of(
                 "success", true,
-                "analysisId", jobId,
+                "analysisId", awaitable.jobId(),
                 "status", "accepted",
                 "instructions", """
                     SHAP curve computation launched successfully.
@@ -261,7 +263,7 @@ public class DataRelationsTool {
                     
                     Results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
-                    """.formatted(jobId, runId)
+                    """.formatted(awaitable.jobId(), runId)
             ));
 
         } catch (Exception e) {

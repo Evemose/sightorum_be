@@ -2,8 +2,8 @@ package com.rorm.ml.stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.ml.JobMetadataStore;
 import com.rorm.ml.peristence.MLJobInfo;
+import com.rorm.ml.peristence.MLJobMetadataStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -21,7 +21,7 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
 
     private final JobCompletionHandler completionHandler;
     private final ObjectMapper objectMapper;
-    private final JobMetadataStore jobMetadataStore;
+    private final MLJobMetadataStore jobMetadataStore;
 
     @Override
     public void onMessage(MapRecord<String, String, String> message) {
