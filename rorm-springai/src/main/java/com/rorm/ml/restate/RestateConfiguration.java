@@ -2,7 +2,7 @@ package com.rorm.ml.restate;
 
 import com.rorm.durable.DurableJobRuntime;
 import com.rorm.ml.RormMlProperties;
-import com.rorm.ml.stream.JobCompletionHandler;
+import com.rorm.ml.jobs.JobExecutor;
 import dev.restate.admin.client.ApiClient;
 import dev.restate.client.Client;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,18 +14,8 @@ import org.springframework.context.annotation.Configuration;
 public class RestateConfiguration {
 
     @Bean
-    public AwakeableRegistry awakeableRegistry() {
-        return new AwakeableRegistry();
-    }
-
-    @Bean
     public DurableJobRuntime restateDurableJobRuntime(Client restateClient) {
         return new RestateDurableJobRuntime(restateClient);
-    }
-
-    @Bean
-    public JobCompletionHandler restateJobCompletionHandler(AwakeableRegistry registry, Client restateClient) {
-        return new RestateJobCompletionHandler(registry, restateClient);
     }
 
     @Bean

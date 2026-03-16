@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class JobStreamListener implements StreamListener<String, MapRecord<String, String, String>> {
 
-    private final JobCompletionHandler completionHandler;
+    private final JobEventsSupport completionHandler;
     private final ObjectMapper objectMapper;
     private final MLJobMetadataStore jobMetadataStore;
 
