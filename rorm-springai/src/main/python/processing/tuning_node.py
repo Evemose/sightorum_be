@@ -124,7 +124,7 @@ class HyperparameterTuningNode(PipelineNode):
 
         # Publish tuning started
         await self.event_publisher.publish_progress(
-            training_id=training_id,
+            job_id=training_id,
             progress=0.0,
             message=f"Starting hyperparameter tuning with {n_trials} trials"
         )
@@ -142,7 +142,7 @@ class HyperparameterTuningNode(PipelineNode):
 
             # Publish tuning completed
             await self.event_publisher.publish_progress(
-                training_id=training_id,
+                job_id=training_id,
                 progress=100.0,
                 message=f"Tuning completed, best parameters found"
             )
@@ -228,7 +228,7 @@ class HyperparameterTuningNode(PipelineNode):
             trials_completed = trial_number
             progress = (trial_number / n_trials) * 100
             await self.event_publisher.publish_progress(
-                training_id=training_id,
+                job_id=training_id,
                 progress=progress,
                 message=f"Tuning trial {trial_number}/{n_trials}, best value: {value:.4f}"
             )
@@ -434,7 +434,7 @@ class HyperparameterTuningNode(PipelineNode):
         training_id = message.payload.get("training_id")
         if training_id:
             await self.event_publisher.publish_failed(
-                training_id=training_id,
+                job_id=training_id,
                 error=str(error),
                 error_code="TUNING_FAILED",
                 message=f"Hyperparameter tuning failed permanently: {str(error)}"

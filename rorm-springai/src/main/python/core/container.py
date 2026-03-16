@@ -364,7 +364,10 @@ def _create_shap_curve_service(db_storage):
 def _create_event_publisher(cfg: Settings):
     """Create event publisher."""
     from events.publisher import EventPublisher
-    return EventPublisher(redis_url=cfg.redis.url)
+    return EventPublisher(
+        redis_url=cfg.redis.url,
+        results_stream=cfg.pipeline.streams.training_results,
+    )
 
 
 def _create_training_node(cfg: Settings, training_service, pool, query_throttler, event_publisher, async_throttler):
@@ -386,7 +389,6 @@ def _create_training_node(cfg: Settings, training_service, pool, query_throttler
     return TrainingPipelineNode(
         redis_url=cfg.redis.url,
         input_stream=cfg.pipeline.streams.training_requests,
-        output_stream=cfg.pipeline.streams.training_results,
         training_service=training_service,
         datasource_factory=datasource_factory,
         event_publisher=event_publisher,

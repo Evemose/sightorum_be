@@ -7,7 +7,7 @@ import os
 import psutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,11 @@ class ShapCurveService:
             features: Optional[list[str]] = None,
             n_bins: int = 100,
             n_breakpoints: int = 1,
+            progress_callback: Optional[Callable[[float, str], None]] = None,
     ) -> dict[str, Any]:
+        if progress_callback:
+            progress_callback(0.05, "Loading stability selection run")
+
         run = self.db_storage.load_stability_run(run_id)
         if run is None:
             return None
@@ -55,6 +59,12 @@ class ShapCurveService:
                 feature_types[feat] = "numeric"
             else:
                 feature_types[feat] = "categorical"
+
+        if progress_callback:
+            progress_callback(0.10, f"Classifying {len(target_features)} features")
+
+        if progress_callback:
+            progress_callback(0.15, "Computing bin edges")
 
         # Compute bin edges for numeric features
         bin_edges = {}
@@ -97,6 +107,9 @@ class ShapCurveService:
         max_workers = min(max_by_memory, max_by_cpu, n_models)
         logger.info(f"SHAP parallel: {max_workers} workers "
                     f"(memory allows {max_by_memory}, CPUs allow {max_by_cpu})")
+
+        if progress_callback:
+            progress_callback(0.20, f"Planning parallel SHAP computation for {n_models} models")
 
         # Build context shared across workers (read-only)
         ctx = _ShapWorkerContext(
@@ -146,11 +159,20 @@ class ShapCurveService:
                 completed += 1
                 if completed % 10 == 0 or completed == n_models:
                     logger.info(f"  SHAP progress: {completed}/{n_models} models")
+                if progress_callback:
+                    progress_callback(
+                        0.20 + (completed / n_models) * 0.70,
+                        f"SHAP: {completed}/{n_models} models processed",
+                    )
+
+        if progress_callback:
+            progress_callback(0.92, "Aggregating SHAP curves")
 
         # Aggregate results
         curves_output = []
+        total_features = len(target_features)
 
-        for feat in target_features:
+        for feat_idx, feat in enumerate(target_features):
             if feat not in col_mapping:
                 continue
 
@@ -205,6 +227,15 @@ class ShapCurveService:
                     "type": "categorical",
                     "categories": cat_results,
                 })
+
+            if progress_callback and total_features > 0:
+                progress_callback(
+                    0.92 + ((feat_idx + 1) / total_features) * 0.06,
+                    f"Aggregated {feat_idx + 1}/{total_features} features",
+                )
+
+        if progress_callback:
+            progress_callback(0.98, "Finalizing results")
 
         return {
             "run_id": run_id,

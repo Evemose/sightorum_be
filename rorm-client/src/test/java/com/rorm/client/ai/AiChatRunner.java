@@ -36,6 +36,7 @@ class AiChatRunner {
                         .withToolGroups(ToolGroup.WEB_ACCESS)
                         .withThinkingLevel(ThinkingLevel.HIGH)
                         .withSystemPrompt(SwarmResearchPromptsV2.DOMAIN_RESEARCHER_SYSTEM)
+                        .withModelName("claude-sonnet-4-6")
                         .ask(SwarmResearchPromptsV2.DOMAIN_RESEARCHER_USER.replace(
                             "{{USER_QUERY}}",
                             "How can I decrease excursion rates"

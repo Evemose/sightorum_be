@@ -14,22 +14,22 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("TrainingFutureRegistry")
-class TrainingFutureRegistryTest {
+@DisplayName("JobFutureRegistry")
+class JobFutureRegistryTest {
 
-    private final TrainingFutureRegistry registry = new TrainingFutureRegistry();
+    private final JobFutureRegistry registry = new JobFutureRegistry();
 
-    private static TrainingEvent successEvent(UUID trainingId) {
-        return new TrainingEvent(
-            trainingId, TrainingEventType.TRAINING_SUCCESS, Instant.now(),
-            null, "Model trained", Map.of("accuracy", 0.95), null, null, Map.of()
+    private static JobEvent successEvent(UUID jobId) {
+        return new JobEvent(
+            jobId, JobEventType.JOB_SUCCESS, Instant.now(),
+            0.0, "Model trained", Map.of("accuracy", 0.95), null, null, Map.of()
         );
     }
 
-    private static TrainingEvent failedEvent(UUID trainingId, String error) {
-        return new TrainingEvent(
-            trainingId, TrainingEventType.TRAINING_FAILED, Instant.now(),
-            null, null, null, error, "ERR_OOM", Map.of()
+    private static JobEvent failedEvent(UUID jobId, String error) {
+        return new JobEvent(
+            jobId, JobEventType.JOB_FAILED, Instant.now(),
+            0.0, null, null, error, "ERR_OOM", Map.of()
         );
     }
 
@@ -40,11 +40,11 @@ class TrainingFutureRegistryTest {
         @Test
         @DisplayName("registered future completes with the provided event")
         void registeredFutureCompletesWithEvent() throws Exception {
-            var trainingId = UUID.randomUUID();
-            var event = successEvent(trainingId);
+            var jobId = UUID.randomUUID();
+            var event = successEvent(jobId);
 
-            var future = registry.register(trainingId);
-            registry.complete(trainingId, event);
+            var future = registry.register(jobId);
+            registry.complete(jobId, event);
 
             assertThat(future.get(1, TimeUnit.SECONDS)).isSameAs(event);
         }
@@ -52,19 +52,19 @@ class TrainingFutureRegistryTest {
         @Test
         @DisplayName("complete keeps the entry in the registry (explicit remove needed)")
         void completeKeepsEntry() {
-            var trainingId = UUID.randomUUID();
-            var event = successEvent(trainingId);
-            registry.register(trainingId);
-            registry.complete(trainingId, event);
+            var jobId = UUID.randomUUID();
+            var event = successEvent(jobId);
+            registry.register(jobId);
+            registry.complete(jobId, event);
 
-            assertThat(registry.get(trainingId)).isNotNull().isDone();
+            assertThat(registry.get(jobId)).isNotNull().isDone();
             // Explicit remove cleans up
-            registry.remove(trainingId);
-            assertThat(registry.get(trainingId)).isNull();
+            registry.remove(jobId);
+            assertThat(registry.get(jobId)).isNull();
         }
 
         @Test
-        @DisplayName("complete on unknown trainingId is a no-op")
+        @DisplayName("complete on unknown jobId is a no-op")
         void completeUnknownIdIsNoop() {
             registry.complete(UUID.randomUUID(), successEvent(UUID.randomUUID()));
             // no exception, no side effects
@@ -73,15 +73,15 @@ class TrainingFutureRegistryTest {
         @Test
         @DisplayName("get returns the registered future before completion")
         void getReturnsFutureBeforeCompletion() {
-            var trainingId = UUID.randomUUID();
-            var registered = registry.register(trainingId);
+            var jobId = UUID.randomUUID();
+            var registered = registry.register(jobId);
 
-            assertThat(registry.get(trainingId)).isSameAs(registered);
+            assertThat(registry.get(jobId)).isSameAs(registered);
             assertThat(registered).isNotDone();
         }
 
         @Test
-        @DisplayName("get returns null for unregistered trainingId")
+        @DisplayName("get returns null for unregistered jobId")
         void getReturnsNullForUnregistered() {
             assertThat(registry.get(UUID.randomUUID())).isNull();
         }
@@ -94,38 +94,38 @@ class TrainingFutureRegistryTest {
         @Test
         @DisplayName("future fails with the provided exception")
         void futureFailsWithException() {
-            var trainingId = UUID.randomUUID();
-            var event = failedEvent(trainingId, "OOM killed");
-            var cause = new TrainingFailedException(event);
+            var jobId = UUID.randomUUID();
+            var event = failedEvent(jobId, "OOM killed");
+            var cause = new JobFailedException(event);
 
-            var future = registry.register(trainingId);
-            registry.completeExceptionally(trainingId, cause);
+            var future = registry.register(jobId);
+            registry.completeExceptionally(jobId, cause);
 
             assertThat(future).isCompletedExceptionally();
             assertThatThrownBy(() -> future.get(1, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
-                .hasCauseInstanceOf(TrainingFailedException.class)
+                .hasCauseInstanceOf(JobFailedException.class)
                 .satisfies(ex -> {
-                    var tfe = (TrainingFailedException) ex.getCause();
-                    assertThat(tfe.event().trainingId()).isEqualTo(trainingId);
-                    assertThat(tfe.event().error()).isEqualTo("OOM killed");
+                    var jfe = (JobFailedException) ex.getCause();
+                    assertThat(jfe.event().jobId()).isEqualTo(jobId);
+                    assertThat(jfe.event().error()).isEqualTo("OOM killed");
                 });
         }
 
         @Test
         @DisplayName("completeExceptionally keeps the entry in the registry (explicit remove needed)")
         void keepsEntry() {
-            var trainingId = UUID.randomUUID();
-            registry.register(trainingId);
-            registry.completeExceptionally(trainingId, new RuntimeException("boom"));
+            var jobId = UUID.randomUUID();
+            registry.register(jobId);
+            registry.completeExceptionally(jobId, new RuntimeException("boom"));
 
-            assertThat(registry.get(trainingId)).isNotNull().isCompletedExceptionally();
-            registry.remove(trainingId);
-            assertThat(registry.get(trainingId)).isNull();
+            assertThat(registry.get(jobId)).isNotNull().isCompletedExceptionally();
+            registry.remove(jobId);
+            assertThat(registry.get(jobId)).isNull();
         }
 
         @Test
-        @DisplayName("completeExceptionally on unknown trainingId is a no-op")
+        @DisplayName("completeExceptionally on unknown jobId is a no-op")
         void unknownIdIsNoop() {
             registry.completeExceptionally(UUID.randomUUID(), new RuntimeException("boom"));
         }
@@ -138,12 +138,12 @@ class TrainingFutureRegistryTest {
         @Test
         @DisplayName("removes a registered future without completing it")
         void removesWithoutCompleting() {
-            var trainingId = UUID.randomUUID();
-            var future = registry.register(trainingId);
+            var jobId = UUID.randomUUID();
+            var future = registry.register(jobId);
 
-            registry.remove(trainingId);
+            registry.remove(jobId);
 
-            assertThat(registry.get(trainingId)).isNull();
+            assertThat(registry.get(jobId)).isNull();
             assertThat(future).isNotDone();
         }
     }
@@ -155,9 +155,9 @@ class TrainingFutureRegistryTest {
         @Test
         @DisplayName("register and complete from different threads")
         void registerAndCompleteFromDifferentThreads() throws Exception {
-            var trainingId = UUID.randomUUID();
-            var event = successEvent(trainingId);
-            var future = registry.register(trainingId);
+            var jobId = UUID.randomUUID();
+            var event = successEvent(jobId);
+            var future = registry.register(jobId);
 
             var completer = CompletableFuture.runAsync(() -> {
                 try {
@@ -165,7 +165,7 @@ class TrainingFutureRegistryTest {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-                registry.complete(trainingId, event);
+                registry.complete(jobId, event);
             });
 
             var result = future.get(2, TimeUnit.SECONDS);

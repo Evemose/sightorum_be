@@ -1,7 +1,7 @@
 package com.rorm.ml;
 
 import com.rorm.misc.YamlPropertySource;
-import com.rorm.ml.stream.TrainingStreamListener;
+import com.rorm.ml.stream.JobStreamListener;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -54,7 +54,7 @@ public class RormMlConfiguration {
     @Bean
     public Subscription trainingStreamSubscription(
         StreamMessageListenerContainer<String, MapRecord<String, String, String>> container,
-        TrainingStreamListener listener,
+        JobStreamListener listener,
         RormMlProperties properties,
         StringRedisTemplate redisTemplate
     ) {

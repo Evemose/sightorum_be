@@ -10,7 +10,6 @@ module rorm.rorm.springai.main {
     requires static org.slf4j;
     requires org.hibernate.orm.core;
     requires org.jspecify;
-    requires org.mapstruct;
     requires reactor.core;
     requires rorm.rorm.core;
     requires rorm.rorm.dataimport;

@@ -5,8 +5,8 @@ import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.agents.*;
 import com.rorm.metamodel.ModelSpace;
-import com.rorm.ml.peristence.MLPersistence;
-import com.rorm.ml.stream.TrainingFutureRegistry;
+import com.rorm.ml.JobMetadataStore;
+import com.rorm.ml.JobResultAwaiter;
 import org.springframework.ai.vectorstore.VectorStore;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -29,8 +29,8 @@ public class Swarm {
         String schema,
         ModelSpace modelSpace,
         VectorStore vectorStore,
-        TrainingFutureRegistry trainingFutureRegistry,
-        MLPersistence MLPersistence,
+        JobResultAwaiter jobResultAwaiter,
+        JobMetadataStore jobMetadataStore,
         PromptPlaceholders promptPlaceholders
     ) {
         var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, schema, modelSpace, ThinkingLevel.NONE, promptPlaceholders);
@@ -55,8 +55,8 @@ public class Swarm {
             new FirstLevelSwarmAgent(config.executor(), chatService, schema, modelSpace, ThinkingLevel.MEDIUM, promptPlaceholders),
             summarizer,
             new DependencyCoordinator(),
-            trainingFutureRegistry,
-            MLPersistence
+            jobResultAwaiter,
+            jobMetadataStore
         );
 
         this.analyzer = new AnalyzerSwarmAgent(

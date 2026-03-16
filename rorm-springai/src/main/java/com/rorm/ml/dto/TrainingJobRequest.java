@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.rorm.ml.peristence.MLJobType;
 import lombok.Builder;
 
 import java.util.List;
@@ -17,7 +18,7 @@ public record TrainingJobRequest(
     String targetColumn,
     List<String> featureColumns,
     @JsonIgnore ModelConfig modelConfig
-) implements TrainingRequest {
+) implements AsyncJobRequest {
 
     @JsonProperty
     public String modelType() {
@@ -27,5 +28,11 @@ public record TrainingJobRequest(
     @JsonProperty
     public ModelConfig modelParams() {
         return modelConfig;
+    }
+
+    @Override
+    @JsonIgnore
+    public MLJobType jobType() {
+        return MLJobType.TRAINING;
     }
 }

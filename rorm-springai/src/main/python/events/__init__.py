@@ -1,5 +1,5 @@
-"""Event publishing module for training progress and results."""
+"""Event publishing module for job progress and results."""
 
-from .publisher import EventPublisher, TrainingEvent, EventType
+from .publisher import EventPublisher, JobEvent, EventType
 
-__all__ = ["EventPublisher", "TrainingEvent", "EventType"]
+__all__ = ["EventPublisher", "JobEvent", "EventType"]

@@ -1,4 +1,4 @@
-package com.rorm.ai.chat;
+package com.rorm.ai.anthropic;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.core.JsonValue;
@@ -8,6 +8,7 @@ import com.anthropic.models.messages.MessageCreateParams.Builder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ai.chat.*;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
@@ -31,7 +32,7 @@ public class AnthropicChatService implements AiChatService {
 
     private static final int MAX_TOOL_ROUNDS = 20;
     private static final long DEFAULT_MAX_TOKENS = 64_000L;
-    private static final String DEFAULT_MODEL = "claude-opus-4-6";
+    private static final String DEFAULT_MODEL = "claude-sonnet-4-6";
 
     private final AnthropicClient client;
     private final ChatRequestPreprocessor preprocessor;

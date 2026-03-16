@@ -55,4 +55,4 @@ rorm:
 logging:
   level:
     com.rorm: DEBUG
-    com.rorm.ai.chat.AnthropicChatService: INFO
+    com.rorm.ai.chat.com.rorm.ai.anthropic.AnthropicChatService: INFO

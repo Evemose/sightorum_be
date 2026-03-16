@@ -22,6 +22,44 @@ public class MlTrainingService {
     @Qualifier("mlRestClient")
     private final RestClient restClient;
 
+    /**
+     * Unified submission: dispatches by sealed request type, validates acceptance, returns job ID.
+     *
+     * @throws MlServiceException if the Python service rejects the request
+     */
+    public UUID submit(AsyncJobRequest request) {
+        return switch (request) {
+            case TrainingJobRequest r -> {
+                var resp = submitTraining(r);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("Training job was not accepted: " + resp.message());
+                }
+                yield resp.trainingId();
+            }
+            case TuningJobRequest r -> {
+                var resp = submitTuningThenTraining(r);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("Tuning job was not accepted: " + resp.message());
+                }
+                yield resp.trainingId();
+            }
+            case StabilitySelectionJobRequest r -> {
+                var resp = submitStabilitySelection(r);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("Stability selection was not accepted: " + resp.message());
+                }
+                yield resp.analysisId();
+            }
+            case ShapJobRequest r -> {
+                var resp = submitShapCurvesAsync(r);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("SHAP computation was not accepted: " + resp.message());
+                }
+                yield resp.analysisId();
+            }
+        };
+    }
+
     public TrainingJobResponse submitTraining(TrainingJobRequest request) {
         try {
             return restClient.post()
