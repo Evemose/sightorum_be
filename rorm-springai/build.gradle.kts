@@ -18,6 +18,8 @@ tasks.test {
     jvmArgs("--enable-preview")
     jvmArgs("-XX:+EnableDynamicAgentLoading")
     jvmArgs("--add-reads", "rorm.rorm.springai.main=ALL-UNNAMED")
+    project.properties.filter { (k, _) -> k.startsWith("blackbox.") }
+        .forEach { (k, v) -> systemProperty(k, v.toString()) }
 }
 
 repositories {

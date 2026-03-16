@@ -6,19 +6,16 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @org.springframework.stereotype.Component
-@org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(JobCompletionHandler.class)
 @RequiredArgsConstructor
-public class JobEventsSupport implements JobCompletionHandler {
+public class JobEventsSupport {
 
     private final JobFutureRegistry registry;
 
-    @Override
     public void onJobSuccess(MLJobInfo jobInfo, JobEvent event) {
         log.info("Completing future for job {}", jobInfo.jobId());
         registry.complete(jobInfo.jobId(), event);
     }
 
-    @Override
     public void onJobFailure(MLJobInfo jobInfo, JobEvent event) {
         log.warn("Completing future exceptionally for job {}: {}", jobInfo.jobId(), event.error());
         registry.completeExceptionally(
@@ -27,7 +24,6 @@ public class JobEventsSupport implements JobCompletionHandler {
         );
     }
 
-    @Override
     public void onJobProgress(MLJobInfo jobInfo, JobEvent event) {
         log.debug("Recording job progress for job {}: {}%",
             jobInfo.jobId(),
