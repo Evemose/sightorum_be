@@ -1,4 +1,4 @@
-"""Event publisher for training progress and results."""
+"""Event publisher for job progress and results."""
 
 import datetime
 import json
@@ -8,20 +8,20 @@ from typing import Any, Dict, Optional
 
 
 class EventType(str, Enum):
-    """Training event types."""
-    TRAINING_STARTED = "training.started"
-    TRAINING_PROGRESS = "training.progress"
-    TRAINING_SUCCESS = "training.success"
-    TRAINING_FAILED = "training.failed"
-    VALIDATION_FAILED = "training.validation_failed"
+    """Job event types."""
+    JOB_STARTED = "job.started"
+    JOB_PROGRESS = "job.progress"
+    JOB_SUCCESS = "job.success"
+    JOB_FAILED = "job.failed"
+    VALIDATION_FAILED = "job.validation_failed"
 
 
-class TrainingEvent:
-    """Training event data structure."""
+class JobEvent:
+    """Job event data structure."""
 
     def __init__(
             self,
-            training_id: str,
+            job_id: str,
             event_type: EventType,
             timestamp: Optional[datetime] = None,
             progress: Optional[float] = None,
@@ -31,7 +31,7 @@ class TrainingEvent:
             error_code: Optional[str] = None,
             metadata: Optional[Dict[str, Any]] = None
     ):
-        self.training_id = training_id
+        self.job_id = job_id
         self.event_type = event_type
         self.timestamp = timestamp or datetime.datetime.now(datetime.UTC)
         self.progress = progress
@@ -44,7 +44,7 @@ class TrainingEvent:
     def to_dict(self) -> Dict[str, Any]:
         """Convert event to dictionary."""
         data: Dict[str, Any] = {
-            "training_id": self.training_id,
+            "job_id": self.job_id,
             "event_type": self.event_type.value,
             "timestamp": self.timestamp.isoformat(),
         }
@@ -69,13 +69,21 @@ class TrainingEvent:
         return json.dumps(self.to_dict(), default=str)
 
 
+_TERMINAL_EVENTS = {
+    EventType.JOB_SUCCESS,
+    EventType.JOB_FAILED,
+    EventType.VALIDATION_FAILED,
+}
+
+
 class EventPublisher:
     """Redis/Valkey event publisher for training events."""
 
     def __init__(
             self,
             redis_url: str = "redis://localhost:6379",
-            channel_prefix: str = "ml_training"
+            channel_prefix: str = "ml_training",
+            results_stream: Optional[str] = None
     ):
         """
         Initialize event publisher.
@@ -83,9 +91,11 @@ class EventPublisher:
         Args:
             redis_url: Redis/Valkey connection URL
             channel_prefix: Prefix for Redis channels
+            results_stream: Redis stream for terminal events (Java wakeup)
         """
         self.redis_url = redis_url
         self.channel_prefix = channel_prefix
+        self.results_stream = results_stream
         self._client: Optional[redis.Redis] = None
 
     async def connect(self):
@@ -119,20 +129,20 @@ class EventPublisher:
             await self.connect()
         await self._client.xadd(stream_name, message_data)
 
-    async def publish(self, event: TrainingEvent):
+    async def publish(self, event: JobEvent):
         """
-        Publish training event to Redis.
+        Publish job event to Redis.
 
         Args:
-            event: Training event to publish
+            event: Job event to publish
         """
         if not self._client:
             await self.connect()
 
-        # Publish to both general channel and training-specific channel
+        # Publish to both general channel and job-specific channel
         channels = [
             f"{self.channel_prefix}.events",  # General events channel
-            f"{self.channel_prefix}.{event.training_id}"  # Training-specific channel
+            f"{self.channel_prefix}.{event.job_id}"  # Job-specific channel
         ]
 
         event_json = event.to_json()
@@ -141,86 +151,90 @@ class EventPublisher:
             await self._client.publish(channel, event_json)
 
         # Also store event in a sorted set for history (with timestamp as score)
-        history_key = f"{self.channel_prefix}.history:{event.training_id}"
+        history_key = f"{self.channel_prefix}.history:{event.job_id}"
         timestamp_score = event.timestamp.timestamp()
         await self._client.zadd(history_key, {event_json: timestamp_score})
 
         # Expire history after 7 days
         await self._client.expire(history_key, 7 * 24 * 60 * 60)
 
+        # XADD terminal events to results stream for Java fire-listen-wakeup
+        if self.results_stream and event.event_type in _TERMINAL_EVENTS:
+            await self._client.xadd(self.results_stream, {"payload": event_json})
+
     async def publish_started(
             self,
-            training_id: str,
+            job_id: str,
             model_type: str,
             message: Optional[str] = None
     ):
-        """Publish training started event."""
-        event = TrainingEvent(
-            training_id=training_id,
-            event_type=EventType.TRAINING_STARTED,
-            message=message or f"Training started for {model_type}",
+        """Publish job started event."""
+        event = JobEvent(
+            job_id=job_id,
+            event_type=EventType.JOB_STARTED,
+            message=message or f"Started {model_type}",
             metadata={"model_type": model_type}
         )
         await self.publish(event)
 
     async def publish_progress(
             self,
-            training_id: str,
+            job_id: str,
             progress: float,
             message: Optional[str] = None
     ):
-        """Publish training progress event."""
-        event = TrainingEvent(
-            training_id=training_id,
-            event_type=EventType.TRAINING_PROGRESS,
+        """Publish job progress event."""
+        event = JobEvent(
+            job_id=job_id,
+            event_type=EventType.JOB_PROGRESS,
             progress=progress,
-            message=message or f"Training progress: {progress:.1%}"
+            message=message or f"Progress: {progress:.1%}"
         )
         await self.publish(event)
 
     async def publish_success(
             self,
-            training_id: str,
+            job_id: str,
             metrics: Dict[str, Any],
             message: Optional[str] = None
     ):
-        """Publish training success event."""
-        event = TrainingEvent(
-            training_id=training_id,
-            event_type=EventType.TRAINING_SUCCESS,
+        """Publish job success event."""
+        event = JobEvent(
+            job_id=job_id,
+            event_type=EventType.JOB_SUCCESS,
             progress=1.0,
-            message=message or "Training completed successfully",
+            message=message or "Completed successfully",
             metrics=metrics
         )
         await self.publish(event)
 
     async def publish_failed(
             self,
-            training_id: str,
+            job_id: str,
             error: str,
             error_code: Optional[str] = None,
             message: Optional[str] = None
     ):
-        """Publish training failed event."""
-        event = TrainingEvent(
-            training_id=training_id,
-            event_type=EventType.TRAINING_FAILED,
+        """Publish job failed event."""
+        event = JobEvent(
+            job_id=job_id,
+            event_type=EventType.JOB_FAILED,
             error=error,
             error_code=error_code,
-            message=message or "Training failed"
+            message=message or "Job failed"
         )
         await self.publish(event)
 
     async def publish_validation_failed(
             self,
-            training_id: str,
+            job_id: str,
             error: str,
             error_code: str,
             message: Optional[str] = None
     ):
         """Publish validation failed event."""
-        event = TrainingEvent(
-            training_id=training_id,
+        event = JobEvent(
+            job_id=job_id,
             event_type=EventType.VALIDATION_FAILED,
             error=error,
             error_code=error_code,

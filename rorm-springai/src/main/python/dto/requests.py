@@ -258,7 +258,7 @@ class StabilitySelectionRequest:
     bootstrap_runs: int = 50
     sample_fraction: float = 0.8
     correlation_threshold: float = 0.8
-    polynomial_degree: int = 2
+    max_encoded_dimensions: int = 50
     selection_top_k: Optional[int] = None
     random_state: int = 42
 
@@ -356,12 +356,9 @@ class StabilitySelectionRequest:
             )
             result.merge(correlation_validator.validate())
 
-        polynomial_validator = Validator()
-        polynomial_validator.field("polynomial_degree", self.polynomial_degree).is_type(int).min_value(
-            1, "polynomial_degree must be at least 1"
-        ).max_value(3, "polynomial_degree must be at most 3 to avoid feature explosion")
-        polynomial_validator.field("random_state", self.random_state).is_type(int)
-        result.merge(polynomial_validator.validate())
+        random_state_validator = Validator()
+        random_state_validator.field("random_state", self.random_state).is_type(int)
+        result.merge(random_state_validator.validate())
 
         if self.selection_top_k is not None:
             top_k_validator = Validator()
@@ -385,7 +382,6 @@ class StabilitySelectionRequest:
             "bootstrap_runs": self.bootstrap_runs,
             "sample_fraction": self.sample_fraction,
             "correlation_threshold": self.correlation_threshold,
-            "polynomial_degree": self.polynomial_degree,
             "selection_top_k": self.selection_top_k,
             "random_state": self.random_state,
         }

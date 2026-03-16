@@ -98,15 +98,15 @@ class TrainingPipelineNode(PipelineNode):
         async with self.throttler:
             # Publish training started (after passing throttle)
             await self.event_publisher.publish_started(
-                training_id=training_id,
+                job_id=training_id,
                 model_type=training_request.model_type,
-                message=f"Training started for model: {training_request.model_name}"
+                message=f"Model training started: {training_request.model_name}"
             )
 
             # Create progress callback
             async def progress_callback(progress: float, message_text: str = ""):
                 await self.event_publisher.publish_progress(
-                    training_id=training_id,
+                    job_id=training_id,
                     progress=progress,
                     message=message_text
                 )
@@ -129,7 +129,7 @@ class TrainingPipelineNode(PipelineNode):
             if response.success:
                 # Publish success event
                 await self.event_publisher.publish_success(
-                    training_id=training_id,
+                    job_id=training_id,
                     metrics=response.metrics or {},
                     message=f"Training completed successfully for {training_request.model_name}"
                 )
@@ -162,7 +162,7 @@ class TrainingPipelineNode(PipelineNode):
         if training_id:
             error_code = getattr(error, "error_code", "UNKNOWN_ERROR")
             await self.event_publisher.publish_failed(
-                training_id=training_id,
+                job_id=training_id,
                 error=str(error),
                 error_code=error_code,
                 message=f"Training failed permanently after {message.retry_count} attempts"

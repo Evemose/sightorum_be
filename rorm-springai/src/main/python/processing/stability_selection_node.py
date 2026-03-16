@@ -66,7 +66,6 @@ class StabilitySelectionPipelineNode(PipelineNode):
             bootstrap_runs=request_data.get("bootstrap_runs", 50),
             sample_fraction=request_data.get("sample_fraction", 0.8),
             correlation_threshold=request_data.get("correlation_threshold", 0.8),
-            polynomial_degree=request_data.get("polynomial_degree", 2),
             selection_top_k=request_data.get("selection_top_k"),
             random_state=request_data.get("random_state", 42),
         )
@@ -74,30 +73,35 @@ class StabilitySelectionPipelineNode(PipelineNode):
         logger.info(f"Stability selection {analysis_id} waiting for throttle slot")
         async with self.throttler:
             await self.event_publisher.publish_started(
-                training_id=analysis_id,
+                job_id=analysis_id,
                 model_type="stability_selection",
                 message=f"Stability selection started for target: {request.target_column}",
             )
-            await self.event_publisher.publish_progress(
-                training_id=analysis_id,
-                progress=0.1,
-                message="Datasource fetch and bootstrap analysis starting",
-            )
+
+            async def progress_callback(progress: float, message: str = ""):
+                await self.event_publisher.publish_progress(
+                    job_id=analysis_id, progress=progress, message=message
+                )
+
+            def sync_progress(progress: float, message: str = ""):
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(progress_callback(progress, message))
+                except Exception:
+                    pass
 
             datasource = self.datasource_factory()
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
                 None,
-                lambda: self.stability_selection_service.analyze(request, datasource),
+                lambda: self.stability_selection_service.analyze(
+                    request, datasource, progress_callback=sync_progress
+                ),
             )
 
-            await self.event_publisher.publish_progress(
-                training_id=analysis_id,
-                progress=0.9,
-                message="Stability selection analysis complete, publishing results",
-            )
             await self.event_publisher.publish_success(
-                training_id=analysis_id,
+                job_id=analysis_id,
                 metrics=result,
                 message="Stability selection completed successfully",
             )
@@ -120,7 +124,7 @@ class StabilitySelectionPipelineNode(PipelineNode):
         if analysis_id:
             error_code = getattr(error, "error_code", "UNKNOWN_ERROR")
             await self.event_publisher.publish_failed(
-                training_id=analysis_id,
+                job_id=analysis_id,
                 error=str(error),
                 error_code=error_code,
                 message=f"Stability selection failed permanently after {message.retry_count} attempts",

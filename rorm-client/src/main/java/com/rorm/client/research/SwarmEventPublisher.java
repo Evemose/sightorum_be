@@ -61,8 +61,8 @@ public class SwarmEventPublisher {
             case AnalysisVersionCreationFinished _ -> "analysis-version-creation-finished";
             case AnalysisVersionCritiqueStarted _ -> "analysis-version-critique-started";
             case AnalysisVersionCritiqueFinished _ -> "analysis-version-critique-finished";
-            case StepTrainingAwaitStarted _ -> "step-training-await-started";
-            case StepTrainingCompleted _ -> "step-training-completed";
+            case StepJobAwaitStarted _ -> "step-job-await-started";
+            case StepJobCompleted _ -> "step-job-completed";
         };
     }
 }

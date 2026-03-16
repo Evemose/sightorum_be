@@ -3,6 +3,7 @@ package com.rorm.ml.dto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.rorm.ml.peristence.MLJobType;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -19,7 +20,13 @@ public record StabilitySelectionJobRequest(
     int bootstrapRuns,
     double sampleFraction,
     double correlationThreshold,
-    int polynomialDegree,
     @Nullable Integer selectionTopK,
     int randomState
-) {}
+) implements AsyncJobRequest {
+
+    @Override
+    @JsonIgnore
+    public MLJobType jobType() {
+        return MLJobType.STABILITY_SELECTION;
+    }
+}

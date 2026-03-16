@@ -6,12 +6,11 @@ import com.rorm.ai.RormToolContext;
 import com.rorm.dto.QueryDTO;
 import com.rorm.engine.QueryTransformer;
 import com.rorm.mapper.QueryMapper;
+import com.rorm.ml.AsyncJobGateway;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.DatasourceConfig;
 import com.rorm.ml.dto.ShapJobRequest;
 import com.rorm.ml.dto.StabilitySelectionJobRequest;
-import com.rorm.ml.peristence.MLPersistence;
-import com.rorm.ml.stream.TrainingFutureRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Query;
@@ -35,37 +34,36 @@ public class DataRelationsTool {
     private final ObjectMapper objectMapper;
     private final QueryMapper queryMapper;
     private final QueryTransformer queryTransformer;
-    private final MLPersistence MLPersistence;
-    private final TrainingFutureRegistry trainingFutureRegistry;
+    private final AsyncJobGateway jobGateway;
 
     @Tool(
         name = "discoverDataRelations",
         description = """
             ASYNC & EXPENSIVE: Discover which features genuinely drive a target variable using
             stability selection — a statistically robust feature importance method.
-            
+
             HOW IT WORKS:
             Runs repeated bootstrap subsampling across multiple model families (random forest,
             LightGBM, elastic net, logistic regression, extra trees) and measures how consistently
             each feature appears as important. Features that appear important across many resamples
             and model types are truly predictive, not just correlated by chance.
-            
+
             RETURNS:
             - Per-feature stability scores (0-1, higher = more reliably important)
             - Consensus ranking across model families
             - Polynomial interaction detection (degree 2 by default)
             - Correlated feature groups (features above correlation_threshold are grouped)
-            
+
             WHEN TO USE:
             - Before training: identify which features matter before committing to a model
             - Feature selection: reduce dimensionality by keeping only stable features
             - Hypothesis validation: confirm suspected drivers with statistical rigor
             - Exploratory analysis: understand data structure before deeper modeling
-            
+
             WHEN NOT TO USE:
             - When you already know the features (just train directly)
             - For very small datasets (<100 rows) — bootstrap resampling needs volume
-            
+
             AFTER CALLING THIS TOOL:
             - Analysis runs in the background via the ML service
             - Results include a run_id that can be used with getShapCurves for deeper analysis
@@ -77,7 +75,7 @@ public class DataRelationsTool {
         @ToolParam(description = """
             Brief explanation of WHAT RELATIONSHIPS you're trying to discover.
             Focus on the analytical question, not the technique.
-            
+
             Good: "Identify which customer attributes most reliably predict churn"
             Bad: "Run stability selection"
             """)
@@ -121,36 +119,26 @@ public class DataRelationsTool {
             var context = RormToolContext.from(toolContext);
             var query = queryMapper.toEntity(dataQuery, context.modelSpace());
             var jooqQuery = queryTransformer.transform(query, context.schema());
-            var sql = jooqQuery.getSQL();
-            var bindValues = extractBindVariables(jooqQuery);
 
             var request = StabilitySelectionJobRequest.builder()
                 .reason(reason)
-                .datasource(new DatasourceConfig(sql, bindValues))
+                .datasource(new DatasourceConfig(jooqQuery.getSQL(), extractBindVariables(jooqQuery)))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
                 .problemType(problemType)
                 .bootstrapRuns(bootstrapRuns != null ? bootstrapRuns : 50)
                 .sampleFraction(0.8)
                 .correlationThreshold(0.8)
-                .polynomialDegree(2)
                 .randomState(42)
                 .build();
 
-            var response = mlService.submitStabilitySelection(request);
-            MLPersistence.save(request, context.schema(), response.analysisId());
-
-            if (response.isNotAccepted()) {
-                return errorResponse("Stability selection was not accepted: " + response.message());
-            }
-
-            trainingFutureRegistry.register(response.analysisId());
-            trackLaunchedTraining(toolContext, response.analysisId());
+            var jobId = jobGateway.submit(request, context.schema());
+            trackJob(toolContext, jobId);
 
             return objectMapper.writeValueAsString(Map.of(
                 "success", true,
-                "analysisId", response.analysisId(),
-                "status", response.message(),
+                "analysisId", jobId,
+                "status", "accepted",
                 "instructions", """
                     Stability selection analysis launched successfully.
                     - Analysis ID: %s
@@ -159,12 +147,20 @@ public class DataRelationsTool {
                     Results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
                     When results arrive, use getShapCurves with the run_id for deeper analysis.
-                    """.formatted(response.analysisId(), targetColumn)
+                    """.formatted(jobId, targetColumn)
             ));
 
         } catch (Exception e) {
             log.error("Failed to launch stability selection", e);
             return errorResponse("Failed to launch data relations discovery: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void trackJob(ToolContext toolContext, UUID jobId) {
+        var launched = (List<UUID>) toolContext.getContext().get("launchedJobs");
+        if (launched != null) {
+            launched.add(jobId);
         }
     }
 
@@ -189,14 +185,6 @@ public class DataRelationsTool {
             ));
         } catch (JsonProcessingException e) {
             return "{\"success\":false,\"error\":\"" + message.replace("\"", "\\\"") + "\"}";
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void trackLaunchedTraining(ToolContext toolContext, UUID trainingId) {
-        var launched = (List<UUID>) toolContext.getContext().get("launchedTrainings");
-        if (launched != null) {
-            launched.add(trainingId);
         }
     }
 
@@ -258,20 +246,14 @@ public class DataRelationsTool {
                 1
             );
 
-            var response = mlService.submitShapCurvesAsync(request);
-            MLPersistence.save(request, response.analysisId());
-
-            if (response.isNotAccepted()) {
-                return errorResponse("SHAP computation was not accepted: " + response.message());
-            }
-
-            trainingFutureRegistry.register(response.analysisId());
-            trackLaunchedTraining(toolContext, response.analysisId());
+            var context = RormToolContext.from(toolContext);
+            var jobId = jobGateway.submit(request, context.schema());
+            trackJob(toolContext, jobId);
 
             return objectMapper.writeValueAsString(Map.of(
                 "success", true,
-                "analysisId", response.analysisId(),
-                "status", response.message(),
+                "analysisId", jobId,
+                "status", "accepted",
                 "instructions", """
                     SHAP curve computation launched successfully.
                     - Analysis ID: %s
@@ -279,7 +261,7 @@ public class DataRelationsTool {
                     
                     Results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
-                    """.formatted(response.analysisId(), runId)
+                    """.formatted(jobId, runId)
             ));
 
         } catch (Exception e) {

@@ -6,11 +6,10 @@ import com.rorm.ai.RormToolContext;
 import com.rorm.dto.QueryDTO;
 import com.rorm.engine.QueryTransformer;
 import com.rorm.mapper.QueryMapper;
+import com.rorm.ml.AsyncJobGateway;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.*;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
-import com.rorm.ml.peristence.MLPersistence;
-import com.rorm.ml.stream.TrainingFutureRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Query;
@@ -31,41 +30,41 @@ public class MlTrainingTool {
     private static final String REASON_DESCRIPTION = """
         Brief explanation of WHY you're training this model and WHAT QUESTION you're trying to answer.
         This will be shown to the user and available when reviewing training results.
-        
+
         Focus on the analytical goal in business terms, not technical implementation.
-        
+
         Good examples:
         - "To identify which customers are likely to churn based on their purchase patterns"
         - "To predict quarterly revenue based on current sales trends and seasonal factors"
         - "To classify transactions as fraudulent using behavioral anomaly patterns"
-        
+
         Bad examples:
         - "Training a random forest model" (describes what, not why)
         - "Because you asked me to" (not informative)
-        
+
         Length: 1-2 sentences maximum.
         """;
 
     private static final String INSTRUCTIONS_DESCRIPTION = """
         Actionable instructions for reviewing the trained model results.
-        
+
         The result review flow will have access to:
         - Model performance metrics and feature importance
-        
+
         Provide SPECIFIC ANALYSIS GUIDANCE and CONDITIONAL NEXT STEPS:
-        
+
         What to include:
         1. Key metrics to prioritize (e.g., "focus on recall over precision - false negatives cost $5K each")
         2. Performance thresholds that determine next actions (e.g., "if accuracy >75% proceed to scoring entire dataset; if <75% check node #47 for feature engineering ideas")
         3. Specific hypotheses to validate (e.g., "verify if recency_days dominates feature importance as expected from correlation analysis")
         4. References to relevant prior analysis context if needed
         5. What to do with good/bad results (e.g., "on success, generate predictions and create visualization comparing predicted vs actual; on failure, query for additional temporal features")
-        
+
         Be specific and guide attention to what matters.
-        
+
         Good example:
         "Prioritize F1-score since we need balance. If F1 >0.72, this is production-ready - score all active customers and flag top 100 highest risk for review. Check if customer_tenure and support_tickets_count are in top 3 features - this validates our hypothesis from the earlier segmentation. If F1 <0.65, the issue is likely class imbalance - check node #31 where we saw 90/10 split and consider SMOTE resampling."
-        
+
         Bad examples:
         - "Analyze the results" (no specific guidance)
         - "Look at accuracy and report back" (no action plan)
@@ -78,8 +77,7 @@ public class MlTrainingTool {
     private final ObjectMapper objectMapper;
     private final QueryMapper queryMapper;
     private final QueryTransformer queryTransformer;
-    private final MLPersistence MLPersistence;
-    private final TrainingFutureRegistry trainingFutureRegistry;
+    private final AsyncJobGateway jobGateway;
 
     @Tool(
         name = "launchModelTraining",
@@ -170,36 +168,26 @@ public class MlTrainingTool {
         try {
             log.info("Launching training for model type '{}' named '{}'", modelConfig.modelType(), modelName);
 
-            // Extract context
             var context = RormToolContext.from(toolContext);
             var query = queryMapper.toEntity(dataQuery, context.modelSpace());
             var jooqQuery = queryTransformer.transform(query, context.schema());
-            var sql = jooqQuery.getSQL();
-            var bindValues = extractBindVariables(jooqQuery);
 
             var request = TrainingJobRequest.builder()
                 .reason(reason)
                 .furtherInstructions(furtherInstructions)
-                .datasource(new DatasourceConfig(sql, bindValues))
+                .datasource(new DatasourceConfig(jooqQuery.getSQL(), extractBindVariables(jooqQuery)))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
                 .modelConfig(modelConfig)
                 .build();
 
-            var response = trainingService.submitTraining(request);
-            MLPersistence.save(request, context.schema(), response.trainingId());
-
-            if (response.isNotAccepted()) {
-                return errorResponse("Training job was not accepted: " + response.message());
-            }
-
-            trainingFutureRegistry.register(response.trainingId());
-            trackLaunchedTraining(toolContext, response.trainingId());
+            var jobId = jobGateway.submit(request, context.schema());
+            trackJob(toolContext, jobId);
 
             var result = new TrainingLaunchResult(
                 true,
-                response.trainingId(),
-                response.message(),
+                jobId,
+                "accepted",
                 """
                     Training job launched successfully.
                     - Training ID: %s
@@ -207,7 +195,7 @@ public class MlTrainingTool {
                     
                     Training results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
-                    """.formatted(response.trainingId(), modelConfig.modelType()),
+                    """.formatted(jobId, modelConfig.modelType()),
                 null
             );
 
@@ -230,14 +218,6 @@ public class MlTrainingTool {
             result.put("p" + i++, value);
         }
         return result;
-    }
-
-    @SuppressWarnings("unchecked")
-    private void trackLaunchedTraining(ToolContext toolContext, UUID trainingId) {
-        var launched = (List<UUID>) toolContext.getContext().get("launchedTrainings");
-        if (launched != null) {
-            launched.add(trainingId);
-        }
     }
 
     private String errorResponse(String message) {
@@ -310,6 +290,14 @@ public class MlTrainingTool {
         } catch (Exception e) {
             log.error("Failed to get model info", e);
             return errorResponse("Failed to get model info: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void trackJob(ToolContext toolContext, UUID jobId) {
+        var launched = (List<UUID>) toolContext.getContext().get("launchedJobs");
+        if (launched != null) {
+            launched.add(jobId);
         }
     }
 
@@ -398,17 +386,14 @@ public class MlTrainingTool {
             log.info("Launching hyperparameter tuning for model type '{}' named '{}'",
                 tuningConfig.modelType(), modelName);
 
-            // Extract context
             var context = RormToolContext.from(toolContext);
             var query = queryMapper.toEntity(dataQuery, context.modelSpace());
             var jooqQuery = queryTransformer.transform(query);
-            var sql = jooqQuery.getSQL();
-            var bindValues = extractBindVariables(jooqQuery);
 
             var baseRequest = TuningJobRequest.BaseTrainingRequest.builder()
                 .modelType(tuningConfig.modelType())
                 .modelName(modelName)
-                .datasource(new DatasourceConfig(sql, bindValues))
+                .datasource(new DatasourceConfig(jooqQuery.getSQL(), extractBindVariables(jooqQuery)))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
                 .modelParams(Map.of())
@@ -422,20 +407,13 @@ public class MlTrainingTool {
                 .tuningConfig(tuningSettings != null ? tuningSettings : TuningConfig.defaults())
                 .build();
 
-            var response = trainingService.submitTuningThenTraining(request);
-            MLPersistence.save(request, context.schema(), response.trainingId());
-
-            if (response.isNotAccepted()) {
-                return errorResponse("Tuning job was not accepted: " + response.message());
-            }
-
-            trainingFutureRegistry.register(response.trainingId());
-            trackLaunchedTraining(toolContext, response.trainingId());
+            var jobId = jobGateway.submit(request, context.schema());
+            trackJob(toolContext, jobId);
 
             var result = new TuningLaunchResult(
                 true,
-                response.trainingId(),
-                response.message(),
+                jobId,
+                "accepted",
                 """
                     Hyperparameter tuning job launched successfully.
                     - Training ID: %s
@@ -445,7 +423,7 @@ public class MlTrainingTool {
                     Training results will be automatically available after the current step completes.
                     Continue with other analysis and tool calls in this turn.
                     """.formatted(
-                    response.trainingId(),
+                    jobId,
                     tuningConfig.modelType(),
                     tuningSettings != null ? tuningSettings.nTrials() : 50
                 ),

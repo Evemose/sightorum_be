@@ -18,6 +18,7 @@ import com.rorm.ml.dto.model.ModelNames;
  * @param nJobs           Parallel jobs (-1 = all cores, default: -1)
  * @param classWeight     Class weights: "balanced" or "balanced_subsample" (null = none)
  */
+@lombok.Builder
 @JsonNaming(SnakeCaseStrategy.class)
 public record RandomForestClassifierConfig(
     Integer nEstimators,

@@ -93,11 +93,15 @@ class StabilitySelectionService:
             self,
             request: StabilitySelectionRequest,
             datasource: Datasource,
+            progress_callback: Optional[Callable[[float, str], None]] = None,
     ) -> dict[str, Any]:
         """Execute stability selection analysis and return a structured summary."""
         logger.info(f"Starting stability selection analysis with {request.bootstrap_runs} bootstrap runs")
         validation_result = request.validate()
         validation_result.raise_if_invalid()
+
+        if progress_callback:
+            progress_callback(0.05, "Validating request")
 
         # Estimate dataset size and apply SQL-level sampling if needed
         target_max_rows = 1_000_000
@@ -121,6 +125,9 @@ class StabilitySelectionService:
         except Exception as e:
             logger.warning(f"Could not estimate/sample at SQL level: {e}. Will fetch full dataset.")
 
+        if progress_callback:
+            progress_callback(0.10, "Fetching data from datasource")
+
         logger.info("Fetching data from datasource")
         data_result = datasource.fetch(
             sql_query,
@@ -128,6 +135,9 @@ class StabilitySelectionService:
         )
         df = data_result.dataframe
         logger.info(f"Fetched {len(df)} rows with {len(df.columns)} columns")
+
+        if progress_callback:
+            progress_callback(0.20, f"Fetched {len(df)} rows, encoding features")
 
         if request.target_column not in df.columns:
             raise ValidationError(
@@ -192,7 +202,20 @@ class StabilitySelectionService:
                 logger.info(f"  {col}: {nunique} unique values, sample: {feature_frame[col].dropna().head(3).tolist()}")
         encoded_frame = self._encode_features(feature_frame)
         encoded_columns = encoded_frame.columns.tolist()
+        if len(encoded_columns) > request.max_encoded_dimensions:
+            raise ValidationError(
+                message=f"Encoded feature space has {len(encoded_columns)} dimensions, which exceeds the maximum of {request.max_encoded_dimensions}",
+                field_errors={
+                    "feature_columns": [
+                        f"Reduce the number of feature columns. Check for possible noise-features leakage like string ids."
+                        f"If query is correct, increase max_encoded_dimensions"
+                    ]
+                },
+            )
         logger.info(f"Encoded to {len(encoded_columns)} columns")
+
+        if progress_callback:
+            progress_callback(0.30, f"Pre-processing {len(encoded_columns)} encoded features")
 
         # Convert to numpy array for memory-efficient sharing across threads
         encoded_array = encoded_frame.to_numpy(dtype=np.float32)
@@ -208,6 +231,9 @@ class StabilitySelectionService:
             encoded_array[nan_mask] = col_medians[col_indices]
             logger.info(f"Imputed {nan_mask.sum()} NaN values")
 
+        if progress_callback:
+            progress_callback(0.32, f"Imputed missing values in {len(encoded_columns)} columns")
+
         # Pre-scale in-place — avoids per-worker StandardScaler overhead
         logger.info("Pre-scaling features")
         col_means = encoded_array.mean(axis=0)
@@ -215,6 +241,9 @@ class StabilitySelectionService:
         col_stds[col_stds == 0] = 1.0  # Prevent division by zero for constant columns
         encoded_array -= col_means
         encoded_array /= col_stds
+
+        if progress_callback:
+            progress_callback(0.34, "Feature scaling complete")
 
         # Adaptive memory-based row downsampling — if encoded shape is still too large
         memory_budget_gb = self._get_memory_budget_gb()
@@ -265,6 +294,9 @@ class StabilitySelectionService:
         )
         warnings.extend(model_warnings)
         logger.info(f"Built {len(model_specs)} model families: {[spec[0] for spec in model_specs]}")
+
+        if progress_callback:
+            progress_callback(0.35, f"Building {len(model_specs)} model families")
 
         if not model_specs:
             raise ModelTrainingError(
@@ -322,9 +354,11 @@ class StabilitySelectionService:
             executor = None
 
         capture_models = self.db_storage is not None
+        total_iterations = request.bootstrap_runs * len(model_specs)
+        global_completed = 0
 
         sample_idx_offset = 0
-        for model_name, factory, extractor in model_specs:
+        for family_idx, (model_name, factory, extractor) in enumerate(model_specs):
             is_lgbm = model_name == "lightgbm"
             use_capturing = is_lgbm and capture_models
 
@@ -359,8 +393,14 @@ class StabilitySelectionService:
                             captured_lgbm_models.append((fitted_model, sample_indices))
                         else:
                             runs.append(result)
+                        global_completed += 1
                         if (idx + 1) % 10 == 0 or idx == len(futures) - 1:
                             logger.info(f"  Completed {idx + 1}/{len(futures)} runs for {model_name}")
+                        if progress_callback:
+                            progress_callback(
+                                0.35 + (global_completed / total_iterations) * 0.50,
+                                f"{model_name}: {idx + 1}/{request.bootstrap_runs} iterations",
+                            )
                     except Exception as e:
                         logger.error(f"Error in bootstrap run {idx} for {model_name}: {e}", exc_info=True)
                         raise
@@ -385,8 +425,14 @@ class StabilitySelectionService:
                                 sample_indices, feature_columns, selection_top_k,
                             )
                             runs.append(result)
+                        global_completed += 1
                         if (run_idx + 1) % 10 == 0 or run_idx == request.bootstrap_runs - 1:
                             logger.info(f"  Completed {run_idx + 1}/{request.bootstrap_runs} runs for {model_name}")
+                        if progress_callback:
+                            progress_callback(
+                                0.35 + (global_completed / total_iterations) * 0.50,
+                                f"{model_name}: {run_idx + 1}/{request.bootstrap_runs} iterations",
+                            )
                     except Exception as e:
                         logger.error(f"Error in bootstrap run {run_idx} for {model_name}: {e}", exc_info=True)
                         raise
@@ -399,6 +445,9 @@ class StabilitySelectionService:
             executor.shutdown(wait=False)
 
         # Persist LightGBM models for SHAP analysis
+        if progress_callback:
+            progress_callback(0.85, "Persisting models")
+
         run_id = None
         if captured_lgbm_models and self.db_storage is not None:
             run_id = str(uuid_mod.uuid4())
@@ -430,15 +479,27 @@ class StabilitySelectionService:
 
             # Serialize and batch-insert models
             model_rows = []
+            total_models = len(captured_lgbm_models)
             for idx, (model, sample_idx) in enumerate(captured_lgbm_models):
                 m_buf = BytesIO()
                 joblib.dump(model, m_buf, compress=3)
                 si_buf = BytesIO()
                 joblib.dump(sample_idx, si_buf, compress=3)
                 model_rows.append((idx, m_buf.getvalue(), si_buf.getvalue()))
+                if progress_callback:
+                    progress_callback(
+                        0.85 + (idx + 1) / total_models * 0.04,
+                        f"Serializing model {idx + 1}/{total_models}",
+                    )
 
             self.db_storage.save_stability_run_models_batch(run_id, model_rows)
             logger.info(f"Persisted run {run_id} with {len(model_rows)} models")
+
+            if progress_callback:
+                progress_callback(0.895, f"Persisted {len(model_rows)} models to storage")
+
+        if progress_callback:
+            progress_callback(0.90, "Computing correlation groups and consensus")
 
         logger.info("Finding correlated feature groups")
         correlation_groups = self._find_correlated_groups(feature_frame, request.correlation_threshold)
@@ -446,6 +507,9 @@ class StabilitySelectionService:
 
         logger.info("Building consensus across models")
         consensus = self._build_consensus(model_results, feature_columns, correlation_groups)
+
+        if progress_callback:
+            progress_callback(0.95, "Finalizing results")
 
         logger.info("Stability selection analysis complete")
         result = {

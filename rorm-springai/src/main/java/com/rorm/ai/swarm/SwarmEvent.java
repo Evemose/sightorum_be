@@ -3,7 +3,7 @@ package com.rorm.ai.swarm;
 import com.rorm.ai.swarm.SwarmEvent.EndEvent;
 import com.rorm.ai.swarm.SwarmEvent.StartEvent;
 import com.rorm.ai.swarm.dto.*;
-import com.rorm.ml.stream.TrainingEvent;
+import com.rorm.ml.stream.JobEvent;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -21,7 +21,7 @@ public sealed interface SwarmEvent permits StartEvent, EndEvent {
         PlanVersionCritiqueStarted,
         ScoutStarted,
         StepExecutionStarted,
-        StepTrainingAwaitStarted {
+        StepJobAwaitStarted {
         Flux<String> tokenStream();
     }
 
@@ -35,7 +35,7 @@ public sealed interface SwarmEvent permits StartEvent, EndEvent {
         PlanVersionCritiqueFinished,
         ScoutFinished,
         StepExecutionFinished,
-        StepTrainingCompleted {
+        StepJobCompleted {
         T findings();
 
         String rawResponse();
@@ -129,27 +129,27 @@ public sealed interface SwarmEvent permits StartEvent, EndEvent {
         String rawResponse
     ) implements EndEvent<ConclusionCritiqueDTO> {}
 
-    record StepTrainingAwaitStarted(
+    record StepJobAwaitStarted(
         String branchId,
         String stepId,
-        UUID trainingId
+        UUID jobId
     ) implements StartEvent {
         public Flux<String> tokenStream() {
             return Flux.empty();
         }
     }
 
-    record StepTrainingCompleted(
+    record StepJobCompleted(
         String branchId,
         String stepId,
-        UUID trainingId,
-        TrainingEvent result
-    ) implements EndEvent<TrainingEvent> {
+        UUID jobId,
+        JobEvent result
+    ) implements EndEvent<JobEvent> {
         public String rawResponse() {
             return "";
         }
 
-        public TrainingEvent findings() {
+        public JobEvent findings() {
             return result;
         }
     }

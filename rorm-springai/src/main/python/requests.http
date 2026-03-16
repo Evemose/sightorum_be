@@ -448,33 +448,17 @@ Content-Type: application/json
 
 {
   "datasource": {
-    "sql": "SELECT s.pre_departure_temp_c, s.container_age_months, s.container_insulation_type, s.node_refrig_health_pct, s.node_power_status, s.vehicle_cargo_volume_m3, s.stop_sequence, h.climate_zone, h.region, n.refrig_system_type, n.has_redundancy, n.capacity_pallets, n.refrig_system_age_months_at_start, nol.internal_temp_c, nol.utilization_pct, nol.door_open_count_per_hour, nol.staff_count, nol.node_log_refrig_health FROM cold_chain.shipments s JOIN cold_chain.hubs h ON s.hub_id = h.hub_id JOIN cold_chain.nodes n ON s.node_id = n.node_id JOIN (SELECT node_id, CAST(timestamp AS date) AS ops_date, AVG(internal_temp_c) AS internal_temp_c, AVG(utilization_pct) AS utilization_pct, AVG(door_open_count_per_hour) AS door_open_count_per_hour, AVG(staff_count) AS staff_count, AVG(refrig_health_pct) AS node_log_refrig_health FROM cold_chain.node_ops_logs GROUP BY node_id, CAST(timestamp AS date)) nol ON n.node_id = nol.node_id AND s.date = nol.ops_date",
+    "sql": "SELECT s.container_age_months, s.container_insulation_type, s.ambient_temp_at_dispatch_c, s.vehicle_reefer_kw_rated, s.hub_id, s.route_total_stops, s.route_total_drive_hours, s.route_total_air_miles, s.stop_sequence, s.pallet_position, s.product_class, s.site_type, s.site_urban_rural, s.vehicle_insulation_rating, s.vehicle_refrig_age_months, s.vehicle_cargo_volume_m3, s.logger_months_since_cal, s.node_refrig_health_pct, s.node_power_status, s.receiving_delay_min, s.receiving_dock_temp_controlled, s.is_after_hours_arrival, s.pre_departure_temp_c, s.ambient_temp_at_arrival_c, s.product_mass_at_stop_kg, s.day_of_week, s.vehicle_breakdown, s.is_hos_regulated, s.excursion_flag, COALESCE(ft.new_generation, 1) AS vehicle_generation FROM cold_chain.shipments s LEFT JOIN cold_chain.fleet_transitions ft ON s.vehicle_id = ft.new_vehicle_id",
     "bind_variables": {}
   },
-  "target_column": "pre_departure_temp_c",
-  "feature_columns": [
-    "container_age_months",
-    "container_insulation_type",
-    "node_refrig_health_pct",
-    "node_power_status",
-    "vehicle_cargo_volume_m3",
-    "stop_sequence",
-    "climate_zone",
-    "region",
-    "refrig_system_type",
-    "has_redundancy",
-    "capacity_pallets",
-    "refrig_system_age_months_at_start",
-    "internal_temp_c",
-    "utilization_pct",
-    "door_open_count_per_hour",
-    "staff_count",
-    "node_log_refrig_health"
-  ],
-  "problem_type": "regression",
+  "target_column": "excursion_flag",
+  "feature_columns": null,
+  "problem_type": "classification",
   "bootstrap_runs": 50,
   "sample_fraction": 0.8,
-  "correlation_threshold": 0.8
+  "correlation_threshold": 0.8,
+  "selection_top_k": null,
+  "random_state": 42
 }
 
 ### 19. Stability Selection (Classification)
@@ -1249,7 +1233,7 @@ Content-Type: application/json
 
 ### Get SHAP values for a stability selection
 # @timeout 1000 m
-GET {{baseUrl}}/analysis/stability-selection/569522fb-8814-45fc-b076-70b071428c2b/shap-curves
+GET {{baseUrl}}/analysis/stability-selection/3bf9c9bb-08eb-4965-93da-19cf1cd62b1b/shap-curves
 
 ### ============================================
 ### UTILITY ENDPOINTS

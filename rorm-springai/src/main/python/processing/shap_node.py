@@ -57,15 +57,23 @@ class ShapPipelineNode(PipelineNode):
         n_breakpoints = request_data.get("n_breakpoints", 1)
 
         await self.event_publisher.publish_started(
-            training_id=analysis_id,
+            job_id=analysis_id,
             model_type="shap_curves",
             message=f"SHAP curve computation started for run: {run_id}",
         )
-        await self.event_publisher.publish_progress(
-            training_id=analysis_id,
-            progress=0.1,
-            message="Loading stability selection run data",
-        )
+
+        async def progress_callback(progress: float, message: str = ""):
+            await self.event_publisher.publish_progress(
+                job_id=analysis_id, progress=progress, message=message
+            )
+
+        def sync_progress(progress: float, message: str = ""):
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(progress_callback(progress, message))
+            except Exception:
+                pass
 
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
@@ -75,19 +83,15 @@ class ShapPipelineNode(PipelineNode):
                 features=features,
                 n_bins=n_bins,
                 n_breakpoints=n_breakpoints,
+                progress_callback=sync_progress,
             ),
         )
 
         if result is None:
             raise ValueError(f"Stability selection run not found: {run_id}")
 
-        await self.event_publisher.publish_progress(
-            training_id=analysis_id,
-            progress=0.9,
-            message="SHAP computation complete, publishing results",
-        )
         await self.event_publisher.publish_success(
-            training_id=analysis_id,
+            job_id=analysis_id,
             metrics=result,
             message="SHAP curve computation completed successfully",
         )
@@ -109,7 +113,7 @@ class ShapPipelineNode(PipelineNode):
         if analysis_id:
             error_code = getattr(error, "error_code", "UNKNOWN_ERROR")
             await self.event_publisher.publish_failed(
-                training_id=analysis_id,
+                job_id=analysis_id,
                 error=str(error),
                 error_code=error_code,
                 message=f"SHAP computation failed permanently after {message.retry_count} attempts",

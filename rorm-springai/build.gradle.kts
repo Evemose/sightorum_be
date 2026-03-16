@@ -28,6 +28,7 @@ repositories {
 
 val hypersistenceVersion by extra("3.14.1")
 val mapstructVersion by extra("1.6.3")
+val restateVersion by extra("2.4.1")
 
 dependencies {
     api(project(":rorm-core"))
@@ -48,6 +49,11 @@ dependencies {
     api("org.springframework.ai:spring-ai-advisors-vector-store")
     implementation("com.anthropic:anthropic-java:2.15.0")
 
+    // Restate durable execution (conditional via rorm.ml.durable-execution=true)
+    implementation("dev.restate:sdk-spring-boot-starter:$restateVersion")
+    implementation("dev.restate:admin-client:$restateVersion")
+    annotationProcessor("dev.restate:sdk-api-gen:$restateVersion")
+
     compileOnly("org.jspecify:jspecify")
     compileOnly("org.projectlombok:lombok")
 
@@ -56,6 +62,7 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
+    testImplementation("dev.restate:sdk-testing:$restateVersion")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")

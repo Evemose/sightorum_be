@@ -2,10 +2,18 @@
 rorm:
   ml:
     enabled: true
+    durable-execution: false
     service-base-url: http://localhost:8000
     valkey-url: redis://localhost:6379
     event-stream-name: ml_training:training_results
     consumer-group: spring_consumers
+
+restate:
+  client:
+    base-uri: http://localhost:9080
+  sdk:
+    http:
+      port: 9081
 
 spring:
   data:

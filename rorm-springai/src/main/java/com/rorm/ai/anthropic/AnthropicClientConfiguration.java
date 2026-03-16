@@ -1,4 +1,4 @@
-package com.rorm.ai.chat;
+package com.rorm.ai.anthropic;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
+import com.rorm.ml.peristence.MLJobType;
 import lombok.Builder;
 
 import java.util.List;
@@ -26,11 +27,17 @@ public record TuningJobRequest(
     BaseTrainingRequest request,
     TuningModelConfig paramSpace,
     TuningConfig tuningConfig
-) implements TrainingRequest {
+) implements AsyncJobRequest {
     public TuningJobRequest {
         if (tuningConfig == null) {
             tuningConfig = TuningConfig.defaults();
         }
+    }
+
+    @Override
+    @JsonIgnore
+    public MLJobType jobType() {
+        return MLJobType.TUNING;
     }
 
     /**
