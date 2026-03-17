@@ -1,14 +1,15 @@
 package com.rorm.ml;
 
-import com.rorm.durable.DurableJobRuntime;
-import com.rorm.durable.InMemoryDurableJobRuntime;
+import com.rorm.durable.DurableRuntime;
 import com.rorm.misc.YamlPropertySource;
-import com.rorm.ml.jobs.JobExecutor;
+import com.rorm.ml.runtime.InMemoryDurableRuntime;
 import com.rorm.ml.stream.JobStreamListener;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Fallback;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -45,14 +46,10 @@ public class RormMlConfiguration {
     }
 
     @Bean
-    public JobExecutor jobExecutor(org.springframework.context.ApplicationContext applicationContext) {
-        return new JobExecutor(applicationContext);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public DurableJobRuntime inMemoryDurableJobRuntime(JobExecutor jobExecutor) {
-        return new InMemoryDurableJobRuntime(jobExecutor::execute);
+    @Fallback
+    @ConditionalOnProperty(name = "rorm.ml.durable-execution", havingValue = "false", matchIfMissing = true)
+    public DurableRuntime inMemoryDurableRuntime(ApplicationContext applicationContext) {
+        return new InMemoryDurableRuntime(applicationContext);
     }
 
     @Bean

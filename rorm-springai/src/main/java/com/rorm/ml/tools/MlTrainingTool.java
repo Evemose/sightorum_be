@@ -9,8 +9,6 @@ import com.rorm.mapper.QueryMapper;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.*;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
-import com.rorm.ml.jobs.TrainingJobSubmitter;
-import com.rorm.ml.jobs.TuningJobSubmitter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Query;
@@ -78,8 +76,6 @@ public class MlTrainingTool {
     private final ObjectMapper objectMapper;
     private final QueryMapper queryMapper;
     private final QueryTransformer queryTransformer;
-    private final TrainingJobSubmitter trainingJobSubmitter;
-    private final TuningJobSubmitter tuningJobSubmitter;
 
     @Tool(
         name = "launchModelTraining",
@@ -183,25 +179,8 @@ public class MlTrainingTool {
                 .modelConfig(modelConfig)
                 .build();
 
-            var awaitable = trainingJobSubmitter.submit(request, context.schema());
-            trackJob(toolContext, awaitable.jobId());
-
-            var result = new TrainingLaunchResult(
-                true,
-                awaitable.jobId(),
-                "accepted",
-                """
-                    Training job launched successfully.
-                    - Training ID: %s
-                    - Model Type: %s
-                    
-                    Training results will be automatically available after the current step completes.
-                    Continue with other analysis and tool calls in this turn.
-                    """.formatted(awaitable.jobId(), modelConfig.modelType()),
-                null
-            );
-
-            return objectMapper.writeValueAsString(result);
+            var event = trainingService.submit(request).get();
+            return objectMapper.writeValueAsString(event);
 
         } catch (Exception e) {
             log.error("Failed to launch training", e);
@@ -292,14 +271,6 @@ public class MlTrainingTool {
         } catch (Exception e) {
             log.error("Failed to get model info", e);
             return errorResponse("Failed to get model info: " + e.getMessage());
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void trackJob(ToolContext toolContext, UUID jobId) {
-        var launched = (List<UUID>) toolContext.getContext().get("launchedJobs");
-        if (launched != null) {
-            launched.add(jobId);
         }
     }
 
@@ -409,30 +380,8 @@ public class MlTrainingTool {
                 .tuningConfig(tuningSettings != null ? tuningSettings : TuningConfig.defaults())
                 .build();
 
-            var awaitable = tuningJobSubmitter.submit(request, context.schema());
-            trackJob(toolContext, awaitable.jobId());
-
-            var result = new TuningLaunchResult(
-                true,
-                awaitable.jobId(),
-                "accepted",
-                """
-                    Hyperparameter tuning job launched successfully.
-                    - Training ID: %s
-                    - Model Type: %s
-                    - Tuning Trials: %d
-
-                    Training results will be automatically available after the current step completes.
-                    Continue with other analysis and tool calls in this turn.
-                    """.formatted(
-                    awaitable.jobId(),
-                    tuningConfig.modelType(),
-                    tuningSettings != null ? tuningSettings.nTrials() : 50
-                ),
-                null
-            );
-
-            return objectMapper.writeValueAsString(result);
+            var event = trainingService.submit(request).get();
+            return objectMapper.writeValueAsString(event);
 
         } catch (Exception e) {
             log.error("Failed to launch hyperparameter tuning", e);

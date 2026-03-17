@@ -16,6 +16,7 @@ public record ChatRequest<T>(
     @NonNull String userPrompt,
     @NonNull Class<T> responseType,
     @Nullable String chatId,
+    @Nullable String sessionId,
     @Nullable String systemPrompt,
     @Nullable String modelName,
     @NonNull ThinkingLevel thinkingLevel,
@@ -41,6 +42,7 @@ public record ChatRequest<T>(
         @With(AccessLevel.NONE)
         private final ModelSpace modelSpace;
         private String chatId;
+        private String sessionId;
         private ThinkingLevel thinkingLevel = ThinkingLevel.NONE;
         private String systemPrompt;
         private String modelName;
@@ -60,6 +62,7 @@ public record ChatRequest<T>(
                 userPrompt,
                 responseType,
                 chatId,
+                sessionId,
                 systemPrompt,
                 modelName,
                 thinkingLevel,

@@ -25,4 +25,5 @@ module rorm.rorm.springai.main {
     requires spring.tx;
     requires spring.web;
     requires org.jooq;
+    requires java.net.http;
 }

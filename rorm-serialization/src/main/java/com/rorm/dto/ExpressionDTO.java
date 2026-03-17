@@ -39,14 +39,22 @@ public sealed interface ExpressionDTO permits
         @JsonProperty(required = true)
         @JsonAlias("target")
         String path
-    ) implements ExpressionDTO {}
+    ) implements ExpressionDTO {
+        @JsonCreator
+        public PathDTO {
+        }
+    }
 
     @JsonClassDescription("A literal/constant value in the query")
     record LiteralDTO(
         @JsonPropertyDescription("The literal value. Can be string, number, boolean, null, or array for IN clauses.")
         @JsonProperty(required = true)
         Object value
-    ) implements ExpressionDTO {}
+    ) implements ExpressionDTO {
+        @JsonCreator
+        public LiteralDTO {
+        }
+    }
 
     @JsonClassDescription("A SQL function call (non-aggregate)")
     record FunctionCallDTO(
@@ -150,7 +158,11 @@ public sealed interface ExpressionDTO permits
         @JsonPropertyDescription("The nested query.")
         @JsonProperty(required = true)
         QueryDTO query
-    ) implements ExpressionDTO {}
+    ) implements ExpressionDTO {
+        @JsonCreator
+        public SubqueryDTO {
+        }
+    }
 
     @JsonClassDescription("Reference to an outer query's attribute for correlated subqueries")
     record OuterRefDTO(

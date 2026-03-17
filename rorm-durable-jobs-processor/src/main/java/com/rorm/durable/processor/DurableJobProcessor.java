@@ -1,16 +1,20 @@
 package com.rorm.durable.processor;
 
 import com.palantir.javapoet.*;
-import com.rorm.durable.*;
+import com.rorm.durable.DurableJob;
+import com.rorm.durable.DurableRuntime;
+import com.rorm.durable.JobEntry;
+import com.rorm.durable.JobSpec;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.*;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,9 +46,7 @@ public class DurableJobProcessor extends AbstractProcessor {
             return;
         }
 
-        var depFields = extractDependencyFields(jobClass);
-        var submitter = generateSubmitter(jobClass, entryMethod, depFields);
-
+        var submitter = generateSubmitter(jobClass, entryMethod);
         var packageName = processingEnv.getElementUtils().getPackageOf(jobClass).getQualifiedName().toString();
         try {
             JavaFile.builder(packageName, submitter).build().writeTo(processingEnv.getFiler());
@@ -68,108 +70,35 @@ public class DurableJobProcessor extends AbstractProcessor {
         return found;
     }
 
-    private List<FieldSpec> extractDependencyFields(TypeElement jobClass) {
-        var fields = new ArrayList<FieldSpec>();
-        for (var enclosed : jobClass.getEnclosedElements()) {
-            if (enclosed.getKind() != ElementKind.FIELD) {
-                continue;
-            }
-            var field = (VariableElement) enclosed;
-            if (!field.getModifiers().contains(Modifier.FINAL)) {
-                continue;
-            }
-            if (field.getModifiers().contains(Modifier.STATIC)) {
-                continue;
-            }
-
-            var fieldBuilder = FieldSpec.builder(
-                TypeName.get(field.asType()),
-                field.getSimpleName().toString(),
-                Modifier.PRIVATE, Modifier.FINAL
-            );
-            for (var annotation : field.getAnnotationMirrors()) {
-                fieldBuilder.addAnnotation(AnnotationSpec.get(annotation));
-            }
-            fields.add(fieldBuilder.build());
-        }
-        return fields;
-    }
-
-    private TypeSpec generateSubmitter(
-        TypeElement jobClass,
-        ExecutableElement entryMethod,
-        List<FieldSpec> depFields
-    ) {
-        var jobClassName = ClassName.get(jobClass);
+    private TypeSpec generateSubmitter(TypeElement jobClass, ExecutableElement entryMethod) {
         var submitterName = jobClass.getSimpleName() + "Submitter";
+        var beanName = Character.toLowerCase(submitterName.charAt(0)) + submitterName.substring(1);
         var returnType = TypeName.get(entryMethod.getReturnType());
-        var awaitableType = ParameterizedTypeName.get(ClassName.get(Awaitable.class), returnType.box());
-        var runtimeType = ClassName.get(DurableJobRuntime.class);
-        var jobSpecType = ClassName.get(JobSpec.class);
+        var runtimeField = FieldSpec.builder(
+            ClassName.get(DurableRuntime.class), "runtime", Modifier.PRIVATE, Modifier.FINAL
+        ).build();
 
-        var allFields = new ArrayList<>(depFields);
-        allFields.add(FieldSpec.builder(runtimeType, "runtime", Modifier.PRIVATE, Modifier.FINAL).build());
-
-        var constructor = buildConstructor(allFields);
-        var submitMethod = buildSubmitMethod(submitterName, entryMethod, awaitableType, jobSpecType);
-        var executeMethod = buildExecuteMethod(jobClassName, entryMethod, depFields, returnType);
-
-        var classBuilder = TypeSpec.classBuilder(submitterName)
+        var constructor = MethodSpec.constructorBuilder()
             .addModifiers(Modifier.PUBLIC)
-            .addAnnotation(ClassName.get("org.springframework.stereotype", "Component"));
+            .addParameter(ClassName.get(DurableRuntime.class), "runtime")
+            .addStatement("this.runtime = runtime")
+            .build();
 
-        allFields.forEach(classBuilder::addField);
-        classBuilder.addMethod(constructor);
-        classBuilder.addMethod(submitMethod);
-        classBuilder.addMethod(executeMethod);
+        var submitMethod = buildSubmitMethod(jobClass, entryMethod, returnType);
 
-        return classBuilder.build();
-    }
-
-    private MethodSpec buildConstructor(List<FieldSpec> fields) {
-        var builder = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
-        for (var field : fields) {
-            builder.addParameter(field.type(), field.name());
-            builder.addStatement("this.$N = $N", field.name(), field.name());
-        }
-        return builder.build();
+        return TypeSpec.classBuilder(submitterName)
+            .addModifiers(Modifier.PUBLIC)
+            .addAnnotation(ClassName.get("org.springframework.stereotype", "Component"))
+            .addField(runtimeField)
+            .addMethod(constructor)
+            .addMethod(submitMethod)
+            .build();
     }
 
     private MethodSpec buildSubmitMethod(
-        String submitterName,
-        ExecutableElement entryMethod,
-        ParameterizedTypeName awaitableType,
-        ClassName jobSpecType
+        TypeElement jobClass, ExecutableElement entryMethod, TypeName returnType
     ) {
         var builder = MethodSpec.methodBuilder("submit")
-            .addModifiers(Modifier.PUBLIC)
-            .returns(awaitableType);
-
-        for (var param : entryMethod.getParameters()) {
-            builder.addParameter(TypeName.get(param.asType()), param.getSimpleName().toString());
-        }
-
-        var argsList = entryMethod.getParameters().stream()
-            .map(p -> p.getSimpleName().toString())
-            .collect(Collectors.joining(", "));
-
-        // Bean name is the uncapitalized class name (Spring convention)
-        var beanName = Character.toLowerCase(submitterName.charAt(0)) + submitterName.substring(1);
-
-        builder.addStatement("var spec = new $T($S, $S, new Object[]{$L})",
-            jobSpecType, beanName, "executeEntry", argsList);
-        builder.addStatement("return runtime.submit(spec)");
-
-        return builder.build();
-    }
-
-    private MethodSpec buildExecuteMethod(
-        ClassName jobClassName,
-        ExecutableElement entryMethod,
-        List<FieldSpec> depFields,
-        TypeName returnType
-    ) {
-        var builder = MethodSpec.methodBuilder("executeEntry")
             .addModifiers(Modifier.PUBLIC)
             .returns(returnType);
 
@@ -177,20 +106,16 @@ public class DurableJobProcessor extends AbstractProcessor {
             builder.addParameter(TypeName.get(param.asType()), param.getSimpleName().toString());
         }
 
-        if (!entryMethod.getThrownTypes().isEmpty()) {
-            builder.addException(Exception.class);
-        }
+        var beanName = Character.toLowerCase(jobClass.getSimpleName().charAt(0))
+                       + jobClass.getSimpleName().toString().substring(1);
 
-        var depArgs = depFields.stream()
-            .map(FieldSpec::name)
-            .collect(Collectors.joining(", "));
-
-        var entryArgs = entryMethod.getParameters().stream()
+        var argsList = entryMethod.getParameters().stream()
             .map(p -> p.getSimpleName().toString())
             .collect(Collectors.joining(", "));
 
-        builder.addStatement("var job = new $T($L)", jobClassName, depArgs);
-        builder.addStatement("return job.$N($L)", entryMethod.getSimpleName().toString(), entryArgs);
+        builder.addStatement("var spec = new $T($S, $S, new Object[]{$L})",
+            ClassName.get(JobSpec.class), beanName, entryMethod.getSimpleName().toString(), argsList);
+        builder.addStatement("return ($T) runtime.submit(spec)", returnType);
 
         return builder.build();
     }

@@ -2,6 +2,8 @@ package com.rorm.ml;
 
 import com.rorm.ml.dto.*;
 import com.rorm.ml.exception.MlServiceException;
+import com.rorm.ml.stream.JobEvent;
+import com.rorm.ml.stream.JobFutureRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
@@ -14,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 @RequiredArgsConstructor
@@ -21,43 +24,40 @@ public class MlTrainingService {
 
     @Qualifier("mlRestClient")
     private final RestClient restClient;
+    private final JobFutureRegistry futureRegistry;
 
-    /**
-     * Unified submission: dispatches by sealed request type, validates acceptance, returns job ID.
-     *
-     * @throws MlServiceException if the Python service rejects the request
-     */
-    public UUID submit(AsyncJobRequest request) {
-        return switch (request) {
+    public CompletableFuture<JobEvent> submit(AsyncJobRequest request) {
+        var jobId = switch (request) {
             case TrainingJobRequest r -> {
                 var resp = submitTraining(r);
                 if (resp.isNotAccepted()) {
-                    throw new MlServiceException("Training job was not accepted: " + resp.message());
+                    throw new MlServiceException("Training not accepted: " + resp.message());
                 }
                 yield resp.trainingId();
             }
             case TuningJobRequest r -> {
                 var resp = submitTuningThenTraining(r);
                 if (resp.isNotAccepted()) {
-                    throw new MlServiceException("Tuning job was not accepted: " + resp.message());
+                    throw new MlServiceException("Tuning not accepted: " + resp.message());
                 }
                 yield resp.trainingId();
             }
             case StabilitySelectionJobRequest r -> {
                 var resp = submitStabilitySelection(r);
                 if (resp.isNotAccepted()) {
-                    throw new MlServiceException("Stability selection was not accepted: " + resp.message());
+                    throw new MlServiceException("Stability selection not accepted: " + resp.message());
                 }
                 yield resp.analysisId();
             }
             case ShapJobRequest r -> {
                 var resp = submitShapCurvesAsync(r);
                 if (resp.isNotAccepted()) {
-                    throw new MlServiceException("SHAP computation was not accepted: " + resp.message());
+                    throw new MlServiceException("SHAP not accepted: " + resp.message());
                 }
                 yield resp.analysisId();
             }
         };
+        return futureRegistry.register(jobId);
     }
 
     public TrainingJobResponse submitTraining(TrainingJobRequest request) {

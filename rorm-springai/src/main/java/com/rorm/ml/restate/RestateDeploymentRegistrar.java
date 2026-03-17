@@ -1,54 +1,65 @@
 package com.rorm.ml.restate;
 
-import dev.restate.admin.api.DeploymentApi;
-import dev.restate.admin.client.ApiClient;
-import dev.restate.admin.client.ApiException;
-import dev.restate.admin.model.RegisterDeploymentRequest;
-import dev.restate.admin.model.RegisterDeploymentRequestAnyOf;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 
-import java.net.InetAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
-/**
- * Auto-registers the Restate HTTP endpoint with the Restate server on application startup.
- * Uses the Restate admin SDK ({@link DeploymentApi}) for type-safe registration.
- */
 @Slf4j
 public class RestateDeploymentRegistrar {
 
-    private final DeploymentApi deploymentApi;
+    private final String adminUrl;
+    private final String endpointHost;
     private final int endpointPort;
 
-    public RestateDeploymentRegistrar(ApiClient apiClient, int endpointPort) {
-        this.deploymentApi = new DeploymentApi(apiClient);
+    public RestateDeploymentRegistrar(String adminUrl, String endpointHost, int endpointPort) {
+        this.adminUrl = adminUrl;
+        this.endpointHost = endpointHost;
         this.endpointPort = endpointPort;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void registerDeployment() {
-        var endpointUri = resolveEndpointUri();
-        log.info("Registering Restate deployment at {}", endpointUri);
+        var endpointUri = "http://" + endpointHost + ":" + endpointPort;
+        log.info("Registering Restate deployment at {} via admin {}", endpointUri, adminUrl);
 
-        try {
-            var request = new RegisterDeploymentRequest(
-                new RegisterDeploymentRequestAnyOf().uri(endpointUri).force(true)
-            );
-            var response = deploymentApi.createDeployment(request);
-            log.info("Restate deployment registered: {} service(s)", response.getServices().size());
-        } catch (ApiException e) {
-            log.warn("Failed to register Restate deployment at {} (server may not be running): {} {}",
-                endpointUri, e.getCode(), e.getMessage());
-        }
-    }
+        var body = """
+            {"uri": "%s", "force": true}""".formatted(endpointUri);
 
-    private String resolveEndpointUri() {
-        try {
-            var hostname = InetAddress.getLocalHost().getHostAddress();
-            return "http://" + hostname + ":" + endpointPort;
-        } catch (Exception e) {
-            return "http://localhost:" + endpointPort;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try (var client = HttpClient.newHttpClient()) {
+                var request = HttpRequest.newBuilder()
+                    .uri(URI.create(adminUrl + "/deployments"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+                var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    log.info("Restate deployment registered (HTTP {})", response.statusCode());
+                    return;
+                } else {
+                    log.warn("Restate registration attempt {}/3 returned HTTP {}: {}",
+                        attempt, response.statusCode(), response.body());
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
+                log.warn("Restate registration attempt {}/3 failed: {}", attempt, e.getMessage());
+            }
+            if (attempt < 3) {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
         }
+        log.warn("Failed to register Restate deployment at {} after 3 attempts", endpointUri);
     }
 }

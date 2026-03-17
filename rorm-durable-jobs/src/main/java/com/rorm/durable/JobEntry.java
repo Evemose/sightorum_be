@@ -7,10 +7,8 @@ import java.lang.annotation.Target;
 
 /**
  * Marks the entry point method of a {@link DurableJob}.
- * <p>
- * Parameters of this method form the checkpoint boundary — they are serialized
- * into the durable execution journal and are the only data available on replay.
- * Constructor-injected fields (services, datasources) are re-injected on each invocation.
+ * Parameters are serialized into the {@link JobSpec} — they must be serializable.
+ * The method uses {@link StepJournal#current()} to journal non-deterministic steps.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.SOURCE)

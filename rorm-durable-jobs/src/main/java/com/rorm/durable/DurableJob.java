@@ -6,15 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a class as a durable job whose execution can be checkpointed and resumed.
- * <p>
- * The annotation processor generates a submitter class that:
- * <ul>
- *   <li>Copies the job's constructor dependencies (Spring-injected fields)</li>
- *   <li>Exposes a {@code submit()} method with the entry method's parameters</li>
- *   <li>Creates a new job instance on each submission with the injected deps</li>
- *   <li>Calls the entry method with only the declared params — enforcing isolation</li>
- * </ul>
+ * Marks a Spring bean as a durable job.
+ * The annotation processor generates a type-safe submitter that builds a {@link JobSpec}
+ * and dispatches it to the {@link DurableRuntime}.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)

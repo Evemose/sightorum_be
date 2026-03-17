@@ -1,17 +1,22 @@
 package com.rorm.durable;
 
 /**
- * Serializable spec describing a job invocation.
- * Journaled by Restate — on replay, the submitter bean is re-resolved
- * from the application context by name and the entry method is re-invoked.
+ * Serializable descriptor for a job invocation.
+ * The runtime resolves the bean and calls the method with these args.
+ * In Restate mode, this is what gets sent to the handler and journaled.
  *
- * @param beanName   Spring bean name of the generated submitter
- * @param methodName entry point method name on the job class
- * @param args       serializable arguments for the entry method
+ * @param beanName   Spring bean name of the target component
+ * @param methodName method to invoke on the bean
+ * @param args       serializable arguments
  */
 public record JobSpec(
     String beanName,
     String methodName,
     Object[] args
 ) {
+
+    public JobSpec(String beanName, String methodName) {
+        this(beanName, methodName, new Object[0]);
+    }
+
 }

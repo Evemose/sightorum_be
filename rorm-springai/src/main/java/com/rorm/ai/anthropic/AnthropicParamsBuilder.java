@@ -31,6 +31,10 @@ public class AnthropicParamsBuilder {
     private final ObjectMapper objectMapper;
 
     public MessageCreateParams build(Prompt prompt) {
+        return toBuilder(prompt).build();
+    }
+
+    public MessageCreateParams.Builder toBuilder(Prompt prompt) {
         var options = prompt.getOptions();
         var model = options != null && options.getModel() != null ? options.getModel() : DEFAULT_MODEL;
         var maxTokens = options != null && options.getMaxTokens() != null
@@ -45,7 +49,7 @@ public class AnthropicParamsBuilder {
         configureTools(builder, options);
         addMessages(builder, prompt);
 
-        return builder.build();
+        return builder;
     }
 
     private void configureThinking(MessageCreateParams.Builder builder, ChatOptions options) {
@@ -69,21 +73,31 @@ public class AnthropicParamsBuilder {
     }
 
     private void configureTools(MessageCreateParams.Builder builder, ChatOptions options) {
-        if (!(options instanceof ToolCallingChatOptions toolOptions)) {
-            return;
+        List<ToolCallback> callbacks = List.of();
+        boolean webAccess = false;
+
+        if (options instanceof ToolCallingChatOptions toolOptions) {
+            callbacks = toolOptions.getToolCallbacks();
         }
-        var callbacks = toolOptions.getToolCallbacks();
-        if (callbacks.isEmpty()) {
+        if (options instanceof AnthropicChatOptions ao) {
+            webAccess = ao.isWebAccess();
+        }
+
+        if (callbacks.isEmpty() && !webAccess) {
             return;
         }
 
         var tools = callbacks.stream().map(this::toSdkTool).toList();
         for (int i = 0; i < tools.size(); i++) {
             var tool = tools.get(i);
-            if (i == tools.size() - 1) {
+            if (i == tools.size() - 1 && !webAccess) {
                 tool = tool.toBuilder().cacheControl(longCache()).build();
             }
             builder.addTool(tool);
+        }
+        if (webAccess) {
+            builder.addTool(WebSearchTool20260209.builder()
+                .cacheControl(longCache()).build());
         }
         builder.toolChoice(ToolChoiceAuto.builder().build());
     }

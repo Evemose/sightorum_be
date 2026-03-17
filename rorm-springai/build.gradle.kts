@@ -38,6 +38,7 @@ dependencies {
     api(project(":rorm-import"))
 
     api("org.springframework.ai:spring-ai-starter-model-openai")
+    implementation("org.springframework.ai:spring-ai-client-chat")
 
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-json")
@@ -76,4 +77,5 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
+    testAnnotationProcessor("dev.restate:sdk-api-gen:$restateVersion")
 }
