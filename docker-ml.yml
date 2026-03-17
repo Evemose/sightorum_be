@@ -43,6 +43,12 @@ services:
       - "9070:9070"   # admin
     volumes:
       - restate-data:/restate-data
+    environment:
+      - RESTATE_DEFAULT_RETRY_POLICY__INITIAL_INTERVAL=50ms
+      - RESTATE_DEFAULT_RETRY_POLICY__MAX_ATTEMPTS=3
+      - RESTATE_DEFAULT_RETRY_POLICY__MAX_INTERVAL=60s
+      - RESTATE_DEFAULT_RETRY_POLICY__EXPONENTIATION_FACTOR=2.0
+      - RESTATE_DEFAULT_RETRY_POLICY__ON_MAX_ATTEMPTS=pause
     depends_on:
       valkey:
         condition: service_healthy
