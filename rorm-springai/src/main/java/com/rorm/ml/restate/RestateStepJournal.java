@@ -1,6 +1,6 @@
 package com.rorm.ml.restate;
 
-import com.rorm.durable.StepJournal;
+import com.rorm.StepJournal;
 import dev.restate.sdk.ObjectContext;
 import dev.restate.sdk.common.StateKey;
 import lombok.RequiredArgsConstructor;

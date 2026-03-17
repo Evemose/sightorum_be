@@ -1,8 +1,8 @@
 package com.rorm.ml.runtime;
 
-import com.rorm.durable.DurableRuntime;
-import com.rorm.durable.JobSpec;
-import com.rorm.durable.StepJournal;
+import com.rorm.DurableRuntime;
+import com.rorm.JobSpec;
+import com.rorm.StepJournal;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.context.ApplicationContext;

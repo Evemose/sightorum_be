@@ -1,9 +1,9 @@
 package com.rorm.ai.chat;
 
+import com.rorm.DurableRuntime;
+import com.rorm.JobSpec;
+import com.rorm.StepJournal;
 import com.rorm.ai.anthropic.AnthropicChatOptions;
-import com.rorm.durable.DurableRuntime;
-import com.rorm.durable.JobSpec;
-import com.rorm.durable.StepJournal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
@@ -71,8 +71,6 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public Flux<String> stream(ChatRequest<?> request) {
         return buildSpec(request).stream().chatResponse()
-            .filter(r -> r.getMetadata().getUsage() == null
-                         || r.getMetadata().getUsage().getTotalTokens() == null)
             .mapNotNull(r -> r.getResult().getOutput().getText())
             .filter(t -> t != null && !t.isEmpty());
     }

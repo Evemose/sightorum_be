@@ -1,7 +1,7 @@
 package com.rorm.ai.anthropic;
 
+import com.rorm.StepJournal;
 import com.rorm.ai.chat.ThinkingLevel;
-import com.rorm.durable.StepJournal;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;

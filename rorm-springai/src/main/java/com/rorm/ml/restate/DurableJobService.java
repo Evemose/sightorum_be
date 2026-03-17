@@ -1,7 +1,7 @@
 package com.rorm.ml.restate;
 
-import com.rorm.durable.JobSpec;
-import com.rorm.durable.StepJournal;
+import com.rorm.JobSpec;
+import com.rorm.StepJournal;
 import dev.restate.sdk.ObjectContext;
 import dev.restate.sdk.annotation.Exclusive;
 import dev.restate.sdk.annotation.Name;
@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
 import org.springframework.util.ReflectionUtils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 
 @RestateVirtualObject
@@ -36,7 +37,14 @@ public class DurableJobService {
                 throw new IllegalStateException("Method not found: " + spec.methodName());
             }
             meth.setAccessible(true);
-            return meth.invoke(bean, spec.args());
+            try {
+                return meth.invoke(bean, spec.args());
+            } catch (InvocationTargetException e) {
+                if (e.getCause() != null) {
+                    throw e.getCause();
+                }
+                throw e;
+            }
         });
     }
 }

@@ -13,11 +13,6 @@ spring:
       initialize-schema: always
       isolation-level-for-create: read_uncommitted
   ai:
-    chat:
-      memory:
-        repository:
-          jdbc:
-            initialize-schema: always
     openai:
       api-key: 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
       chat:
@@ -53,8 +48,3 @@ rorm:
       reconnect-delay-ms: 3000
   ml:
     durable-execution: true
-
-logging:
-  level:
-    com.rorm: DEBUG
-    com.rorm.ai.chat.com.rorm.ai.anthropic.AnthropicChatService: INFO

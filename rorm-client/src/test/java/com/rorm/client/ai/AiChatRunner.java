@@ -1,10 +1,10 @@
 package com.rorm.client.ai;
 
+import com.rorm.DurableRuntime;
+import com.rorm.JobSpec;
 import com.rorm.ai.chat.*;
 import com.rorm.client.ai.AiChatRunner.AgentJP;
 import com.rorm.client.metamodel.MetamodelService;
-import com.rorm.durable.DurableRuntime;
-import com.rorm.durable.JobSpec;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -277,7 +277,7 @@ class AiChatRunner {
     @Test
     void simpleChat() {
         //noinspection ConstantValue
-        if (false) { // guard from accidental execution
+        if (true) { // guard from accidental execution
             durableRuntime.submit("runner-survey-scout", new JobSpec("agentJp", "run"));
         }
     }
@@ -1423,7 +1423,10 @@ class AiChatRunner {
                         ))
                 )
                 .doOnError(e -> System.err.println("Error during chat: " + e.getMessage()))
-                .doOnNext(System.out::print)
+                .doOnNext(t -> {
+                    System.out.print(t);
+                    System.out.flush();
+                })
                 .blockLast();
         }
 

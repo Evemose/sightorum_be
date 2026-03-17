@@ -43,7 +43,7 @@ public class QueryExecutionTool {
         ToolContext toolContext
     ) {
         try {
-            log.info("Got query: {}", queryDTO);
+            log.debug("Got query: {}", queryDTO);
             // Extract context
             var context = RormToolContext.from(toolContext);
             var modelSpace = context.modelSpace();
@@ -54,7 +54,7 @@ public class QueryExecutionTool {
             // Apply limit cap
             var effectiveQuery = applyLimitCap(query);
 
-            log.info("Executing query on schema: {}", context.schema());
+            log.debug("Executing query on schema: {}", context.schema());
 
             // Execute query within schema context
             var results = fetcher.withSchema(context.schema(), () ->
