@@ -1,6 +1,7 @@
 package com.rorm.dto;
 
 import com.fasterxml.jackson.annotation.JsonClassDescription;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.rorm.query.Join.JoinType;
@@ -80,7 +81,11 @@ public record QueryDTO(
         @JsonPropertyDescription("List of expressions to group by.")
         @JsonProperty(required = true)
         List<ExpressionDTO> expressions
-    ) {}
+    ) {
+        @JsonCreator
+        public GroupByDTO {
+        }
+    }
 
     @JsonClassDescription("ORDER BY clause item with expression and sort direction")
     public record OrderByDTO(

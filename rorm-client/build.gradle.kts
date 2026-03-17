@@ -29,6 +29,15 @@ buildscript {
     }
 }
 
+tasks.test {
+    useJUnitPlatform()
+    testLogging.showStandardStreams = true
+    jvmArgs("--enable-preview")
+    jvmArgs("-XX:+EnableDynamicAgentLoading")
+    project.properties.filter { (k, _) -> k.startsWith("blackbox.") }
+        .forEach { (k, v) -> systemProperty(k, v.toString()) }
+}
+
 repositories {
     mavenCentral()
     maven { url = uri("https://repo.spring.io/milestone") }

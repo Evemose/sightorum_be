@@ -10,8 +10,6 @@ import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.DatasourceConfig;
 import com.rorm.ml.dto.ShapJobRequest;
 import com.rorm.ml.dto.StabilitySelectionJobRequest;
-import com.rorm.ml.jobs.ShapJobSubmitter;
-import com.rorm.ml.jobs.StabilitySelectionJobSubmitter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Query;
@@ -24,7 +22,6 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Component
@@ -35,8 +32,6 @@ public class DataRelationsTool {
     private final ObjectMapper objectMapper;
     private final QueryMapper queryMapper;
     private final QueryTransformer queryTransformer;
-    private final StabilitySelectionJobSubmitter stabilitySelectionJobSubmitter;
-    private final ShapJobSubmitter shapJobSubmitter;
 
     @Tool(
         name = "discoverDataRelations",
@@ -134,23 +129,8 @@ public class DataRelationsTool {
                 .randomState(42)
                 .build();
 
-            var awaitable = stabilitySelectionJobSubmitter.submit(request, context.schema());
-            trackJob(toolContext, awaitable.jobId());
-
-            return objectMapper.writeValueAsString(Map.of(
-                "success", true,
-                "analysisId", awaitable.jobId(),
-                "status", "accepted",
-                "instructions", """
-                    Stability selection analysis launched successfully.
-                    - Analysis ID: %s
-                    - Target: %s
-
-                    Results will be automatically available after the current step completes.
-                    Continue with other analysis and tool calls in this turn.
-                    When results arrive, use getShapCurves with the run_id for deeper analysis.
-                    """.formatted(awaitable.jobId(), targetColumn)
-            ));
+            var event = mlService.submit(request).get();
+            return objectMapper.writeValueAsString(event);
 
         } catch (Exception e) {
             log.error("Failed to launch stability selection", e);
@@ -158,13 +138,7 @@ public class DataRelationsTool {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void trackJob(ToolContext toolContext, UUID jobId) {
-        var launched = (List<UUID>) toolContext.getContext().get("launchedJobs");
-        if (launched != null) {
-            launched.add(jobId);
-        }
-    }
+
 
     private Map<String, Object> extractBindVariables(Query jooqQuery) {
         var bindValues = jooqQuery.getBindValues();
@@ -248,23 +222,8 @@ public class DataRelationsTool {
                 1
             );
 
-            var context = RormToolContext.from(toolContext);
-            var awaitable = shapJobSubmitter.submit(request, context.schema());
-            trackJob(toolContext, awaitable.jobId());
-
-            return objectMapper.writeValueAsString(Map.of(
-                "success", true,
-                "analysisId", awaitable.jobId(),
-                "status", "accepted",
-                "instructions", """
-                    SHAP curve computation launched successfully.
-                    - Analysis ID: %s
-                    - Run ID: %s
-                    
-                    Results will be automatically available after the current step completes.
-                    Continue with other analysis and tool calls in this turn.
-                    """.formatted(awaitable.jobId(), runId)
-            ));
+            var event = mlService.submit(request).get();
+            return objectMapper.writeValueAsString(event);
 
         } catch (Exception e) {
             log.error("Failed to launch SHAP curves", e);

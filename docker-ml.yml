@@ -12,7 +12,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: on-failure
 
   ml-service:
     build:
@@ -35,10 +34,9 @@ services:
         condition: service_healthy
     volumes:
       - ml-models:/app/trained_models
-    restart: on-failure
 
   restate-server:
-    image: docker.io/restatedev/restate:1.3
+    image: docker.io/restatedev/restate:1.6
     container_name: rorm-restate
     ports:
       - "9080:8080"   # ingress (remapped to avoid clash with Spring Boot 8080)
@@ -48,7 +46,6 @@ services:
     depends_on:
       valkey:
         condition: service_healthy
-    restart: on-failure
 
 volumes:
   valkey-data:

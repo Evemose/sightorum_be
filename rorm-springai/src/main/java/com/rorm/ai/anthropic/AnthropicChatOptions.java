@@ -1,6 +1,7 @@
 package com.rorm.ai.anthropic;
 
 import com.rorm.ai.chat.ThinkingLevel;
+import com.rorm.durable.StepJournal;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,6 +23,8 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
     private @Nullable Double temperature;
     private @Nullable Integer maxTokens;
     private @Nullable ThinkingLevel thinkingLevel;
+    @lombok.Builder.Default
+    private StepJournal journal = StepJournal.NOOP;
     @lombok.Builder.Default
     private boolean webAccess = false;
     @lombok.Builder.Default
@@ -66,6 +69,7 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
             .temperature(temperature)
             .maxTokens(maxTokens)
             .thinkingLevel(thinkingLevel)
+            .journal(journal)
             .webAccess(webAccess)
             .toolCallbacks(List.copyOf(toolCallbacks))
             .toolNames(Set.copyOf(toolNames))

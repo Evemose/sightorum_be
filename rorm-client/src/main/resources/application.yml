@@ -51,6 +51,8 @@ rorm:
     sse:
       heartbeat-interval-ms: 30000
       reconnect-delay-ms: 3000
+  ml:
+    durable-execution: true
 
 logging:
   level:
