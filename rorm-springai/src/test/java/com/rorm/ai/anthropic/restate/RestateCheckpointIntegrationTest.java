@@ -27,7 +27,7 @@ class RestateCheckpointIntegrationTest {
 
     @Container
     @SuppressWarnings("resource")
-    static final GenericContainer<?> RESTATE = new GenericContainer<>("docker.io/restatedev/restate:1.3")
+    static final GenericContainer<?> RESTATE = new GenericContainer<>("docker.io/restatedev/restate:1.6")
         .withExposedPorts(8080, 9070)
         .waitingFor(Wait.forListeningPort());
     @Container
@@ -166,6 +166,44 @@ class RestateCheckpointIntegrationTest {
             return response.body();
         } catch (Exception e) {
             throw new RuntimeException("Restate invocation failed", e);
+        }
+    }
+
+    @Test
+    void crossInvocationReplay() throws Exception {
+        org.testcontainers.Testcontainers.exposeHostPorts(SDK_PORT);
+
+        var filePath = tempDir.resolve("signal.txt");
+        var journalDir = tempDir.resolve("journal");
+        Files.createDirectories(journalDir);
+        Files.writeString(filePath, "exists");
+
+        try (var httpClient = HttpClient.newHttpClient()) {
+            var ingressPort = RESTATE.getMappedPort(8080);
+            var adminPort = RESTATE.getMappedPort(9070);
+            var ingressUrl = "http://localhost:" + ingressPort;
+            var adminUrl = "http://localhost:" + adminPort;
+
+            var app = startApp(filePath, journalDir, adminUrl);
+            try {
+                waitForReady(app);
+
+                var result1 = invokeHandler(httpClient, ingressUrl, SESSION_ID, "Check the file please");
+                assertThat(result1).contains("File exists");
+                var countAfterCall1 = readCallCount(journalDir);
+                assertThat(countAfterCall1)
+                    .as("first invocation should make 2 LLM calls (llm-0 tool_use + llm-1 text)")
+                    .isEqualTo(2);
+
+                var result2 = invokeHandler(httpClient, ingressUrl, SESSION_ID, "Check the file again");
+                assertThat(result2).contains("File exists");
+                var countAfterCall2 = readCallCount(journalDir);
+                assertThat(countAfterCall2)
+                    .as("second invocation should replay from state, no new LLM calls")
+                    .isEqualTo(2);
+            } finally {
+                app.destroyForcibly().waitFor();
+            }
         }
     }
 
