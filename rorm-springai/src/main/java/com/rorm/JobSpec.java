@@ -1,4 +1,4 @@
-package com.rorm.durable;
+package com.rorm;
 
 /**
  * Serializable descriptor for a job invocation.

@@ -7,7 +7,7 @@ import com.anthropic.helpers.MessageAccumulator;
 import com.anthropic.models.messages.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.durable.StepJournal;
+import com.rorm.StepJournal;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -27,14 +27,11 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.retry.support.RetryTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.scheduler.Schedulers;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -48,19 +45,16 @@ public class JournaledAnthropicChatModel implements ChatModel {
 
     private final AnthropicClient client;
     private final AnthropicParamsBuilder paramsBuilder;
-    private final RetryTemplate retryTemplate;
     private final ObservationRegistry observationRegistry;
     private final ChatModelObservationConvention observationConvention = DEFAULT_OBSERVATION_CONVENTION;
 
     public JournaledAnthropicChatModel(
         AnthropicClient client,
         ObjectMapper objectMapper,
-        @Nullable RetryTemplate retryTemplate,
         @Nullable ObservationRegistry observationRegistry
     ) {
         this.client = client;
         this.paramsBuilder = new AnthropicParamsBuilder(objectMapper);
-        this.retryTemplate = retryTemplate != null ? retryTemplate : RetryTemplate.builder().maxAttempts(1).build();
         this.observationRegistry = observationRegistry != null ? observationRegistry : ObservationRegistry.NOOP;
     }
 
@@ -92,7 +86,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return Objects.requireNonNull(ChatModelObservationDocumentation.CHAT_MODEL_OPERATION
             .observation(this.observationConvention, DEFAULT_OBSERVATION_CONVENTION,
                 () -> ctx, this.observationRegistry)
-            .observe(() -> retryTemplate.execute(_ -> body.apply(ctx))));
+            .observe(() -> body.apply(ctx)));
     }
 
     private Map<String, ToolCallback> resolveToolCallbackMap(@Nullable ChatOptions options) {
@@ -135,11 +129,26 @@ public class JournaledAnthropicChatModel implements ChatModel {
             })
             .toList();
 
+        var metadata = new HashMap<String, Object>();
+
+        var thinking = message.content().stream()
+            .filter(ContentBlock::isThinking)
+            .map(b -> b.asThinking().thinking())
+            .collect(Collectors.joining("\n"));
+        if (!thinking.isEmpty()) {
+            metadata.put("thinking", thinking);
+        }
+
+        var serverToolCalls = extractServerToolCalls(message);
+        if (!serverToolCalls.isEmpty()) {
+            metadata.put("serverToolCalls", serverToolCalls);
+        }
+
         var assistantMessage = AssistantMessage.builder()
-            .content(text).toolCalls(toolCalls).build();
+            .content(text).toolCalls(toolCalls).properties(metadata).build();
 
         var sdkUsage = message.usage();
-        Usage usage = new Usage() {
+        var usage = new Usage() {
             @Override
             public Integer getPromptTokens() {
                 return (int) sdkUsage.inputTokens();
@@ -159,6 +168,37 @@ public class JournaledAnthropicChatModel implements ChatModel {
             List.of(new Generation(assistantMessage, ChatGenerationMetadata.NULL)),
             ChatResponseMetadata.builder().model(message.model().toString()).usage(usage).build()
         );
+    }
+
+    private List<Map<String, Object>> extractServerToolCalls(Message message) {
+        var result = new ArrayList<Map<String, Object>>();
+        String currentToolName = null;
+        String currentInputJson = null;
+
+        for (var block : message.content()) {
+            if (block.isServerToolUse()) {
+                var stu = block.asServerToolUse();
+                currentToolName = stu.name().toString();
+                currentInputJson = toJson(stu._input());
+            } else if (block.isWebSearchToolResult()) {
+                result.add(Map.of(
+                    "toolName", currentToolName != null ? currentToolName : "unknown",
+                    "inputJson", currentInputJson != null ? currentInputJson : "{}",
+                    "outputJson", writeAnthropicJson(block.asWebSearchToolResult().content())
+                ));
+                currentToolName = null;
+                currentInputJson = null;
+            }
+        }
+        return result;
+    }
+
+    private static String writeAnthropicJson(Object value) {
+        try {
+            return ObjectMappers.jsonMapper().writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
     }
 
     private void advanceWithToolResults(
@@ -220,12 +260,13 @@ public class JournaledAnthropicChatModel implements ChatModel {
         try {
             log.info("Executing tool: {} ({})", name, toolUse.id());
             var inputJson = toJson(toolUse._input());
-            var result = journal.run("tool-" + name, String.class,
+            // very important to use unique id here
+            var result = journal.run("tool-" + name + "-" + toolUse.id(), String.class,
                 () -> callback.call(inputJson, toolContext));
             log.debug("Tool {} returned {} chars", name, result.length());
             return toolResult(toolUse.id(), result);
         } catch (Exception e) {
-            log.error("Tool {} failed: {}", name, e.getMessage(), e);
+            log.error("Tool {} ({}) failed: {}", toolUse.id(), name, e.getMessage(), e);
             var msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             return toolResult(toolUse.id(), "{\"error\":true,\"tool\":\"%s\",\"message\":\"%s\"}".formatted(
                 name.replace("\"", "\\\""), msg.replace("\"", "\\\"")));
@@ -239,12 +280,8 @@ public class JournaledAnthropicChatModel implements ChatModel {
 
     @Override
     public Flux<ChatResponse> stream(Prompt prompt) {
-        return Flux.<ChatResponse>create(sink ->
-            retryTemplate.execute(_ -> {
-                doStream(prompt, sink);
-                return null;
-            })
-        ).subscribeOn(Schedulers.boundedElastic());
+        return Flux.<ChatResponse>create(sink -> doStream(prompt, sink))
+            .subscribeOn(Schedulers.boundedElastic());
     }
 
     private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
@@ -312,8 +349,14 @@ public class JournaledAnthropicChatModel implements ChatModel {
         for (var block : message.content()) {
             if (block.isText()) {
                 sink.next(textChunk(block.asText().text()));
+            } else if (block.isThinking()) {
+                sink.next(textChunk("[thinking] " + block.asThinking().thinking()));
             } else if (block.isToolUse()) {
                 sink.next(textChunk("[tool_call] " + block.asToolUse().name()));
+            } else if (block.isServerToolUse()) {
+                sink.next(textChunk(formatServerToolStart(block.asServerToolUse())));
+            } else if (block.isWebSearchToolResult()) {
+                emitWebSearchResult(block.asWebSearchToolResult().content(), sink);
             }
         }
     }
@@ -336,6 +379,19 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
+    private static void emitWebSearchResult(
+        WebSearchToolResultBlockContent content, FluxSink<ChatResponse> sink
+    ) {
+        if (content.isResultBlocks()) {
+            var links = content.asResultBlocks().stream()
+                .map(r -> "  " + r.title() + " — " + r.url())
+                .collect(Collectors.joining("\n"));
+            sink.next(textChunk("[search_results]\n" + links));
+        } else if (content.isError()) {
+            sink.next(textChunk("[search_error] " + content.asError().errorCode()));
+        }
+    }
+
     private void emitBlockStart(
         RawContentBlockStartEvent.ContentBlock block, FluxSink<ChatResponse> sink, boolean[] thinkingStarted
     ) {
@@ -346,15 +402,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
             thinkingStarted[0] = false;
             sink.next(textChunk(formatServerToolStart(block.asServerToolUse())));
         } else if (block.isWebSearchToolResult()) {
-            var content = block.asWebSearchToolResult().content();
-            if (content.isResultBlocks()) {
-                var links = content.asResultBlocks().stream()
-                    .map(r -> "  " + r.title() + " — " + r.url())
-                    .collect(Collectors.joining("\n"));
-                sink.next(textChunk("[search_results]\n" + links));
-            } else if (content.isError()) {
-                sink.next(textChunk("[search_error] " + content.asError().errorCode()));
-            }
+            emitWebSearchResult(block.asWebSearchToolResult().content(), sink);
         }
     }
 

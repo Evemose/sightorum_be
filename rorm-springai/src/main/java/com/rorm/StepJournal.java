@@ -1,4 +1,4 @@
-package com.rorm.durable;
+package com.rorm;
 
 import java.util.function.Supplier;
 

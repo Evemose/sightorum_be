@@ -2,7 +2,7 @@ package com.rorm.ai.anthropic;
 
 import com.anthropic.core.ObjectMappers;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.durable.StepJournal;
+import com.rorm.StepJournal;
 import lombok.SneakyThrows;
 
 import java.nio.file.Files;

@@ -1,6 +1,6 @@
 package com.rorm.ml;
 
-import com.rorm.durable.DurableRuntime;
+import com.rorm.DurableRuntime;
 import com.rorm.misc.YamlPropertySource;
 import com.rorm.ml.runtime.InMemoryDurableRuntime;
 import com.rorm.ml.stream.JobStreamListener;

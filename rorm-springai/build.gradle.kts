@@ -47,7 +47,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("io.hypersistence:hypersistence-utils-hibernate-63:$hypersistenceVersion")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.ai:spring-ai-starter-model-chat-memory-repository-jdbc")
     api("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
     api("org.springframework.ai:spring-ai-advisors-vector-store")
     implementation("com.anthropic:anthropic-java:2.15.0")
@@ -55,8 +54,6 @@ dependencies {
     // Restate durable execution (conditional via rorm.ml.durable-execution=true)
     implementation("dev.restate:sdk-spring-boot-starter:$restateVersion")
     implementation("dev.restate:admin-client:$restateVersion")
-    api(project(":rorm-durable-jobs"))
-    annotationProcessor(project(":rorm-durable-jobs-processor"))
     annotationProcessor("dev.restate:sdk-api-gen:$restateVersion")
 
     compileOnly("org.jspecify:jspecify")

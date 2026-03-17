@@ -59,7 +59,7 @@ public class DataOverviewTool {
         ToolContext toolContext
     ) {
         try {
-            log.info("Analyzing expression on root '{}': {}", rootName, expressionDTO);
+            log.debug("Analyzing expression on root '{}': {}", rootName, expressionDTO);
 
             var context = RormToolContext.from(toolContext);
             var modelSpace = context.modelSpace();
@@ -77,7 +77,7 @@ public class DataOverviewTool {
             }
 
             var result = expressionAnalyzer.analyze(context.schema(), root, expression);
-            log.info("Expression category: {}", result.category());
+            log.debug("Expression category: {}", result.category());
 
             var response = new AnalysisResponse(
                 true,
