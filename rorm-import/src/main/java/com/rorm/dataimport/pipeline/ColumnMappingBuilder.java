@@ -78,8 +78,23 @@ class ColumnMappingBuilder {
                     extractMappings(subAttr, mappings);
                 }
             }
-            case DetectedAttribute.OneToOneRoot _ -> {
-                // OneToOneRoot creates a separate root - handled separately
+            case DetectedAttribute.OneToOneRoot oneToOne -> {
+                // Map the FK column: the ID sub-attribute's source column is the FK in the parent table
+                oneToOne.subAttributes().values().stream()
+                    .filter(DetectedAttribute.Basic.class::isInstance)
+                    .map(DetectedAttribute.Basic.class::cast)
+                    .filter(basic -> basic.source().sourceColumn().toLowerCase().endsWith("_id"))
+                    .findFirst()
+                    .ifPresent(basic -> {
+                        var source = basic.source();
+                        mappings.add(new ColumnMapping(
+                            source.sourceColumn(),
+                            source.sourceColumn(),
+                            source.dataSourceName(),
+                            basic.dataType() != null ? basic.dataType() : new DataType.NumericType(19, 0),
+                            null
+                        ));
+                    });
             }
         }
     }

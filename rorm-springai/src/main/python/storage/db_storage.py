@@ -72,9 +72,15 @@ class DatabaseModelStorage:
                                 bootstrap_runs  integer     not null,
                                 encoded_data    BYTEA       not null,
                                 feature_values  BYTEA       not null,
-                                result_summary  JSONB,
-                                created_at      timestamp   not null default now()
+                                result_summary   JSONB,
+                                control_features text[],
+                                created_at       timestamp not null default now()
                             )
+                            """)
+
+                cur.execute("""
+                            alter table stability_runs
+                                add column if not exists control_features text[]
                             """)
 
                 # Table for individual bootstrap models
@@ -466,18 +472,21 @@ class DatabaseModelStorage:
             encoded_data: bytes,
             feature_values: bytes,
             result_summary: Optional[Dict[str, Any]] = None,
+            control_features: Optional[list[str]] = None,
     ) -> str:
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                             insert into stability_runs
                             (id, problem_type, feature_columns, encoded_columns,
-                             bootstrap_runs, encoded_data, feature_values, result_summary)
-                            values (%s, %s, %s, %s, %s, %s, %s, %s)
+                             bootstrap_runs, encoded_data, feature_values, result_summary,
+                             control_features)
+                            values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                             """, (
                                 run_id, problem_type, feature_columns, encoded_columns,
                                 bootstrap_runs, encoded_data, feature_values,
                                 json.dumps(result_summary) if result_summary else None,
+                                control_features,
                             ))
                 conn.commit()
         return run_id
@@ -513,6 +522,7 @@ class DatabaseModelStorage:
                                    encoded_data,
                                    feature_values,
                                    result_summary,
+                                   control_features,
                                    created_at
                             from stability_runs
                             where id = %s

@@ -2,12 +2,13 @@ package com.rorm.ml.stream;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 import java.util.concurrent.*;
 
 @Slf4j
-@org.springframework.stereotype.Component
+@Component
 public class JobFutureRegistry {
 
     private final ConcurrentMap<UUID, CompletableFuture<JobEvent>> futures = new ConcurrentHashMap<>();

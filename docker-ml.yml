@@ -13,28 +13,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ml-service:
-    build:
-      context: ./rorm-springai/src/main/python
-      dockerfile: Dockerfile
-    container_name: rorm-ml-service
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_HOST=host.docker.internal
-      - DATABASE_PORT=5444
-      - DATABASE_DATABASE=mydatabase
-      - DATABASE_USER=myuser
-      - DATABASE_PASSWORD=mypassword
-      - REDIS_URL=redis://host.docker.internal:6379
-    depends_on:
-      valkey:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ml-models:/app/trained_models
-
   restate-server:
     image: docker.io/restatedev/restate:1.6
     container_name: rorm-restate
@@ -43,14 +21,11 @@ services:
       - "9070:9070"   # admin
     volumes:
       - restate-data:/restate-data
+      - ./restate.toml:/restate.toml
     environment:
-      - RESTATE_DEFAULT_RETRY_POLICY__INITIAL_INTERVAL=50ms
-      - RESTATE_DEFAULT_RETRY_POLICY__MAX_ATTEMPTS=3
-      - RESTATE_DEFAULT_RETRY_POLICY__MAX_INTERVAL=60s
-      - RESTATE_DEFAULT_RETRY_POLICY__EXPONENTIATION_FACTOR=2.0
-      - RESTATE_DEFAULT_RETRY_POLICY__ON_MAX_ATTEMPTS=pause
+      - RESTATE_NODE_NAME=7be0fd38532d
+      - RESTATE_CONFIG=/restate.toml
 
 volumes:
   valkey-data:
-  ml-models:
   restate-data:

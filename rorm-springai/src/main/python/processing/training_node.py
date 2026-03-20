@@ -32,7 +32,9 @@ class TrainingPipelineNode(PipelineNode):
             throttler: AsyncThrottlerWrapper,
             output_stream: Optional[str] = None,
             consumer_group: str = "training_workers",
-            consumer_name: Optional[str] = None
+            consumer_name: Optional[str] = None,
+            worker_pool=None,
+            backpressure=None,
     ):
         """
         Initialize training pipeline node.
@@ -54,9 +56,11 @@ class TrainingPipelineNode(PipelineNode):
             output_stream=output_stream,
             consumer_group=consumer_group,
             consumer_name=consumer_name,
-            batch_size=10,  # Read multiple messages to enable concurrent processing
+            batch_size=10,
             retry_on_error=True,
-            max_retries=3
+            max_retries=3,
+            worker_pool=worker_pool,
+            backpressure=backpressure,
         )
 
         self.training_service = training_service

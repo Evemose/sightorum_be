@@ -16,6 +16,7 @@ public record StabilitySelectionJobRequest(
     DatasourceConfig datasource,
     String targetColumn,
     @Nullable List<String> featureColumns,
+    @Nullable List<String> controlFeatures,
     @Nullable String problemType,
     int bootstrapRuns,
     double sampleFraction,

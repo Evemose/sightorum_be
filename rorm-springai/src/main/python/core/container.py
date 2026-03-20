@@ -41,6 +41,12 @@ class ApplicationContainer(containers.DeclarativeContainer):
         throttler=query_throttler,
     )
 
+    # ========== Worker Pool ==========
+    worker_pool = providers.Singleton(
+        lambda cfg: _create_worker_pool(cfg),
+        cfg=config,
+    )
+
     # ========== Datasource ==========
     datasource = providers.Factory(
         lambda cfg, pool, throttler: _create_datasource(cfg, pool, throttler),
@@ -155,13 +161,15 @@ class ApplicationContainer(containers.DeclarativeContainer):
     )
 
     stability_selection_service = providers.Singleton(
-        lambda db_storage: _create_stability_selection_service(db_storage),
+        lambda db_storage, worker_pool: _create_stability_selection_service(db_storage, worker_pool),
         db_storage=db_storage,
+        worker_pool=worker_pool,
     )
 
     shap_curve_service = providers.Singleton(
-        lambda db_storage: _create_shap_curve_service(db_storage),
+        lambda db_storage, worker_pool: _create_shap_curve_service(db_storage, worker_pool),
         db_storage=db_storage,
+        worker_pool=worker_pool,
     )
 
     # ========== Event Publishing ==========
@@ -172,33 +180,35 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
     # ========== Pipeline Nodes ==========
     training_node = providers.Singleton(
-        lambda cfg, training_service, pool, query_throttler, event_publisher, async_throttler: _create_training_node(
-            cfg, training_service, pool, query_throttler, event_publisher, async_throttler
-        ),
+        lambda cfg, training_service, pool, query_throttler, event_publisher, async_throttler, worker_pool:
+        _create_training_node(cfg, training_service, pool, query_throttler, event_publisher, async_throttler,
+                              worker_pool),
         cfg=config,
         training_service=training_service,
         pool=db_pool,
         query_throttler=query_throttler,
         event_publisher=event_publisher,
         async_throttler=async_throttler,
+        worker_pool=worker_pool,
     )
 
     tuning_node = providers.Singleton(
-        lambda cfg, training_service, pool, query_throttler, event_publisher, async_throttler: _create_tuning_node(
-            cfg, training_service, pool, query_throttler, event_publisher, async_throttler
-        ),
+        lambda cfg, training_service, pool, query_throttler, event_publisher, async_throttler, worker_pool:
+        _create_tuning_node(cfg, training_service, pool, query_throttler, event_publisher, async_throttler,
+                            worker_pool),
         cfg=config,
         training_service=training_service,
         pool=db_pool,
         query_throttler=query_throttler,
         event_publisher=event_publisher,
         async_throttler=async_throttler,
+        worker_pool=worker_pool,
     )
 
     stability_selection_node = providers.Singleton(
-        lambda cfg, stability_selection_service, pool, query_throttler, event_publisher, async_throttler:
+        lambda cfg, stability_selection_service, pool, query_throttler, event_publisher, async_throttler, worker_pool:
         _create_stability_selection_node(
-            cfg, stability_selection_service, pool, query_throttler, event_publisher, async_throttler
+            cfg, stability_selection_service, pool, query_throttler, event_publisher, async_throttler, worker_pool
         ),
         cfg=config,
         stability_selection_service=stability_selection_service,
@@ -206,14 +216,16 @@ class ApplicationContainer(containers.DeclarativeContainer):
         query_throttler=query_throttler,
         event_publisher=event_publisher,
         async_throttler=async_throttler,
+        worker_pool=worker_pool,
     )
 
     shap_node = providers.Singleton(
-        lambda cfg, shap_curve_service, event_publisher:
-        _create_shap_node(cfg, shap_curve_service, event_publisher),
+        lambda cfg, shap_curve_service, event_publisher, worker_pool:
+        _create_shap_node(cfg, shap_curve_service, event_publisher, worker_pool),
         cfg=config,
         shap_curve_service=shap_curve_service,
         event_publisher=event_publisher,
+        worker_pool=worker_pool,
     )
 
 
@@ -240,6 +252,14 @@ def _create_async_throttler(throttler):
     """Create async throttler wrapper."""
     from datasource.throttler import AsyncThrottlerWrapper
     return AsyncThrottlerWrapper(throttler)
+
+
+def _create_worker_pool(cfg: Settings):
+    from service.worker_pool import WorkerPool
+    return WorkerPool.configure(
+        max_workers=cfg.worker_pool.max_workers,
+        memory_budget_gb=cfg.worker_pool.memory_budget_gb,
+    )
 
 
 def _create_datasource(cfg: Settings, pool, throttler):
@@ -349,16 +369,14 @@ def _create_prediction_service(db_storage):
     return PredictionService(db_storage)
 
 
-def _create_stability_selection_service(db_storage):
-    """Create stability selection service."""
+def _create_stability_selection_service(db_storage, worker_pool):
     from service.stability_selection_service import StabilitySelectionService
-    return StabilitySelectionService(db_storage=db_storage)
+    return StabilitySelectionService(db_storage=db_storage, worker_pool=worker_pool)
 
 
-def _create_shap_curve_service(db_storage):
-    """Create SHAP curve service."""
+def _create_shap_curve_service(db_storage, worker_pool):
     from service.shap_curve_service import ShapCurveService
-    return ShapCurveService(db_storage=db_storage)
+    return ShapCurveService(db_storage=db_storage, worker_pool=worker_pool)
 
 
 def _create_event_publisher(cfg: Settings):
@@ -370,13 +388,12 @@ def _create_event_publisher(cfg: Settings):
     )
 
 
-def _create_training_node(cfg: Settings, training_service, pool, query_throttler, event_publisher, async_throttler):
-    """Create training pipeline node."""
+def _create_training_node(cfg: Settings, training_service, pool, query_throttler, event_publisher, async_throttler,
+                          worker_pool):
     from processing.training_node import TrainingPipelineNode
     from datasource.sql_datasource import PostgreSQLDatasource
 
     def datasource_factory():
-        """Factory function to create new datasource instances."""
         return PostgreSQLDatasource(
             pool=pool,
             throttler=query_throttler,
@@ -394,16 +411,17 @@ def _create_training_node(cfg: Settings, training_service, pool, query_throttler
         event_publisher=event_publisher,
         throttler=async_throttler,
         consumer_group=cfg.pipeline.consumer_groups.training,
+        worker_pool=worker_pool,
+        backpressure=cfg.backpressure,
     )
 
 
-def _create_tuning_node(cfg: Settings, training_service, pool, query_throttler, event_publisher, async_throttler):
-    """Create hyperparameter tuning pipeline node."""
+def _create_tuning_node(cfg: Settings, training_service, pool, query_throttler, event_publisher, async_throttler,
+                        worker_pool):
     from processing.tuning_node import HyperparameterTuningNode
     from datasource.sql_datasource import PostgreSQLDatasource
 
     def datasource_factory():
-        """Factory function to create new datasource instances."""
         return PostgreSQLDatasource(
             pool=pool,
             throttler=query_throttler,
@@ -423,6 +441,8 @@ def _create_tuning_node(cfg: Settings, training_service, pool, query_throttler, 
         throttler=async_throttler,
         system_max_tuning_time=cfg.tuning.max_tuning_time_seconds,
         consumer_group=cfg.pipeline.consumer_groups.tuning,
+        worker_pool=worker_pool,
+        backpressure=cfg.backpressure,
     )
 
 
@@ -433,13 +453,12 @@ def _create_stability_selection_node(
         query_throttler,
         event_publisher,
         async_throttler,
+        worker_pool,
 ):
-    """Create async stability selection pipeline node."""
     from processing.stability_selection_node import StabilitySelectionPipelineNode
     from datasource.sql_datasource import PostgreSQLDatasource
 
     def datasource_factory():
-        """Factory function to create new datasource instances."""
         return PostgreSQLDatasource(
             pool=pool,
             throttler=query_throttler,
@@ -457,11 +476,12 @@ def _create_stability_selection_node(
         event_publisher=event_publisher,
         throttler=async_throttler,
         consumer_group=cfg.pipeline.consumer_groups.stability_selection,
+        worker_pool=worker_pool,
+        backpressure=cfg.backpressure,
     )
 
 
-def _create_shap_node(cfg: Settings, shap_curve_service, event_publisher):
-    """Create async SHAP curve computation pipeline node."""
+def _create_shap_node(cfg: Settings, shap_curve_service, event_publisher, worker_pool):
     from processing.shap_node import ShapPipelineNode
 
     return ShapPipelineNode(
@@ -470,4 +490,6 @@ def _create_shap_node(cfg: Settings, shap_curve_service, event_publisher):
         shap_curve_service=shap_curve_service,
         event_publisher=event_publisher,
         consumer_group=cfg.pipeline.consumer_groups.shap,
+        worker_pool=worker_pool,
+        backpressure=cfg.backpressure,
     )

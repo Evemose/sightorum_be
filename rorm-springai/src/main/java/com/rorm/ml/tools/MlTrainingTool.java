@@ -3,9 +3,9 @@ package com.rorm.ml.tools;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.RormToolContext;
-import com.rorm.dto.QueryDTO;
+import com.rorm.dto.dense.DenseQueryDto;
 import com.rorm.engine.QueryTransformer;
-import com.rorm.mapper.QueryMapper;
+import com.rorm.mapper.DenseQueryMapper;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.*;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
@@ -74,7 +74,7 @@ public class MlTrainingTool {
 
     private final MlTrainingService trainingService;
     private final ObjectMapper objectMapper;
-    private final QueryMapper queryMapper;
+    private final DenseQueryMapper denseQueryMapper;
     private final QueryTransformer queryTransformer;
 
     @Tool(
@@ -146,7 +146,7 @@ public class MlTrainingTool {
             - The target column (for supervised learning)
             - Feature columns for the model
             """)
-        QueryDTO dataQuery,
+        DenseQueryDto dataQuery,
 
         @ToolParam(description = """
             Name of the column to predict (target variable).
@@ -167,7 +167,7 @@ public class MlTrainingTool {
             log.info("Launching training for model type '{}' named '{}'", modelConfig.modelType(), modelName);
 
             var context = RormToolContext.from(toolContext);
-            var query = queryMapper.toEntity(dataQuery, context.modelSpace());
+            var query = denseQueryMapper.toEntity(dataQuery, context.modelSpace());
             var jooqQuery = queryTransformer.transform(query, context.schema());
 
             var request = TrainingJobRequest.builder()
@@ -330,7 +330,7 @@ public class MlTrainingTool {
             - The target column (for supervised learning)
             - Feature columns for the model
             """)
-        QueryDTO dataQuery,
+        DenseQueryDto dataQuery,
 
         @ToolParam(description = """
             Name of the column to predict (target variable).
@@ -360,7 +360,7 @@ public class MlTrainingTool {
                 tuningConfig.modelType(), modelName);
 
             var context = RormToolContext.from(toolContext);
-            var query = queryMapper.toEntity(dataQuery, context.modelSpace());
+            var query = denseQueryMapper.toEntity(dataQuery, context.modelSpace());
             var jooqQuery = queryTransformer.transform(query);
 
             var baseRequest = TuningJobRequest.BaseTrainingRequest.builder()

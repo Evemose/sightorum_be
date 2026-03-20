@@ -43,7 +43,9 @@ class HyperparameterTuningNode(PipelineNode):
             throttler: AsyncThrottlerWrapper,
             system_max_tuning_time: int = 300,
             consumer_group: str = "tuning_workers",
-            consumer_name: Optional[str] = None
+            consumer_name: Optional[str] = None,
+            worker_pool=None,
+            backpressure=None,
     ):
         """
         Initialize tuning pipeline node.
@@ -72,9 +74,11 @@ class HyperparameterTuningNode(PipelineNode):
             output_stream=output_stream,
             consumer_group=consumer_group,
             consumer_name=consumer_name,
-            batch_size=10,  # Read multiple messages to enable concurrent processing
+            batch_size=10,
             retry_on_error=True,
-            max_retries=1  # Less retries for tuning (expensive)
+            max_retries=1,
+            worker_pool=worker_pool,
+            backpressure=backpressure,
         )
 
         self.training_service = training_service

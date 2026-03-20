@@ -8,35 +8,15 @@ public enum ThinkingLevel {
     /**
      * No extended thinking - standard response generation.
      */
-    NONE(null),
+    NONE,
 
     /**
      * Medium reasoning effort - balanced between speed and depth.
      */
-    MEDIUM("medium"),
+    MEDIUM,
 
     /**
      * High reasoning effort - thorough analysis with detailed reasoning.
      */
-    HIGH("high");
-
-    private final String apiValue;
-
-    ThinkingLevel(String apiValue) {
-        this.apiValue = apiValue;
-    }
-
-    /**
-     * @return The API value to pass to OpenAI, or null if no reasoning effort should be set.
-     */
-    String apiValue() {
-        return apiValue;
-    }
-
-    /**
-     * @return true if this level requires extended thinking options to be set.
-     */
-    boolean requiresOptions() {
-        return apiValue != null;
-    }
+    HIGH
 }

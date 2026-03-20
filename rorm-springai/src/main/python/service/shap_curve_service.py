@@ -3,9 +3,7 @@
 import joblib
 import logging
 import numpy as np
-import os
-import psutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from io import BytesIO
 from typing import Any, Callable, Optional
 
@@ -15,8 +13,9 @@ logger = logging.getLogger(__name__)
 class ShapCurveService:
     """Compute averaged SHAP dependence curves from persisted stability selection models."""
 
-    def __init__(self, db_storage):
+    def __init__(self, db_storage, worker_pool=None):
         self.db_storage = db_storage
+        self.worker_pool = worker_pool
 
     def compute_curves(
             self,
@@ -97,16 +96,7 @@ class ShapCurveService:
         bytes_per_model = sample_size * len(encoded_columns) * 4 * 3  # X_sample + shap_values + overhead
         del sample_row, sample_indices_0
 
-        try:
-            available_gb = (psutil.virtual_memory().available / (1024 ** 3)) * 0.5
-        except Exception:
-            available_gb = 2.0
-
-        max_by_memory = max(1, int(available_gb * (1024 ** 3) / max(bytes_per_model, 1)))
-        max_by_cpu = max(1, (os.cpu_count() or 2) // 2 - 1)
-        max_workers = min(max_by_memory, max_by_cpu, n_models)
-        logger.info(f"SHAP parallel: {max_workers} workers "
-                    f"(memory allows {max_by_memory}, CPUs allow {max_by_cpu})")
+        logger.info(f"SHAP per-model memory estimate: {bytes_per_model / (1024 ** 3):.2f} GB")
 
         if progress_callback:
             progress_callback(0.20, f"Planning parallel SHAP computation for {n_models} models")
@@ -134,36 +124,37 @@ class ShapCurveService:
 
         cat_results_list: dict[str, list] = {f: [None] * n_models for f in cat_feats}
 
-        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="shap-") as executor:
-            futures = {}
-            for model_idx in range(n_models):
-                future = executor.submit(
-                    self._process_single_model,
-                    self.db_storage, run_id, model_idx, ctx,
+        futures = {}
+        for model_idx in range(n_models):
+            future = self.worker_pool.submit(
+                bytes_per_model,
+                lambda idx=model_idx: self._process_single_model(
+                    self.db_storage, run_id, idx, ctx,
+                ),
+            )
+            futures[future] = model_idx
+
+        completed = 0
+        for future in as_completed(futures):
+            model_idx = futures[future]
+            try:
+                numeric_curves, cat_dicts = future.result()
+                for feat, curve in numeric_curves.items():
+                    if feat in numeric_stacks:
+                        numeric_stacks[feat][model_idx] = curve
+                for feat, cat_dict in cat_dicts.items():
+                    cat_results_list[feat][model_idx] = cat_dict
+            except Exception:
+                logger.error(f"SHAP computation failed for model {model_idx}", exc_info=True)
+
+            completed += 1
+            if completed % 10 == 0 or completed == n_models:
+                logger.info(f"  SHAP progress: {completed}/{n_models} models")
+            if progress_callback:
+                progress_callback(
+                    0.20 + (completed / n_models) * 0.70,
+                    f"SHAP: {completed}/{n_models} models processed",
                 )
-                futures[future] = model_idx
-
-            completed = 0
-            for future in as_completed(futures):
-                model_idx = futures[future]
-                try:
-                    numeric_curves, cat_dicts = future.result()
-                    for feat, curve in numeric_curves.items():
-                        if feat in numeric_stacks:
-                            numeric_stacks[feat][model_idx] = curve
-                    for feat, cat_dict in cat_dicts.items():
-                        cat_results_list[feat][model_idx] = cat_dict
-                except Exception:
-                    logger.error(f"SHAP computation failed for model {model_idx}", exc_info=True)
-
-                completed += 1
-                if completed % 10 == 0 or completed == n_models:
-                    logger.info(f"  SHAP progress: {completed}/{n_models} models")
-                if progress_callback:
-                    progress_callback(
-                        0.20 + (completed / n_models) * 0.70,
-                        f"SHAP: {completed}/{n_models} models processed",
-                    )
 
         if progress_callback:
             progress_callback(0.92, "Aggregating SHAP curves")
@@ -237,13 +228,18 @@ class ShapCurveService:
         if progress_callback:
             progress_callback(0.98, "Finalizing results")
 
-        return {
+        result = {
             "run_id": run_id,
             "problem_type": problem_type,
             "n_models": n_models,
             "n_bins": n_bins,
             "curves": curves_output,
         }
+        control_features = run.get("control_features")
+        if control_features:
+            result["control_features"] = control_features
+            result["residualised"] = True
+        return result
 
     @staticmethod
     def _process_single_model(

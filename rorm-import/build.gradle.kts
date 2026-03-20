@@ -25,3 +25,12 @@ dependencies {
     testRuntimeOnly("org.postgresql:postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging.showStandardStreams = true
+    jvmArgs("--enable-preview")
+    jvmArgs("-XX:+EnableDynamicAgentLoading")
+    project.properties.filter { (k, _) -> k.startsWith("blackbox.") }
+        .forEach { (k, v) -> systemProperty(k, v.toString()) }
+}

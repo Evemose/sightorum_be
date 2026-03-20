@@ -2,26 +2,23 @@ package com.rorm.ml.stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.ml.peristence.MLJobInfo;
-import com.rorm.ml.peristence.MLJobMetadataStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.stream.StreamListener;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 
 @Slf4j
-@org.springframework.stereotype.Component
+@Component
 @RequiredArgsConstructor
 public class JobStreamListener implements StreamListener<String, MapRecord<String, String, String>> {
 
     private final JobEventsSupport completionHandler;
     private final ObjectMapper objectMapper;
-    private final MLJobMetadataStore jobMetadataStore;
 
     @Override
     public void onMessage(MapRecord<String, String, String> message) {
@@ -78,27 +75,19 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
             event.jobId(),
             String.format("%.1f", event.progress() * 100));
 
-        doWithJobInfo(event, jobInfo -> completionHandler.onJobProgress(jobInfo, event));
+        completionHandler.onJobProgress(event);
     }
 
     private void handleSuccess(JobEvent event) {
         log.info("Job succeeded: {} - {}", event.jobId(), event.message());
 
-        doWithJobInfo(event, jobInfo -> completionHandler.onJobSuccess(jobInfo, event));
+        completionHandler.onJobSuccess(event);
     }
 
     private void handleFailed(JobEvent event) {
         log.warn("Job failed: {} - {} ({})",
             event.jobId(), event.error(), event.errorCode());
 
-        doWithJobInfo(event, jobInfo -> completionHandler.onJobFailure(jobInfo, event));
-    }
-
-    private void doWithJobInfo(JobEvent event, Consumer<MLJobInfo> consumer) {
-        jobMetadataStore.findByJobId(event.jobId())
-            .ifPresentOrElse(
-                consumer,
-                () -> log.debug("No job info found for id {}", event.jobId())
-            );
+        completionHandler.onJobFailure(event);
     }
 }

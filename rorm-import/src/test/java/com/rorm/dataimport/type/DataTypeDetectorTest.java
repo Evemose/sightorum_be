@@ -27,6 +27,14 @@ class DataTypeDetectorTest {
     }
 
     @Test
+    @DisplayName("detect boolean type from T/F values")
+    void detectBooleanTF() {
+        var samples = List.of("T", "F", "T", "F");
+        var result = detector.detectType(samples, skipNulls);
+        assertThat(result).isInstanceOf(DataType.BooleanType.class);
+    }
+
+    @Test
     @DisplayName("detect boolean type from yes/no values")
     void detectBooleanYesNo() {
         var samples = List.of("yes", "no", "yes", "no");
@@ -35,17 +43,17 @@ class DataTypeDetectorTest {
     }
 
     @Test
-    @DisplayName("detect boolean type from 0/1 values")
-    void detectBooleanZeroOne() {
+    @DisplayName("0/1 values detected as numeric, not boolean")
+    void zeroOneDetectedAsNumeric() {
         var samples = List.of("0", "1", "0", "1");
         var result = detector.detectType(samples, skipNulls);
-        assertThat(result).isInstanceOf(DataType.BooleanType.class);
+        assertThat(result).isNotInstanceOf(DataType.BooleanType.class);
     }
 
     @Test
     @DisplayName("detect boolean type case-insensitive")
     void detectBooleanCaseInsensitive() {
-        var samples = List.of("TRUE", "False", "YES", "No");
+        var samples = List.of("TRUE", "False", "true", "false");
         var result = detector.detectType(samples, skipNulls);
         assertThat(result).isInstanceOf(DataType.BooleanType.class);
     }
@@ -261,9 +269,9 @@ class DataTypeDetectorTest {
     // ==================== Priority Tests ====================
 
     @Test
-    @DisplayName("boolean has priority over numeric for 0/1")
-    void booleanPriorityOverNumeric() {
-        var samples = List.of("0", "1", "0", "1");
+    @DisplayName("boolean has priority over categorical for true/false")
+    void booleanPriorityOverCategorical() {
+        var samples = List.of("true", "false", "true", "false", "true", "false");
         var result = detector.detectType(samples, skipNulls);
         assertThat(result).isInstanceOf(DataType.BooleanType.class);
     }

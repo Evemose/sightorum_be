@@ -3,7 +3,9 @@ package com.rorm.ml.restate;
 import com.rorm.DurableRuntime;
 import com.rorm.ml.RormMlProperties;
 import dev.restate.client.Client;
+import dev.restate.sdk.endpoint.definition.InvocationRetryPolicy;
 import dev.restate.sdk.springboot.EnableRestate;
+import dev.restate.sdk.springboot.RestateServiceConfigurator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -14,11 +16,23 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.time.Duration;
 
 @Configuration
 @EnableRestate
 @ConditionalOnProperty(name = "rorm.ml.durable-execution", havingValue = "true")
 public class RestateConfiguration {
+
+    @Bean
+    RestateServiceConfigurator durableJobConfig() {
+        return sd -> sd.invocationRetryPolicy(
+            InvocationRetryPolicy.builder()
+                .maxAttempts(1)
+                .onMaxAttempts(InvocationRetryPolicy.OnMaxAttempts.PAUSE)
+                .initialInterval(Duration.ofMillis(1))
+                .build()
+        );
+    }
 
     @RestateAdminClient
     @Bean(defaultCandidate = false)

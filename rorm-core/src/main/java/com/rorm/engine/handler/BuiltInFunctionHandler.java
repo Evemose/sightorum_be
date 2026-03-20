@@ -13,6 +13,7 @@ public sealed interface BuiltInFunctionHandler extends FunctionHandler permits
     AbstractStringFunction,
     AbstractNumericFunction,
     // Direct implementations
+    CastFunction,
     CoalesceFunction,
     NullIfFunction,
     GreatestFunction,

@@ -6,10 +6,9 @@ import com.rorm.ai.RormAiProperties;
 import com.rorm.ai.RormToolContext;
 import com.rorm.dataimport.pipeline.profile.SchemaProfile;
 import com.rorm.dataimport.pipeline.profile.SchemaProfileStore;
-import com.rorm.dto.ExpressionDTO;
-import com.rorm.dto.QueryDTO;
+import com.rorm.dto.dense.DenseExpressionDto;
 import com.rorm.engine.ExpressionAnalyzer;
-import com.rorm.mapper.ExpressionMapper;
+import com.rorm.mapper.DenseQueryMapper;
 import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
@@ -23,7 +22,6 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +31,7 @@ import java.util.Map;
 public class DataOverviewTool {
 
     private final ExpressionAnalyzer expressionAnalyzer;
-    private final ExpressionMapper expressionMapper;
+    private final DenseQueryMapper denseQueryMapper;
     private final ObjectMapper objectMapper;
     private final RormAiProperties properties;
     private final SchemaProfileStore profileStore;
@@ -55,7 +53,7 @@ public class DataOverviewTool {
         @ToolParam(description = "The root entity table name to analyze")
         String rootName,
         @ToolParam(description = "The expression to analyze")
-        ExpressionDTO expressionDTO,
+        DenseExpressionDto expressionDTO,
         ToolContext toolContext
     ) {
         try {
@@ -65,8 +63,7 @@ public class DataOverviewTool {
             var modelSpace = context.modelSpace();
             var root = findRootByName(rootName, modelSpace);
 
-            var dummyQueryDTO = createDummyQueryDTO(rootName);
-            var expression = expressionMapper.toEntity(expressionDTO, modelSpace, dummyQueryDTO);
+            var expression = denseQueryMapper.expressionToEntity(expressionDTO, modelSpace, rootName);
 
             // Short-circuit: if expression is a simple attribute path, return pre-computed profile
             var cached = tryCachedProfile(expression, rootName, context.schema());
@@ -100,21 +97,6 @@ public class DataOverviewTool {
             .filter(r -> r.primaryTableName().equals(rootName))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Unknown root: " + rootName));
-    }
-
-    private QueryDTO createDummyQueryDTO(String rootName) {
-        return new QueryDTO(
-            rootName,
-            null, // fromAlias
-            null, // selector
-            new LinkedHashSet<>(), // joins
-            null, // where
-            null, // groupBy
-            null, // having
-            null, // orderBy
-            null, // limit
-            null  // offset
-        );
     }
 
     private String errorResponse(String message) {

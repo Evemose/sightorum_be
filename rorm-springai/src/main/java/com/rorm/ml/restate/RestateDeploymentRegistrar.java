@@ -32,7 +32,7 @@ public class RestateDeploymentRegistrar {
                 restateAdminClient.post()
                     .uri("/deployments")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("uri", endpointUri))
+                    .body(Map.of("uri", endpointUri, "force", true))
                     .retrieve()
                     .toBodilessEntity();
 

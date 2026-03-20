@@ -448,11 +448,42 @@ Content-Type: application/json
 
 {
   "datasource": {
-    "sql": "SELECT s.container_age_months, s.container_insulation_type, s.ambient_temp_at_dispatch_c, s.vehicle_reefer_kw_rated, s.hub_id, s.route_total_stops, s.route_total_drive_hours, s.route_total_air_miles, s.stop_sequence, s.pallet_position, s.product_class, s.site_type, s.site_urban_rural, s.vehicle_insulation_rating, s.vehicle_refrig_age_months, s.vehicle_cargo_volume_m3, s.logger_months_since_cal, s.node_refrig_health_pct, s.node_power_status, s.receiving_delay_min, s.receiving_dock_temp_controlled, s.is_after_hours_arrival, s.pre_departure_temp_c, s.ambient_temp_at_arrival_c, s.product_mass_at_stop_kg, s.day_of_week, s.vehicle_breakdown, s.is_hos_regulated, s.excursion_flag, COALESCE(ft.new_generation, 1) AS vehicle_generation FROM cold_chain.shipments s LEFT JOIN cold_chain.fleet_transitions ft ON s.vehicle_id = ft.new_vehicle_id",
+    "sql": "SELECT s.excursion_flag AS \"excursionFlag\", s.container_age_months AS \"containerAgeMonths\", s.container_insulation_type AS \"containerInsulationType\", s.vehicle_refrig_age_months AS \"vehicleRefrigAgeMonths\", s.vehicle_insulation_rating AS \"vehicleInsulationRating\", s.vehicle_reefer_kw_rated AS \"vehicleReeferKwRated\", s.vehicle_refrig_model AS \"vehicleRefrigModel\", s.vehicle_cargo_volume_m3 AS \"vehicleCargoVolumeM3\", s.ambient_temp_at_dispatch_c AS \"ambientTempAtDispatchC\", s.pre_departure_temp_c AS \"preDepartureTempC\", s.node_refrig_health_pct AS \"nodeRefrigHealthPct\", s.stop_sequence AS \"stopSequence\", s.route_total_stops AS \"routeTotalStops\", s.route_total_drive_hours AS \"routeTotalDriveHours\", s.pallet_position AS \"palletPosition\", s.product_mass_at_stop_kg AS \"productMassAtStopKg\", s.is_after_hours_arrival AS \"isAfterHoursArrival\", s.receiving_dock_temp_controlled AS \"receivingDockTempControlled\", s.receiving_delay_min AS \"receivingDelayMin\", s.product_class AS \"productClass\", s.site_type AS \"siteType\", s.is_hos_regulated AS \"isHosRegulated\", s.logger_months_since_cal AS \"loggerMonthsSinceCal\", c.\"door_A_m2\" AS \"doorAM2\", c.\"wall_A_m2\" AS \"wallAM2\", h.climate_zone AS \"climateZone\", n.has_redundancy AS \"nodeHasRedundancy\", n.refrig_system_type AS \"nodeRefrigSystemType\", n.refrig_system_age_months_at_start AS \"nodeRefrigSystemAge\" FROM cold_chain.shipments s LEFT JOIN cold_chain.containers c ON s.container_id = c.container_id LEFT JOIN cold_chain.hubs h ON s.hub_id = h.hub_id LEFT JOIN cold_chain.nodes n ON s.node_id = n.node_id",
     "bind_variables": {}
   },
-  "target_column": "excursion_flag",
-  "feature_columns": null,
+  "control_features": [
+    "preDepartureTempC",
+    "ambientTempAtDispatchC",
+    "vehicleRefrigModel",
+    "climateZone",
+    "siteType"
+  ],
+  "target_column": "excursionFlag",
+  "feature_columns": [
+    "containerAgeMonths",
+    "containerInsulationType",
+    "vehicleRefrigAgeMonths",
+    "vehicleInsulationRating",
+    "vehicleReeferKwRated",
+    "vehicleCargoVolumeM3",
+    "nodeRefrigHealthPct",
+    "stopSequence",
+    "routeTotalStops",
+    "routeTotalDriveHours",
+    "palletPosition",
+    "productMassAtStopKg",
+    "isAfterHoursArrival",
+    "receivingDockTempControlled",
+    "receivingDelayMin",
+    "productClass",
+    "isHosRegulated",
+    "loggerMonthsSinceCal",
+    "doorAM2",
+    "wallAM2",
+    "nodeHasRedundancy",
+    "nodeRefrigSystemType",
+    "nodeRefrigSystemAge"
+  ],
   "problem_type": "classification",
   "bootstrap_runs": 50,
   "sample_fraction": 0.8,
@@ -1233,7 +1264,10 @@ Content-Type: application/json
 
 ### Get SHAP values for a stability selection
 # @timeout 1000 m
-GET {{baseUrl}}/analysis/stability-selection/3bf9c9bb-08eb-4965-93da-19cf1cd62b1b/shap-curves
+GET {{baseUrl}}/analysis/stability-selection/78d06f65-3430-451c-b684-283c737f5dcf/shap-curves
+
+###
+GET {{baseUrl}}/analysis/stability-selection/runs
 
 ### ============================================
 ### UTILITY ENDPOINTS

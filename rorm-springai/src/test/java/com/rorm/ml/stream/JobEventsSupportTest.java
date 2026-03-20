@@ -1,6 +1,5 @@
 package com.rorm.ml.stream;
 
-import com.rorm.ml.peristence.MLJobInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -20,10 +19,6 @@ class JobEventsSupportTest {
 
     private JobFutureRegistry registry;
     private JobEventsSupport support;
-
-    private static MLJobInfo jobInfo(UUID jobId) {
-        return new MLJobInfo(jobId, "Test reason", "Check metrics");
-    }
 
     private static JobEvent successEvent(UUID jobId) {
         return new JobEvent(
@@ -62,9 +57,8 @@ class JobEventsSupportTest {
             var jobId = UUID.randomUUID();
             var future = registry.register(jobId);
             var event = successEvent(jobId);
-            var info = jobInfo(jobId);
 
-            support.onJobSuccess(info, event);
+            support.onJobSuccess(event);
 
             assertThat(future.get(1, TimeUnit.SECONDS))
                 .satisfies(result -> {
@@ -81,7 +75,7 @@ class JobEventsSupportTest {
             var event = successEvent(jobId);
 
             // should not throw
-            support.onJobSuccess(jobInfo(jobId), event);
+            support.onJobSuccess(event);
         }
     }
 
@@ -95,9 +89,8 @@ class JobEventsSupportTest {
             var jobId = UUID.randomUUID();
             var future = registry.register(jobId);
             var event = failedEvent(jobId, "Convergence error");
-            var info = jobInfo(jobId);
 
-            support.onJobFailure(info, event);
+            support.onJobFailure(event);
 
             assertThat(future).isCompletedExceptionally();
             assertThatThrownBy(() -> future.get(1, TimeUnit.SECONDS))
@@ -122,7 +115,7 @@ class JobEventsSupportTest {
             var future = registry.register(jobId);
             var event = progressEvent(jobId, 0.5);
 
-            support.onJobProgress(jobInfo(jobId), event);
+            support.onJobProgress(event);
 
             assertThat(future).isNotDone();
         }

@@ -254,11 +254,12 @@ class StabilitySelectionRequest:
     datasource: SQLDatasourceConfig
     target_column: str
     feature_columns: Optional[list[str]] = None
+    control_features: Optional[list[str]] = None
     problem_type: Optional[str] = None  # "regression" | "classification"
     bootstrap_runs: int = 50
     sample_fraction: float = 0.8
     correlation_threshold: float = 0.8
-    max_encoded_dimensions: int = 50
+    max_encoded_dimensions: int = 100
     selection_top_k: Optional[int] = None
     random_state: int = 42
 
@@ -325,6 +326,53 @@ class StabilitySelectionRequest:
                         "feature_columns must not include target_column",
                     )
 
+        if self.control_features is not None:
+            if not isinstance(self.control_features, list):
+                result.add_error(
+                    "control_features",
+                    f"control_features must be a list, got {type(self.control_features).__name__}",
+                )
+            elif len(self.control_features) == 0:
+                result.add_error(
+                    "control_features",
+                    "control_features list cannot be empty. Omit it to disable residualisation.",
+                )
+            else:
+                seen = set()
+                duplicates = []
+                for index, column in enumerate(self.control_features):
+                    if not isinstance(column, str):
+                        result.add_error(
+                            "control_features",
+                            f"control_features[{index}] must be a string, got {type(column).__name__}",
+                        )
+                        continue
+                    if not column.strip():
+                        result.add_error(
+                            "control_features",
+                            f"control_features[{index}] cannot be empty",
+                        )
+                    if column in seen:
+                        duplicates.append(column)
+                    seen.add(column)
+                if duplicates:
+                    result.add_error(
+                        "control_features",
+                        f"Duplicate columns found: {', '.join(sorted(set(duplicates)))}",
+                    )
+                if self.target_column in self.control_features:
+                    result.add_error(
+                        "control_features",
+                        "control_features must not include target_column",
+                    )
+                if self.feature_columns:
+                    overlap = set(self.control_features) & set(self.feature_columns)
+                    if overlap:
+                        result.add_error(
+                            "control_features",
+                            f"control_features must not overlap with feature_columns: {', '.join(sorted(overlap))}",
+                        )
+
         bootstrap_validator = Validator()
         bootstrap_validator.field("bootstrap_runs", self.bootstrap_runs).is_type(int).min_value(
             50, "bootstrap_runs must be at least 50"
@@ -378,6 +426,7 @@ class StabilitySelectionRequest:
             },
             "target_column": self.target_column,
             "feature_columns": self.feature_columns,
+            "control_features": self.control_features,
             "problem_type": self.problem_type,
             "bootstrap_runs": self.bootstrap_runs,
             "sample_fraction": self.sample_fraction,

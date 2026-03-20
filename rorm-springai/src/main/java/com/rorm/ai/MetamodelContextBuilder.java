@@ -113,12 +113,8 @@ public class MetamodelContextBuilder {
      */
     private String describeAttributeTableRow(Attribute attr) {
         return switch (attr) {
-            case BasicAttribute basic -> {
-                if (basic.name().toLowerCase().contains("sincecal")) {
-                    yield "| lastCalDate | datetime | - |%n";
-                }
-                yield "| `%s` | %s | - |%n".formatted(basic.name(), describeDataType(basic.dataType()));
-            }
+            case BasicAttribute basic ->
+                "| `%s` | %s | - |%n".formatted(basic.name(), describeDataType(basic.dataType()));
 
             case CompositeAttribute composite -> {
                 var nestedDesc = composite.attributes().stream()

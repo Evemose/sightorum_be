@@ -28,6 +28,8 @@ class ShapPipelineNode(PipelineNode):
             output_stream: Optional[str] = None,
             consumer_group: str = "shap_workers",
             consumer_name: Optional[str] = None,
+            worker_pool=None,
+            backpressure=None,
     ):
         super().__init__(
             redis_url=redis_url,
@@ -38,6 +40,8 @@ class ShapPipelineNode(PipelineNode):
             batch_size=5,
             retry_on_error=True,
             max_retries=3,
+            worker_pool=worker_pool,
+            backpressure=backpressure,
         )
 
         self.shap_curve_service = shap_curve_service
