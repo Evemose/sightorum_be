@@ -215,7 +215,7 @@ export class MlInfraStack extends cdk.Stack {
                         }],
                         StartTime=datetime.now(timezone.utc) - timedelta(minutes=10),
                         EndTime=datetime.now(timezone.utc),
-                        Period=600,
+                        Period=3600,
                         Statistics=['Sum'],
                     )
                     points = resp.get('Datapoints', [])
