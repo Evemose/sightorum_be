@@ -7,8 +7,8 @@ on:
 env:
   AWS_REGION: eu-central-1
   ECR_REPO: ml-worker
-  ECS_CLUSTER: MlInfraStack-MlClusterXXXXX    # from cdk output
-  ECS_SERVICE: MlInfraStack-MlServiceXXXXX    # from cdk output
+  ECS_CLUSTER: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS    # from cdk output
+  ECS_SERVICE: MlInfraStack-MlServiceAC8BC53F-R1WsD6iG3HoP    # from cdk output
 
 jobs:
   deploy:

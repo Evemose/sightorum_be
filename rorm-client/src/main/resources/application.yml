@@ -52,7 +52,9 @@ rorm:
   ml:
     durable-execution: true
     cluster: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS
-    service: MlInfraStack-MlService87EBA3AE-1Z4ZJGFRBWkS
+    service: MlInfraStack-MlServiceAC8BC53F-R1WsD6iG3HoP
+    restateAdminUrl: http://3.75.210.208:9070
+    restateEndpointHost: https://dfe7-176-97-63-212.ngrok-free.app
     startup:
       enabled: true       # false to skip in tests
       timeout: PT5M
