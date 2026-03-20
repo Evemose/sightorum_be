@@ -11,6 +11,7 @@ public record RormMlProperties(
     @DefaultValue("false") boolean durableExecution,
     @DefaultValue("http://localhost:8000") String serviceBaseUrl,
     @DefaultValue("redis://localhost:6379") String valkeyUrl,
+    @DefaultValue("") String valkeyPassword,
     @DefaultValue("ml_training:training_results") String eventStreamName,
     @DefaultValue("spring_consumers") String consumerGroup,
     @DefaultValue("30s") Duration requestTimeout,
