@@ -383,7 +383,7 @@ def _create_event_publisher(cfg: Settings):
     """Create event publisher."""
     from events.publisher import EventPublisher
     return EventPublisher(
-        redis_url=cfg.redis.url,
+        redis_url=cfg.redis.get_url(),
         results_stream=cfg.pipeline.streams.training_results,
     )
 
@@ -404,7 +404,7 @@ def _create_training_node(cfg: Settings, training_service, pool, query_throttler
         )
 
     return TrainingPipelineNode(
-        redis_url=cfg.redis.url,
+        redis_url=cfg.redis.get_url(),
         input_stream=cfg.pipeline.streams.training_requests,
         training_service=training_service,
         datasource_factory=datasource_factory,
@@ -432,7 +432,7 @@ def _create_tuning_node(cfg: Settings, training_service, pool, query_throttler, 
         )
 
     return HyperparameterTuningNode(
-        redis_url=cfg.redis.url,
+        redis_url=cfg.redis.get_url(),
         input_stream=cfg.pipeline.streams.tuning_requests,
         output_stream=cfg.pipeline.streams.training_requests,
         training_service=training_service,
@@ -469,7 +469,7 @@ def _create_stability_selection_node(
         )
 
     return StabilitySelectionPipelineNode(
-        redis_url=cfg.redis.url,
+        redis_url=cfg.redis.get_url(),
         input_stream=cfg.pipeline.streams.stability_selection_requests,
         stability_selection_service=stability_selection_service,
         datasource_factory=datasource_factory,
@@ -485,7 +485,7 @@ def _create_shap_node(cfg: Settings, shap_curve_service, event_publisher, worker
     from processing.shap_node import ShapPipelineNode
 
     return ShapPipelineNode(
-        redis_url=cfg.redis.url,
+        redis_url=cfg.redis.get_url(),
         input_stream=cfg.pipeline.streams.shap_requests,
         shap_curve_service=shap_curve_service,
         event_publisher=event_publisher,

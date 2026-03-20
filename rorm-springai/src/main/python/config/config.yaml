@@ -23,6 +23,7 @@ storage:
 
 redis:
   url: redis://localhost:6379
+  password: "rorm-valkey-pass123!"
 
 tuning:
   max_tuning_time_seconds: 300  # System-wide max tuning time

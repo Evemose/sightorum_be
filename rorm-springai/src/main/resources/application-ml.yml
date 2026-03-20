@@ -5,6 +5,7 @@ rorm:
     durable-execution: false
     service-base-url: http://localhost:8000
     valkey-url: redis://localhost:6379
+    valkey-password:
     event-stream-name: ml_training:training_results
     consumer-group: spring_consumers
 
@@ -12,3 +13,4 @@ spring:
   data:
     redis:
       url: ${rorm.ml.valkey-url}
+      password: ${rorm.ml.valkey-password:}

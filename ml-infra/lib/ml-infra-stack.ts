@@ -22,6 +22,12 @@ export class MlInfraStack extends cdk.Stack {
             description: 'Elastic IP of your EC2 running compose (Valkey, Restate, Postgres)',
         });
 
+        const valkeyPassword = new cdk.CfnParameter(this, 'ValkeyPassword', {
+            type: 'String',
+            description: 'Password for Valkey authentication',
+            noEcho: true,
+        });
+
         const streamName = new cdk.CfnParameter(this, 'StreamName', {
             type: 'String',
             default: 'ml-jobs',
@@ -72,7 +78,8 @@ export class MlInfraStack extends cdk.Stack {
                 DATABASE_HOST: valkeyHost.valueAsString,
                 DATABASE_PORT: '5444',
                 DATABASE_PASSWORD: 'mypassword',
-                REDIS_URL: cdk.Fn.join('', ['redis://', valkeyHost.valueAsString, ':6379']),
+                REDIS_URL: cdk.Fn.join('', ['redis://:', valkeyPassword.valueAsString, '@', valkeyHost.valueAsString, ':6379']),
+                REDIS_PASSWORD: valkeyPassword.valueAsString,
             },
             logging: ecs.LogDrivers.awsLogs({streamPrefix: 'ml-worker'}),
         });
@@ -149,6 +156,7 @@ export class MlInfraStack extends cdk.Stack {
             environment: {
                 VALKEY_HOST: valkeyHost.valueAsString,
                 VALKEY_PORT: '6379',
+                VALKEY_PASSWORD: valkeyPassword.valueAsString,
                 ALB_ARN_SUFFIX: alb.loadBalancerFullName,
                 STREAM_GROUPS: JSON.stringify([
                     ["ml_training:training_requests", "training_workers"],
@@ -193,15 +201,36 @@ def get_total_pending():
     return total
 
 
-def get_valkey_pending(stream, group):
+def _resp_cmd(*args):
+    """Build a RESP protocol command."""
+    parts = [f"*{len(args)}\\r\\n"]
+    for a in args:
+        a = str(a)
+        parts.append(f"\${len(a)}\\r\\n{a}\\r\\n")
+    return "".join(parts)
+
+
+def _valkey_connect():
+    """Open socket and authenticate."""
     host = os.environ['VALKEY_HOST']
     port = int(os.environ['VALKEY_PORT'])
+    password = os.environ.get('VALKEY_PASSWORD', '')
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(5)
+    sock.connect((host, port))
+    if password:
+        sock.sendall(_resp_cmd('AUTH', password).encode())
+        auth_resp = sock.recv(4096).decode()
+        if not auth_resp.startswith('+OK'):
+            sock.close()
+            raise RuntimeError(f"Valkey AUTH failed: {auth_resp.strip()}")
+    return sock
+
+
+def get_valkey_pending(stream, group):
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5)
-        sock.connect((host, port))
-        cmd = f"*3\\r\\n$8\\r\\nXPENDING\\r\\n\${len(stream)}\\r\\n{stream}\\r\\n\${len(group)}\\r\\n{group}\\r\\n"
-        sock.sendall(cmd.encode())
+        sock = _valkey_connect()
+        sock.sendall(_resp_cmd('XPENDING', stream, group).encode())
         resp = sock.recv(4096).decode()
         sock.close()
         for line in resp.split('\\r\\n'):

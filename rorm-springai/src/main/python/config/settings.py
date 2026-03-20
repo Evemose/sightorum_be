@@ -99,6 +99,20 @@ class PipelineConfig:
 @dataclass
 class RedisConfig:
     url: str = "redis://localhost:6379"
+    password: str = ""
+
+    def get_url(self) -> str:
+        """Return URL with password embedded if password is set and not already in URL."""
+        if not self.password:
+            return self.url
+        from urllib.parse import urlparse, urlunparse
+        parsed = urlparse(self.url)
+        if parsed.password:
+            return self.url
+        netloc = f":{self.password}@{parsed.hostname}"
+        if parsed.port:
+            netloc += f":{parsed.port}"
+        return urlunparse(parsed._replace(netloc=netloc))
 
 
 @dataclass
