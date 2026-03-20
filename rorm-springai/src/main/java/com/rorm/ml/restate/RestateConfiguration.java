@@ -57,8 +57,7 @@ public class RestateConfiguration {
     ) {
         return new RestateDeploymentRegistrar(
             restateAdminClient,
-            properties.restateEndpointHost(),
-            properties.restateEndpointPort()
+            properties.restateEndpointUrl()
         );
     }
 

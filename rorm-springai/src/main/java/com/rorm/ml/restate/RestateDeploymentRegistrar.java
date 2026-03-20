@@ -13,26 +13,23 @@ import java.util.Map;
 public class RestateDeploymentRegistrar {
 
     private final RestClient restateAdminClient;
-    private final String endpointHost;
-    private final int endpointPort;
+    private final String endpointUrl;
 
-    public RestateDeploymentRegistrar(RestClient restateAdminClient, String endpointHost, int endpointPort) {
+    public RestateDeploymentRegistrar(RestClient restateAdminClient, String endpointUrl) {
         this.restateAdminClient = restateAdminClient;
-        this.endpointHost = endpointHost;
-        this.endpointPort = endpointPort;
+        this.endpointUrl = endpointUrl;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void registerDeployment() {
-        var endpointUri = "http://" + endpointHost + ":" + endpointPort;
-        log.info("Registering Restate deployment at {}", endpointUri);
+        log.info("Registering Restate deployment at {}", endpointUrl);
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
                 restateAdminClient.post()
                     .uri("/deployments")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("uri", endpointUri, "force", true))
+                    .body(Map.of("uri", endpointUrl, "force", true))
                     .retrieve()
                     .toBodilessEntity();
 
@@ -56,6 +53,6 @@ public class RestateDeploymentRegistrar {
                 }
             }
         }
-        log.warn("Failed to register Restate deployment at {} after 3 attempts", endpointUri);
+        log.warn("Failed to register Restate deployment at {} after 3 attempts", endpointUrl);
     }
 }

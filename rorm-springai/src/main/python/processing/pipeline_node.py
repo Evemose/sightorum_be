@@ -138,9 +138,22 @@ class PipelineNode(ABC):
 
         logger.info(f"Pipeline node '{self.consumer_name}' started, consuming from: {self.input_streams}")
 
+        self._batch_count = 0
+        self._backpressure_count = 0
+
         try:
             while self._running:
                 await self._process_batch()
+                self._batch_count += 1
+                if self._batch_count % 60 == 0 and self._worker_pool:
+                    m = self._worker_pool.metrics
+                    logger.info(
+                        f"[{self.consumer_name}] pool: "
+                        f"workers={m.active_workers}/{m.total_workers}, "
+                        f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
+                        f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB, "
+                        f"backpressure_skips={self._backpressure_count}"
+                    )
         except asyncio.CancelledError:
             logger.info(f"Pipeline node '{self.consumer_name}' cancelled")
         except Exception as e:
@@ -166,13 +179,24 @@ class PipelineNode(ABC):
             m = self._worker_pool.metrics
             if (m.worker_utilization >= self._backpressure.worker_threshold
                     or m.memory_utilization >= self._backpressure.memory_threshold):
-                logger.debug(
-                    f"Backpressure: workers={m.active_workers}/{m.total_workers}, "
+                self._backpressure_count += 1
+                logger.info(
+                    f"[{self.consumer_name}] backpressure SKIP: "
+                    f"workers={m.active_workers}/{m.total_workers} "
+                    f"({m.worker_utilization:.0%}), "
                     f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
-                    f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB"
+                    f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB "
+                    f"({m.memory_utilization:.0%})"
                 )
                 await asyncio.sleep(self._backpressure.pause_seconds)
                 return
+            elif self._batch_count % 12 == 0:
+                logger.info(
+                    f"[{self.consumer_name}] backpressure OK, pulling: "
+                    f"workers={m.active_workers}/{m.total_workers}, "
+                    f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
+                    f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB"
+                )
 
         # Build streams dict for xreadgroup
         streams = {stream: ">" for stream in self.input_streams}
@@ -187,7 +211,8 @@ class PipelineNode(ABC):
             )
 
             if messages:
-                # Create tasks for concurrent processing
+                total = sum(len(ml) for _, ml in messages)
+                logger.info(f"[{self.consumer_name}] consumed {total} message(s)")
                 tasks = []
                 for stream_name, message_list in messages:
                     for message_id, fields in message_list:

@@ -1,8 +1,25 @@
 spring:
   datasource:
-    password: mypassword
+    url: jdbc:postgresql://3.75.210.208:5444/mydatabase?options=-c%20TimeZone%3DEurope/Kyiv
     username: myuser
-    url: jdbc:postgresql://localhost:5444/mydatabase?options=-c%20TimeZone%3DEurope/Kyiv
+    password: mypassword
   jpa:
     hibernate:
       ddl-auto: update
+
+restate:
+  client:
+    baseUri: http://3.75.210.208:9080
+  sdk:
+    http:
+      port: 9081
+
+rorm:
+  ml:
+    cluster: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS
+    service: MlInfraStack-MlServiceAC8BC53F-R1WsD6iG3HoP
+    restateAdminUrl: http://3.75.210.208:9070
+    restateEndpointUrl: https://unsiding-sparrowless-chaya.ngrok-free.dev
+    valkeyUrl: redis://3.75.210.208:6379
+    durable-execution: true
+    serviceBaseUrl: http://MlInfr-MlAlb-fsf84yGJ69Ex-1790046904.eu-central-1.elb.amazonaws.com

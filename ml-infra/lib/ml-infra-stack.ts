@@ -69,8 +69,10 @@ export class MlInfraStack extends cdk.Stack {
             image: ecs.ContainerImage.fromEcrRepository(repo, 'latest'),
             portMappings: [{containerPort: 8000}],
             environment: {
-                VALKEY_HOST: valkeyHost.valueAsString,
-                VALKEY_PORT: '6379',
+                DATABASE_HOST: valkeyHost.valueAsString,
+                DATABASE_PORT: '5444',
+                DATABASE_PASSWORD: 'mypassword',
+                REDIS_URL: cdk.Fn.join('', ['redis://', valkeyHost.valueAsString, ':6379']),
             },
             logging: ecs.LogDrivers.awsLogs({streamPrefix: 'ml-worker'}),
         });

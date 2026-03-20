@@ -28,9 +28,13 @@ public class MlServiceStartup implements SmartLifecycle {
     private Duration timeout;
     @Value("${rorm.ml.startup.poll-interval:PT3S}")
     private Duration pollInterval;
+    @Value("${rorm.ml.ping.poll-interval:PT1M}")
+    private Duration pingInterval;
     @Value("${rorm.ml.startup.enabled:true}")
     private boolean enabled;
     private volatile boolean running;
+
+    private Thread pingThread;
 
     @Override
     public int getPhase() {
@@ -49,6 +53,19 @@ public class MlServiceStartup implements SmartLifecycle {
         ensureRunning();
         log.info("ML service is healthy");
         running = true;
+        pingThread = Thread.ofVirtual().start(() -> {
+            while (running) {
+                if (!ping()) {
+                    log.warn("ML service became unhealthy");
+                }
+                try {
+                    Thread.sleep(pingInterval.toMillis());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
     }
 
     private void ensureRunning() {
@@ -72,18 +89,25 @@ public class MlServiceStartup implements SmartLifecycle {
         waitForHealthy();
     }
 
+    private boolean ping() {
+        try {
+            rest.get()
+                .uri(albUrl + "/health")
+                .retrieve()
+                .body(String.class);
+            return true;
+        } catch (Exception e) {
+            log.debug("ML service not ready yet: {}", e.getMessage());
+            return false;
+        }
+    }
+
     private void waitForHealthy() {
         var deadline = Instant.now().plus(timeout);
 
         while (Instant.now().isBefore(deadline)) {
-            try {
-                rest.get()
-                    .uri(albUrl + "/health")
-                    .retrieve()
-                    .body(String.class);
+            if (ping()) {
                 return;
-            } catch (Exception e) {
-                log.debug("ML service not ready yet: {}", e.getMessage());
             }
 
             try {
@@ -101,6 +125,9 @@ public class MlServiceStartup implements SmartLifecycle {
     @Override
     public void stop() {
         running = false;
+        if (pingThread != null) {
+            pingThread.interrupt();
+        }
     }
 
     @Override
