@@ -2,6 +2,8 @@ package com.rorm.ai.anthropic;
 
 import com.anthropic.core.ObjectMappers;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.CompletableDurableFuture;
+import com.rorm.DurableFuture;
 import com.rorm.StepJournal;
 import lombok.SneakyThrows;
 
@@ -32,6 +34,16 @@ class FileStepJournal implements StepJournal {
         var result = action.get();
         mapper.writeValue(file.toFile(), result);
         return result;
+    }
+
+    @Override
+    public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
+        return CompletableDurableFuture.completed(run(stepName, resultType, action));
+    }
+
+    @Override
+    public <T> DurableFuture<T> awakeable(Class<T> type) {
+        return CompletableDurableFuture.pending();
     }
 
     @SneakyThrows

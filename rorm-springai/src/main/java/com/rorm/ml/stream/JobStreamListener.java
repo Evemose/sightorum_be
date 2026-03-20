@@ -17,7 +17,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class JobStreamListener implements StreamListener<String, MapRecord<String, String, String>> {
 
-    private final JobEventsSupport completionHandler;
+    private final JobCompletionHandler completionHandler;
     private final ObjectMapper objectMapper;
 
     @Override

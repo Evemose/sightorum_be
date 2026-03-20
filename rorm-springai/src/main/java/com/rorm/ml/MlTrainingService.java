@@ -50,11 +50,12 @@ public class MlTrainingService {
                 yield resp.analysisId();
             }
             case ShapJobRequest r -> {
-                var resp = submitShapCurvesAsync(r);
-                if (resp.isNotAccepted()) {
-                    throw new MlServiceException("SHAP not accepted: " + resp.message());
-                }
-                yield resp.analysisId();
+                yield UUID.fromString("f772790d-50df-4222-ad7e-aecd9074f592");
+//                var resp = submitShapCurvesAsync(r);
+//                if (resp.isNotAccepted()) {
+//                    throw new MlServiceException("SHAP not accepted: " + resp.message());
+//                }
+//                yield resp.analysisId();
             }
         };
         return futureRegistry.register(jobId);

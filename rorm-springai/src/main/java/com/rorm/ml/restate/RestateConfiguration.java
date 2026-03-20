@@ -2,6 +2,9 @@ package com.rorm.ml.restate;
 
 import com.rorm.DurableRuntime;
 import com.rorm.ml.RormMlProperties;
+import com.rorm.ml.stream.DurableRendezvous;
+import com.rorm.ml.stream.JobCompletionHandler;
+import com.rorm.ml.stream.JobFutureRegistry;
 import dev.restate.client.Client;
 import dev.restate.sdk.endpoint.definition.InvocationRetryPolicy;
 import dev.restate.sdk.springboot.EnableRestate;
@@ -10,6 +13,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.client.RestClient;
 
 import java.lang.annotation.ElementType;
@@ -48,6 +52,20 @@ public class RestateConfiguration {
         @RestateAdminClient RestClient restateAdminClient
     ) {
         return new RestateDurableRuntime(restateClient, restateAdminClient);
+    }
+
+    @Bean
+    public DurableRendezvous durableRendezvous(RedisTemplate<String, Object> redisTemplate) {
+        return new DurableRendezvous(redisTemplate);
+    }
+
+    @Bean
+    public JobCompletionHandler restateJobCompletionHandler(
+        Client restateClient,
+        JobFutureRegistry fallbackRegistry,
+        DurableRendezvous durableRendezvous
+    ) {
+        return new RestateJobCompletionHandler(restateClient, fallbackRegistry, durableRendezvous);
     }
 
     @Bean

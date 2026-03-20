@@ -1196,6 +1196,16 @@ class AiChatRunner {
                 sanity checks on derived columns.
                 **Returns**: Statistical summary.
             
+                ### engineerDerivedFeature
+                **Purpose**: Delegates derived feature construction to a specialized sub-agent.
+                You describe the query context and desired feature; the sub-agent builds a
+                complete working sample query that produces it, validates it against the
+                database, and returns the query DTO with inline commentary.
+                **Returns**: A complete DenseQueryDto that produces the described feature(s),
+                validated against the database with sample output rows. Includes inline
+                comments explaining the DSL patterns used (subquery, outerRef, aggregation)
+                so you can adapt the pattern into your main query.
+            
                 ## Analytical (expensive, asynchronous — use AFTER exploration)
             
                 ### discoverDataRelations
@@ -1203,10 +1213,19 @@ class AiChatRunner {
                 lightgbm). Tells you WHICH features reliably predict the outcome.
                 **Returns**: Per-feature selection frequency, rank stability, consensus ranking,
                 correlated feature groups, nonlinear/interaction candidates.
-                **Cost**: Runs 50 bootstrap × 3 model families. Plan calls carefully.
+                **Cost**: Runs 50 bootstrap × 3 model families. Each call is expensive but they
+                execute asynchronously — multiple calls launched together run in PARALLEL at no
+                additional wall-clock cost. Plan calls to maximize concurrent exploration.
                 **Parameters**:
                 - controlFeatures: list of column names forced into every model but EXCLUDED from
                   importance ranking. Use this to saturate confounders (see Step 6).
+                **Outlier awareness**: Stability selection winsorizes continuous features at
+                1st/99th percentiles for model fitting. This prevents extreme values from
+                dominating linear model coefficients. SHAP curves show the full unwinsorized
+                range. If you see SHAP spikes at distribution extremes with high bootstrap
+                std, these likely reflect a small number of outlier observations rather than
+                a robust functional relationship. Note such spikes as unreliable rather than
+                building hypotheses around them.
             
                 ### getShapCurves
                 **Purpose**: SHAP dependence curves from a completed stability selection run. Tells you
@@ -1239,6 +1258,25 @@ class AiChatRunner {
             
                 This step is cheap. Skipping it leads to poorly constructed stability selection
                 queries that waste expensive compute.
+            
+                #### Rare-Event Anomaly Scan
+            
+                During exploration, for each binary/low-cardinality feature, compute the outcome
+                rate per level. Flag any level where:
+                - n < 0.5% of total observations, AND
+                - outcome rate > 5× the base rate (or < 0.2× for protective anomalies)
+            
+                These are HIGH-IMPACT RARE EVENTS: operationally critical but statistically
+                invisible to stability selection. They will never surface through the SS iteration
+                because they lack variance at the population level.
+            
+                Use executeQuery to check: for each flagged anomaly, also compute the outcome
+                rate at adjacent conditions (e.g., if power outage is anomalous, check whether
+                nodes WITH redundancy have lower outage-excursion rates than those without).
+                This adds conditional context that makes the finding actionable.
+            
+                Report each as a RARE_EVENT_FINDING in your output (see output structure).
+                These bypass the SS pipeline entirely.
             
                 ### Step 2: Column Classification
             
@@ -1463,6 +1501,44 @@ class AiChatRunner {
                 **The hypothesis emerges from the SEQUENCE of saturate/flip decisions and the
                 variables that surface at each iteration.** Document the full iteration chain.
             
+                #### 6d: Parallel Execution Strategy
+            
+                Sequential SS runs create attention bias: each result anchors the next decision,
+                narrowing exploration to a single causal path. Counter this by launching MULTIPLE
+                complementary SS runs simultaneously when branching decisions arise.
+            
+                **When to launch parallel runs:**
+            
+                After Run 1 identifies the dominant feature(s) and you classify them, you typically
+                face branching choices. Instead of picking one path and committing, launch all
+                plausible branches in parallel:
+            
+                - **Mediator on your path identified**: Launch BOTH (a) saturate mediator + externals
+                  (reveals parallel transit-phase paths) AND (b) saturate externals only, keep
+                  mediator unsaturated (reveals total effect ranking including mediated paths).
+                  Compare the two to understand how much of your anchor's signal operates through
+                  the mediator.
+            
+                - **FLIP TARGET warranted**: Launch the flip-target run (mediator as outcome)
+                  alongside the main saturated run. Both return independently.
+            
+                - **Dominant anchor-internal categorical identified**: Launch one run with it
+                  saturated (to see what's behind the categorical — continuous age effects,
+                  within-category variation) alongside the SHAP call on the unsaturated run.
+            
+                - **Uncertainty about a variable's causal position**: Launch one run WITH it in
+                  controlFeatures and one WITHOUT, compare rankings.
+            
+                **Practical pattern**: After Run 1, a typical parallel launch is 2-3 SS runs +
+                1-2 SHAP calls, all issued in the same tool-call round. This explores the full
+                branching space in one wall-clock step instead of serializing 3-4 sequential
+                iterations where each one locks in a direction.
+            
+                **Do not serialize what can be parallelized.** The cost of an extra SS run is
+                compute time that overlaps with other runs. The cost of NOT running it is a
+                blind spot in the causal structure that you cannot recover later. Err on the side
+                of launching one more concurrent run than you think you need.
+            
                 **Termination criteria** (stop when ANY is met):
                 - Anchor-internal actionable variable surfaces with selection_frequency > 0.5
                 - Three consecutive saturations produce no rank change in anchor-internal features
@@ -1663,6 +1739,27 @@ class AiChatRunner {
                     expected_result_if_real: <what the test would show if the domain expectation is correct>
                     expected_result_if_spurious: <what the test would show if the effect truly doesn't exist>
                 ```
+            
+                Per rare-event anomaly (from Step 1 scan):
+            
+                ```
+                RARE_EVENT_FINDING:
+                  feature: <column name>
+                  rare_level: <the rare category or condition>
+                  n: <count of observations at rare level>
+                  pct_of_total: <n / total observations>
+                  outcome_rate_at_rare: <rate at rare level>
+                  outcome_rate_baseline: <overall base rate>
+                  rate_ratio: <rare_level_rate / base_rate>
+                  anchor_internal: <yes/no — is this feature on an anchor source entity?>
+                  mechanism: <why does this condition cause extreme outcomes? physical reasoning>
+                  tautology_check: <is this trivially true by definition? e.g., rerouted because excursion>
+                  conditional_context:
+                    - condition: <adjacent or moderating variable checked>
+                      finding: <what the conditional analysis showed>
+                  prescriptive_implication: <what operational intervention this suggests>
+                  downstream_action: DIRECT_PRESCRIPTIVE | VERIFY_AND_PRESCRIBE | MONITOR_ONLY
+                ```
                 </output_structure>
             
                 <critical_rules>
@@ -1766,6 +1863,14 @@ class AiChatRunner {
                     for other mechanisms, run SS both with and without saturation to distinguish
                     direct from total effects. The default is to saturate, but the default has
                     exceptions — see Step 6c.
+            
+                18. PARALLELIZE BRANCHING DECISIONS. When Run 1 reveals a dominant feature that
+                    could be classified multiple ways (mediator vs confounder, saturate vs flip),
+                    do not pick one path and serialize. Launch all plausible branches as parallel
+                    SS calls in the same tool-call round. Sequential execution creates attention
+                    bias: each result anchors the next decision, narrowing exploration to whatever
+                    the first branch happened to show. Parallel execution gives you complementary
+                    views of the causal structure without sequential lock-in — see Step 6d.
                 </critical_rules>
             
                 <counter_examples>
@@ -1880,16 +1985,28 @@ class AiChatRunner {
                 → Disposition is CAUSED BY both the excursion outcome and the site type. Controlling
                 for it creates a spurious association between site type and excursion. Post-outcome
                 variables should have been excluded in Step 2 and must never enter controlFeatures.
+            
+                **Bad: Serializing runs that should be parallel**
+                [Run 1 shows preDepartureTempC dominates. Saturates it in Run 2. Run 2 shows
+                vehicleRefrigModel dominates. Proceeds to SHAP. Never explores what happens with
+                vehicleRefrigModel saturated, never runs FLIP TARGET on preDepartureTempC.]
+                → After Run 1, launch in parallel: (a) saturate mediator + externals, (b) saturate
+                externals only (total effect comparison), (c) FLIP TARGET with preDepartureTempC as
+                outcome. All three return independently and give complementary views. Sequential
+                execution anchors attention on whatever Run 2 happens to show, creating blind spots
+                in unexplored branches.
                 </counter_examples>
             
                 <pre_response_checklist>
                 ☐ Exploratory inspection done BEFORE stability selection
+                ☐ Rare-event anomaly scan completed — high-impact low-frequency conditions flagged
                 ☐ Column classification explicit with anchor-scope tagging for each feature
                 ☐ Derived features considered — multiple approaches tried if first fails
                 ☐ Query verified: row count matches expected grain
                 ☐ Confounding MECHANISMS identified (not just individual features)
                 ☐ Proxy structure checked for high-ranking categoricals
                 ☐ Iterative decomposition performed (≥2 SS runs, or justified why one sufficed)
+                ☐ Branching decisions explored in parallel (not serialized into single path)
                 ☐ Mechanisms saturated as units (all manifestations together)
                 ☐ Saturation safety verified (no mediators on own path, no colliders, no treatment descendants)
                 ☐ Every saturate/flip decision documented in iteration chain

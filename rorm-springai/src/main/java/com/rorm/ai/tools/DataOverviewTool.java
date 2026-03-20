@@ -2,7 +2,6 @@ package com.rorm.ai.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.ai.RormAiProperties;
 import com.rorm.ai.RormToolContext;
 import com.rorm.dataimport.pipeline.profile.SchemaProfile;
 import com.rorm.dataimport.pipeline.profile.SchemaProfileStore;
@@ -33,7 +32,6 @@ public class DataOverviewTool {
     private final ExpressionAnalyzer expressionAnalyzer;
     private final DenseQueryMapper denseQueryMapper;
     private final ObjectMapper objectMapper;
-    private final RormAiProperties properties;
     private final SchemaProfileStore profileStore;
 
     @Tool(

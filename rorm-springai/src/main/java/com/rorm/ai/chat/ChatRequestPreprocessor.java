@@ -1,5 +1,6 @@
 package com.rorm.ai.chat;
 
+import com.rorm.StepJournal;
 import com.rorm.ai.RormToolContext;
 import com.rorm.ai.prompt.AgentPromptBuilder;
 import com.rorm.ai.prompt.PromptPlaceholders;
@@ -55,7 +56,7 @@ public class ChatRequestPreprocessor {
     }
 
     public ToolContext buildToolContext(ChatRequest<?> request) {
-        var context = new RormToolContext(request.modelSpace(), request.schema());
+        var context = new RormToolContext(request.modelSpace(), request.schema(), StepJournal.current(), null);
         var contextMap = new HashMap<>(context.toMap());
         contextMap.putAll(request.toolContextEntries());
         return new ToolContext(contextMap);

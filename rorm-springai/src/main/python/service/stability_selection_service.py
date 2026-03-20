@@ -236,6 +236,17 @@ class StabilitySelectionService:
         if progress_callback:
             progress_callback(0.32, f"Imputed missing values in {len(encoded_columns)} columns")
 
+        # Winsorise continuous columns at 1st and 99th percentiles (skip one-hot dummies)
+        continuous_mask = np.array(["__" not in col for col in encoded_columns], dtype=bool)
+        continuous_idx = np.where(continuous_mask)[0]
+        if len(continuous_idx) > 0:
+            logger.info(f"Winsorising {len(continuous_idx)}/{len(encoded_columns)} continuous features at 1st/99th percentiles")
+            cont_slice = encoded_array[:, continuous_idx]
+            p1 = np.percentile(cont_slice, 1, axis=0)
+            p99 = np.percentile(cont_slice, 99, axis=0)
+            np.clip(cont_slice, p1, p99, out=cont_slice)
+            encoded_array[:, continuous_idx] = cont_slice
+
         # Pre-scale in-place — avoids per-worker StandardScaler overhead
         logger.info("Pre-scaling features")
         col_means = encoded_array.mean(axis=0)
@@ -483,6 +494,7 @@ class StabilitySelectionService:
                 "sample_fraction": request.sample_fraction,
                 "selection_top_k": selection_top_k,
                 "correlation_threshold": request.correlation_threshold,
+                "winsorisation": {"percentiles": [1, 99]},
             },
             "dataset": {
                 "rows": int(len(analysis_df)),

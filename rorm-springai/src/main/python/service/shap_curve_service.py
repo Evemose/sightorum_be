@@ -65,8 +65,9 @@ class ShapCurveService:
         if progress_callback:
             progress_callback(0.15, "Computing bin edges")
 
-        # Compute bin edges for numeric features
+        # Compute bin edges and tail bounds for numeric features
         bin_edges = {}
+        tail_bounds = {}
         for feat in target_features:
             if feature_types.get(feat) != "numeric":
                 continue
@@ -81,6 +82,9 @@ class ShapCurveService:
             percentiles = np.percentile(valid, np.linspace(0, 100, n_bins + 1))
             edges = np.unique(percentiles)
             bin_edges[feat] = edges
+            if len(valid) > 0:
+                tail_bounds[feat] = (float(np.percentile(valid, 1)),
+                                     float(np.percentile(valid, 99)))
 
         n_models = self.db_storage.count_stability_run_models(run_id)
         logger.info(f"Computing SHAP curves for {len(target_features)} features across {n_models} models")
@@ -109,6 +113,7 @@ class ShapCurveService:
             col_mapping=col_mapping,
             feature_types=feature_types,
             bin_edges=bin_edges,
+            tail_bounds=tail_bounds,
         )
 
         # Submit all models to thread pool
@@ -121,6 +126,10 @@ class ShapCurveService:
             edges = bin_edges.get(feat)
             if edges is not None and len(edges) >= 2:
                 numeric_stacks[feat] = np.full((n_models, len(edges) - 1), np.nan)
+
+        tail_sensitivity_stacks: dict[str, np.ndarray] = {
+            f: np.full(n_models, np.nan) for f in numeric_feats if f in tail_bounds
+        }
 
         cat_results_list: dict[str, list] = {f: [None] * n_models for f in cat_feats}
 
@@ -138,12 +147,15 @@ class ShapCurveService:
         for future in as_completed(futures):
             model_idx = futures[future]
             try:
-                numeric_curves, cat_dicts = future.result()
+                numeric_curves, cat_dicts, tail_senses = future.result()
                 for feat, curve in numeric_curves.items():
                     if feat in numeric_stacks:
                         numeric_stacks[feat][model_idx] = curve
                 for feat, cat_dict in cat_dicts.items():
                     cat_results_list[feat][model_idx] = cat_dict
+                for feat, sens in tail_senses.items():
+                    if feat in tail_sensitivity_stacks:
+                        tail_sensitivity_stacks[feat][model_idx] = sens
             except Exception:
                 logger.error(f"SHAP computation failed for model {model_idx}", exc_info=True)
 
@@ -181,7 +193,7 @@ class ShapCurveService:
 
                 breakpoint_info = self._detect_breakpoints(stacked, bin_centers, n_breakpoints)
 
-                curves_output.append({
+                entry = {
                     "feature": feat,
                     "type": "numeric",
                     "bin_centers": bin_centers.tolist(),
@@ -189,7 +201,23 @@ class ShapCurveService:
                     "std_shap": std_shap.tolist(),
                     "n_models_contributing": n_contributing.tolist(),
                     "breakpoints": breakpoint_info,
-                })
+                }
+
+                ts = tail_sensitivity_stacks.get(feat)
+                if ts is not None:
+                    valid_sens = ts[~np.isnan(ts)]
+                    if len(valid_sens) > 0:
+                        entry["tail_sensitivity"] = {
+                            "mean": float(np.mean(valid_sens)),
+                            "std": float(np.std(valid_sens)),
+                            "tail_percentiles": [1, 99],
+                            "interpretation": (
+                                "Ratio of mean |SHAP| in 1st/99th-percentile tails vs body. "
+                                ">1 means tails disproportionately drive this feature's importance."
+                            ),
+                        }
+
+                curves_output.append(entry)
 
             else:
                 model_cats = [d for d in cat_results_list.get(feat, []) if d is not None]
@@ -247,13 +275,13 @@ class ShapCurveService:
             run_id: str,
             model_idx: int,
             ctx: '_ShapWorkerContext',
-    ) -> tuple[dict[str, np.ndarray], dict[str, dict[str, float]]]:
-        """Process one model: load, compute SHAP, bin. Returns (numeric_curves, cat_dicts)."""
+    ) -> tuple[dict[str, np.ndarray], dict[str, dict[str, float]], dict[str, float]]:
+        """Process one model: load, compute SHAP, bin. Returns (numeric_curves, cat_dicts, tail_sensitivities)."""
         import shap
 
         row = db_storage.load_stability_run_model(run_id, model_idx)
         if row is None:
-            return {}, {}
+            return {}, {}, {}
 
         model = joblib.load(BytesIO(row["model_binary"]))
         sample_indices = joblib.load(BytesIO(row["sample_indices"]))
@@ -274,6 +302,7 @@ class ShapCurveService:
 
         numeric_curves: dict[str, np.ndarray] = {}
         cat_dicts: dict[str, dict[str, float]] = {}
+        tail_sensitivities: dict[str, float] = {}
 
         for feat in ctx.target_features:
             indices = ctx.col_mapping[feat]
@@ -285,6 +314,18 @@ class ShapCurveService:
                 if orig_values is None:
                     continue
                 sample_values = orig_values[sample_indices]
+
+                bounds = ctx.tail_bounds.get(feat)
+                if bounds is not None:
+                    p1_val, p99_val = bounds
+                    sv = sample_values.astype(np.float64)
+                    valid = ~np.isnan(sv) if np.issubdtype(sv.dtype, np.floating) else np.ones(len(sv), dtype=bool)
+                    tail = valid & ((sv < p1_val) | (sv > p99_val))
+                    body = valid & ~tail
+                    if tail.sum() > 0 and body.sum() > 0:
+                        tail_sensitivities[feat] = float(
+                            np.abs(feat_shap[tail]).mean() / (np.abs(feat_shap[body]).mean() + 1e-8)
+                        )
 
                 edges = ctx.bin_edges.get(feat)
                 if edges is None or len(edges) < 2:
@@ -317,7 +358,7 @@ class ShapCurveService:
                         cat_shap[cat] = float(np.mean(abs_shap[mask]))
                 cat_dicts[feat] = cat_shap
 
-        return numeric_curves, cat_dicts
+        return numeric_curves, cat_dicts, tail_sensitivities
 
     @staticmethod
     def _build_column_mapping(
@@ -394,13 +435,14 @@ class ShapCurveService:
 class _ShapWorkerContext:
     """Read-only context shared across SHAP worker threads."""
     __slots__ = ("encoded_array", "feature_values_dict", "target_features",
-                 "col_mapping", "feature_types", "bin_edges")
+                 "col_mapping", "feature_types", "bin_edges", "tail_bounds")
 
     def __init__(self, encoded_array, feature_values_dict, target_features,
-                 col_mapping, feature_types, bin_edges):
+                 col_mapping, feature_types, bin_edges, tail_bounds):
         self.encoded_array = encoded_array
         self.feature_values_dict = feature_values_dict
         self.target_features = target_features
         self.col_mapping = col_mapping
         self.feature_types = feature_types
         self.bin_edges = bin_edges
+        self.tail_bounds = tail_bounds
