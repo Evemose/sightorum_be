@@ -17,8 +17,7 @@ public record DenseSelectorDto(
     String type,
 
     @JsonPropertyDescription("Whether to apply DISTINCT.")
-    @JsonProperty(required = true)
-    boolean distinct,
+    Boolean distinct,
 
     @JsonPropertyDescription("Root entity name for SELECT *. Used by 'root' type.")
     String rootName,
@@ -32,6 +31,10 @@ public record DenseSelectorDto(
     @JsonPropertyDescription("Set of expressions to select. Used by 'multi' type.")
     Set<DenseQueryDto.SelectedExpressionDto> expressions
 ) {
+
+    public Boolean distinct() {
+        return distinct != null && distinct;
+    }
 
     public static DenseSelectorDto root(String rootName, boolean distinct) {
         return new DenseSelectorDto("root", distinct, rootName, null, null, null);

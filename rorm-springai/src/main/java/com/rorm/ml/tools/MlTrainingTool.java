@@ -2,6 +2,7 @@ package com.rorm.ml.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ai.DeferredToolResult;
 import com.rorm.ai.RormToolContext;
 import com.rorm.dto.dense.DenseQueryDto;
 import com.rorm.engine.QueryTransformer;
@@ -9,14 +10,16 @@ import com.rorm.mapper.DenseQueryMapper;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.*;
 import com.rorm.ml.dto.model.tune.TuningModelConfig;
+import com.rorm.ml.exception.MlServiceException;
+import com.rorm.ml.stream.JobCompletionHandler;
+import com.rorm.ml.stream.JobEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Query;
+import org.jooq.conf.ParamType;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,41 +32,41 @@ public class MlTrainingTool {
     private static final String REASON_DESCRIPTION = """
         Brief explanation of WHY you're training this model and WHAT QUESTION you're trying to answer.
         This will be shown to the user and available when reviewing training results.
-
+        
         Focus on the analytical goal in business terms, not technical implementation.
-
+        
         Good examples:
         - "To identify which customers are likely to churn based on their purchase patterns"
         - "To predict quarterly revenue based on current sales trends and seasonal factors"
         - "To classify transactions as fraudulent using behavioral anomaly patterns"
-
+        
         Bad examples:
         - "Training a random forest model" (describes what, not why)
         - "Because you asked me to" (not informative)
-
+        
         Length: 1-2 sentences maximum.
         """;
 
     private static final String INSTRUCTIONS_DESCRIPTION = """
         Actionable instructions for reviewing the trained model results.
-
+        
         The result review flow will have access to:
         - Model performance metrics and feature importance
-
+        
         Provide SPECIFIC ANALYSIS GUIDANCE and CONDITIONAL NEXT STEPS:
-
+        
         What to include:
         1. Key metrics to prioritize (e.g., "focus on recall over precision - false negatives cost $5K each")
         2. Performance thresholds that determine next actions (e.g., "if accuracy >75% proceed to scoring entire dataset; if <75% check node #47 for feature engineering ideas")
         3. Specific hypotheses to validate (e.g., "verify if recency_days dominates feature importance as expected from correlation analysis")
         4. References to relevant prior analysis context if needed
         5. What to do with good/bad results (e.g., "on success, generate predictions and create visualization comparing predicted vs actual; on failure, query for additional temporal features")
-
+        
         Be specific and guide attention to what matters.
-
+        
         Good example:
         "Prioritize F1-score since we need balance. If F1 >0.72, this is production-ready - score all active customers and flag top 100 highest risk for review. Check if customer_tenure and support_tickets_count are in top 3 features - this validates our hypothesis from the earlier segmentation. If F1 <0.65, the issue is likely class imbalance - check node #31 where we saw 90/10 split and consider SMOTE resampling."
-
+        
         Bad examples:
         - "Analyze the results" (no specific guidance)
         - "Look at accuracy and report back" (no action plan)
@@ -73,6 +76,7 @@ public class MlTrainingTool {
         """;
 
     private final MlTrainingService trainingService;
+    private final JobCompletionHandler completionHandler;
     private final ObjectMapper objectMapper;
     private final DenseQueryMapper denseQueryMapper;
     private final QueryTransformer queryTransformer;
@@ -173,14 +177,25 @@ public class MlTrainingTool {
             var request = TrainingJobRequest.builder()
                 .reason(reason)
                 .furtherInstructions(furtherInstructions)
-                .datasource(new DatasourceConfig(jooqQuery.getSQL(), extractBindVariables(jooqQuery)))
+                .datasource(new DatasourceConfig(jooqQuery.getSQL(ParamType.INLINED), Map.of()))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
                 .modelConfig(modelConfig)
                 .build();
 
-            var event = trainingService.submit(request).get();
-            return objectMapper.writeValueAsString(event);
+            var journal = context.stepJournal();
+            var callId = context.id();
+            var jobId = journal.run(callId + ":submit", UUID.class, () -> {
+                var resp = trainingService.submitTraining(request);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("Training not accepted: " + resp.message());
+                }
+                return resp.trainingId();
+            });
+            var future = journal.awakeable(JobEvent.class);
+            completionHandler.register(jobId, future);
+            return DeferredToolResult.defer(toolContext,
+                future.map(event -> writeJson(event)));
 
         } catch (Exception e) {
             log.error("Failed to launch training", e);
@@ -188,17 +203,12 @@ public class MlTrainingTool {
         }
     }
 
-    private Map<String, Object> extractBindVariables(Query jooqQuery) {
-        var bindValues = jooqQuery.getBindValues();
-        if (bindValues.isEmpty()) {
-            return Map.of();
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return errorResponse(e.getMessage());
         }
-        var result = new LinkedHashMap<String, Object>();
-        int i = 1;
-        for (var value : bindValues) {
-            result.put("p" + i++, value);
-        }
-        return result;
     }
 
     private String errorResponse(String message) {
@@ -366,7 +376,7 @@ public class MlTrainingTool {
             var baseRequest = TuningJobRequest.BaseTrainingRequest.builder()
                 .modelType(tuningConfig.modelType())
                 .modelName(modelName)
-                .datasource(new DatasourceConfig(jooqQuery.getSQL(), extractBindVariables(jooqQuery)))
+                .datasource(new DatasourceConfig(jooqQuery.getSQL(ParamType.INLINED), Map.of()))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
                 .modelParams(Map.of())
@@ -380,8 +390,19 @@ public class MlTrainingTool {
                 .tuningConfig(tuningSettings != null ? tuningSettings : TuningConfig.defaults())
                 .build();
 
-            var event = trainingService.submit(request).get();
-            return objectMapper.writeValueAsString(event);
+            var journal = context.stepJournal();
+            var callId = context.id();
+            var jobId = journal.run(callId + ":submit", UUID.class, () -> {
+                var resp = trainingService.submitTuningThenTraining(request);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("Tuning not accepted: " + resp.message());
+                }
+                return resp.trainingId();
+            });
+            var future = journal.awakeable(JobEvent.class);
+            completionHandler.register(jobId, future);
+            return DeferredToolResult.defer(toolContext,
+                future.map(event -> writeJson(event)));
 
         } catch (Exception e) {
             log.error("Failed to launch hyperparameter tuning", e);

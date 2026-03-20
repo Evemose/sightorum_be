@@ -8,6 +8,7 @@ import com.rorm.query.Expression;
 import org.jooq.Field;
 import org.jooq.impl.DSL;
 
+import java.util.Arrays;
 import java.util.List;
 
 public final class GreatestFunction implements BuiltInFunctionHandler {
@@ -25,6 +26,7 @@ public final class GreatestFunction implements BuiltInFunctionHandler {
 
     @Override
     public Field<?> transform(List<Expression> args, TransformContext ctx) {
-        return DSL.greatest(ctx.transformAll(args));
+        var fields = ctx.transformAll(args);
+        return DSL.greatest(fields[0], Arrays.copyOfRange(fields, 1, fields.length));
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,11 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
     private Map<String, Object> toolContext = Map.of();
     @lombok.Builder.Default
     private Boolean internalToolExecutionEnabled = false;
+    @lombok.Builder.Default
+    private Set<String> longCacheTriggerTools = new HashSet<>(Set.of(
+        "getShapCurves",
+        "discoverDataRelations"
+    ));
 
     @Override
     public @Nullable Double getFrequencyPenalty() {
@@ -80,6 +86,7 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
             .toolNames(Set.copyOf(toolNames))
             .toolContext(Map.copyOf(toolContext))
             .internalToolExecutionEnabled(internalToolExecutionEnabled)
+            .longCacheTriggerTools(Set.copyOf(longCacheTriggerTools))
             .build();
     }
 }

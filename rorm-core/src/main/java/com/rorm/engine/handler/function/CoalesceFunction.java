@@ -8,6 +8,7 @@ import com.rorm.query.Expression;
 import org.jooq.Field;
 import org.jooq.impl.DSL;
 
+import java.util.Arrays;
 import java.util.List;
 
 public final class CoalesceFunction implements BuiltInFunctionHandler {
@@ -26,6 +27,10 @@ public final class CoalesceFunction implements BuiltInFunctionHandler {
 
     @Override
     public Field<?> transform(List<Expression> args, TransformContext ctx) {
-        return DSL.coalesce(ctx.transformAll(args));
+        var fields = ctx.transformAll(args);
+        // Split first arg from rest to avoid Java varargs ambiguity:
+        // DSL.coalesce(Field<?>[]) matches coalesce(T, T...) treating the array as a single value,
+        // producing invalid SQL like cast('{...}' as any[][])
+        return DSL.coalesce(fields[0], Arrays.copyOfRange(fields, 1, fields.length));
     }
 }

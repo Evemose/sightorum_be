@@ -90,6 +90,26 @@ public class PromptPlaceholders {
         Numeric: ABS, ROUND, FLOOR, CEIL, TRUNC, SIGN, MOD, SQRT, POWER, EXP, LN, LOG
         Date/Time: NOW, CURRENT_DATE, CURRENT_TIME, DATE_TRUNC, EXTRACT
         Conditional: COALESCE, NULLIF, GREATEST, LEAST, CASE
+        Special: CAST function (NOT CAST_(TYPE) or something)
+        
+        ## Example: CAST
+        CAST is a function that converts a value to a specified type:
+        {"@type": "function", "functionName": "CAST",
+         "arguments": [
+           value, type
+         ]}
+        
+        ## Very important example: CASE / Conditional Bucketing
+        CASE is a function with pairs of (condition, result) arguments, plus a final default:
+        {"@type": "function", "functionName": "CASE",
+         "arguments": [
+           condition1, result1,
+           condition2, result2,
+           defaultResult
+         ]}
+        
+        For simple bucketing, prefer using analyzeExpression or WHERE filters
+        per bucket rather than constructing complex CASE expressions.
         
         **Window**: ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, NTH_VALUE, NTILE""";
 

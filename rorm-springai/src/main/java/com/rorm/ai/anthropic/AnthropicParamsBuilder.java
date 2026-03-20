@@ -114,11 +114,8 @@ public class AnthropicParamsBuilder {
                     var textBuilder = TextBlockParam.builder().text(user.getText());
                     if (!firstUserMessageSeen) {
                         firstUserMessageSeen = true;
-                        // usually long prompt, so cache long so even long tool calls hit this
                         textBuilder.cacheControl(longCache());
-                    }
-                    if (i == instructions.size() - 1) {
-                        // most tool calls are short, so cache short for the last user message to maximize cache hits for tool calls
+                    } else if (i == instructions.size() - 1) {
                         textBuilder.cacheControl(shortCache());
                     }
                     builder.addUserMessageOfBlockParams(List.of(

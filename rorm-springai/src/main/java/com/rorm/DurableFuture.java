@@ -6,10 +6,12 @@ package com.rorm;
  * Created via {@link StepJournal#runAsync} (runtime provides the result)
  * or {@link StepJournal#awakeable} (external system provides the result).
  * <p>
- * Use static {@link #all} / {@link #any} for fanout composition.
+ * Use static {@link #all} for fanout composition.
  * All futures in a single composition must originate from the same runtime.
  */
 public interface DurableFuture<T> {
+
+    <U> DurableFuture<U> map(java.util.function.Function<T, U> mapper);
 
     static DurableFuture<Void> all(DurableFuture<?>... futures) {
         if (futures.length == 0) {
@@ -19,15 +21,6 @@ public interface DurableFuture<T> {
     }
 
     DurableFuture<Void> combineAll(DurableFuture<?>... futures);
-
-    static DurableFuture<Integer> any(DurableFuture<?>... futures) {
-        if (futures.length == 0) {
-            throw new IllegalArgumentException("No futures provided");
-        }
-        return futures[0].combineAny(futures);
-    }
-
-    DurableFuture<Integer> combineAny(DurableFuture<?>... futures);
 
     T await();
 

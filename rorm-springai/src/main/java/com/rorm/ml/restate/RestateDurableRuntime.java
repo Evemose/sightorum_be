@@ -42,7 +42,7 @@ public class RestateDurableRuntime implements DurableRuntime {
                 SELECT id FROM sys_invocation \
                 WHERE target_service_name = 'DurableJobService' \
                 AND target_service_key = '%s' \
-                AND status = 'paused' \
+                AND status = 'paused' or status = 'suspended' \
                 LIMIT 1""".formatted(sessionId);
 
             var result = restateAdminClient.post()

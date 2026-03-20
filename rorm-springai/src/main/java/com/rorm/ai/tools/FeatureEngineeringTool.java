@@ -1,14 +1,17 @@
 package com.rorm.ai.tools;
 
+import com.rorm.ai.DeferredToolResult;
 import com.rorm.ai.RormToolContext;
 import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.ThinkingLevel;
+import com.rorm.ai.chat.ToolGroup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -75,6 +78,7 @@ public class FeatureEngineeringTool {
         {{METAMODEL}}
         """;
 
+    @Lazy
     private final AiChatService aiChatService;
 
     @Tool(description = """
@@ -120,13 +124,18 @@ public class FeatureEngineeringTool {
 
         var ctx = RormToolContext.from(toolContext);
 
-        return aiChatService.call(
-            ChatRequest.usingData(ctx.schema(), ctx.modelSpace())
-                .withThinkingLevel(ThinkingLevel.MEDIUM)
-                .withModelName("claude-sonnet-4-6")
-                .withSystemPrompt(FEATURE_ENGINEER_SYSTEM)
-                .withSessionId(ctx.id() == null ? ctx.stepJournal().randomUUID().toString() : ctx.id())
-                .ask(prompt)
+        var name = ctx.id() == null ? ctx.stepJournal().randomUUID().toString() : ctx.id();
+        return DeferredToolResult.defer(
+            toolContext,
+            ctx.stepJournal().runAsync(name, String.class, () -> aiChatService.call(
+                ChatRequest.usingData(ctx.schema(), ctx.modelSpace())
+                    .withThinkingLevel(ThinkingLevel.MEDIUM)
+                    .withToolGroups(ToolGroup.QUERY)
+                    .withModelName("claude-sonnet-4-6")
+                    .withSystemPrompt(FEATURE_ENGINEER_SYSTEM)
+                    .withSessionId("feature-engineering-" + name)
+                    .ask(prompt)
+            ))
         );
     }
 

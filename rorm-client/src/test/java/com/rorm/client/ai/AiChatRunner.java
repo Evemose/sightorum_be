@@ -447,7 +447,7 @@ class AiChatRunner {
     void simpleChat() {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            durableRuntime.submit("runner-generator-v2", new JobSpec("agentJp", "run"));
+            durableRuntime.submit("runner-generator-v3", new JobSpec("agentJp", "run"));
         }
     }
 

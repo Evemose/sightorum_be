@@ -3,6 +3,7 @@ package com.rorm;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * In-memory {@link DurableFuture} backed by {@link CompletableFuture}.
@@ -45,21 +46,15 @@ public class CompletableDurableFuture<T> implements DurableFuture<T> {
     }
 
     @Override
+    public <U> DurableFuture<U> map(Function<T, U> mapper) {
+        return new CompletableDurableFuture<>(delegate.thenApply(mapper), UUID.randomUUID().toString());
+    }
+
+    @Override
     public DurableFuture<Void> combineAll(DurableFuture<?>... futures) {
         var cfs = Arrays.stream(futures)
             .map(f -> ((CompletableDurableFuture<?>) f).delegate)
             .toArray(CompletableFuture[]::new);
         return new CompletableDurableFuture<>(CompletableFuture.allOf(cfs), UUID.randomUUID().toString());
-    }
-
-    @Override
-    public DurableFuture<Integer> combineAny(DurableFuture<?>... futures) {
-        var result = new CompletableFuture<Integer>();
-        for (int i = 0; i < futures.length; i++) {
-            final int idx = i;
-            ((CompletableDurableFuture<?>) futures[i]).delegate
-                .thenRun(() -> result.complete(idx));
-        }
-        return new CompletableDurableFuture<>(result, UUID.randomUUID().toString());
     }
 }

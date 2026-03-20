@@ -74,7 +74,7 @@ class HyperparameterTuningNode(PipelineNode):
             output_stream=output_stream,
             consumer_group=consumer_group,
             consumer_name=consumer_name,
-            batch_size=10,
+            batch_size=1,
             retry_on_error=True,
             max_retries=1,
             worker_pool=worker_pool,

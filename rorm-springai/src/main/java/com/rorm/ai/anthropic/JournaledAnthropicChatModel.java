@@ -8,7 +8,9 @@ import com.anthropic.models.messages.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.DurableFuture;
 import com.rorm.StepJournal;
+import com.rorm.ai.DeferredToolResult;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -70,15 +72,49 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static String formatServerToolStart(ServerToolUseBlock serverTool) {
+        var name = serverTool.name().toString();
+        var map = (Map<String, JsonValue>) serverTool._input().asObject().orElse(null);
+        if (map != null && map.containsKey("query")) {
+            var query = map.get("query").asString().orElse(null);
+            if (query != null) {
+                return "[" + name + "] " + query;
+            }
+        }
+        return "[" + name + "]";
+    }
+
+    private static void emitWebSearchResult(
+        WebSearchToolResultBlockContent content, FluxSink<ChatResponse> sink
+    ) {
+        if (content.isResultBlocks()) {
+            var links = content.asResultBlocks().stream()
+                .map(r -> "  " + r.title() + " — " + r.url())
+                .collect(Collectors.joining("\n"));
+            sink.next(textChunk("[search_results]\n" + links));
+        } else if (content.isError()) {
+            sink.next(textChunk("[search_error] " + content.asError().errorCode()));
+        }
+    }
+
+    private static ChatResponse textChunk(String text) {
+        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+    }
+
     @Override
     public ChatResponse call(Prompt prompt) {
         return withObservation(prompt, observationCtx -> {
             var callbackMap = resolveToolCallbackMap(prompt.getOptions());
             var toolCtx = resolveToolContext(prompt.getOptions());
             var journal = resolveJournal(prompt.getOptions());
-            var builder = paramsBuilder.toBuilder(prompt);
+            var longCacheTriggers = resolveLongCacheTriggers(prompt.getOptions());
+            var rounds = new ArrayList<ToolRound>();
+            var useLongCache = false;
 
             for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+                var builder = paramsBuilder.toBuilder(prompt);
+                addToolRounds(builder, rounds, useLongCache);
                 var params = builder.build();
                 var response = journal.run("llm-" + round, Message.class,
                     () -> throttle.execute(
@@ -90,10 +126,41 @@ public class JournaledAnthropicChatModel implements ChatModel {
                     observationCtx.setResponse(result);
                     return result;
                 }
-                advanceWithToolResults(builder, response, callbackMap, toolCtx, journal);
+                var toolRound = buildToolRound(response, callbackMap, toolCtx);
+                rounds.add(toolRound);
+                if (!useLongCache && !Collections.disjoint(toolRound.calledToolNames(), longCacheTriggers)) {
+                    useLongCache = true;
+                }
             }
             throw toolLoopExceeded();
         });
+    }
+
+    private Set<String> resolveLongCacheTriggers(@Nullable ChatOptions options) {
+        if (options instanceof AnthropicChatOptions ao) {
+            return ao.getLongCacheTriggerTools();
+        }
+        return Set.of();
+    }
+
+    private void addToolRounds(
+        MessageCreateParams.Builder builder, List<ToolRound> rounds, boolean useLongCache
+    ) {
+        for (int i = 0; i < rounds.size(); i++) {
+            var round = rounds.get(i);
+            var isLast = (i == rounds.size() - 1);
+            var blocks = isLast ? round.fullAssistantBlocks() : round.leanAssistantBlocks();
+            builder.addMessage(MessageParam.builder()
+                .role(MessageParam.Role.ASSISTANT)
+                .contentOfBlockParams(blocks)
+                .build());
+            var cacheBoundary = !isLast && (i == rounds.size() - 2);
+            var cacheTtl = useLongCache
+                ? CacheControlEphemeral.Ttl.TTL_1H
+                : CacheControlEphemeral.Ttl.TTL_5M;
+            builder.addUserMessageOfBlockParams(
+                toToolResultBlocks(round.toolResults(), cacheBoundary, cacheTtl));
+        }
     }
 
     private static UsageConsuming estimateUsage(MessageCreateParams params) {
@@ -105,6 +172,28 @@ public class JournaledAnthropicChatModel implements ChatModel {
             chars += params.system().get().toString().length();
         }
         return TokenUsage.estimate(chars / 4, params.model().toString());
+    }
+
+    private ToolRound buildToolRound(
+        Message response, Map<String, ToolCallback> callbackMap,
+        ToolContext toolContext
+    ) {
+        var fullBlocks = response.content().stream()
+            .map(JournaledAnthropicChatModel::toRequestBlock)
+            .toList();
+        var hasThinking = response.content().stream().anyMatch(ContentBlock::isThinking);
+        var leanBlocks = hasThinking
+            ? response.content().stream()
+            .filter(b -> !b.isThinking())
+            .map(JournaledAnthropicChatModel::toRequestBlock)
+            .toList()
+            : fullBlocks;
+        var calledTools = response.content().stream()
+            .filter(ContentBlock::isToolUse)
+            .map(b -> b.asToolUse().name())
+            .collect(Collectors.toSet());
+        var toolResults = executeTools(response, callbackMap, toolContext);
+        return new ToolRound(fullBlocks, leanBlocks, toolResults, calledTools);
     }
 
     private ChatResponse toChatResponse(Message message) {
@@ -164,22 +253,24 @@ public class JournaledAnthropicChatModel implements ChatModel {
         );
     }
 
-    private void advanceWithToolResults(
-        MessageCreateParams.Builder builder, Message response,
-        Map<String, ToolCallback> callbackMap, ToolContext toolContext, StepJournal journal
-    ) {
-        var contentBlocks = response.content().stream()
-            .map(JournaledAnthropicChatModel::toRequestBlock)
-            .toList();
-        builder.addMessage(MessageParam.builder()
-            .role(MessageParam.Role.ASSISTANT)
-            .contentOfBlockParams(contentBlocks)
-            .build());
-        builder.addUserMessageOfBlockParams(executeTools(response, callbackMap, toolContext, journal));
-    }
-
     private static IllegalStateException toolLoopExceeded() {
         return new IllegalStateException("Tool call loop exceeded " + MAX_TOOL_ROUNDS + " rounds");
+    }
+
+    private static List<ContentBlockParam> toToolResultBlocks(
+        List<ToolCallResult> results, boolean cacheLastBlock, CacheControlEphemeral.Ttl cacheTtl
+    ) {
+        var blocks = new ArrayList<ContentBlockParam>(results.size());
+        for (int i = 0; i < results.size(); i++) {
+            var r = results.get(i);
+            var trBuilder = ToolResultBlockParam.builder()
+                .toolUseId(r.toolUseId()).content(r.content());
+            if (cacheLastBlock && i == results.size() - 1) {
+                trBuilder.cacheControl(CacheControlEphemeral.builder().ttl(cacheTtl).build());
+            }
+            blocks.add(ContentBlockParam.ofToolResult(trBuilder.build()));
+        }
+        return blocks;
     }
 
     private String toJson(JsonNode value) {
@@ -208,16 +299,6 @@ public class JournaledAnthropicChatModel implements ChatModel {
             .<JsonNode>map(om::valueToTree)
             .orElseGet(() -> toJsonNode(jsonValue));
 
-    }
-
-    @SuppressWarnings("unchecked")
-    private static ContentBlockParam toRequestBlock(ContentBlock block) {
-        if (block.isToolUse()) {
-            var tu = block.asToolUse();
-            return ContentBlockParam.ofToolUse(ToolUseBlockParam.builder()
-                .id(tu.id()).name(tu.name()).input(tu._input()).build());
-        }
-        return block.toParam();
     }
 
     private ChatResponse withObservation(Prompt prompt, Function<ChatModelObservationContext, ChatResponse> body) {
@@ -249,6 +330,16 @@ public class JournaledAnthropicChatModel implements ChatModel {
             return ao.getJournal();
         }
         return StepJournal.NOOP;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ContentBlockParam toRequestBlock(ContentBlock block) {
+        if (block.isToolUse()) {
+            var tu = block.asToolUse();
+            return ContentBlockParam.ofToolUse(ToolUseBlockParam.builder()
+                .id(tu.id()).name(tu.name()).input(tu._input()).build());
+        }
+        return block.toParam();
     }
 
     private boolean hasToolCalls(Message response, Map<String, ToolCallback> callbackMap) {
@@ -312,14 +403,38 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return result;
     }
 
-    private List<ContentBlockParam> executeTools(
-        Message response, Map<String, ToolCallback> callbackMap, ToolContext toolContext,
-        StepJournal journal
+    private List<ToolCallResult> executeTools(
+        Message response, Map<String, ToolCallback> callbackMap, ToolContext toolContext
     ) {
-        return response.content().stream()
+        var toolCalls = response.content().stream()
             .filter(ContentBlock::isToolUse)
-            .map(b -> executeToolCall(b.asToolUse(), callbackMap, toolContext, journal))
+            .map(ContentBlock::asToolUse)
             .toList();
+
+        var results = new ArrayList<ToolCallResult>(toolCalls.size());
+        var collector = DeferredToolResult.createCollector();
+
+        // Place the shared mutable collector in the base context so each tool copy inherits it
+        var baseCtx = new HashMap<>(toolContext.getContext());
+        baseCtx.put(DeferredToolResult.COLLECTOR_KEY, collector);
+
+        for (var tc : toolCalls) {
+            results.add(executeToolCall(tc, callbackMap, new ToolContext(baseCtx)));
+        }
+
+        if (!collector.isEmpty()) {
+            log.info("Awaiting {} deferred tool results", collector.size());
+            DurableFuture.all(collector.values().toArray(DurableFuture[]::new)).await();
+            for (int i = 0; i < results.size(); i++) {
+                var r = results.get(i);
+                var future = collector.get(toolCalls.get(i).id());
+                if (future != null) {
+                    results.set(i, new ToolCallResult(r.toolUseId(), future.await()));
+                }
+            }
+        }
+
+        return results;
     }
 
     private String toJson(JsonValue value) {
@@ -330,45 +445,42 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
-    private ContentBlockParam executeToolCall(
-        ToolUseBlock toolUse, Map<String, ToolCallback> callbackMap, ToolContext toolContext,
-        StepJournal journal
+    private ToolCallResult executeToolCall(
+        ToolUseBlock toolUse, Map<String, ToolCallback> callbackMap, ToolContext toolContext
     ) {
         var name = toolUse.name();
         var callback = callbackMap.get(name);
         if (callback == null) {
             log.error("Unknown tool: {}", name);
-            return toolResult(toolUse.id(), "{\"error\":\"Unknown tool: " + name + "\"}");
+            return new ToolCallResult(toolUse.id(), "{\"error\":\"Unknown tool: " + name + "\"}");
         }
         try {
             log.info("Executing tool: {} ({})", name, toolUse.id());
             var inputJson = toJson(fixObjectStrings(toolUse._input()));
-            // very important to use unique id here
-            toolContext.getContext().put("id", toolUse.id());
-            var result = journal.run("tool-" + name + "-" + toolUse.id(), String.class,
-                () -> callback.call(inputJson, toolContext));
+            var ctxMapWithId = new HashMap<>(toolContext.getContext());
+            ctxMapWithId.put("id", toolUse.id());
+            var result = callback.call(inputJson, new ToolContext(ctxMapWithId));
             log.debug("Tool {} returned {} chars", name, result.length());
-            return toolResult(toolUse.id(), result);
+            return new ToolCallResult(toolUse.id(), result);
         } catch (Exception e) {
             log.error("Tool {} ({}) failed: {}", toolUse.id(), name, e.getMessage(), e);
             var msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            return toolResult(toolUse.id(), "{\"error\":true,\"tool\":\"%s\",\"message\":\"%s\"}".formatted(
+            return new ToolCallResult(toolUse.id(), "{\"error\":true,\"tool\":\"%s\",\"message\":\"%s\"}".formatted(
                 name.replace("\"", "\\\""), msg.replace("\"", "\\\"")));
         }
-    }
-
-    private static ContentBlockParam toolResult(String toolUseId, String content) {
-        return ContentBlockParam.ofToolResult(ToolResultBlockParam.builder()
-            .toolUseId(toolUseId).content(content).build());
     }
 
     private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
         var callbackMap = resolveToolCallbackMap(prompt.getOptions());
         var toolCtx = resolveToolContext(prompt.getOptions());
         var journal = resolveJournal(prompt.getOptions());
-        var builder = paramsBuilder.toBuilder(prompt);
+        var longCacheTriggers = resolveLongCacheTriggers(prompt.getOptions());
+        var rounds = new ArrayList<ToolRound>();
+        var useLongCache = false;
 
         for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+            var builder = paramsBuilder.toBuilder(prompt);
+            addToolRounds(builder, rounds, useLongCache);
             var params = builder.build();
             var executed = new boolean[]{false};
             var message = journal.run("llm-stream-" + round, Message.class, () -> {
@@ -385,7 +497,11 @@ public class JournaledAnthropicChatModel implements ChatModel {
                 sink.complete();
                 return;
             }
-            advanceWithToolResults(builder, message, callbackMap, toolCtx, journal);
+            var toolRound = buildToolRound(message, callbackMap, toolCtx);
+            rounds.add(toolRound);
+            if (!useLongCache && !Collections.disjoint(toolRound.calledToolNames(), longCacheTriggers)) {
+                useLongCache = true;
+            }
         }
         sink.error(toolLoopExceeded());
     }
@@ -406,27 +522,10 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
-    private static ChatResponse textChunk(String text) {
-        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
-    }
-
     @Override
     public Flux<ChatResponse> stream(Prompt prompt) {
         return Flux.<ChatResponse>create(sink -> doStream(prompt, sink))
             .subscribeOn(Schedulers.boundedElastic());
-    }
-
-    @SuppressWarnings("unchecked")
-    private static String formatServerToolStart(ServerToolUseBlock serverTool) {
-        var name = serverTool.name().toString();
-        var map = (Map<String, JsonValue>) serverTool._input().asObject().orElse(null);
-        if (map != null && map.containsKey("query")) {
-            var query = map.get("query").asString().orElse(null);
-            if (query != null) {
-                return "[" + name + "] " + query;
-            }
-        }
-        return "[" + name + "]";
     }
 
     private Message fixMissingToolInputs(Message message) {
@@ -463,19 +562,6 @@ public class JournaledAnthropicChatModel implements ChatModel {
             });
         }
         return accumulator.message();
-    }
-
-    private static void emitWebSearchResult(
-        WebSearchToolResultBlockContent content, FluxSink<ChatResponse> sink
-    ) {
-        if (content.isResultBlocks()) {
-            var links = content.asResultBlocks().stream()
-                .map(r -> "  " + r.title() + " — " + r.url())
-                .collect(Collectors.joining("\n"));
-            sink.next(textChunk("[search_results]\n" + links));
-        } else if (content.isError()) {
-            sink.next(textChunk("[search_error] " + content.asError().errorCode()));
-        }
     }
 
     private void emitDelta(RawContentBlockDelta delta, FluxSink<ChatResponse> sink, boolean[] thinkingStarted) {
@@ -515,4 +601,12 @@ public class JournaledAnthropicChatModel implements ChatModel {
     public ChatOptions getDefaultOptions() {
         return AnthropicChatOptions.builder().build();
     }
+
+    private record ToolCallResult(String toolUseId, String content) {}
+
+    private record ToolRound(
+        List<ContentBlockParam> fullAssistantBlocks,
+        List<ContentBlockParam> leanAssistantBlocks,
+        List<ToolCallResult> toolResults,
+        Set<String> calledToolNames) {}
 }
