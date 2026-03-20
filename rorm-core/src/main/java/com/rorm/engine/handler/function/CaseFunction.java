@@ -21,6 +21,7 @@ public final class CaseFunction implements BuiltInFunctionHandler {
     @Override
     public DataType resolveType(List<Expression> args, TypeResolutionContext ctx) {
         // CASE returns type of the first THEN clause (second argument)
+        // Arguments are: condition1, then1, condition2, then2, ..., [else]
         if (args != null && args.size() >= 2) {
             return ctx.resolveSecondArg(args, null);
         }
@@ -28,21 +29,26 @@ public final class CaseFunction implements BuiltInFunctionHandler {
     }
 
     @Override
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @SuppressWarnings({"unchecked"})
     public Field<?> transform(List<Expression> args, TransformContext ctx) {
-        // For simple CASE with condition, then, else
+        // Arguments are: condition1, then1, condition2, then2, ..., [else]
         var fields = ctx.transformAll(args);
-        if (fields.length >= 3) {
-            Field condField = fields[0];
-            Field thenField = fields[1];
-            Field elseField = fields[2];
-            return DSL.when(DSL.condition((Field<Boolean>) condField), thenField)
-                .otherwise(elseField);
-        } else if (fields.length == 2) {
-            Field condField = fields[0];
-            Field thenField = fields[1];
-            return DSL.when(DSL.condition((Field<Boolean>) condField), thenField);
+        if (fields.length < 2) {
+            throw new IllegalArgumentException("CASE requires at least 2 arguments");
         }
-        throw new IllegalArgumentException("CASE requires at least 2 arguments");
+
+        var caseStep = DSL.<Object>when(DSL.condition((Field<Boolean>) fields[0]), fields[1]);
+
+        int i = 2;
+        while (i + 1 < fields.length) {
+            caseStep = caseStep.when(DSL.condition((Field<Boolean>) fields[i]), fields[i + 1]);
+            i += 2;
+        }
+
+        if (i < fields.length) {
+            return caseStep.otherwise(fields[i]);
+        }
+
+        return caseStep;
     }
 }

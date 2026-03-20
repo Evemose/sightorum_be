@@ -5,34 +5,71 @@ import com.rorm.DurableFuture;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 
-/**
- * {@link DurableFuture} backed by Restate's durable future / awakeable.
- * Delegates {@link #await()} to the Restate SDK which handles journal replay.
- */
-record RestateDurableFuture<T>(dev.restate.sdk.DurableFuture<T> delegate, String id) implements DurableFuture<T> {
+sealed interface RestateDurableFuture<T> extends DurableFuture<T> {
+
+    String id();
 
     @Override
-    public T await() {
-        return delegate.await();
+    default DurableFuture<Void> combineAll(DurableFuture<?>... futures) {
+        return new Combined<>(toRestate(futures), UUID.randomUUID().toString());
     }
 
-    @Override
-    public DurableFuture<Void> combineAll(DurableFuture<?>... futures) {
-        List<dev.restate.sdk.DurableFuture<?>> restate = Arrays.stream(futures)
-            .map(f -> (dev.restate.sdk.DurableFuture<?>) ((RestateDurableFuture<?>) f).delegate)
-            .collect(Collectors.toList());
-        var combined = dev.restate.sdk.DurableFuture.all(restate);
-        return new RestateDurableFuture<>(combined, UUID.randomUUID().toString());
+    @SuppressWarnings("unchecked")
+    private static List<RestateDurableFuture<Void>> toRestate(DurableFuture<?>... futures) {
+        return Arrays.stream(futures)
+            .map(f -> (RestateDurableFuture<Void>) f)
+            .toList();
     }
 
-    @Override
-    public DurableFuture<Integer> combineAny(DurableFuture<?>... futures) {
-        List<dev.restate.sdk.DurableFuture<?>> restate = Arrays.stream(futures)
-            .map(f -> (dev.restate.sdk.DurableFuture<?>) ((RestateDurableFuture<?>) f).delegate)
-            .collect(Collectors.toList());
-        var combined = dev.restate.sdk.DurableFuture.any(restate);
-        return new RestateDurableFuture<>(combined, UUID.randomUUID().toString());
+    record Resolved<T>(T value, String id) implements RestateDurableFuture<T> {
+
+        @Override
+        public T await() {
+            return value;
+        }
+
+        @Override
+        public <U> DurableFuture<U> map(Function<T, U> mapper) {
+            return new Resolved<>(mapper.apply(value), UUID.randomUUID().toString());
+        }
     }
+
+    record Delegated<T>(dev.restate.sdk.DurableFuture<T> delegate, String id) implements RestateDurableFuture<T> {
+
+        @Override
+        public T await() {
+            return delegate.await();
+        }
+
+        @Override
+        public <U> DurableFuture<U> map(Function<T, U> mapper) {
+            return new Delegated<>(delegate.map(mapper::apply), UUID.randomUUID().toString());
+        }
+    }
+
+    record Combined<T>(
+        List<RestateDurableFuture<T>> children,
+        String id
+    ) implements RestateDurableFuture<T> {
+
+        @Override
+        public <U> DurableFuture<U> map(Function<T, U> mapper) {
+            return new Resolved<>(mapper.apply(await()), UUID.randomUUID().toString());
+        }
+
+        @Override
+        public T await() {
+            var delegated = children.stream()
+                .filter(Delegated.class::isInstance)
+                .<dev.restate.sdk.DurableFuture<?>>map(f -> ((Delegated<?>) f).delegate())
+                .toList();
+            if (!delegated.isEmpty()) {
+                dev.restate.sdk.DurableFuture.all(delegated).await();
+            }
+            return null;
+        }
+    }
+
 }

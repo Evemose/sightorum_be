@@ -149,83 +149,89 @@ export class MlInfraStack extends cdk.Stack {
             environment: {
                 VALKEY_HOST: valkeyHost.valueAsString,
                 VALKEY_PORT: '6379',
-                STREAM_NAME: streamName.valueAsString,
-                GROUP_NAME: groupName.valueAsString,
                 ALB_ARN_SUFFIX: alb.loadBalancerFullName,
+                STREAM_GROUPS: JSON.stringify([
+                    ["ml_training:training_requests", "training_workers"],
+                    ["ml_training:tuning_requests", "tuning_workers"],
+                    ["ml_training:stability_selection_requests", "analysis_workers"]
+                ]),
             },
             code: lambda.Code.fromInline(`
-            import boto3, os, socket, json
-            from datetime import datetime, timedelta, timezone
-            
-            cw = boto3.client('cloudwatch')
-            
-            def handler(event, context):
-                pending = get_valkey_pending()
-                recent_http = get_recent_request_count()
-            
-                # Demand signal: Valkey backpressure takes priority,
-                # but any HTTP activity in last 10 min keeps workers alive.
-                if pending > 0:
-                    value = float(pending)
-                elif recent_http > 0:
-                    value = 1.0   # keep-alive signal
-                else:
-                    value = 0.0   # safe to scale down
-            
-                cw.put_metric_data(
-                    Namespace='Custom/ML',
-                    MetricData=[{
-                        'MetricName': 'MlWorkerDemand',
-                        'Value': value,
-                        'Unit': 'Count',
-                    }]
-                )
-                return {'pending': pending, 'recent_http': recent_http, 'published': value}
-            
-            
-            def get_valkey_pending():
-                host = os.environ['VALKEY_HOST']
-                port = int(os.environ['VALKEY_PORT'])
-                stream = os.environ['STREAM_NAME']
-                group = os.environ['GROUP_NAME']
-            
-                try:
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(5)
-                    sock.connect((host, port))
-                    cmd = f"*3\\r\\n$8\\r\\nXPENDING\\r\\n$\{len(stream)}\\r\\n{stream}\\r\\n\${len(group)}\\r\\n{group}\\r\\n"
-                    sock.sendall(cmd.encode())
-                    resp = sock.recv(4096).decode()
-                    sock.close()
-                    for line in resp.split('\\r\\n'):
-                        if line.startswith(':'):
-                            return int(line[1:])
-                except Exception as e:
-                    print(f"Valkey connection error: {e}")
-                return 0
-            
-            
-            def get_recent_request_count():
-                """Check if ALB had any requests in the last 10 minutes."""
-                try:
-                    resp = cw.get_metric_statistics(
-                        Namespace='AWS/ApplicationELB',
-                        MetricName='RequestCount',
-                        Dimensions=[{
-                            'Name': 'LoadBalancer',
-                            'Value': os.environ['ALB_ARN_SUFFIX']
-                        }],
-                        StartTime=datetime.now(timezone.utc) - timedelta(minutes=10),
-                        EndTime=datetime.now(timezone.utc),
-                        Period=3600,
-                        Statistics=['Sum'],
-                    )
-                    points = resp.get('Datapoints', [])
-                    return int(points[0]['Sum']) if points else 0
-                except Exception as e:
-                    print(f"CloudWatch query error: {e}")
-                return 0
-            `),
+import boto3, os, socket, json
+from datetime import datetime, timedelta, timezone
+
+cw = boto3.client('cloudwatch')
+
+def handler(event, context):
+    pending = get_total_pending()
+    recent_http = get_recent_request_count()
+
+    if pending > 0:
+        value = float(pending)
+    elif recent_http > 0:
+        value = 1.0
+    else:
+        value = 0.0
+
+    cw.put_metric_data(
+        Namespace='Custom/ML',
+        MetricData=[{
+            'MetricName': 'MlWorkerDemand',
+            'Value': value,
+            'Unit': 'Count',
+        }]
+    )
+    print(f"pending={pending} http={recent_http} published={value}")
+    return {'pending': pending, 'recent_http': recent_http, 'published': value}
+
+
+def get_total_pending():
+    stream_groups = json.loads(os.environ['STREAM_GROUPS'])
+    total = 0
+    for stream, group in stream_groups:
+        total += get_valkey_pending(stream, group)
+    return total
+
+
+def get_valkey_pending(stream, group):
+    host = os.environ['VALKEY_HOST']
+    port = int(os.environ['VALKEY_PORT'])
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)
+        sock.connect((host, port))
+        cmd = f"*3\\r\\n$8\\r\\nXPENDING\\r\\n\${len(stream)}\\r\\n{stream}\\r\\n\${len(group)}\\r\\n{group}\\r\\n"
+        sock.sendall(cmd.encode())
+        resp = sock.recv(4096).decode()
+        sock.close()
+        for line in resp.split('\\r\\n'):
+            if line.startswith(':'):
+                return int(line[1:])
+    except Exception as e:
+        print(f"Valkey error ({stream}/{group}): {e}")
+    return 0
+
+
+def get_recent_request_count():
+    try:
+        resp = cw.get_metric_statistics(
+            Namespace='AWS/ApplicationELB',
+            MetricName='RequestCount',
+            Dimensions=[{
+                'Name': 'LoadBalancer',
+                'Value': os.environ['ALB_ARN_SUFFIX']
+            }],
+            StartTime=datetime.now(timezone.utc) - timedelta(minutes=10),
+            EndTime=datetime.now(timezone.utc),
+            Period=600,
+            Statistics=['Sum'],
+        )
+        points = resp.get('Datapoints', [])
+        return int(points[0]['Sum']) if points else 0
+    except Exception as e:
+        print(f"CloudWatch query error: {e}")
+    return 0
+`),
         });
 
         // Lambda permissions

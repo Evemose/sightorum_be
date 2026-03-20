@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID;
 
@@ -19,6 +20,7 @@ import static org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID;
 public class DefaultAiChatService implements AiChatService {
 
     private static final String BEAN_NAME = "defaultAiChatService";
+    private static final ConcurrentHashMap<String, ChatRequest<?>> PENDING_REQUESTS = new ConcurrentHashMap<>();
 
     private final ChatClient chatClient;
     private final ChatRequestPreprocessor preprocessor;
@@ -28,14 +30,16 @@ public class DefaultAiChatService implements AiChatService {
     @SuppressWarnings("unchecked")
     public <T> T call(ChatRequest<T> request) {
         if (request.sessionId() != null) {
+            var requestId = UUID.randomUUID().toString();
+            PENDING_REQUESTS.put(requestId, request);
             return (T) durableRuntime.submit(request.sessionId(),
-                new JobSpec(BEAN_NAME, "doCall", new Object[]{request}));
+                new JobSpec(BEAN_NAME, "doDurableCall", new Object[]{requestId}));
         }
         return doCall(request);
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T doCall(ChatRequest<T> request) {
+    private <T> T doCall(ChatRequest<T> request) {
         var response = buildSpec(request).call();
         if (request.responseType() == String.class) {
             return (T) response.content();
@@ -68,6 +72,15 @@ public class DefaultAiChatService implements AiChatService {
         }
 
         return spec;
+    }
+
+    @SuppressWarnings("unused")
+    public Object doDurableCall(String requestId) {
+        var request = PENDING_REQUESTS.get(requestId);
+        if (request == null) {
+            throw new IllegalStateException("No pending request found for id: " + requestId);
+        }
+        return doCall(request);
     }
 
     @Override

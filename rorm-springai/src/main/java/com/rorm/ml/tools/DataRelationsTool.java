@@ -2,6 +2,7 @@ package com.rorm.ml.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ai.DeferredToolResult;
 import com.rorm.ai.RormToolContext;
 import com.rorm.dto.dense.DenseQueryDto;
 import com.rorm.engine.QueryTransformer;
@@ -10,18 +11,21 @@ import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.DatasourceConfig;
 import com.rorm.ml.dto.ShapJobRequest;
 import com.rorm.ml.dto.StabilitySelectionJobRequest;
+import com.rorm.ml.exception.MlServiceException;
+import com.rorm.ml.stream.JobCompletionHandler;
+import com.rorm.ml.stream.JobEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Query;
+import org.jooq.conf.ParamType;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -29,6 +33,7 @@ import java.util.Map;
 public class DataRelationsTool {
 
     private final MlTrainingService mlService;
+    private final JobCompletionHandler completionHandler;
     private final ObjectMapper objectMapper;
     private final DenseQueryMapper denseQueryMapper;
     private final QueryTransformer queryTransformer;
@@ -36,31 +41,25 @@ public class DataRelationsTool {
     @Tool(
         name = "discoverDataRelations",
         description = """
-            ASYNC & EXPENSIVE: Discover which features genuinely drive a target variable using
+            EXPENSIVE: Discover which features genuinely drive a target variable using
             stability selection — a statistically robust feature importance method.
-
+            
             HOW IT WORKS:
-            Runs repeated bootstrap subsampling across multiple model families (random forest,
-            LightGBM, elastic net, logistic regression, extra trees) and measures how consistently
-            each feature appears as important. Features that appear important across many resamples
+            Runs repeated bootstrap subsampling across multiple model families (LightGBM, elastic net, linear) \
+            and measures how consistently each feature appears as important.
+            Features that appear important across many resamples
             and model types are truly predictive, not just correlated by chance.
-
+            
             RETURNS:
             - Per-feature stability scores (0-1, higher = more reliably important)
             - Consensus ranking across model families
             - Polynomial interaction detection (degree 2 by default)
             - Correlated feature groups (features above correlation_threshold are grouped)
-
-            WHEN TO USE:
-            - Before training: identify which features matter before committing to a model
-            - Feature selection: reduce dimensionality by keeping only stable features
-            - Hypothesis validation: confirm suspected drivers with statistical rigor
-            - Exploratory analysis: understand data structure before deeper modeling
-
+            
             WHEN NOT TO USE:
             - When you already know the features (just train directly)
             - For very small datasets (<100 rows) — bootstrap resampling needs volume
-
+            
             AFTER CALLING THIS TOOL:
             - Analysis runs in the background via the ML service
             - Results include a run_id that can be used with getShapCurves for deeper analysis
@@ -72,7 +71,7 @@ public class DataRelationsTool {
         @ToolParam(description = """
             Brief explanation of WHAT RELATIONSHIPS you're trying to discover.
             Focus on the analytical question, not the technique.
-
+            
             Good: "Identify which customer attributes most reliably predict churn"
             Bad: "Run stability selection"
             """)
@@ -127,7 +126,7 @@ public class DataRelationsTool {
 
             var request = StabilitySelectionJobRequest.builder()
                 .reason(reason)
-                .datasource(new DatasourceConfig(jooqQuery.getSQL(), extractBindVariables(jooqQuery)))
+                .datasource(new DatasourceConfig(jooqQuery.getSQL(ParamType.INLINED), Map.of()))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
                 .controlFeatures(controlFeatures)
@@ -138,8 +137,18 @@ public class DataRelationsTool {
                 .randomState(42)
                 .build();
 
-            var event = mlService.submit(request).get();
-            return objectMapper.writeValueAsString(event);
+            var journal = context.stepJournal();
+            var jobId = journal.run(context.id() + ":submit", UUID.class, () -> {
+                var resp = mlService.submitStabilitySelection(request);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("Stability selection not accepted: " + resp.message());
+                }
+                return resp.analysisId();
+            });
+            var future = journal.awakeable(JobEvent.class);
+            completionHandler.register(jobId, future);
+            return DeferredToolResult.defer(toolContext,
+                future.map(this::writeJson));
 
         } catch (Exception e) {
             log.error("Failed to launch stability selection", e);
@@ -148,18 +157,12 @@ public class DataRelationsTool {
     }
 
 
-
-    private Map<String, Object> extractBindVariables(Query jooqQuery) {
-        var bindValues = jooqQuery.getBindValues();
-        if (bindValues.isEmpty()) {
-            return Map.of();
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return errorResponse(e.getMessage());
         }
-        var result = new LinkedHashMap<String, Object>();
-        int i = 1;
-        for (var value : bindValues) {
-            result.put("p" + i++, value);
-        }
-        return result;
     }
 
     private String errorResponse(String message) {
@@ -176,7 +179,7 @@ public class DataRelationsTool {
     @Tool(
         name = "getShapCurves",
         description = """
-            ASYNC & EXPENSIVE: Compute SHAP dependence curves for a completed stability selection run.
+            EXPENSIVE: Compute SHAP dependence curves for a completed stability selection run.
             
             SHAP curves reveal HOW each feature affects the target:
             - For numeric features: curve showing effect at each value (reveals thresholds, non-linearities)
@@ -231,35 +234,24 @@ public class DataRelationsTool {
                 1
             );
 
-            var event = mlService.submit(request).get();
-            return objectMapper.writeValueAsString(event);
+            var ctx = RormToolContext.from(toolContext);
+            var journal = ctx.stepJournal();
+            var callId = ctx.id();
+            var jobId = journal.run(callId + ":submit", UUID.class, () -> {
+                var resp = mlService.submitShapCurvesAsync(request);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("SHAP not accepted: " + resp.message());
+                }
+                return resp.analysisId();
+            });
+            var future = journal.awakeable(JobEvent.class);
+            completionHandler.register(jobId, future);
+            return DeferredToolResult.defer(toolContext,
+                future.map(this::writeJson));
 
         } catch (Exception e) {
             log.error("Failed to launch SHAP curves", e);
             return errorResponse("Failed to launch SHAP curves: " + e.getMessage());
-        }
-    }
-
-    @Tool(
-        name = "listStabilityRuns",
-        description = """
-            List all previous stability selection analysis runs.
-            Returns run IDs, target columns, problem types, and timestamps.
-            
-            Use this to find existing analyses before launching new ones —
-            the data relationships may have already been discovered.
-            """
-    )
-    public String listStabilityRuns() {
-        try {
-            var runs = mlService.listStabilityRuns();
-            return objectMapper.writeValueAsString(Map.of(
-                "success", true,
-                "runs", runs
-            ));
-        } catch (Exception e) {
-            log.error("Failed to list stability runs", e);
-            return errorResponse("Failed to list stability runs: " + e.getMessage());
         }
     }
 }

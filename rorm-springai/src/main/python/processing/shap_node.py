@@ -37,7 +37,7 @@ class ShapPipelineNode(PipelineNode):
             output_stream=output_stream,
             consumer_group=consumer_group,
             consumer_name=consumer_name,
-            batch_size=5,
+            batch_size=1,
             retry_on_error=True,
             max_retries=3,
             worker_pool=worker_pool,

@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 @SuppressWarnings("preview")
@@ -44,6 +45,11 @@ class FileStepJournal implements StepJournal {
     @Override
     public <T> DurableFuture<T> awakeable(Class<T> type) {
         return CompletableDurableFuture.pending();
+    }
+
+    @Override
+    public UUID randomUUID() {
+        return UUID.randomUUID();
     }
 
     @SneakyThrows
