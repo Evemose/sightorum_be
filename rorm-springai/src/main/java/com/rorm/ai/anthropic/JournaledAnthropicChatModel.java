@@ -344,6 +344,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
             log.info("Executing tool: {} ({})", name, toolUse.id());
             var inputJson = toJson(fixObjectStrings(toolUse._input()));
             // very important to use unique id here
+            toolContext.getContext().put("id", toolUse.id());
             var result = journal.run("tool-" + name + "-" + toolUse.id(), String.class,
                 () -> callback.call(inputJson, toolContext));
             log.debug("Tool {} returned {} chars", name, result.length());

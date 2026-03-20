@@ -1,5 +1,6 @@
 package com.rorm.ai;
 
+import com.rorm.StepJournal;
 import com.rorm.metamodel.ModelSpace;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
@@ -12,12 +13,10 @@ import java.util.Map;
  */
 public record RormToolContext(
     ModelSpace modelSpace,
-    @Nullable String schema
+    String schema,
+    StepJournal stepJournal,
+    @Nullable String id
 ) {
-
-    public RormToolContext(ModelSpace modelSpace) {
-        this(modelSpace, null);
-    }
 
     /**
      * Extract typed context from Spring AI's ToolContext.
@@ -26,7 +25,9 @@ public record RormToolContext(
         var context = toolContext.getContext();
         return new RormToolContext(
             (ModelSpace) context.get("modelSpace"),
-            (String) context.get("schema")
+            (String) context.get("schema"),
+            (StepJournal) context.get("stepJournal"),
+            (String) context.get("id")
         );
     }
 
@@ -38,6 +39,12 @@ public record RormToolContext(
         map.put("modelSpace", modelSpace);
         if (schema != null) {
             map.put("schema", schema);
+        }
+        if (stepJournal != null) {
+            map.put("stepJournal", stepJournal);
+        }
+        if (id != null) {
+            map.put("id", id);
         }
         return map;
     }

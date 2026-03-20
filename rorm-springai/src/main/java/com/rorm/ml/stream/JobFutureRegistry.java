@@ -12,17 +12,35 @@ import java.util.concurrent.*;
 public class JobFutureRegistry {
 
     private final ConcurrentMap<UUID, CompletableFuture<JobEvent>> futures = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, JobEvent> missed = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Throwable> failed = new ConcurrentHashMap<>();
 
     public CompletableFuture<JobEvent> register(UUID jobId) {
-        var future = new CompletableFuture<JobEvent>();
-        futures.put(jobId, future);
-        return future;
+        if (missed.containsKey(jobId)) {
+            var event = missed.remove(jobId);
+            log.info("Completing future for job {} from missed events", jobId);
+            var future = new CompletableFuture<JobEvent>();
+            future.complete(event);
+            return future;
+        } else if (failed.containsKey(jobId)) {
+            var cause = failed.remove(jobId);
+            log.info("Completing future for job {} from failed events", jobId);
+            var future = new CompletableFuture<JobEvent>();
+            future.completeExceptionally(cause);
+            return future;
+        }
+        return futures.computeIfAbsent(jobId, _ -> {
+            log.info("Creating new future for job {}", jobId);
+            return new CompletableFuture<>();
+        });
     }
 
     public void complete(UUID jobId, JobEvent event) {
         var future = futures.get(jobId);
         if (future != null) {
             future.complete(event);
+        } else {
+            missed.put(jobId, event);
         }
     }
 
@@ -30,6 +48,8 @@ public class JobFutureRegistry {
         var future = futures.get(jobId);
         if (future != null) {
             future.completeExceptionally(cause);
+        } else {
+            failed.put(jobId, cause);
         }
     }
 

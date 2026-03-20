@@ -34,7 +34,7 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
     @lombok.Builder.Default
     private Map<String, Object> toolContext = Map.of();
     @lombok.Builder.Default
-    private Boolean internalToolExecutionEnabled = true;
+    private Boolean internalToolExecutionEnabled = false;
 
     @Override
     public @Nullable Double getFrequencyPenalty() {
@@ -59,6 +59,11 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
     @Override
     public @Nullable Double getTopP() {
         return null;
+    }
+
+    @Override
+    public Boolean getInternalToolExecutionEnabled() {
+        return internalToolExecutionEnabled;
     }
 
     @SuppressWarnings("unchecked")

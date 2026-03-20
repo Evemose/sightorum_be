@@ -1,5 +1,6 @@
 package com.rorm;
 
+import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -20,6 +21,21 @@ public interface StepJournal {
         public <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
             return action.get();
         }
+
+        @Override
+        public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
+            return CompletableDurableFuture.completed(action.get());
+        }
+
+        @Override
+        public <T> DurableFuture<T> awakeable(Class<T> type) {
+            return CompletableDurableFuture.pending();
+        }
+
+        @Override
+        public UUID randomUUID() {
+            return UUID.randomUUID();
+        }
     };
 
     static StepJournal current() {
@@ -32,4 +48,10 @@ public interface StepJournal {
     }
 
     <T> T run(String stepName, Class<T> resultType, Supplier<T> action);
+
+    <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action);
+
+    <T> DurableFuture<T> awakeable(Class<T> type);
+
+    UUID randomUUID();
 }
