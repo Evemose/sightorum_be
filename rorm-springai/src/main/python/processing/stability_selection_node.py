@@ -33,6 +33,8 @@ class StabilitySelectionPipelineNode(PipelineNode):
             output_stream: Optional[str] = None,
             consumer_group: str = "analysis_workers",
             consumer_name: Optional[str] = None,
+            worker_pool=None,
+            backpressure=None,
     ):
         super().__init__(
             redis_url=redis_url,
@@ -43,6 +45,8 @@ class StabilitySelectionPipelineNode(PipelineNode):
             batch_size=10,
             retry_on_error=True,
             max_retries=3,
+            worker_pool=worker_pool,
+            backpressure=backpressure,
         )
 
         self.stability_selection_service = stability_selection_service
@@ -62,6 +66,7 @@ class StabilitySelectionPipelineNode(PipelineNode):
             datasource=SQLDatasourceConfig(**request_data["datasource"]),
             target_column=request_data["target_column"],
             feature_columns=request_data.get("feature_columns"),
+            control_features=request_data.get("control_features"),
             problem_type=request_data.get("problem_type"),
             bootstrap_runs=request_data.get("bootstrap_runs", 50),
             sample_fraction=request_data.get("sample_fraction", 0.8),

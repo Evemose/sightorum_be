@@ -66,7 +66,7 @@ public interface TypeParser {
     int getPriority();
 
     class BooleanParser implements TypeParser {
-        private static final Pattern PATTERN = Pattern.compile("^(true|false|yes|no|y|n|0|1)$", Pattern.CASE_INSENSITIVE);
+        private static final Pattern PATTERN = Pattern.compile("^(true|false|t|f|yes|no|y|n)$", Pattern.CASE_INSENSITIVE);
 
         @Override
         public DataType getDataType() {
@@ -81,8 +81,8 @@ public interface TypeParser {
         @Override
         public Object parse(String value) {
             return switch (value.toLowerCase()) {
-                case "true", "yes", "y", "1" -> true;
-                case "false", "no", "n", "0" -> false;
+                case "true", "t", "yes", "y" -> true;
+                case "false", "f", "no", "n" -> false;
                 default -> throw new IllegalArgumentException("Invalid boolean value: " + value);
             };
         }

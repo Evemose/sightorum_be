@@ -12,6 +12,8 @@ import reactor.core.publisher.Flux;
 
 import java.util.UUID;
 
+import static org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID;
+
 @Component
 @RequiredArgsConstructor
 public class DefaultAiChatService implements AiChatService {
@@ -59,7 +61,7 @@ public class DefaultAiChatService implements AiChatService {
             .system(preprocessor.resolveSystemPrompt(request))
             .user(preprocessor.resolveUserPrompt(request))
             .options(options)
-            .advisors(a -> a.param("chat_memory_conversation_id", chatId));
+            .advisors(a -> a.param(CONVERSATION_ID, chatId));
 
         if (!request.additionalAdvisors().isEmpty()) {
             spec.advisors(request.additionalAdvisors().toArray(Advisor[]::new));

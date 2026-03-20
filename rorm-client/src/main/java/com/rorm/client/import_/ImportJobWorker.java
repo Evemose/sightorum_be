@@ -35,6 +35,7 @@ public class ImportJobWorker {
     private final MetamodelService metamodelService;
     private final ImportProgressPublisher progressPublisher;
     private final ImportPipelineExecutor pipelineExecutor;
+    private final CategoricalValueRefresher categoricalValueRefresher;
     private final DetectionOverrideMapper detectionOverrideMapper;
     private final CoercionStrategyMapper coercionStrategyMapper;
     @Lazy
@@ -101,7 +102,9 @@ public class ImportJobWorker {
 
             var totalRows = finalProgress != null ? finalProgress.rowsProcessed() : 0L;
 
-            metamodelService.saveMetamodel(payload.targetSchema(), result.modelSpace());
+            var refreshedModelSpace = categoricalValueRefresher.refresh(
+                payload.targetSchema(), result.modelSpace());
+            metamodelService.saveMetamodel(payload.targetSchema(), refreshedModelSpace);
 
             job.markCompleted(totalRows);
             jobRepository.save(job);

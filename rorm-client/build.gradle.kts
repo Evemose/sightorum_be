@@ -64,6 +64,10 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
 
+    implementation(platform("software.amazon.awssdk:bom:2.29.45"))
+    implementation("software.amazon.awssdk:ecs")
+    implementation("software.amazon.awssdk:auth")         // picks up ~/.aws/credentials
+
     implementation("org.mapstruct:mapstruct:$mapstructVersion")
 
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")

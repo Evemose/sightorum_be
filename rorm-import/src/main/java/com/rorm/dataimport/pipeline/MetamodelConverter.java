@@ -107,7 +107,7 @@ public class MetamodelConverter {
                 yield new SingularReferenceAttribute(
                     oneToOne.name(),
                     targetRoot,
-                    new ReferenceAttribute.InverseRootTableColumn(oneToOne.name() + "_id")
+                    new ReferenceAttribute.SameTableColumn(targetRoot.idDescriptor().columnName())
                 );
             }
         };

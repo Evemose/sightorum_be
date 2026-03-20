@@ -4,21 +4,16 @@ import joblib
 import logging
 import math
 import numpy as np
-import os
 import pandas as pd
-import psutil
 import sqlglot
 import uuid as uuid_mod
-from concurrent.futures import ThreadPoolExecutor
 from core.exceptions import ModelTrainingError, ValidationError
 from datasource.interface import Datasource
 from dto.requests import StabilitySelectionRequest
 from io import BytesIO
 from lightgbm import LGBMClassifier, LGBMRegressor
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import ElasticNet, LinearRegression, LogisticRegression
 from sklearn.preprocessing import LabelEncoder
-from sklearn.tree import ExtraTreeClassifier
 from sqlglot import exp
 from typing import Any, Callable, Optional
 
@@ -28,8 +23,9 @@ logger = logging.getLogger(__name__)
 class StabilitySelectionService:
     """Run stability selection style feature analysis across multiple model families."""
 
-    def __init__(self, db_storage=None):
+    def __init__(self, db_storage=None, worker_pool=None):
         self.db_storage = db_storage
+        self.worker_pool = worker_pool
 
     @staticmethod
     def _add_random_sampling(sql: str, limit: int, seed: int) -> str:
@@ -76,18 +72,6 @@ class StabilitySelectionService:
                 f"ORDER BY RANDOM() "
                 f"LIMIT {limit}"
             )
-
-    @staticmethod
-    def _get_memory_budget_gb() -> float:
-        """Get usable memory budget in GB (60% of currently available memory)."""
-        try:
-            available = psutil.virtual_memory().available
-            budget = (available / (1024 ** 3)) * 0.6
-            logger.info(f"Available memory: {available / (1024 ** 3):.1f} GB, budget: {budget:.1f} GB")
-            return max(0.5, budget)
-        except Exception:
-            logger.warning("Could not detect available memory, assuming 4 GB budget")
-            return 4.0
 
     def analyze(
             self,
@@ -149,7 +133,10 @@ class StabilitySelectionService:
                 },
             )
 
-        feature_columns = self._resolve_feature_columns(df.columns, request.target_column, request.feature_columns)
+        control_features = request.control_features or []
+        feature_columns = self._resolve_feature_columns(
+            df.columns, request.target_column, request.feature_columns, request.control_features,
+        )
         logger.info(f"Using {len(feature_columns)} feature columns")
         if not feature_columns:
             raise ValidationError(
@@ -172,7 +159,22 @@ class StabilitySelectionService:
                 },
             )
 
-        analysis_df = df.select(feature_columns + [request.target_column]).to_pandas()
+        if control_features:
+            missing_controls = [c for c in control_features if c not in df.columns]
+            if missing_controls:
+                raise ValidationError(
+                    message="Control features not found in dataset",
+                    field_errors={
+                        "control_features": [
+                            f"Missing columns: {', '.join(missing_controls)}"
+                        ]
+                    },
+                )
+
+        select_columns = feature_columns + [request.target_column]
+        if control_features:
+            select_columns = list(dict.fromkeys(select_columns + control_features))
+        analysis_df = df.select(select_columns).to_pandas()
         analysis_df = analysis_df.dropna(subset=[request.target_column]).reset_index(drop=True)
         logger.info(f"Analysis dataset: {len(analysis_df)} rows after removing null targets")
 
@@ -242,11 +244,35 @@ class StabilitySelectionService:
         encoded_array -= col_means
         encoded_array /= col_stds
 
+        if control_features:
+            logger.info(f"Residualising against {len(control_features)} control features")
+            control_frame = analysis_df[control_features].copy()
+            control_encoded_frame = self._encode_features(control_frame)
+            control_array = np.array(control_encoded_frame, dtype=np.float32)
+            del control_encoded_frame
+
+            ctrl_medians = np.nanmedian(control_array, axis=0)
+            ctrl_nan = np.isnan(control_array)
+            if ctrl_nan.any():
+                control_array[ctrl_nan] = ctrl_medians[np.where(ctrl_nan)[1]]
+
+            ctrl_means = control_array.mean(axis=0)
+            ctrl_stds = control_array.std(axis=0)
+            ctrl_stds[ctrl_stds == 0] = 1.0
+            control_array = (control_array - ctrl_means) / ctrl_stds
+
+            encoded_array, y_values = self._residualise(
+                encoded_array, y_values, control_array, problem_type,
+                random_state=request.random_state,
+            )
+            del control_array
+            logger.info("Residualisation complete")
+
         if progress_callback:
-            progress_callback(0.34, "Feature scaling complete")
+            progress_callback(0.34, "Pre-processing complete")
 
         # Adaptive memory-based row downsampling — if encoded shape is still too large
-        memory_budget_gb = self._get_memory_budget_gb()
+        memory_budget_gb = self.worker_pool.metrics.memory_budget_bytes / (1024 ** 3)
         array_gb = encoded_array.nbytes / (1024 ** 3)
         # Each worker needs ~2x the sample slice (copy + sklearn internals)
         min_workers = 2
@@ -322,36 +348,11 @@ class StabilitySelectionService:
             all_sample_indices.append(sample_indices)
 
         model_results = []
-        captured_lgbm_models: list[tuple[Any, np.ndarray]] = []  # (model, sample_indices)
+        captured_lgbm_models: list[tuple[Any, np.ndarray]] = []
 
-        # Check memory requirements and decide on parallelism
         bytes_per_sample = encoded_array.nbytes * (sample_size / len(encoded_array))
-        gb_per_sample = bytes_per_sample / (1024 ** 3)
-        available_workers = (os.cpu_count() / 2 - 1) or 1
-
-        # Since data is pre-imputed and pre-scaled, each worker only needs:
-        #   ~1.5x sample slice (the copy from fancy indexing + estimator internals)
-        # Without pre-processing it was ~3-4x due to SimpleImputer masked arrays
-        worker_memory_multiplier = 1.5
-        gb_per_worker = gb_per_sample * worker_memory_multiplier
-
-        # Use actual available memory instead of hardcoded assumption
-        remaining_budget_gb = memory_budget_gb - (encoded_array.nbytes / (1024 ** 3))
-
-        if gb_per_worker > 2.0 or remaining_budget_gb < gb_per_worker:
-            use_parallel = False
-        else:
-            use_parallel = True
-
-        if use_parallel:
-            max_parallel = max(1, min(available_workers, int(remaining_budget_gb / gb_per_worker)))
-            logger.info(f"Using parallel execution with {max_parallel} workers "
-                        f"(sample: {gb_per_sample:.2f} GB, per-worker: {gb_per_worker:.2f} GB, "
-                        f"budget: {remaining_budget_gb:.1f} GB)")
-            executor = ThreadPoolExecutor(max_workers=max_parallel, thread_name_prefix="stability-")
-        else:
-            logger.info(f"Using sequential execution due to large sample size ({gb_per_sample:.2f} GB)")
-            executor = None
+        bytes_per_task = int(bytes_per_sample * 1.5)
+        logger.info(f"Per-task memory estimate: {bytes_per_task / (1024 ** 3):.2f} GB")
 
         capture_models = self.db_storage is not None
         total_iterations = request.bootstrap_runs * len(model_specs)
@@ -362,87 +363,48 @@ class StabilitySelectionService:
             is_lgbm = model_name == "lightgbm"
             use_capturing = is_lgbm and capture_models
 
-            if executor:
-                logger.info(f"Starting {request.bootstrap_runs} parallel runs for model: {model_name}")
-                futures = []
-                for run_idx in range(request.bootstrap_runs):
-                    sample_indices = all_sample_indices[sample_idx_offset + run_idx]
-                    iteration_fn = self._run_bootstrap_iteration_capturing if use_capturing else self._run_bootstrap_iteration
-                    future = executor.submit(
-                        iteration_fn,
-                        model_name,
-                        factory,
-                        extractor,
-                        encoded_array,
-                        encoded_columns,
-                        y_values,
-                        sample_indices,
-                        feature_columns,
-                        selection_top_k,
-                    )
-                    futures.append((future, sample_indices))
+            logger.info(f"Starting {request.bootstrap_runs} runs for model: {model_name}")
+            futures = []
+            for run_idx in range(request.bootstrap_runs):
+                sample_indices = all_sample_indices[sample_idx_offset + run_idx]
+                iteration_fn = self._run_bootstrap_iteration_capturing if use_capturing else self._run_bootstrap_iteration
+                future = self.worker_pool.submit(
+                    bytes_per_task,
+                    lambda
+                        _fn=iteration_fn, _mn=model_name, _f=factory,
+                        _e=extractor, _si=sample_indices:
+                    _fn(
+                        _mn, _f, _e, encoded_array, encoded_columns,
+                        y_values, _si, feature_columns, selection_top_k,
+                    ),
+                )
+                futures.append((future, sample_indices))
 
-                logger.info(f"Waiting for {len(futures)} bootstrap runs to complete for {model_name}")
-                runs = []
-                for idx, (future, sample_indices) in enumerate(futures):
-                    try:
-                        result = future.result()
-                        if use_capturing:
-                            rankings, fitted_model = result
-                            runs.append(rankings)
-                            captured_lgbm_models.append((fitted_model, sample_indices))
-                        else:
-                            runs.append(result)
-                        global_completed += 1
-                        if (idx + 1) % 10 == 0 or idx == len(futures) - 1:
-                            logger.info(f"  Completed {idx + 1}/{len(futures)} runs for {model_name}")
-                        if progress_callback:
-                            progress_callback(
-                                0.35 + (global_completed / total_iterations) * 0.50,
-                                f"{model_name}: {idx + 1}/{request.bootstrap_runs} iterations",
-                            )
-                    except Exception as e:
-                        logger.error(f"Error in bootstrap run {idx} for {model_name}: {e}", exc_info=True)
-                        raise
-            else:
-                logger.info(f"Starting {request.bootstrap_runs} sequential runs for model: {model_name}")
-                runs = []
-                for run_idx in range(request.bootstrap_runs):
-                    sample_indices = all_sample_indices[sample_idx_offset + run_idx]
-                    try:
-                        if use_capturing:
-                            rankings, fitted_model = self._run_bootstrap_iteration_capturing(
-                                model_name, factory, extractor,
-                                encoded_array, encoded_columns, y_values,
-                                sample_indices, feature_columns, selection_top_k,
-                            )
-                            runs.append(rankings)
-                            captured_lgbm_models.append((fitted_model, sample_indices))
-                        else:
-                            result = self._run_bootstrap_iteration(
-                                model_name, factory, extractor,
-                                encoded_array, encoded_columns, y_values,
-                                sample_indices, feature_columns, selection_top_k,
-                            )
-                            runs.append(result)
-                        global_completed += 1
-                        if (run_idx + 1) % 10 == 0 or run_idx == request.bootstrap_runs - 1:
-                            logger.info(f"  Completed {run_idx + 1}/{request.bootstrap_runs} runs for {model_name}")
-                        if progress_callback:
-                            progress_callback(
-                                0.35 + (global_completed / total_iterations) * 0.50,
-                                f"{model_name}: {run_idx + 1}/{request.bootstrap_runs} iterations",
-                            )
-                    except Exception as e:
-                        logger.error(f"Error in bootstrap run {run_idx} for {model_name}: {e}", exc_info=True)
-                        raise
+            runs = []
+            for idx, (future, sample_indices) in enumerate(futures):
+                try:
+                    result = future.result()
+                    if use_capturing:
+                        rankings, fitted_model = result
+                        runs.append(rankings)
+                        captured_lgbm_models.append((fitted_model, sample_indices))
+                    else:
+                        runs.append(result)
+                    global_completed += 1
+                    if (idx + 1) % 10 == 0 or idx == len(futures) - 1:
+                        logger.info(f"  Completed {idx + 1}/{len(futures)} runs for {model_name}")
+                    if progress_callback:
+                        progress_callback(
+                            0.35 + (global_completed / total_iterations) * 0.50,
+                            f"{model_name}: {idx + 1}/{request.bootstrap_runs} iterations",
+                        )
+                except Exception as e:
+                    logger.error(f"Error in bootstrap run {idx} for {model_name}: {e}", exc_info=True)
+                    raise
 
             sample_idx_offset += request.bootstrap_runs
             logger.info(f"Summarizing results for {model_name}")
             model_results.append(self._summarize_model_runs(model_name, runs, feature_columns))
-
-        if executor:
-            executor.shutdown(wait=False)
 
         # Persist LightGBM models for SHAP analysis
         if progress_callback:
@@ -475,6 +437,7 @@ class StabilitySelectionService:
                 bootstrap_runs=request.bootstrap_runs,
                 encoded_data=encoded_data_bytes,
                 feature_values=feature_values_bytes,
+                control_features=control_features if control_features else None,
             )
 
             # Serialize and batch-insert models
@@ -535,6 +498,13 @@ class StabilitySelectionService:
             "model_results": model_results,
             "consensus": consensus,
         }
+        if control_features:
+            result["methodology"]["residualisation"] = {
+                "method": "frisch_waugh_lovell",
+                "control_features": control_features,
+                "target_residualised": problem_type == "regression",
+            }
+            result["dataset"]["control_features"] = control_features
         if run_id:
             result["run_id"] = run_id
         return result
@@ -620,10 +590,68 @@ class StabilitySelectionService:
             available_columns: list[str],
             target_column: str,
             feature_columns: Optional[list[str]],
+            control_features: Optional[list[str]] = None,
     ) -> list[str]:
         if feature_columns is None:
-            return [column for column in available_columns if column != target_column]
+            exclude = {target_column}
+            if control_features:
+                exclude.update(control_features)
+            return [column for column in available_columns if column not in exclude]
         return feature_columns
+
+    @staticmethod
+    def _residualise(
+            X: np.ndarray,
+            y: np.ndarray,
+            C: np.ndarray,
+            problem_type: str,
+            random_state: int = 42,
+            n_splits: int = 5,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Partial out control variables using LightGBM with k-fold cross-validation.
+
+        For regression: residualise both X and y.
+        For classification: residualise only X (y is categorical).
+
+        Uses out-of-fold predictions to avoid overfitting the residualisation step,
+        and LightGBM to capture nonlinear control-variable effects.
+        """
+        from sklearn.model_selection import KFold
+
+        n_splits = min(n_splits, len(C))
+        if n_splits < 2:
+            return X, y
+
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        folds = list(kf.split(C))
+
+        def _lgbm():
+            return LGBMRegressor(
+                n_estimators=100, learning_rate=0.1,
+                max_depth=4, verbose=-1, random_state=random_state,
+            )
+
+        X_resid = np.empty_like(X)
+        for col_idx in range(X.shape[1]):
+            x_col = X[:, col_idx]
+            preds = np.zeros_like(x_col)
+            for train_idx, val_idx in folds:
+                model = _lgbm()
+                model.fit(C[train_idx], x_col[train_idx])
+                preds[val_idx] = model.predict(C[val_idx])
+            X_resid[:, col_idx] = x_col - preds
+
+        if problem_type == "regression":
+            y_preds = np.zeros(len(y), dtype=np.float64)
+            for train_idx, val_idx in folds:
+                model = _lgbm()
+                model.fit(C[train_idx], y[train_idx])
+                y_preds[val_idx] = model.predict(C[val_idx])
+            y_resid = y - y_preds
+        else:
+            y_resid = y
+
+        return X_resid, y_resid
 
     @staticmethod
     def _infer_problem_type(target_series: pd.Series) -> str:
@@ -744,35 +772,6 @@ class StabilitySelectionService:
                         colsample_bytree=0.8,
                         random_state=random_state,
                         verbose=-1,
-                    ),
-                    self._extract_tree_importances,
-                )
-            )
-
-        if problem_type == "regression":
-            model_specs.append(
-                (
-                    "random_forest",
-                    lambda: ExtraTreesRegressor(
-                        n_estimators=100,
-                        max_depth=8,
-                        max_features="sqrt",
-                        random_state=random_state,
-                        n_jobs=1,
-                    ),
-                    self._extract_tree_importances,
-                )
-            )
-        else:
-            model_specs.append(
-                (
-                    "random_forest",
-                    lambda: ExtraTreesClassifier(
-                        n_estimators=100,
-                        max_depth=8,
-                        max_features="sqrt",
-                        random_state=random_state,
-                        n_jobs=1,
                     ),
                     self._extract_tree_importances,
                 )
@@ -1067,14 +1066,14 @@ class StabilitySelectionService:
 
         linear_features = by_model.get("linear", {})
         elastic_features = by_model.get("elastic_net", {})
-        tree_models = [name for name in ("lightgbm", "random_forest") if name in by_model]
+        tree_features = by_model.get("lightgbm", {})
         nonlinear_candidates = []
 
         for feature in feature_columns:
-            if not tree_models:
-                break
+            if not tree_features or feature not in tree_features:
+                continue
 
-            tree_ranks = [by_model[name][feature]["mean_rank"] for name in tree_models]
+            tree_mean_rank = tree_features[feature]["mean_rank"]
             linear_ranks = []
             if feature in linear_features:
                 linear_ranks.append(linear_features[feature]["mean_rank"])
@@ -1083,7 +1082,7 @@ class StabilitySelectionService:
             if not linear_ranks:
                 continue
 
-            mean_tree_rank = float(np.mean(tree_ranks))
+            mean_tree_rank = float(tree_mean_rank)
             mean_linear_rank = float(np.mean(linear_ranks))
             if mean_linear_rank - mean_tree_rank >= 2.0:
                 nonlinear_candidates.append(

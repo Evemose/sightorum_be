@@ -44,6 +44,10 @@ public class HandlerRegistry {
         this.ternaryOperators = ternaryOperatorHandlers.stream().collect(Collectors.toMap(h -> normalize(h.name()), h -> h));
     }
 
+    private static final Map<String, String> FUNCTION_ALIASES = Map.of(
+        "CASE_WHEN", "CASE"
+    );
+
     private static String normalize(String name) {
         return name.toUpperCase();
     }
@@ -92,7 +96,15 @@ public class HandlerRegistry {
      * @return the handler, or empty if not found
      */
     public Optional<FunctionHandler> findFunction(String name) {
-        return Optional.ofNullable(functions.get(normalize(name)));
+        var normalized = normalize(name);
+        var handler = functions.get(normalized);
+        if (handler == null) {
+            var canonical = FUNCTION_ALIASES.get(normalized);
+            if (canonical != null) {
+                handler = functions.get(canonical);
+            }
+        }
+        return Optional.ofNullable(handler);
     }
 
     /**

@@ -81,6 +81,8 @@ async def lifespan(_: FastAPI):
         except asyncio.CancelledError:
             pass
 
+        container.worker_pool().shutdown(wait=True)
+
         await container.shutdown_resources()
         logger.info("Service stopped")
 

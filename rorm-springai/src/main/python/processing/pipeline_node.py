@@ -4,7 +4,7 @@ import asyncio
 import logging
 import redis.asyncio as redis
 from abc import ABC, abstractmethod
-from core import ModelTrainingError
+from core import ModelTrainingError, ValidationError
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -79,7 +79,9 @@ class PipelineNode(ABC):
             batch_size: int = 1,
             block_time_ms: int = 5000,
             retry_on_error: bool = True,
-            max_retries: int = 3
+            max_retries: int = 3,
+            worker_pool=None,
+            backpressure=None,
     ):
         """
         Initialize pipeline node.
@@ -104,6 +106,8 @@ class PipelineNode(ABC):
         self.block_time_ms = block_time_ms
         self.retry_on_error = retry_on_error
         self.max_retries = max_retries
+        self._worker_pool = worker_pool
+        self._backpressure = backpressure
 
         self._client: Optional[redis.Redis] = None
         self._running = False
@@ -158,6 +162,18 @@ class PipelineNode(ABC):
 
     async def _process_batch(self):
         """Process a batch of messages from input streams."""
+        if self._worker_pool and self._backpressure and self._backpressure.enabled:
+            m = self._worker_pool.metrics
+            if (m.worker_utilization >= self._backpressure.worker_threshold
+                    or m.memory_utilization >= self._backpressure.memory_threshold):
+                logger.debug(
+                    f"Backpressure: workers={m.active_workers}/{m.total_workers}, "
+                    f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
+                    f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB"
+                )
+                await asyncio.sleep(self._backpressure.pause_seconds)
+                return
+
         # Build streams dict for xreadgroup
         streams = {stream: ">" for stream in self.input_streams}
 
@@ -232,7 +248,8 @@ class PipelineNode(ABC):
         """Handle message processing error."""
         message = StreamMessage.from_redis(message_id, fields)
 
-        if not isinstance(error, ModelTrainingError) and self.retry_on_error and message.retry_count < self.max_retries:
+        if (not isinstance(error, ModelTrainingError) and not isinstance(error, ValidationError)
+                and self.retry_on_error and message.retry_count < self.max_retries):
             # Retry message
             message.retry_count += 1
             message.metadata["last_error"] = str(error)

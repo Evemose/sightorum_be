@@ -38,6 +38,9 @@ spring:
     multipart:
       max-file-size: 16GB
       max-request-size: 16GB
+  datasource:
+    hikari:
+      max-lifetime: 18000000  # 5 hours
 
 rorm:
   client:
@@ -48,3 +51,15 @@ rorm:
       reconnect-delay-ms: 3000
   ml:
     durable-execution: true
+    cluster: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS
+    service: MlInfraStack-MlService87EBA3AE-1Z4ZJGFRBWkS
+    startup:
+      enabled: true       # false to skip in tests
+      timeout: PT5M
+      poll-interval: PT3S
+    service-base-url: http://MlInfr-MlAlb-fsf84yGJ69Ex-1790046904.eu-central-1.elb.amazonaws.com:8000
+  ai:
+    throttle:
+      enabled: true
+      max-tokens-per-minute: 400000
+      strategy: UNCACHED_ONLY

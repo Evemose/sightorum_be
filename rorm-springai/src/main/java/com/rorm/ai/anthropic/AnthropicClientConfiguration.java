@@ -8,11 +8,13 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
+@EnableConfigurationProperties(TokenThrottleProperties.class)
 class AnthropicClientConfiguration {
 
     @Bean
@@ -23,8 +25,13 @@ class AnthropicClientConfiguration {
     }
 
     @Bean
-    ChatModel chatModel(AnthropicClient client, ObjectMapper objectMapper) {
-        return new JournaledAnthropicChatModel(client, objectMapper, null);
+    TokenThrottle tokenThrottle(TokenThrottleProperties properties) {
+        return new TokenThrottle(properties);
+    }
+
+    @Bean
+    ChatModel chatModel(AnthropicClient client, ObjectMapper objectMapper, TokenThrottle throttle) {
+        return new JournaledAnthropicChatModel(client, objectMapper, throttle, null);
     }
 
     @Bean

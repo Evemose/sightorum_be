@@ -26,4 +26,8 @@ module rorm.rorm.springai.main {
     requires spring.web;
     requires org.jooq;
     requires java.net.http;
+
+    uses dev.restate.sdk.endpoint.definition.ServiceDefinitionFactory;
+    provides dev.restate.sdk.endpoint.definition.ServiceDefinitionFactory
+        with com.rorm.ml.restate.DurableJobServiceServiceDefinitionFactory;
 }

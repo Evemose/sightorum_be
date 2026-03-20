@@ -4,11 +4,8 @@ import com.rorm.dataimport.naming.NamingStyleDetector;
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.source.CsvDataSource;
 import com.rorm.dataimport.type.DataTypeDetector;
-import com.rorm.metamodel.AttributeLocation;
-import com.rorm.metamodel.BasicAttribute;
-import com.rorm.metamodel.CollectionAttribute;
+import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.BasicElement;
-import com.rorm.metamodel.CompositeAttribute;
 import com.rorm.metamodel.DataType.NumericType;
 import com.rorm.metamodel.DataType.StringType;
 import org.junit.jupiter.api.DisplayName;
@@ -322,6 +319,46 @@ class ModelSpaceDetectorComplexTest {
         var root = modelSpace.roots().iterator().next();
         // Note: OneToOneRoot detection creates special attribute type
         assertThat(root.attributes()).isNotEmpty();
+
+        dataSource.close();
+    }
+
+    @Test
+    @DisplayName("one-to-one root reference uses SameTableColumn mapping — FK lives in parent table")
+    void oneToOneRootUsesSameTableColumnMapping() throws Exception {
+        var csvFile = tempDir.resolve("employees.csv");
+        Files.writeString(csvFile, """
+            id,name,contact_id,contact_email,contact_phone
+            1,Alice,10,alice@work.com,555-0001
+            2,Bob,20,bob@work.com,555-0002
+            """);
+
+        var dataSource = new CsvDataSource(csvFile);
+        var modelSpace = metamodelConverter.convertToModelSpace(modelSpaceDetector.detect(
+            List.of(dataSource),
+            Map.of(),
+            ";"
+        ));
+
+        var employeesRoot = modelSpace.roots().stream()
+            .filter(r -> r.primaryTableName().equals("employees"))
+            .findFirst()
+            .orElseThrow();
+
+        var contactRef = employeesRoot.attributes().stream()
+            .filter(SingularReferenceAttribute.class::isInstance)
+            .map(SingularReferenceAttribute.class::cast)
+            .filter(a -> a.name().equals("contact"))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError(
+                "Expected SingularReferenceAttribute 'contact' on employees root"));
+
+        // FK column (contact_id) is in the parent table (employees), not the target table (contact)
+        assertThat(contactRef.mappingStrategy())
+            .as("OneToOneRoot FK should be SameTableColumn, not InverseRootTableColumn")
+            .isInstanceOf(ReferenceAttribute.SameTableColumn.class);
+        assertThat(((ReferenceAttribute.SameTableColumn) contactRef.mappingStrategy()).columnName())
+            .isEqualTo("contact_id");
 
         dataSource.close();
     }

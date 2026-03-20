@@ -58,7 +58,7 @@ public sealed interface ExpressionDTO permits
 
     @JsonClassDescription("A SQL function call (non-aggregate)")
     record FunctionCallDTO(
-        @JsonPropertyDescription("Name of the SQL function. Examples: 'UPPER', 'LOWER', 'CONCAT', 'COALESCE', 'SUBSTRING'")
+        @JsonPropertyDescription("Name of the SQL function. Examples: 'UPPER', 'LOWER', 'CONCAT', 'COALESCE', 'SUBSTRING', 'CASE' (for CASE WHEN: use CASE with args [condition, thenValue, elseValue])")
         @JsonProperty(required = true)
         String functionName,
 

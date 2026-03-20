@@ -4,9 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.RormAiProperties;
 import com.rorm.ai.RormToolContext;
-import com.rorm.dto.QueryDTO;
+import com.rorm.dto.dense.DenseQueryDto;
 import com.rorm.fetcher.Fetcher;
-import com.rorm.mapper.QueryMapper;
+import com.rorm.mapper.DenseQueryMapper;
 import com.rorm.query.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +26,7 @@ public class QueryExecutionTool {
     private final Fetcher fetcher;
     private final ObjectMapper objectMapper;
     private final RormAiProperties properties;
-    private final QueryMapper queryMapper;
+    private final DenseQueryMapper denseQueryMapper;
 
     @Tool(
         name = "executeQuery",
@@ -39,7 +39,7 @@ public class QueryExecutionTool {
     public String executeQuery(
         @ToolParam(
             description = "The query to execute. Must conform to the Query schema with proper from/selector/where/etc structure."
-        ) QueryDTO queryDTO,
+        ) DenseQueryDto queryDTO,
         ToolContext toolContext
     ) {
         try {
@@ -49,7 +49,7 @@ public class QueryExecutionTool {
             var modelSpace = context.modelSpace();
 
             // Convert DTO to Query entity
-            var query = queryMapper.toEntity(queryDTO, modelSpace);
+            var query = denseQueryMapper.toEntity(queryDTO, modelSpace);
 
             // Apply limit cap
             var effectiveQuery = applyLimitCap(query);

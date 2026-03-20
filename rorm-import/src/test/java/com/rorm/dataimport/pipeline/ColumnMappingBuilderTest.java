@@ -45,4 +45,53 @@ class ColumnMappingBuilderTest {
             .extracting(type -> ((DataType.ListType) type).elementType())
             .isInstanceOf(DataType.NumericType.class);
     }
+
+    @Test
+    @DisplayName("OneToOneRoot produces FK column mapping in parent root")
+    void oneToOneRootProducesFkColumnMapping() {
+        var contactSubAttrs = new LinkedHashMap<String, DetectedAttribute>();
+        contactSubAttrs.put("id", new DetectedAttribute.Basic(
+            "id",
+            new SourceMapping("employees", "contact_id"),
+            new DataType.NumericType(19, 0)
+        ));
+        contactSubAttrs.put("email", new DetectedAttribute.Basic(
+            "email",
+            new SourceMapping("employees", "contact_email"),
+            new DataType.StringType()
+        ));
+        contactSubAttrs.put("phone", new DetectedAttribute.Basic(
+            "phone",
+            new SourceMapping("employees", "contact_phone"),
+            new DataType.StringType()
+        ));
+
+        var attributes = new LinkedHashMap<String, DetectedAttribute>();
+        attributes.put("name", new DetectedAttribute.Basic(
+            "name",
+            new SourceMapping("employees", "name"),
+            new DataType.StringType()
+        ));
+        attributes.put("contact", new DetectedAttribute.OneToOneRoot(
+            "contact", "contact", contactSubAttrs
+        ));
+
+        var root = new SchemaDetector.DetectedRoot(
+            "employees",
+            "employees",
+            attributes,
+            new SchemaDetector.DetectedIdColumn("id", "id", new DataType.NumericType(19, 0))
+        );
+
+        var mappings = new ColumnMappingBuilder().buildMappings(root);
+
+        assertThat(mappings)
+            .filteredOn(mapping -> mapping.dbColumnName().equals("contact_id"))
+            .as("Parent root must include FK column mapping for OneToOneRoot")
+            .singleElement()
+            .satisfies(mapping -> {
+                assertThat(mapping.sourceColumn()).isEqualTo("contact_id");
+                assertThat(mapping.dataType()).isInstanceOf(DataType.NumericType.class);
+            });
+    }
 }

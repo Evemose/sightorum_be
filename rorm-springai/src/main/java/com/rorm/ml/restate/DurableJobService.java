@@ -15,7 +15,7 @@ import org.springframework.util.ReflectionUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 
-@RestateVirtualObject
+@RestateVirtualObject(configuration = "durableJobConfig")
 @Name("DurableJobService")
 @ConditionalOnProperty(name = "rorm.ml.durable-execution", havingValue = "true")
 @RequiredArgsConstructor

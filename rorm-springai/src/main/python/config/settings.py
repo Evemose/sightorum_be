@@ -60,6 +60,20 @@ class TuningConfig:
 
 
 @dataclass
+class WorkerPoolConfig:
+    max_workers: int = 0
+    memory_budget_gb: float = 0.0
+
+
+@dataclass
+class BackpressureConfig:
+    enabled: bool = True
+    worker_threshold: float = 0.8
+    memory_threshold: float = 0.8
+    pause_seconds: float = 1.0
+
+
+@dataclass
 class PipelineStreams:
     tuning_requests: str = "ml_training:tuning_requests"
     training_requests: str = "ml_training:training_requests"
@@ -96,6 +110,8 @@ class Settings:
     tuning: TuningConfig = field(default_factory=TuningConfig)
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     redis: RedisConfig = field(default_factory=RedisConfig)
+    worker_pool: WorkerPoolConfig = field(default_factory=WorkerPoolConfig)
+    backpressure: BackpressureConfig = field(default_factory=BackpressureConfig)
 
     def model_dump(self) -> dict[str, Any]:
         """Convert settings to dictionary."""
@@ -116,6 +132,8 @@ class Settings:
                 consumer_groups=PipelineConsumerGroups(**pipeline_data.get("consumer_groups", {}))
             ),
             redis=RedisConfig(**data.get("redis", {})),
+            worker_pool=WorkerPoolConfig(**data.get("worker_pool", {})),
+            backpressure=BackpressureConfig(**data.get("backpressure", {})),
         )
 
     @classmethod
@@ -210,6 +228,8 @@ class Settings:
             "TUNING_",
             "PIPELINE_",
             "REDIS_",
+            "WORKER_POOL_",
+            "BACKPRESSURE_",
         }
 
         for env_key, env_value in os.environ.items():

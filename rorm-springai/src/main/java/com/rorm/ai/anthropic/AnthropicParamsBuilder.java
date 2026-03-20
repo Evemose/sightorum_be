@@ -87,7 +87,9 @@ public class AnthropicParamsBuilder {
             return;
         }
 
-        var tools = callbacks.stream().map(this::toSdkTool).toList();
+        var tools = callbacks.stream().map(this::toSdkTool)
+            .sorted(java.util.Comparator.comparing(Tool::name))
+            .toList();
         for (int i = 0; i < tools.size(); i++) {
             var tool = tools.get(i);
             if (i == tools.size() - 1 && !webAccess) {
@@ -103,11 +105,26 @@ public class AnthropicParamsBuilder {
     }
 
     private void addMessages(MessageCreateParams.Builder builder, Prompt prompt) {
-        for (var message : prompt.getInstructions()) {
+        var instructions = prompt.getInstructions();
+        var firstUserMessageSeen = false;
+        for (var i = 0; i < instructions.size(); i++) {
+            var message = instructions.get(i);
             switch (message) {
-                case UserMessage user -> builder.addUserMessageOfBlockParams(List.of(
-                    ContentBlockParam.ofText(TextBlockParam.builder().text(user.getText()).build())
-                ));
+                case UserMessage user -> {
+                    var textBuilder = TextBlockParam.builder().text(user.getText());
+                    if (!firstUserMessageSeen) {
+                        firstUserMessageSeen = true;
+                        // usually long prompt, so cache long so even long tool calls hit this
+                        textBuilder.cacheControl(longCache());
+                    }
+                    if (i == instructions.size() - 1) {
+                        // most tool calls are short, so cache short for the last user message to maximize cache hits for tool calls
+                        textBuilder.cacheControl(shortCache());
+                    }
+                    builder.addUserMessageOfBlockParams(List.of(
+                        ContentBlockParam.ofText(textBuilder.build())
+                    ));
+                }
                 case AssistantMessage assistant -> addAssistantMessage(builder, assistant);
                 case ToolResponseMessage toolResp -> addToolResponses(builder, toolResp);
                 case SystemMessage _ -> {
@@ -140,6 +157,10 @@ public class AnthropicParamsBuilder {
                     JsonValue.from(schema.getOrDefault("required", List.of())))
                 .build())
             .build();
+    }
+
+    private CacheControlEphemeral shortCache() {
+        return CacheControlEphemeral.builder().ttl(CacheControlEphemeral.Ttl.TTL_5M).build();
     }
 
     private void addAssistantMessage(MessageCreateParams.Builder builder, AssistantMessage assistant) {

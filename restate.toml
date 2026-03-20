@@ -1,0 +1,10 @@
+[worker.invoker]
+inactivity-timeout = "300m"
+abort-timeout = "300m"
+
+[invocation.default-retry-policy]
+initial-interval = "50ms"
+max-attempts = 3
+max-interval = "60s"
+exponentiation-factor = 2.0
+on-max-attempts = "pause"

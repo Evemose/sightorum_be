@@ -10,6 +10,7 @@ open module rorm.rorm.serialization {
     requires org.jspecify;
 
     exports com.rorm.dto;
+    exports com.rorm.dto.dense;
     exports com.rorm.mapper;
     exports com.rorm.serialization.metamodel;
 }

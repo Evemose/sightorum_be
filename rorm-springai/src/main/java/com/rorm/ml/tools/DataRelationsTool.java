@@ -3,9 +3,9 @@ package com.rorm.ml.tools;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.RormToolContext;
-import com.rorm.dto.QueryDTO;
+import com.rorm.dto.dense.DenseQueryDto;
 import com.rorm.engine.QueryTransformer;
-import com.rorm.mapper.QueryMapper;
+import com.rorm.mapper.DenseQueryMapper;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.dto.DatasourceConfig;
 import com.rorm.ml.dto.ShapJobRequest;
@@ -30,7 +30,7 @@ public class DataRelationsTool {
 
     private final MlTrainingService mlService;
     private final ObjectMapper objectMapper;
-    private final QueryMapper queryMapper;
+    private final DenseQueryMapper denseQueryMapper;
     private final QueryTransformer queryTransformer;
 
     @Tool(
@@ -82,7 +82,7 @@ public class DataRelationsTool {
             Query that returns the data to analyze. Use the same QueryDTO schema as executeQuery.
             Should select the target column and all candidate feature columns.
             """)
-        QueryDTO dataQuery,
+        DenseQueryDto dataQuery,
 
         @ToolParam(description = """
             The outcome column to analyze. Which features drive THIS column?
@@ -95,6 +95,14 @@ public class DataRelationsTool {
             all columns except target are analyzed.
             """)
         @Nullable List<String> featureColumns,
+
+        @ToolParam(description = """
+            Columns to control for via residualisation (Frisch-Waugh-Lovell).
+            Their effects are partialled out from both features and target before analysis,
+            so that stability selection discovers features important ABOVE AND BEYOND
+            these controls. If null, no residualisation is applied.
+            """)
+        @Nullable List<String> controlFeatures,
 
         @ToolParam(description = """
             Problem type: "regression" for numeric targets, "classification" for categorical.
@@ -114,7 +122,7 @@ public class DataRelationsTool {
             log.info("Launching stability selection for target '{}'", targetColumn);
 
             var context = RormToolContext.from(toolContext);
-            var query = queryMapper.toEntity(dataQuery, context.modelSpace());
+            var query = denseQueryMapper.toEntity(dataQuery, context.modelSpace());
             var jooqQuery = queryTransformer.transform(query, context.schema());
 
             var request = StabilitySelectionJobRequest.builder()
@@ -122,6 +130,7 @@ public class DataRelationsTool {
                 .datasource(new DatasourceConfig(jooqQuery.getSQL(), extractBindVariables(jooqQuery)))
                 .targetColumn(targetColumn)
                 .featureColumns(featureColumns)
+                .controlFeatures(controlFeatures)
                 .problemType(problemType)
                 .bootstrapRuns(bootstrapRuns != null ? bootstrapRuns : 50)
                 .sampleFraction(0.8)
