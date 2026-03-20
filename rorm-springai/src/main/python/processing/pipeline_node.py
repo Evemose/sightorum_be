@@ -180,14 +180,15 @@ class PipelineNode(ABC):
             if (m.worker_utilization >= self._backpressure.worker_threshold
                     or m.memory_utilization >= self._backpressure.memory_threshold):
                 self._backpressure_count += 1
-                logger.info(
-                    f"[{self.consumer_name}] backpressure SKIP: "
-                    f"workers={m.active_workers}/{m.total_workers} "
-                    f"({m.worker_utilization:.0%}), "
-                    f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
-                    f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB "
-                    f"({m.memory_utilization:.0%})"
-                )
+                if self._backpressure_count == 1 or self._backpressure_count % 300 == 0:
+                    logger.info(
+                        f"[{self.consumer_name}] backpressure SKIP (x{self._backpressure_count}): "
+                        f"workers={m.active_workers}/{m.total_workers} "
+                        f"({m.worker_utilization:.0%}), "
+                        f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
+                        f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB "
+                        f"({m.memory_utilization:.0%})"
+                    )
                 await asyncio.sleep(self._backpressure.pause_seconds)
                 return
             elif self._batch_count % 12 == 0:
@@ -229,7 +230,18 @@ class PipelineNode(ABC):
                 await asyncio.sleep(0.1)
 
         except redis.ResponseError as e:
-            logger.error(f"Error reading from streams: {e}")
+            if "NOGROUP" in str(e):
+                logger.warning(f"[{self.consumer_name}] consumer group lost, recreating")
+                for stream in self.input_streams:
+                    try:
+                        await self._client.xgroup_create(
+                            stream, self.consumer_group, id="0", mkstream=True
+                        )
+                    except redis.ResponseError as create_err:
+                        if "BUSYGROUP" not in str(create_err):
+                            logger.error(f"Failed to recreate group: {create_err}")
+            else:
+                logger.error(f"Error reading from streams: {e}")
             await asyncio.sleep(1)
 
     async def _process_message(

@@ -66,7 +66,7 @@ class WorkerPool:
             if cls._instance is not None:
                 cls._instance.shutdown(wait=False)
             if max_workers <= 0:
-                max_workers = max(2, (os.cpu_count() or 4) // 2)
+                max_workers = max(2, (os.cpu_count() or 4))
             if memory_budget_gb <= 0.0:
                 try:
                     memory_budget_gb = (psutil.virtual_memory().available / (1024 ** 3)) * 0.6
