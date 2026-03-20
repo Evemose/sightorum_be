@@ -6,6 +6,9 @@ server:
       timeout: 3600000  # 1 hour for long-lived SSE connections
 
 spring:
+  docker:
+    compose:
+      enabled: false
   jooq:
     sql-dialect: postgres
   batch:
@@ -41,7 +44,6 @@ spring:
   datasource:
     hikari:
       max-lifetime: 18000000  # 5 hours
-
 rorm:
   client:
     temp-file-dir: ${java.io.tmpdir}/rorm-uploads
@@ -50,16 +52,10 @@ rorm:
       heartbeat-interval-ms: 30000
       reconnect-delay-ms: 3000
   ml:
-    durable-execution: true
-    cluster: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS
-    service: MlInfraStack-MlServiceAC8BC53F-R1WsD6iG3HoP
-    restateAdminUrl: http://***REMOVED-HOST***:9070
-    restateEndpointHost: https://dfe7-176-97-63-212.ngrok-free.app
     startup:
       enabled: true       # false to skip in tests
-      timeout: PT5M
+      timeout: PT15M
       poll-interval: PT3S
-    service-base-url: http://MlInfr-MlAlb-fsf84yGJ69Ex-1790046904.eu-central-1.elb.amazonaws.com:8000
   ai:
     throttle:
       enabled: true

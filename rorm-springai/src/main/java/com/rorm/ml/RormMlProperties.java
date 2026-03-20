@@ -16,7 +16,6 @@ public record RormMlProperties(
     @DefaultValue("30s") Duration requestTimeout,
     @DefaultValue("5s") Duration connectTimeout,
     @DefaultValue("http://localhost:9070") String restateAdminUrl,
-    @DefaultValue("host.docker.internal") String restateEndpointHost,
-    @DefaultValue("9081") int restateEndpointPort
+    @DefaultValue("http://host.docker.internal:9081") String restateEndpointUrl
 ) {
 }
