@@ -1,6 +1,5 @@
 ### Base URL
-@baseUrl = http://localhost:8000
-@databaseConnection = mydatabase.public.yellow_tripdata_2015_01
+@baseUrl = http://MlInfr-MlAlb-fsf84yGJ69Ex-1790046904.eu-central-1.elb.amazonaws.com
 
 ### ============================================
 ### CLASSIFICATION MODELS
@@ -1264,7 +1263,7 @@ Content-Type: application/json
 
 ### Get SHAP values for a stability selection
 # @timeout 1000 m
-GET {{baseUrl}}/analysis/stability-selection/78d06f65-3430-451c-b684-283c737f5dcf/shap-curves
+GET {{baseUrl}}/analysis/stability-selection/dbb6fa0d-b0f2-4c48-91bc-1816e224fc49/shap-curves?subsample=true
 
 ###
 GET {{baseUrl}}/analysis/stability-selection/runs

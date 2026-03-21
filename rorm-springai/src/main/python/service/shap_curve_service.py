@@ -313,59 +313,88 @@ class ShapCurveService:
         cat_dicts: dict[str, dict[str, float]] = {}
         tail_sensitivities: dict[str, float] = {}
 
+        n_samples = len(sample_indices)
+
+        # --- Pre-extract numeric features ---
+        valid_numeric: list[str] = []
+        feat_shap_list: list[np.ndarray] = []
+        feat_vals_list: list[np.ndarray] = []
+        feat_edges_list: list[np.ndarray] = []
+
         for feat in ctx.target_features:
+            if ctx.feature_types[feat] != "numeric":
+                continue
             indices = ctx.col_mapping[feat]
+            orig = ctx.feature_values_dict.get(feat)
+            edges = ctx.bin_edges.get(feat)
+            if orig is None or edges is None or len(edges) < 2:
+                continue
+            fs = shap_values[:, indices].sum(axis=1) if len(indices) > 1 else shap_values[:, indices[0]]
+            valid_numeric.append(feat)
+            feat_shap_list.append(fs)
+            feat_vals_list.append(orig[sample_indices].astype(np.float64))
+            feat_edges_list.append(edges)
 
-            if ctx.feature_types[feat] == "numeric":
-                feat_shap = shap_values[:, indices].sum(axis=1) if len(indices) > 1 else shap_values[:, indices[0]]
+        # --- Tail sensitivity ---
+        for i, feat in enumerate(valid_numeric):
+            bounds = ctx.tail_bounds.get(feat)
+            if bounds is None:
+                continue
+            p1_val, p99_val = bounds
+            sv = feat_vals_list[i]
+            fs = feat_shap_list[i]
+            valid_mask = ~np.isnan(sv)
+            tail = valid_mask & ((sv < p1_val) | (sv > p99_val))
+            body = valid_mask & ~tail
+            if tail.sum() > 0 and body.sum() > 0:
+                tail_sensitivities[feat] = float(
+                    np.abs(fs[tail]).mean() / (np.abs(fs[body]).mean() + 1e-8)
+                )
 
-                orig_values = ctx.feature_values_dict.get(feat)
-                if orig_values is None:
-                    continue
-                sample_values = orig_values[sample_indices]
+        # --- Vectorized binning: group features by bin count, single bincount per group ---
+        by_n_bins: dict[int, list[int]] = {}
+        for i, edges in enumerate(feat_edges_list):
+            n_b = len(edges) - 1
+            by_n_bins.setdefault(n_b, []).append(i)
 
-                bounds = ctx.tail_bounds.get(feat)
-                if bounds is not None:
-                    p1_val, p99_val = bounds
-                    sv = sample_values.astype(np.float64)
-                    valid = ~np.isnan(sv) if np.issubdtype(sv.dtype, np.floating) else np.ones(len(sv), dtype=bool)
-                    tail = valid & ((sv < p1_val) | (sv > p99_val))
-                    body = valid & ~tail
-                    if tail.sum() > 0 and body.sum() > 0:
-                        tail_sensitivities[feat] = float(
-                            np.abs(feat_shap[tail]).mean() / (np.abs(feat_shap[body]).mean() + 1e-8)
-                        )
+        for n_bins, group in by_n_bins.items():
+            n_feats = len(group)
+            shap_mat = np.column_stack([feat_shap_list[fi] for fi in group])
+            bin_mat = np.empty((n_samples, n_feats), dtype=np.intp)
+            for j, fi in enumerate(group):
+                bin_mat[:, j] = np.digitize(feat_vals_list[fi], feat_edges_list[fi][1:-1])
 
-                edges = ctx.bin_edges.get(feat)
-                if edges is None or len(edges) < 2:
-                    continue
+            offsets = np.arange(n_feats, dtype=np.intp) * n_bins
+            flat_bins = (bin_mat + offsets).ravel()
+            total = n_feats * n_bins
+            sums = np.bincount(flat_bins, weights=shap_mat.ravel(), minlength=total)[:total].reshape(n_feats, n_bins)
+            counts = np.bincount(flat_bins, minlength=total)[:total].reshape(n_feats, n_bins).astype(np.float64)
+            curves = np.full((n_feats, n_bins), np.nan)
+            nonzero = counts > 0
+            curves[nonzero] = sums[nonzero] / counts[nonzero]
 
-                actual_n_bins = len(edges) - 1
-                bin_idx = np.digitize(sample_values, edges[1:-1])  # 0..n_bins-1
-                # Vectorized binning via bincount
-                sums = np.bincount(bin_idx, weights=feat_shap, minlength=actual_n_bins)[:actual_n_bins]
-                counts = np.bincount(bin_idx, minlength=actual_n_bins)[:actual_n_bins].astype(np.float64)
-                curve = np.full(actual_n_bins, np.nan)
-                nonzero = counts > 0
-                curve[nonzero] = sums[nonzero] / counts[nonzero]
+            for j, fi in enumerate(group):
+                numeric_curves[valid_numeric[fi]] = curves[j]
 
-                numeric_curves[feat] = curve
-
-            else:
-                abs_shap = np.abs(shap_values[:, indices]).sum(axis=1) if len(indices) > 1 else np.abs(
-                    shap_values[:, indices[0]])
-
-                orig_values = ctx.feature_values_dict.get(feat)
-                if orig_values is None:
-                    continue
-                sample_values = np.array([str(v) for v in orig_values[sample_indices]])
-
-                cat_shap = {}
-                for cat in np.unique(sample_values):
-                    mask = sample_values == cat
-                    if mask.any():
-                        cat_shap[cat] = float(np.mean(abs_shap[mask]))
-                cat_dicts[feat] = cat_shap
+        # --- Categorical: bincount grouping instead of per-category masking ---
+        for feat in ctx.target_features:
+            if ctx.feature_types[feat] != "categorical":
+                continue
+            indices = ctx.col_mapping[feat]
+            abs_shap = np.abs(shap_values[:, indices]).sum(axis=1) if len(indices) > 1 else np.abs(
+                shap_values[:, indices[0]])
+            orig_values = ctx.feature_values_dict.get(feat)
+            if orig_values is None:
+                continue
+            sample_values = orig_values[sample_indices].astype(str)
+            cats, inverse = np.unique(sample_values, return_inverse=True)
+            cat_sums = np.bincount(inverse, weights=abs_shap, minlength=len(cats))
+            cat_counts = np.bincount(inverse, minlength=len(cats))
+            cat_shap = {}
+            for i, cat in enumerate(cats):
+                if cat_counts[i] > 0:
+                    cat_shap[cat] = float(cat_sums[i] / cat_counts[i])
+            cat_dicts[feat] = cat_shap
 
         return numeric_curves, cat_dicts, tail_sensitivities
 
