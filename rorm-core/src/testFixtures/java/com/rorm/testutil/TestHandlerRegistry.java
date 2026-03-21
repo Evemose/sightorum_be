@@ -70,7 +70,9 @@ public final class TestHandlerRegistry {
                 new StringAggAggregation(),
                 new ArrayAggAggregation(),
                 new BoolAndAggregation(),
-                new BoolOrAggregation()
+                new BoolOrAggregation(),
+                new CorrAggregation(),
+                new RegrSlopeAggregation()
             ))
             // Functions
             .functions(List.of(

@@ -33,7 +33,7 @@ buildscript {
 }
 
 extra["springModulithVersion"] = "1.4.6"
-extra["springAiVersion"] = "1.0.0"
+extra["springAiVersion"] = "1.1.2"
 val jspecifyVersion = "1.0.0"
 
 subprojects {

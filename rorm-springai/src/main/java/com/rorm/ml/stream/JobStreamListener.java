@@ -6,10 +6,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.stream.StreamListener;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -21,6 +24,7 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
     private final ObjectMapper objectMapper;
 
     @Override
+    @Retryable(retryFor = {Exception.class}, backoff = @Backoff(delay = 1000, multiplier = 2))
     public void onMessage(MapRecord<String, String, String> message) {
         log.debug("Received stream message: {}", message.getId());
 
@@ -45,7 +49,15 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
 
         data = fillDefaults(data);
 
-        return objectMapper.convertValue(data, JobEvent.class);
+        var parsed = new HashMap<String, Object>(data);
+        for (var field : List.of("metadata", "metrics")) {
+            var raw = data.get(field);
+            if (raw != null && (raw.startsWith("{") || raw.startsWith("["))) {
+                parsed.put(field, objectMapper.readValue(raw, Object.class));
+            }
+        }
+
+        return objectMapper.convertValue(parsed, JobEvent.class);
     }
 
     private void handleEvent(JobEvent event) {

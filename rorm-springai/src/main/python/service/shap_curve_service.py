@@ -23,6 +23,7 @@ class ShapCurveService:
             features: Optional[list[str]] = None,
             n_bins: int = 100,
             n_breakpoints: int = 1,
+            subsample: bool = False,
             progress_callback: Optional[Callable[[float, str], None]] = None,
     ) -> dict[str, Any]:
         if progress_callback:
@@ -97,7 +98,11 @@ class ShapCurveService:
 
         sample_indices_0 = joblib.load(BytesIO(sample_row["sample_indices"]))
         sample_size = len(sample_indices_0)
-        bytes_per_model = sample_size * len(encoded_columns) * 4 * 3  # X_sample + shap_values + overhead
+        effective_sample_size = sample_size
+        if subsample and bin_edges:
+            max_n_bins = max((len(e) - 1) for e in bin_edges.values())
+            effective_sample_size = min(sample_size, int(max_n_bins * 60))
+        bytes_per_model = effective_sample_size * len(encoded_columns) * 4 * 3  # X_sample + shap_values + overhead
         del sample_row, sample_indices_0
 
         logger.info(f"SHAP per-model memory estimate: {bytes_per_model / (1024 ** 3):.2f} GB")
@@ -114,6 +119,7 @@ class ShapCurveService:
             feature_types=feature_types,
             bin_edges=bin_edges,
             tail_bounds=tail_bounds,
+            subsample=subsample,
         )
 
         # Submit all models to thread pool
@@ -287,6 +293,9 @@ class ShapCurveService:
         sample_indices = joblib.load(BytesIO(row["sample_indices"]))
         del row
 
+        if ctx.subsample:
+            sample_indices = ShapCurveService._subsample_for_shap(sample_indices, ctx, model_idx)
+
         X_sample = ctx.encoded_array[sample_indices]
 
         explainer = shap.TreeExplainer(model)
@@ -359,6 +368,52 @@ class ShapCurveService:
                 cat_dicts[feat] = cat_shap
 
         return numeric_curves, cat_dicts, tail_sensitivities
+
+    @staticmethod
+    def _subsample_for_shap(
+            sample_indices: np.ndarray,
+            ctx: '_ShapWorkerContext',
+            model_idx: int,
+            budget_per_bin: int = 50,
+            min_per_bin: int = 20,
+    ) -> np.ndarray:
+        """Subsample rows for SHAP with bin-coverage guarantees.
+
+        Draws budget_per_bin * max_bins rows uniformly, then patches any numeric
+        bin that received fewer than min_per_bin observations.
+        """
+        n = len(sample_indices)
+        if not ctx.bin_edges:
+            return sample_indices
+
+        max_n_bins = max((len(edges) - 1) for edges in ctx.bin_edges.values())
+        target = max_n_bins * budget_per_bin
+        if n <= target:
+            return sample_indices
+
+        rng = np.random.default_rng(model_idx)
+        chosen = set(rng.choice(n, target, replace=False).tolist())
+
+        for feat, edges in ctx.bin_edges.items():
+            if ctx.feature_types.get(feat) != "numeric" or len(edges) < 2:
+                continue
+            values = ctx.feature_values_dict[feat][sample_indices]
+            n_feat_bins = len(edges) - 1
+            assignments = np.digitize(values, edges[1:-1])
+
+            chosen_arr = np.array(sorted(chosen), dtype=np.intp)
+            chosen_per_bin = np.bincount(assignments[chosen_arr], minlength=n_feat_bins)[:n_feat_bins]
+
+            for b in np.where(chosen_per_bin < min_per_bin)[0]:
+                rows_in_bin = np.where(assignments == b)[0]
+                not_chosen = np.setdiff1d(rows_in_bin, chosen_arr)
+                deficit = min_per_bin - int(chosen_per_bin[b])
+                take = min(deficit, len(not_chosen))
+                if take > 0:
+                    chosen.update(rng.choice(not_chosen, take, replace=False).tolist())
+
+        positions = np.sort(np.array(list(chosen), dtype=np.intp))
+        return sample_indices[positions]
 
     @staticmethod
     def _build_column_mapping(
@@ -435,10 +490,12 @@ class ShapCurveService:
 class _ShapWorkerContext:
     """Read-only context shared across SHAP worker threads."""
     __slots__ = ("encoded_array", "feature_values_dict", "target_features",
-                 "col_mapping", "feature_types", "bin_edges", "tail_bounds")
+                 "col_mapping", "feature_types", "bin_edges", "tail_bounds",
+                 "subsample")
 
     def __init__(self, encoded_array, feature_values_dict, target_features,
-                 col_mapping, feature_types, bin_edges, tail_bounds):
+                 col_mapping, feature_types, bin_edges, tail_bounds,
+                 subsample=False):
         self.encoded_array = encoded_array
         self.feature_values_dict = feature_values_dict
         self.target_features = target_features
@@ -446,3 +503,4 @@ class _ShapWorkerContext:
         self.feature_types = feature_types
         self.bin_edges = bin_edges
         self.tail_bounds = tail_bounds
+        self.subsample = subsample

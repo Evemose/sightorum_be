@@ -28,18 +28,6 @@ export class MlInfraStack extends cdk.Stack {
             noEcho: true,
         });
 
-        const streamName = new cdk.CfnParameter(this, 'StreamName', {
-            type: 'String',
-            default: 'ml-jobs',
-            description: 'Valkey stream name for ML jobs',
-        });
-
-        const groupName = new cdk.CfnParameter(this, 'GroupName', {
-            type: 'String',
-            default: 'ml-workers',
-            description: 'Valkey consumer group name',
-        });
-
         // ========================
         // Networking
         // ========================
@@ -126,7 +114,7 @@ export class MlInfraStack extends cdk.Stack {
             maxCapacity: 5,
         });
 
-        scaling.scaleOnMetric('StreamBackpressure', {
+        scaling.scaleOnMetric('ScaleUp', {
             metric: new cloudwatch.Metric({
                 namespace: 'Custom/ML',
                 metricName: 'MlWorkerDemand',
@@ -134,14 +122,35 @@ export class MlInfraStack extends cdk.Stack {
                 period: cdk.Duration.seconds(60),
             }),
             scalingSteps: [
-                {upper: 0, change: -1},   // no demand → scale in
-                {lower: 1, change: 0},    // minimal demand → hold
-                {lower: 2, change: +1},   // 2+ pending → add 1
-                {lower: 4, change: +2},   // 4+ pending → add 2
+                {lower: 2, change: +1},
+                {lower: 4, change: +2},
             ],
-            cooldown: cdk.Duration.seconds(120),
+            cooldown: cdk.Duration.seconds(60),
             adjustmentType: appscaling.AdjustmentType.CHANGE_IN_CAPACITY,
         });
+
+        const scaleDownPolicy = new appscaling.StepScalingAction(this, 'ScaleDownAction', {
+            scalingTarget: scaling,
+            adjustmentType: appscaling.AdjustmentType.CHANGE_IN_CAPACITY,
+            cooldown: cdk.Duration.seconds(300),
+        });
+        scaleDownPolicy.addAdjustment({adjustment: -1, upperBound: 0});
+
+        const scaleDownAlarm = new cloudwatch.Alarm(this, 'ScaleDownAlarm', {
+            metric: new cloudwatch.Metric({
+                namespace: 'Custom/ML',
+                metricName: 'MlWorkerDemand',
+                statistic: 'Average',
+                period: cdk.Duration.minutes(1),
+            }),
+            threshold: 0.05,
+            comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            evaluationPeriods: 15,
+            datapointsToAlarm: 15,
+            treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+        });
+
+        scaleDownAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.ApplicationScalingAction(scaleDownPolicy));
 
         // ========================
         // Metric Publisher Lambda
@@ -157,6 +166,8 @@ export class MlInfraStack extends cdk.Stack {
                 VALKEY_HOST: valkeyHost.valueAsString,
                 VALKEY_PORT: '6379',
                 VALKEY_PASSWORD: valkeyPassword.valueAsString,
+                ECS_CLUSTER: cluster.clusterName,
+                ECS_SERVICE: service.serviceName,
                 ALB_ARN_SUFFIX: alb.loadBalancerFullName,
                 STREAM_GROUPS: JSON.stringify([
                     ["ml_training:training_requests", "training_workers"],
@@ -170,12 +181,17 @@ from datetime import datetime, timedelta, timezone
 
 cw = boto3.client('cloudwatch')
 
+ecs_client = boto3.client('ecs')
+
 def handler(event, context):
     pending = get_total_pending()
     recent_http = get_recent_request_count()
+    ecs_pending = get_pending_tasks()
 
     if pending > 0:
         value = float(pending)
+    elif ecs_pending > 0:
+        value = 1.0   # tasks still spinning up, don't interfere
     elif recent_http > 0:
         value = 1.0
     else:
@@ -189,9 +205,21 @@ def handler(event, context):
             'Unit': 'Count',
         }]
     )
-    print(f"pending={pending} http={recent_http} published={value}")
-    return {'pending': pending, 'recent_http': recent_http, 'published': value}
+    print(f"pending={pending} http={recent_http} ecs_pending={ecs_pending} published={value}")
+    return {'pending': pending, 'recent_http': recent_http, 'pending': ecs_pending, 'published': value}
 
+
+def get_pending_tasks():
+    try:
+        resp = ecs_client.describe_services(
+            cluster=os.environ['ECS_CLUSTER'],
+            services=[os.environ['ECS_SERVICE']]
+        )
+        svc = resp['services'][0]
+        return svc['pendingCount'] + max(0, svc['desiredCount'] - svc['runningCount'])
+    except Exception as e:
+        print(f"ECS query error: {e}")
+    return 0
 
 def get_total_pending():
     stream_groups = json.loads(os.environ['STREAM_GROUPS'])
@@ -265,7 +293,7 @@ def get_recent_request_count():
 
         // Lambda permissions
         metricFn.addToRolePolicy(new iam.PolicyStatement({
-            actions: ['cloudwatch:PutMetricData', 'cloudwatch:GetMetricStatistics'],
+            actions: ['cloudwatch:PutMetricData', 'cloudwatch:GetMetricStatistics', 'ecs:DescribeServices'],
             resources: ['*'],
         }));
 

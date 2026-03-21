@@ -1,0 +1,13 @@
+[
+  {
+    "Id": "m1",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "Custom/ML",
+        "MetricName": "MlWorkerDemand"
+      },
+      "Period": 60,
+      "Stat": "Average"
+    }
+  }
+]
