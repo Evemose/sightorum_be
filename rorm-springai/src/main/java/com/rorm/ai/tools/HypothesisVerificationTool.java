@@ -6,13 +6,11 @@ import com.rorm.ai.RormToolContext;
 import com.rorm.dto.dense.DenseExpressionDto;
 import com.rorm.fetcher.Fetcher;
 import com.rorm.mapper.DenseQueryMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -21,13 +19,14 @@ import static com.rorm.ai.tools.VerificationQueryBuilder.*;
 import static com.rorm.ai.tools.VerificationQueryExecutor.longVal;
 import static com.rorm.ai.tools.VerificationQueryExecutor.numVal;
 
-
 @SuppressWarnings("unused")
 @Slf4j
 @Component
 @JournaledTool
-@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class HypothesisVerificationTool {
+
+    private static final String EXPR_HINT = "Expression (path for column, or derived e.g. function/binary). " +
+                                            "Paths resolve against the FROM root.";
 
     private final VerificationQueryExecutor executor;
     private final VerificationResponseFormatter formatter;
@@ -46,11 +45,11 @@ public class HypothesisVerificationTool {
         Verdict: SUPPORTED (full mediation) / INCOMPLETE (partial) / CONTRADICTED (no mediation path).""")
     public String verifyScreeningMediation(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to feature A") String featureA,
-        @ToolParam(description = "Path to mediator B") String mediatorB,
-        @ToolParam(description = "Path to outcome variable") String outcome,
+        @ToolParam(description = "Feature A. " + EXPR_HINT) DenseExpressionDto featureA,
+        @ToolParam(description = "Mediator B. " + EXPR_HINT) DenseExpressionDto mediatorB,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
         @ToolParam(description = "Generator's claimed effect size") double generatorNumber,
-        @ToolParam(description = "Optional WHERE filter expression from generator's exploration") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Optional WHERE filter from generator's exploration") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -66,7 +65,6 @@ public class HypothesisVerificationTool {
             var corrAB = numVal(row, "corr_a_b");
             var corrBO = numVal(row, "corr_b_outcome");
             var n = longVal(row, "n");
-
             var partialCorr = partialCorrelation(corrAO, corrAB, corrBO);
 
             String verdict;
@@ -114,10 +112,10 @@ public class HypothesisVerificationTool {
         Verdict: SUPPORTED (absorption complete) / INCOMPLETE (partial) / CONTRADICTED (Y retains signal).""")
     public String verifyProxyAbsorption(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to categorical variable X") String categoricalX,
-        @ToolParam(description = "Path to continuous variable Y") String continuousY,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Categorical variable X to group by. " + EXPR_HINT) DenseExpressionDto categoricalX,
+        @ToolParam(description = "Continuous variable Y. " + EXPR_HINT) DenseExpressionDto continuousY,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -179,12 +177,12 @@ public class HypothesisVerificationTool {
         Verdict: SUPPORTED / CONDITIONAL (Simpson's) / CONTRADICTED.""")
     public String verifyTreatmentDirection(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to treatment variable") String treatment,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "Path to confounder variable to stratify by") String confounder,
+        @ToolParam(description = "Treatment variable. " + EXPR_HINT) DenseExpressionDto treatment,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Confounder to stratify by. " + EXPR_HINT) DenseExpressionDto confounder,
         @ToolParam(description = "'positive', 'negative', or 'null'") String claimedDirection,
         @ToolParam(description = "Minimum stratum size to consider") int minStratumSize,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -270,11 +268,11 @@ public class HypothesisVerificationTool {
         Verdict: EMPIRICALLY_SUPPORTED / PARTIALLY_SUPPORTED / UNSUPPORTED.""")
     public String verifyEffectModifier(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to treatment variable") String treatment,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "Path to modifier variable M") String modifier,
+        @ToolParam(description = "Treatment variable. " + EXPR_HINT) DenseExpressionDto treatment,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Modifier variable M. " + EXPR_HINT) DenseExpressionDto modifier,
         @ToolParam(description = "Whether M appears in stability selection interaction candidates") boolean inInteractionCandidates,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -336,16 +334,16 @@ public class HypothesisVerificationTool {
 
     @Tool(description = """
         ABSENCE / BELOW DETECTION — Tests whether feature F truly has no signal after saturation.
-        
+
         Computes CORR(F, outcome) within a subpopulation where signal is domain-expected
         (filter MUST come from the generator's own exploration thresholds).
-        
+
         Verdict: CONFIRMED_NULL / CONDITIONAL_SIGNAL_EXISTS / UNDERPOWERED.""")
     public String verifyAbsence(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to feature F") String feature,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "WHERE filter restricting to the expected-signal subpopulation (from generator's thresholds)") DenseExpressionDto subpopulationFilter,
+        @ToolParam(description = "Feature F. " + EXPR_HINT) DenseExpressionDto feature,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "WHERE filter restricting to expected-signal subpopulation (from generator's thresholds)") DenseExpressionDto subpopulationFilter,
         @ToolParam(description = "Human-readable description of the subpopulation filter") String subpopulationDefinition,
         ToolContext toolContext
     ) {
@@ -387,17 +385,16 @@ public class HypothesisVerificationTool {
     @Tool(description = """
         ECOLOGICAL FALLACY — Compares between-group vs within-group effects.
 
-        Computes the marginal REGR_SLOPE(outcome, feature) and the average within-group slope
-        (grouped by the most granular grouping available). If within-group diverges from
-        between-group, the marginal analysis suffers from ecological fallacy.
+        Computes the marginal REGR_SLOPE(outcome, feature) and the average within-group slope.
+        If within-group diverges from between-group, the marginal analysis suffers from ecological fallacy.
 
         Verdict: SUPPORTED / ECOLOGICAL.""")
     public String verifyEcologicalFallacy(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to feature variable") String feature,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "Path to grouping variable (most granular available)") String groupingVariable,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Feature variable. " + EXPR_HINT) DenseExpressionDto feature,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Grouping variable (most granular available). " + EXPR_HINT) DenseExpressionDto groupingVariable,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -459,19 +456,18 @@ public class HypothesisVerificationTool {
     }
 
     @Tool(description = """
-        COLLIDER CONDITIONING — Tests whether conditioning on B induces a spurious correlation between
-        treatment and confounder.
+        COLLIDER CONDITIONING — Tests whether conditioning on B induces spurious correlation.
 
-        Computes CORR(treatment, confounder) unconditionally, then CORR(treatment, confounder) within
-        strata of B. If conditioning increases the correlation, B is likely a collider.
+        Computes CORR(treatment, confounder) unconditionally, then within strata of B.
+        If conditioning increases the correlation, B is likely a collider.
 
         Verdict: COLLIDER_WARNING / SAFE / NEUTRAL.""")
     public String verifyColliderConditioning(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to treatment variable") String treatment,
-        @ToolParam(description = "Path to confounder variable") String confounderVar,
-        @ToolParam(description = "Path to suspected collider variable B") String colliderB,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Treatment variable. " + EXPR_HINT) DenseExpressionDto treatment,
+        @ToolParam(description = "Confounder variable. " + EXPR_HINT) DenseExpressionDto confounderVar,
+        @ToolParam(description = "Suspected collider B. " + EXPR_HINT) DenseExpressionDto colliderB,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -534,17 +530,16 @@ public class HypothesisVerificationTool {
     @Tool(description = """
         SURVIVORSHIP BIAS — Tests whether a weak/no effect is due to selective removal of high-risk units.
 
-        Compares AVG(outcome) between active and retired/removed units at similar ages.
-        The statusFlag attribute must partition units into two groups where one value marks
-        retired/removed units.
+        Compares AVG(outcome) between active and retired/removed units.
+        The statusFlag must partition units into groups where one value marks retired units.
 
         Verdict: SURVIVORSHIP_CONFIRMED / SURVIVORSHIP_UNLIKELY / UNDERPOWERED / UNTESTABLE.""")
     public String verifySurvivorshipBias(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "Path to status flag that distinguishes active/retired") String statusFlag,
-        @ToolParam(description = "The value of statusFlag that marks retired/removed units (e.g., 'retired', 'inactive', 'true')") String retiredValue,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Status flag distinguishing active/retired. " + EXPR_HINT) DenseExpressionDto statusFlag,
+        @ToolParam(description = "Value of statusFlag marking retired units (e.g. 'retired', 'true')") String retiredValue,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -611,10 +606,10 @@ public class HypothesisVerificationTool {
         Verdict: SUPPORTED / TEMPORAL_CONFOUND / CONDITIONAL.""")
     public String verifyTemporalConfounding(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to cohort/vintage variable") String cohortVariable,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "Path to time period variable") String timePeriod,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Cohort/vintage variable. " + EXPR_HINT) DenseExpressionDto cohortVariable,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Time period variable. " + EXPR_HINT) DenseExpressionDto timePeriod,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -683,16 +678,15 @@ public class HypothesisVerificationTool {
     @Tool(description = """
         SAMPLE SIZE ADEQUACY — Tests whether a stratified finding has adequate statistical power.
         
-        Computes per-stratum: n, AVG(outcome) as effect proxy, base_rate approximation.
-        Derives detectable effect size at each n using 16/(n*p*delta^2) and confidence interval width.
+        Computes per-stratum: n, AVG(outcome), detectable effect size, confidence interval width.
         
         Verdict: ADEQUATE / PARTIALLY_ADEQUATE / UNDERPOWERED.""")
     public String verifySampleSizeAdequacy(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to stratification variable") String stratumVariable,
-        @ToolParam(description = "Path to outcome variable") String outcome,
+        @ToolParam(description = "Stratification variable. " + EXPR_HINT) DenseExpressionDto stratumVariable,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
         @ToolParam(description = "Minimum meaningful effect size (delta)") double minimumMeaningfulEffect,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -708,7 +702,7 @@ public class HypothesisVerificationTool {
             for (var row : results) {
                 var n = longVal(row, "n");
                 var observedEffect = numVal(row, "observed_effect");
-                var baseRate = Math.max(0.01, Math.min(0.99, observedEffect));
+                var baseRate = Math.clamp(observedEffect, 0.01, 0.99);
 
                 var detectableEffect = Math.sqrt(16.0 / (n * baseRate));
                 var ciWidth = 1.96 * Math.sqrt(baseRate * (1 - baseRate) / n);
@@ -760,17 +754,17 @@ public class HypothesisVerificationTool {
     @Tool(description = """
         CONFOUNDER COMPLETENESS — Tests whether a DAG edge (treatment -> outcome) is missing confounders.
         
-        For each candidate variable: computes CORR(candidate, treatment) and CORR(candidate, outcome).
+        For each candidate: computes CORR(candidate, treatment) and CORR(candidate, outcome).
         If any unlisted variable correlates with both, the DAG is incomplete.
-        
+
         Verdict: COMPLETE / MISSING_CONFOUNDER.""")
     public String verifyConfounderCompleteness(
         @ToolParam(description = "Root entity name") String rootName,
-        @ToolParam(description = "Path to treatment variable") String treatment,
-        @ToolParam(description = "Path to outcome variable") String outcome,
-        @ToolParam(description = "Paths to candidate variables NOT already in the confounder set") List<String> candidateVariables,
+        @ToolParam(description = "Treatment variable. " + EXPR_HINT) DenseExpressionDto treatment,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Candidate expressions NOT already in the confounder set") List<DenseExpressionDto> candidateVariables,
         @ToolParam(description = "Minimum correlation threshold to flag a missing confounder") double correlationThreshold,
-        @ToolParam(description = "Optional WHERE filter expression") @Nullable DenseExpressionDto filter,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
         ToolContext toolContext
     ) {
         try {
@@ -792,7 +786,8 @@ public class HypothesisVerificationTool {
                     && Math.abs(corrOutcome) >= correlationThreshold
                     && n >= 100) {
                     var biasDirection = (corrTreatment * corrOutcome > 0) ? "positive" : "negative";
-                    missingConfounders.add(Map.of("variable", candidate,
+                    var label = candidate.path() != null ? candidate.path() : candidate.toString();
+                    missingConfounders.add(Map.of("variable", label,
                         "corr_with_treatment", corrTreatment, "corr_with_outcome", corrOutcome,
                         "bias_direction", biasDirection, "n", n));
                 }
@@ -813,8 +808,8 @@ public class HypothesisVerificationTool {
                         Math.abs((double) m.get("corr_with_treatment")) * Math.abs((double) m.get("corr_with_outcome"))))
                     .orElseThrow();
                 executorNote = String.format("Missing confounder(s). Strongest: %s (r_treat=%.3f, r_out=%.3f, bias=%s). Total: %d",
-                    strongest.get("variable"), strongest.get("corr_with_treatment"),
-                    strongest.get("corr_with_outcome"), strongest.get("bias_direction"),
+                    strongest.get("variable"), (double) strongest.get("corr_with_treatment"),
+                    (double) strongest.get("corr_with_outcome"), strongest.get("bias_direction"),
                     missingConfounders.size());
             }
 

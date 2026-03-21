@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.rorm.dto.dense.DenseExpressionDto.path;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
@@ -175,7 +176,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyScreeningMediation(
-                "obs", "feature_a", "mediator_b", "outcome", 0.8, null, toolContext);
+                "obs", path("feature_a"), path("mediator_b"), path("outcome"), 0.8, null, toolContext);
 
             assertThat(parse(result).get("success")).isEqualTo(true);
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
@@ -200,7 +201,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyScreeningMediation(
-                "obs", "feature_a", "mediator_b", "outcome", 0.8, null, toolContext);
+                "obs", path("feature_a"), path("mediator_b"), path("outcome"), 0.8, null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("CONTRADICTED");
             assertThat(material(result)).isTrue();
@@ -227,7 +228,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyScreeningMediation(
-                "obs", "feature_a", "mediator_b", "outcome", 0.8, null, toolContext);
+                "obs", path("feature_a"), path("mediator_b"), path("outcome"), 0.8, null, toolContext);
 
             assertThat(verdict(result)).isIn("INCOMPLETE", "CONDITIONAL");
             assertThat(material(result)).isTrue();
@@ -262,7 +263,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyProxyAbsorption(
-                "obs", "category_x", "continuous_y", "outcome", null, toolContext);
+                "obs", path("category_x"), path("continuous_y"), path("outcome"), null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
             assertThat(material(result)).isFalse();
@@ -284,7 +285,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyProxyAbsorption(
-                "obs", "category_x", "continuous_y", "outcome", null, toolContext);
+                "obs", path("category_x"), path("continuous_y"), path("outcome"), null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("CONTRADICTED");
             assertThat(material(result)).isTrue();
@@ -313,7 +314,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyTreatmentDirection(
-                "obs", "treatment", "outcome", "confounder", "positive", 10, null, toolContext);
+                "obs", path("treatment"), path("outcome"), path("confounder"), "positive", 10, null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
             assertThat(material(result)).isFalse();
@@ -342,7 +343,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyTreatmentDirection(
-                "obs", "treatment", "outcome", "confounder", "positive", 10, null, toolContext);
+                "obs", path("treatment"), path("outcome"), path("confounder"), "positive", 10, null, toolContext);
 
             // Within both strata, treatment reduces outcome (negative), contradicting claimed "positive".
             // Both strata flip → flippedStrata(2) >= totalValid(2)/2 → CONTRADICTED.
@@ -374,7 +375,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyEffectModifier(
-                "obs", "treatment", "outcome", "modifier", true, null, toolContext);
+                "obs", path("treatment"), path("outcome"), path("modifier"), true, null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("EMPIRICALLY_SUPPORTED");
             assertThat(material(result)).isTrue();
@@ -396,7 +397,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyEffectModifier(
-                "obs", "treatment", "outcome", "modifier", false, null, toolContext);
+                "obs", path("treatment"), path("outcome"), path("modifier"), false, null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("UNSUPPORTED");
             assertThat(material(result)).isFalse();
@@ -430,7 +431,7 @@ class HypothesisVerificationToolTest {
             );
 
             var result = tool.verifyAbsence(
-                "obs", "feature_a", "outcome", filter, "treatment=1", toolContext);
+                "obs", path("feature_a"), path("outcome"), filter, "treatment=1", toolContext);
 
             assertThat(verdict(result)).isEqualTo("CONFIRMED_NULL");
             assertThat(material(result)).isFalse();
@@ -454,7 +455,7 @@ class HypothesisVerificationToolTest {
             );
 
             var result = tool.verifyAbsence(
-                "obs", "feature_a", "outcome", filter, "treatment=1", toolContext);
+                "obs", path("feature_a"), path("outcome"), filter, "treatment=1", toolContext);
 
             assertThat(verdict(result)).isEqualTo("CONDITIONAL_SIGNAL_EXISTS");
             assertThat(material(result)).isTrue();
@@ -483,7 +484,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyEcologicalFallacy(
-                "obs", "feature_a", "outcome", "group_var", null, toolContext);
+                "obs", path("feature_a"), path("outcome"), path("group_var"), null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
             assertThat(material(result)).isFalse();
@@ -516,7 +517,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyEcologicalFallacy(
-                "obs", "feature_a", "outcome", "group_var", null, toolContext);
+                "obs", path("feature_a"), path("outcome"), path("group_var"), null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("ECOLOGICAL");
             assertThat(material(result)).isTrue();
@@ -549,7 +550,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyColliderConditioning(
-                "obs", "treatment", "confounder", "mediator_b", null, toolContext);
+                "obs", path("treatment"), path("confounder"), path("mediator_b"), null, toolContext);
 
             assertThat(verdict(result)).isIn("SAFE", "NEUTRAL");
             assertThat(material(result)).isFalse();
@@ -573,7 +574,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyColliderConditioning(
-                "obs", "treatment", "confounder", "mediator_b", null, toolContext);
+                "obs", path("treatment"), path("confounder"), path("mediator_b"), null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("COLLIDER_WARNING");
             assertThat(material(result)).isTrue();
@@ -601,7 +602,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifySurvivorshipBias(
-                "obs", "outcome", "status_flag", "retired", null, toolContext);
+                "obs", path("outcome"), path("status_flag"), "retired", null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("SURVIVORSHIP_CONFIRMED");
             assertThat(material(result)).isTrue();
@@ -626,7 +627,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifySurvivorshipBias(
-                "obs", "outcome", "status_flag", "retired", null, toolContext);
+                "obs", path("outcome"), path("status_flag"), "retired", null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("SURVIVORSHIP_UNLIKELY");
             assertThat(material(result)).isFalse();
@@ -656,7 +657,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyTemporalConfounding(
-                "obs", "cohort", "outcome", "time_period", null, toolContext);
+                "obs", path("cohort"), path("outcome"), path("time_period"), null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
             assertThat(material(result)).isFalse();
@@ -686,7 +687,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyTemporalConfounding(
-                "obs", "cohort", "outcome", "time_period", null, toolContext);
+                "obs", path("cohort"), path("outcome"), path("time_period"), null, toolContext);
 
             // Overall gradient could be positive (later cohorts in later periods with different baselines),
             // but within each period the gradient is negative
@@ -719,7 +720,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifySampleSizeAdequacy(
-                "obs", "category_x", "outcome", 1.0, null, toolContext);
+                "obs", path("category_x"), path("outcome"), 1.0, null, toolContext);
 
             // 3 strata × 200 rows each, minimumMeaningfulEffect=1.0 → all strata adequate
             assertThat(verdict(result)).isEqualTo("ADEQUATE");
@@ -743,7 +744,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifySampleSizeAdequacy(
-                "obs", "category_x", "outcome", 0.05, null, toolContext);
+                "obs", path("category_x"), path("outcome"), 0.05, null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("UNDERPOWERED");
             assertThat(material(result)).isTrue();
@@ -772,7 +773,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyConfounderCompleteness(
-                "obs", "treatment", "outcome", List.of("candidate_z"), 0.15, null, toolContext);
+                "obs", path("treatment"), path("outcome"), List.of(path("candidate_z")), 0.15, null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("COMPLETE");
             assertThat(material(result)).isFalse();
@@ -792,7 +793,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyConfounderCompleteness(
-                "obs", "treatment", "outcome", List.of("candidate_z"), 0.15, null, toolContext);
+                "obs", path("treatment"), path("outcome"), List.of(path("candidate_z")), 0.15, null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("MISSING_CONFOUNDER");
             assertThat(material(result)).isTrue();
@@ -847,7 +848,7 @@ class HypothesisVerificationToolTest {
             );
 
             var result = tool.verifyScreeningMediation(
-                "obs", "feature_a", "mediator_b", "outcome", 0.9, filter, toolContext);
+                "obs", path("feature_a"), path("mediator_b"), path("outcome"), 0.9, filter, toolContext);
 
             assertThat(parse(result).get("success")).isEqualTo(true);
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
@@ -865,7 +866,7 @@ class HypothesisVerificationToolTest {
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyScreeningMediation(
-                "obs", "feature_a", "mediator_b", "outcome", 0.5, null, toolContext);
+                "obs", path("feature_a"), path("mediator_b"), path("outcome"), 0.5, null, toolContext);
             var parsed = parse(result);
 
             assertThat(parsed).containsKeys("success", "pattern", "verdict", "material",
