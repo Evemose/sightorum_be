@@ -4,6 +4,7 @@ import com.rorm.dataimport.pipeline.profile.SchemaAnalyzer;
 import com.rorm.dataimport.pipeline.profile.SchemaProfileStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -13,6 +14,7 @@ import reactor.core.scheduler.Schedulers;
 @Component
 @Order(6)
 @RequiredArgsConstructor
+@ConditionalOnBean({SchemaProfileStore.class})
 public class AnalyzeSchemaStep implements ImportStep<ImportResult, ImportResult> {
 
     private final SchemaAnalyzer analyzer;

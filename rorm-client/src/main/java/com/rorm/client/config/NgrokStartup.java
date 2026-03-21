@@ -1,11 +1,13 @@
 package com.rorm.client.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 @Profile("dev")
 public class NgrokStartup implements SmartLifecycle {
@@ -20,6 +22,7 @@ public class NgrokStartup implements SmartLifecycle {
                 "unsiding-sparrowless-chaya.ngrok-free.dev"
             ).inheritIO().start();
         } catch (IOException e) {
+            log.warn("Failed to run ngrok tunnel", e);
             throw new RuntimeException(e);
         }
     });

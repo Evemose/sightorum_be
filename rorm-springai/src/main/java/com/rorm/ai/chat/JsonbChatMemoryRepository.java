@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,23 +14,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@RequiredArgsConstructor
 public class JsonbChatMemoryRepository implements ChatMemoryRepository {
 
-    static final String THINKING = "THINKING";
-    static final String SERVER_TOOL = "SERVER_TOOL";
+    private static final String THINKING = "THINKING";
+    private static final String SERVER_TOOL = "SERVER_TOOL";
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
-    public JsonbChatMemoryRepository(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.objectMapper = objectMapper;
-    }
-
     @Override
     public List<String> findConversationIds() {
         return jdbcTemplate.queryForList(
-            "SELECT DISTINCT conversation_id FROM chat_memory ORDER BY conversation_id",
+            "select distinct conversation_id from chat_memory order by conversation_id",
             String.class
         );
     }
@@ -37,13 +34,12 @@ public class JsonbChatMemoryRepository implements ChatMemoryRepository {
     @Override
     public List<Message> findByConversationId(String conversationId) {
         return jdbcTemplate.query(
-            "SELECT message_type, payload FROM chat_memory WHERE conversation_id = ? ORDER BY created_at",
+            "select message_type, payload from chat_memory where conversation_id = ? order by created_at",
             (rs, _) -> toMessage(rs.getString("message_type"), readPayload(rs.getString("payload"))),
             conversationId
         );
     }
 
-    @SuppressWarnings("unchecked")
     private static Message toMessage(String type, Payload payload) {
         var text = payload.text() != null ? payload.text() : "";
         var metadata = payload.metadata() != null ? payload.metadata() : Map.<String, Object>of();
@@ -86,14 +82,12 @@ public class JsonbChatMemoryRepository implements ChatMemoryRepository {
         }
     }
 
-    // -- payload DTOs --
-
     @Override
     @Transactional
     public void saveAll(String conversationId, List<Message> messages) {
         jdbcTemplate.update("delete from chat_memory where conversation_id = ?", conversationId);
         jdbcTemplate.batchUpdate(
-            "INSERT INTO chat_memory (conversation_id, message_type, payload) VALUES (?, ?, ?::jsonb)",
+            "insert into chat_memory (conversation_id, message_type, payload) values (?, ?, ?::jsonb)",
             messages, messages.size(),
             (ps, message) -> {
                 ps.setString(1, conversationId);
@@ -116,8 +110,7 @@ public class JsonbChatMemoryRepository implements ChatMemoryRepository {
         metadata.remove("messageType");
 
         List<ToolCallDto> toolCalls = null;
-        if (message instanceof AssistantMessage am
-            && am.getToolCalls() != null && !am.getToolCalls().isEmpty()) {
+        if (message instanceof AssistantMessage am && !am.getToolCalls().isEmpty()) {
             toolCalls = am.getToolCalls().stream()
                 .map(tc -> new ToolCallDto(tc.id(), tc.type(), tc.name(), tc.arguments()))
                 .toList();

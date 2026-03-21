@@ -1,9 +1,11 @@
 package com.rorm.ml.restate;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
 import com.rorm.ml.RormMlProperties;
 import com.rorm.ml.stream.DurableRendezvous;
 import com.rorm.ml.stream.JobCompletionHandler;
+import com.rorm.ml.stream.JobEvent;
 import com.rorm.ml.stream.JobFutureRegistry;
 import dev.restate.client.Client;
 import dev.restate.sdk.endpoint.definition.InvocationRetryPolicy;
@@ -13,7 +15,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.web.client.RestClient;
 
 import java.lang.annotation.ElementType;
@@ -54,9 +59,24 @@ public class RestateConfiguration {
         return new RestateDurableRuntime(restateClient, restateAdminClient);
     }
 
+    @Bean(defaultCandidate = false)
+    public RedisTemplate<String, JobEvent> jobEventRedisTemplate(
+        ObjectMapper objectMapper,
+        RedisConnectionFactory redisConnectionFactory
+    ) {
+        var template = new RedisTemplate<String, JobEvent>();
+        template.setConnectionFactory(redisConnectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new Jackson2JsonRedisSerializer<>(objectMapper, JobEvent.class));
+        return template;
+    }
+
     @Bean
-    public DurableRendezvous durableRendezvous(RedisTemplate<String, Object> redisTemplate) {
-        return new DurableRendezvous(redisTemplate);
+    public DurableRendezvous durableRendezvous(
+        RedisTemplate<String, Object> redisTemplate,
+        @Qualifier("jobEventRedisTemplate") RedisTemplate<String, JobEvent> jobEventRedisTemplate
+    ) {
+        return new DurableRendezvous(redisTemplate, jobEventRedisTemplate);
     }
 
     @Bean

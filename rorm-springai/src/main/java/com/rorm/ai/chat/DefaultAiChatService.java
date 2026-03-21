@@ -6,14 +6,16 @@ import com.rorm.StepJournal;
 import com.rorm.ai.anthropic.AnthropicChatOptions;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID;
 
 @Component
 @RequiredArgsConstructor
@@ -23,6 +25,7 @@ public class DefaultAiChatService implements AiChatService {
     private static final ConcurrentHashMap<String, ChatRequest<?>> PENDING_REQUESTS = new ConcurrentHashMap<>();
 
     private final ChatClient chatClient;
+    private final ChatMemory chatMemory;
     private final ChatRequestPreprocessor preprocessor;
     private final DurableRuntime durableRuntime;
 
@@ -50,7 +53,6 @@ public class DefaultAiChatService implements AiChatService {
     private ChatClient.ChatClientRequestSpec buildSpec(ChatRequest<?> request) {
         var callbacks = preprocessor.resolveToolCallbacks(request);
         var toolContext = preprocessor.buildToolContext(request);
-        var chatId = request.chatId() != null ? request.chatId() : UUID.randomUUID().toString();
 
         var options = AnthropicChatOptions.builder()
             .model(request.modelName())
@@ -59,19 +61,25 @@ public class DefaultAiChatService implements AiChatService {
             .toolCallbacks(callbacks)
             .toolContext(toolContext.getContext())
             .journal(StepJournal.current())
+            .cachingStrategyFunction(request.cachingStrategyFunction())
             .build();
 
-        var spec = chatClient.prompt()
+        var advisors = buildAdvisors(request);
+        return chatClient.prompt()
             .system(preprocessor.resolveSystemPrompt(request))
             .user(preprocessor.resolveUserPrompt(request))
             .options(options)
-            .advisors(a -> a.param(CONVERSATION_ID, chatId));
+            .advisors(advisors);
+    }
 
-        if (!request.additionalAdvisors().isEmpty()) {
-            spec.advisors(request.additionalAdvisors().toArray(Advisor[]::new));
+    private List<Advisor> buildAdvisors(ChatRequest<?> request) {
+        var baseAdvisors = new ArrayList<>(request.additionalAdvisors());
+        if (baseAdvisors.stream().noneMatch(MessageChatMemoryAdvisor.class::isInstance)) {
+            baseAdvisors.add(MessageChatMemoryAdvisor.builder(chatMemory)
+                .conversationId(request.chatId() != null ? request.chatId() : UUID.randomUUID().toString())
+                .build());
         }
-
-        return spec;
+        return baseAdvisors;
     }
 
     @SuppressWarnings("unused")

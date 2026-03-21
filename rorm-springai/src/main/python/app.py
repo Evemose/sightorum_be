@@ -400,6 +400,7 @@ def _add_analysis_routes(app: FastAPI):
             features: Optional[str] = Query(None, description="Comma-separated feature names"),
             n_bins: int = Query(100, ge=10, le=1000),
             n_breakpoints: int = Query(1, ge=1, le=5),
+            subsample: bool = Query(False, description="Subsample rows for faster SHAP on large datasets"),
             shap_curve_service=Depends(Provide[ApplicationContainer.shap_curve_service]),
     ):
         """Compute averaged SHAP dependence curves for a stability selection run."""
@@ -413,6 +414,7 @@ def _add_analysis_routes(app: FastAPI):
                 features=feature_list,
                 n_bins=n_bins,
                 n_breakpoints=n_breakpoints,
+                subsample=subsample,
             ),
         )
 

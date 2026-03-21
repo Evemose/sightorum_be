@@ -3,7 +3,6 @@ package com.rorm.ml.stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 
-import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,21 +16,23 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DurableRendezvous {
 
-    private static final Duration TTL = Duration.ofDays(7);
     private static final String AWK_PREFIX = "durable:awk:";
     private static final String EVT_PREFIX = "durable:evt:";
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> defaultRedisTemplate;
+    private final RedisTemplate<String, JobEvent> jobEventRedisTemplate;
 
     /**
      * Store an awakeable registration. If the event already arrived, returns it immediately.
      */
     public Optional<JobEvent> register(UUID jobId, String awakeableId) {
-        redisTemplate.opsForValue().set(awkKey(jobId), awakeableId, TTL);
-
-        var early = redisTemplate.opsForValue().getAndDelete(evtKey(jobId));
+        var early = jobEventRedisTemplate.opsForValue().get(evtKey(jobId));
         if (early instanceof JobEvent event) {
-            redisTemplate.delete(awkKey(jobId));
+            return Optional.of(event);
+        }
+        defaultRedisTemplate.opsForValue().set(awkKey(jobId), awakeableId);
+        early = jobEventRedisTemplate.opsForValue().get(evtKey(jobId));
+        if (early instanceof JobEvent event) {
             return Optional.of(event);
         }
         return Optional.empty();
@@ -50,18 +51,16 @@ public class DurableRendezvous {
      * Otherwise buffers the event for a later {@link #register} call.
      */
     public Optional<String> eventArrived(UUID jobId, JobEvent event) {
-        var existing = redisTemplate.opsForValue().getAndDelete(awkKey(jobId));
+        // Always buffer event for session replays
+        jobEventRedisTemplate.opsForValue().set(evtKey(jobId), event);
+        var existing = defaultRedisTemplate.opsForValue().get(awkKey(jobId));
         if (existing instanceof String awakeableId) {
             return Optional.of(awakeableId);
         }
 
-        // Buffer event for later registration
-        redisTemplate.opsForValue().set(evtKey(jobId), event, TTL);
-
-        // Double-check: registration might have arrived between getAndDelete and set
-        existing = redisTemplate.opsForValue().getAndDelete(awkKey(jobId));
+        // Double-check: registration might have arrived between get and set
+        existing = defaultRedisTemplate.opsForValue().get(awkKey(jobId));
         if (existing instanceof String awakeableId) {
-            redisTemplate.delete(evtKey(jobId));
             return Optional.of(awakeableId);
         }
 

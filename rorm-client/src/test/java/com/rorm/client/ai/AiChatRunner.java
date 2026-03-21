@@ -2,6 +2,7 @@ package com.rorm.client.ai;
 
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
+import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
 import com.rorm.ai.chat.*;
 import com.rorm.client.ai.AiChatRunner.AgentJP;
 import com.rorm.client.metamodel.MetamodelService;
@@ -11,6 +12,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.util.Objects;
+
+import static com.rorm.client.ai.AiChatRunner.SwarmResearchPromptsV2.GENERATOR_CACHE_STRATEGY;
 
 /**
  * Manual runner for testing AI chat workflows against real data.
@@ -446,7 +451,7 @@ class AiChatRunner {
     @Test
     void simpleChat() {
         //noinspection ConstantValue
-        if (true) { // guard from accidental execution
+        if (false) { // guard from accidental execution
             durableRuntime.submit("runner-generator-v3", new JobSpec("agentJp", "run"));
         }
     }
@@ -818,6 +823,8 @@ class AiChatRunner {
             </query>
             """;
 
+        CacheStrategy SCOUT_CACHE_STRATEGY = _ -> CacheTTL.SHORT;
+
         // ═══════════════════════════════════════════════════════════════════════════
         //  DOMAIN RESEARCHER
         // ═══════════════════════════════════════════════════════════════════════════
@@ -1164,6 +1171,8 @@ class AiChatRunner {
             {{USER_QUERY}}
             </query>
             """;
+
+        CacheStrategy DOMAIN_RESEARCHER_CACHE_STRATEGY = _ -> CacheTTL.NONE;
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  GENERATOR (Phase 2 — Stability Selection + SHAP Hypothesis Generation)
@@ -2029,6 +2038,14 @@ class AiChatRunner {
                 <query_structure>
                 {{QUERY_STRUCTURE}}
                 </query_structure>
+            
+                <process_notes>
+                Independently of how expensive current tool round is, \
+                every time you anticipate that in the next tool round (after current one), \
+                expensive, heavyweight tool (Shap or SS) will be called, add following textual flags to your output for current round:
+                - "ANTICIPATING_SHAP" if you expect to call SHAP analysis in the next round
+                - "ANTICIPATING_STABILITY_SELECTION" if you expect to call stability selection in the next round
+                </process_notes>
             """;
 
         String GENERATOR_USER = """
@@ -2052,6 +2069,20 @@ class AiChatRunner {
             {{DOMAIN_RESEARCH}}
             </domain_knowledge>
             """;
+
+        CacheStrategy GENERATOR_CACHE_STRATEGY = ctx -> {
+            if (ctx.previousRounds().isEmpty()) {
+                return CacheTTL.SHORT;
+            }
+            var last = Objects.requireNonNullElse(
+                ctx.previousRounds().getLast().assistantMessage().getText(),
+                ""
+            );
+            if (last.contains("ANTICIPATING_SHAP") || last.contains("ANTICIPATING_STABILITY_SELECTION")) {
+                return CacheTTL.NONE;
+            }
+            return CacheTTL.SHORT;
+        };
     }
 
     @TestComponent("agentJp")
@@ -2087,6 +2118,7 @@ class AiChatRunner {
                         .withThinkingLevel(ThinkingLevel.HIGH)
                         .withSystemPrompt(SwarmResearchPromptsV2.GENERATOR_SYSTEM)
                         .withModelName("claude-opus-4-6")
+                        .withCachingStrategyFunction(GENERATOR_CACHE_STRATEGY)
                         .ask(genUser)
                 )
                 .doOnError(e -> System.err.println("Error during chat: " + e.getMessage()))

@@ -23,7 +23,8 @@ public record ChatRequest<T>(
     @NonNull Set<ToolGroup> toolGroups,
     @NonNull List<Object> additionalTools,
     @NonNull List<Advisor> additionalAdvisors,
-    @NonNull Map<String, Object> toolContextEntries
+    @NonNull Map<String, Object> toolContextEntries,
+    @Nullable CacheStrategy cachingStrategyFunction
 ) {
 
     public static Builder usingData(@NonNull String schema, @NonNull ModelSpace modelSpace) {
@@ -50,6 +51,7 @@ public record ChatRequest<T>(
         private List<Object> additionalTools;
         private List<Advisor> additionalAdvisors;
         private Map<String, Object> toolContextEntries;
+        private CacheStrategy cachingStrategyFunction;
 
         public ChatRequest<String> ask(String userPrompt) {
             return ask(userPrompt, String.class);
@@ -69,7 +71,8 @@ public record ChatRequest<T>(
                 toolGroups != null ? toolGroups : Set.of(),
                 additionalTools != null ? additionalTools : List.of(),
                 additionalAdvisors != null ? additionalAdvisors : List.of(),
-                toolContextEntries != null ? toolContextEntries : Map.of()
+                toolContextEntries != null ? toolContextEntries : Map.of(),
+                cachingStrategyFunction
             );
         }
 

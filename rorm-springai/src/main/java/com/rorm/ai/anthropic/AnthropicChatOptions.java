@@ -1,16 +1,18 @@
 package com.rorm.ai.anthropic;
 
 import com.rorm.StepJournal;
+import com.rorm.ai.chat.CacheStrategy;
 import com.rorm.ai.chat.ThinkingLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import org.jspecify.annotations.Nullable;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,11 +38,13 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
     private Map<String, Object> toolContext = Map.of();
     @lombok.Builder.Default
     private Boolean internalToolExecutionEnabled = false;
+    /**
+     * Adaptive caching strategy function. Given round context (previous messages, tool outputs),
+     * returns the caching strategy to apply for the current round.
+     * If null, defaults to SHORT cache.
+     */
     @lombok.Builder.Default
-    private Set<String> longCacheTriggerTools = new HashSet<>(Set.of(
-        "getShapCurves",
-        "discoverDataRelations"
-    ));
+    private @Nullable CacheStrategy cachingStrategyFunction = _ -> CacheTTL.NONE;
 
     @Override
     public @Nullable Double getFrequencyPenalty() {
@@ -86,7 +90,59 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
             .toolNames(Set.copyOf(toolNames))
             .toolContext(Map.copyOf(toolContext))
             .internalToolExecutionEnabled(internalToolExecutionEnabled)
-            .longCacheTriggerTools(Set.copyOf(longCacheTriggerTools))
+            .cachingStrategyFunction(cachingStrategyFunction)
             .build();
+    }
+
+    public enum CacheTTL {
+        NONE,   // Don't cache at all
+        SHORT,  // Cache with 5-minute TTL
+        LONG    // Cache with 1-hour TTL
+    }
+
+    /**
+     * Represents a single tool execution round with all associated messages and metadata.
+     */
+    public record ToolRoundInfo(
+        AssistantMessage assistantMessage,
+        UserMessage toolResultsMessage,
+        Set<String> toolNames,
+        List<ToolResult> toolResults
+    ) {}
+
+    /**
+     * Represents a single tool execution result.
+     */
+    public record ToolResult(
+        String toolName,
+        String toolCallId,
+        String output
+    ) {}
+
+    /**
+     * Context passed to adaptive caching function for per-round decisions.
+     * Contains structured information about all previous tool rounds.
+     */
+    public record RoundContext(
+        int roundNumber,
+        List<ToolRoundInfo> previousRounds
+    ) {
+        /**
+         * All tool names called across all previous rounds.
+         */
+        public Set<String> allCalledToolNames() {
+            return previousRounds.stream()
+                .flatMap(r -> r.toolNames().stream())
+                .collect(java.util.stream.Collectors.toSet());
+        }
+
+        /**
+         * All tool results across all previous rounds.
+         */
+        public List<ToolResult> allToolResults() {
+            return previousRounds.stream()
+                .flatMap(r -> r.toolResults().stream())
+                .toList();
+        }
     }
 }

@@ -22,7 +22,9 @@ public enum StandardAggregation {
     STRING_AGG(StringAggAggregation.NAME),
     ARRAY_AGG(ArrayAggAggregation.NAME),
     BOOL_AND(BoolAndAggregation.NAME),
-    BOOL_OR(BoolOrAggregation.NAME);
+    BOOL_OR(BoolOrAggregation.NAME),
+    CORR(CorrAggregation.NAME),
+    REGR_SLOPE(RegrSlopeAggregation.NAME);
 
     private final String identifier;
 

@@ -21,5 +21,7 @@ public sealed interface BuiltInAggregationHandler extends AggregationHandler per
     StringAggAggregation,
     ArrayAggAggregation,
     BoolAndAggregation,
-    BoolOrAggregation {
+    BoolOrAggregation,
+    CorrAggregation,
+    RegrSlopeAggregation {
 }
