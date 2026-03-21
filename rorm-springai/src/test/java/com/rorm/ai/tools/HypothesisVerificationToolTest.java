@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
 @DisplayName("HypothesisVerificationTool")
+@org.junit.jupiter.api.parallel.Execution(org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD)
 class HypothesisVerificationToolTest {
 
     @Container
@@ -163,38 +164,37 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("full mediation — B completely screens A from outcome")
         void fullMediation() throws Exception {
-            // A -> B -> outcome, A has no direct effect on outcome once B is known
-            // A = noise, B = A + noise, outcome = B + noise
+            // Pure chain: A → B → outcome, no direct A → outcome
             var sb = new StringBuilder();
             for (var i = 0; i < 200; i++) {
-                var a = i * 0.05;
-                var b = a * 0.9 + (i % 3) * 0.01;
-                var out = b * 0.95 + (i % 7) * 0.01;
+                var a = i * 0.1;
+                var b = a * 0.9;          // strong A→B
+                var out = b * 0.8;        // outcome = f(B) only
                 sb.append(String.format("(%s, %s, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", a, b, out));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyScreeningMediation(
                 "obs", "feature_a", "mediator_b", "outcome", 0.8, null, toolContext);
-            var parsed = parse(result);
 
-            assertThat(parsed.get("success")).isEqualTo(true);
+            assertThat(parse(result).get("success")).isEqualTo(true);
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
             assertThat(material(result)).isFalse();
 
             var ev = evidence(result);
-            assertThat((Number) ev.get("corr_a_b")).satisfies(n ->
-                assertThat(n.doubleValue()).isGreaterThan(0.8));
+            assertThat(((Number) ev.get("corr_a_b")).doubleValue()).isGreaterThan(0.9);
         }
 
         @Test
         @DisplayName("no mediation — B is unrelated to A")
         void noMediation() throws Exception {
+            // B is V-shaped (symmetric around midpoint) → CORR(A, B) ≈ 0
+            // A → outcome directly, B is noise
             var sb = new StringBuilder();
             for (var i = 0; i < 200; i++) {
-                var a = i * 0.05;
-                var b = (200 - i) * 0.03;  // unrelated to A
-                var out = a * 0.7 + (i % 5) * 0.01;
+                var a = i * 0.1;
+                var b = Math.abs(i - 100) * 0.1;   // V-shape: zero linear correlation with i
+                var out = a * 0.7;                   // direct A → outcome
                 sb.append(String.format("(%s, %s, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", a, b, out));
             }
             insertRows(sb.substring(0, sb.length() - 1));
@@ -202,18 +202,26 @@ class HypothesisVerificationToolTest {
             var result = tool.verifyScreeningMediation(
                 "obs", "feature_a", "mediator_b", "outcome", 0.8, null, toolContext);
 
-            assertThat(verdict(result)).isIn("CONTRADICTED", "CONDITIONAL");
+            assertThat(verdict(result)).isEqualTo("CONTRADICTED");
             assertThat(material(result)).isTrue();
+
+            var ev = evidence(result);
+            // V-shaped B has near-zero linear correlation with A
+            assertThat(Math.abs(((Number) ev.get("corr_a_b")).doubleValue())).isLessThan(0.1);
         }
 
         @Test
         @DisplayName("partial mediation — B explains some of A's effect")
         void partialMediation() throws Exception {
+            // A → B (imperfect) + A → outcome (direct) + B → outcome
+            // The key: B must NOT be a perfect linear transform of A
             var sb = new StringBuilder();
             for (var i = 0; i < 200; i++) {
-                var a = i * 0.05;
-                var b = a * 0.6 + (i % 3) * 0.3;
-                var out = a * 0.3 + b * 0.4 + (i % 7) * 0.02;
+                var a = i * 0.1;
+                // B depends on A plus an independent component (alternating offset)
+                var b = a * 0.5 + (i % 2) * 3.0;
+                // outcome depends on both A directly and B
+                var out = a * 0.3 + b * 0.2;
                 sb.append(String.format("(%s, %s, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", a, b, out));
             }
             insertRows(sb.substring(0, sb.length() - 1));
@@ -237,18 +245,19 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("complete absorption — Y has no signal within any category of X")
         void completeAbsorption() throws Exception {
-            // Within each category, continuous_y is noise w.r.t. outcome
+            // Within each category, Y is V-shaped around the category midpoint →
+            // CORR(Y, outcome) ≈ 0 because V is symmetric.
+            // Outcome increases within each category so it has nonzero variance.
             var sb = new StringBuilder();
             var categories = new String[]{"low", "mid", "high"};
+            var baselines = new double[]{0.2, 0.5, 0.8};
             for (var i = 0; i < 300; i++) {
-                var cat = categories[i % 3];
-                var y = (i * 7 % 100) * 0.01;  // random-ish
-                var out = switch (cat) {
-                    case "low" -> 0.2 + (i % 5) * 0.001;
-                    case "mid" -> 0.5 + (i % 5) * 0.001;
-                    default -> 0.8 + (i % 5) * 0.001;
-                };
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, '%s', %s, 'active', 0, 'P1', 'G1', 0),", out, cat, y));
+                var catIdx = i % 3;
+                var withinIdx = i / 3;                               // 0..99 within category
+                var y = Math.abs(withinIdx - 50) * 0.1;             // V-shape → zero linear correlation
+                var out = baselines[catIdx] + withinIdx * 0.0001;   // tiny monotonic increase
+                sb.append(String.format("(0, 0, %s, 0, 0, 0, '%s', %s, 'active', 0, 'P1', 'G1', 0),",
+                    out, categories[catIdx], y));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
@@ -262,13 +271,15 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("no absorption — Y retains signal within categories")
         void noAbsorption() throws Exception {
+            // Within every category, Y strongly predicts outcome
             var sb = new StringBuilder();
             var categories = new String[]{"low", "mid", "high"};
             for (var i = 0; i < 300; i++) {
                 var cat = categories[i % 3];
-                var y = i * 0.05;
-                var out = y * 0.6 + (i % 3) * 0.1;
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, '%s', %s, 'active', 0, 'P1', 'G1', 0),", out, cat, y));
+                var y = (i / 3) * 0.1;           // Y increases monotonically within each category
+                var out = y * 0.8;                // outcome = f(Y), strong within-category signal
+                sb.append(String.format("(0, 0, %s, 0, 0, 0, '%s', %s, 'active', 0, 'P1', 'G1', 0),",
+                    out, cat, y));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
@@ -291,39 +302,12 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("consistent direction — treatment effect holds across strata")
         void consistentDirection() throws Exception {
+            // Treatment always increases outcome, regardless of confounder stratum
             var sb = new StringBuilder();
             for (var i = 0; i < 200; i++) {
-                var treat = (i % 2 == 0) ? 0 : 1;
-                var conf = (i < 100) ? 1 : 2;
-                var out = treat * 0.3 + conf * 0.1 + (i % 7) * 0.005;
-                sb.append(String.format("(0, 0, %s, %d, %d, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", out, treat, conf));
-            }
-            insertRows(sb.substring(0, sb.length() - 1));
-
-            var result = tool.verifyTreatmentDirection(
-                "obs", "treatment", "outcome", "confounder", "positive", 10, null, toolContext);
-
-            assertThat(verdict(result)).isEqualTo("SUPPORTED");
-        }
-
-        @Test
-        @DisplayName("Simpson's Paradox — direction reverses in strata")
-        void simpsonsParadox() throws Exception {
-            // Marginally positive, but reverses within each confounder stratum
-            var sb = new StringBuilder();
-            for (var i = 0; i < 200; i++) {
-                double treat, conf, out;
-                if (i < 100) {
-                    // Stratum 1: mostly treated, high baseline
-                    treat = (i % 4 == 0) ? 0 : 1;
-                    conf = 1;
-                    out = 0.8 - treat * 0.15 + (i % 7) * 0.005;
-                } else {
-                    // Stratum 2: mostly untreated, low baseline
-                    treat = (i % 4 == 0) ? 1 : 0;
-                    conf = 2;
-                    out = 0.3 - treat * 0.10 + (i % 7) * 0.005;
-                }
+                var treat = (i % 2 == 0) ? 0.0 : 1.0;
+                var conf = (i < 100) ? 1.0 : 2.0;
+                var out = treat * 0.3 + conf * 0.1;
                 sb.append(String.format("(0, 0, %s, %s, %s, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", out, treat, conf));
             }
             insertRows(sb.substring(0, sb.length() - 1));
@@ -331,7 +315,38 @@ class HypothesisVerificationToolTest {
             var result = tool.verifyTreatmentDirection(
                 "obs", "treatment", "outcome", "confounder", "positive", 10, null, toolContext);
 
-            assertThat(verdict(result)).isIn("CONDITIONAL", "CONTRADICTED");
+            assertThat(verdict(result)).isEqualTo("SUPPORTED");
+            assertThat(material(result)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Simpson's Paradox — direction reverses in strata")
+        void simpsonsParadox() throws Exception {
+            // Within each stratum, treatment REDUCES outcome (negative).
+            // But treatment is confounded with stratum (high-baseline stratum has more treated).
+            var sb = new StringBuilder();
+            // Stratum 1 (conf=1, high baseline): 75 treated + 25 untreated
+            for (var i = 0; i < 75; i++) {
+                sb.append(String.format("(0, 0, %s, 1, 1, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", 0.7));
+            }
+            for (var i = 0; i < 25; i++) {
+                sb.append(String.format("(0, 0, %s, 0, 1, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", 0.9));
+            }
+            // Stratum 2 (conf=2, low baseline): 25 treated + 75 untreated
+            for (var i = 0; i < 25; i++) {
+                sb.append(String.format("(0, 0, %s, 1, 2, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", 0.2));
+            }
+            for (var i = 0; i < 75; i++) {
+                sb.append(String.format("(0, 0, %s, 0, 2, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", 0.4));
+            }
+            insertRows(sb.substring(0, sb.length() - 1));
+
+            var result = tool.verifyTreatmentDirection(
+                "obs", "treatment", "outcome", "confounder", "positive", 10, null, toolContext);
+
+            // Within both strata, treatment reduces outcome (negative), contradicting claimed "positive".
+            // Both strata flip → flippedStrata(2) >= totalValid(2)/2 → CONTRADICTED.
+            assertThat(verdict(result)).isEqualTo("CONTRADICTED");
             assertThat(material(result)).isTrue();
         }
     }
@@ -426,8 +441,8 @@ class HypothesisVerificationToolTest {
         void signalExists() throws Exception {
             var sb = new StringBuilder();
             for (var i = 0; i < 200; i++) {
-                var a = i * 0.05;
-                var out = a * 0.6 + (i % 5) * 0.01;
+                var a = i * 0.1;
+                var out = a * 0.6;
                 sb.append(String.format("(%s, 0, %s, 1, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", a, out));
             }
             insertRows(sb.substring(0, sb.length() - 1));
@@ -478,21 +493,25 @@ class HypothesisVerificationToolTest {
         @DisplayName("ecological fallacy — within-group differs from between-group")
         void fallacyDetected() throws Exception {
             // Between groups: positive association (high-A groups have high outcome)
-            // Within groups: negative association (within each group, higher A means lower outcome)
+            // Within groups: negative slope (within each group, higher A → lower outcome)
             var sb = new StringBuilder();
-            for (var i = 0; i < 300; i++) {
-                String group;
-                double baseA, baseOut;
-                if (i < 100) {
-                    group = "G1"; baseA = 1.0; baseOut = 0.2;
-                } else if (i < 200) {
-                    group = "G2"; baseA = 5.0; baseOut = 0.5;
-                } else {
-                    group = "G3"; baseA = 9.0; baseOut = 0.8;
-                }
-                var a = baseA + (i % 100) * 0.02;
-                var out = baseOut - (i % 100) * 0.003 + (i % 7) * 0.001;
-                sb.append(String.format("(%s, 0, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', '%s', 0),", a, out, group));
+            // G1: A in [1..2], outcome decreases within group (high baseline)
+            for (var i = 0; i < 100; i++) {
+                var a = 1.0 + i * 0.01;
+                var out = 0.3 - i * 0.002;  // negative slope within G1
+                sb.append(String.format("(%s, 0, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", a, out));
+            }
+            // G2: A in [4..5], outcome decreases within group (medium baseline)
+            for (var i = 0; i < 100; i++) {
+                var a = 4.0 + i * 0.01;
+                var out = 0.6 - i * 0.002;  // negative slope within G2
+                sb.append(String.format("(%s, 0, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G2', 0),", a, out));
+            }
+            // G3: A in [7..8], outcome decreases within group (high baseline)
+            for (var i = 0; i < 100; i++) {
+                var a = 7.0 + i * 0.01;
+                var out = 0.9 - i * 0.002;  // negative slope within G3
+                sb.append(String.format("(%s, 0, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G3', 0),", a, out));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
@@ -515,58 +534,47 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("safe — conditioning on B does not increase treatment-confounder correlation")
         void safeConditioning() throws Exception {
-            // B is a genuine confounder (causes both treatment and confounder to correlate)
-            // Conditioning on it should reduce or not change their correlation
+            // B is a common cause (not a collider): B → treatment, B → confounder
+            // Conditioning on B should reduce or not change their correlation
             var sb = new StringBuilder();
             for (var i = 0; i < 200; i++) {
-                var b = (i < 100) ? 1 : 2;
-                var treat = b * 0.5 + (i % 13) * 0.02;
-                var conf = b * 0.4 + (i % 11) * 0.03;
+                var b = (i < 100) ? 1.0 : 2.0;
+                var treat = b * 0.5 + i * 0.001;
+                var conf = b * 0.4 + i * 0.0005;
                 var out = treat * 0.3;
-                sb.append(String.format("(0, %s, %s, %s, %s, %s, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
-                    out, conf, out, treat, conf));
-            }
-            // Repurposing columns: feature_a=unused, mediator_b=confounder, outcome=out, treatment=treat, confounder=conf
-            // Actually let me just use the right columns
-            sharedDsl.execute("DELETE FROM obs");
-
-            var sb2 = new StringBuilder();
-            for (var i = 0; i < 200; i++) {
-                var mediator = (i < 100) ? 1 : 2;
-                var treat = mediator * 0.5 + (i % 13) * 0.02;
-                var conf = mediator * 0.4 + (i % 11) * 0.03;
-                var out = treat * 0.3;
-                sb2.append(String.format("(0, %d, %s, %s, %s, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
-                    out, mediator, out, treat, conf));
-            }
-            insertRows(sb2.substring(0, sb2.length() - 1));
-
-            var result = tool.verifyColliderConditioning(
-                "obs", "treatment", "confounder", "mediator_b", null, toolContext);
-
-            assertThat(verdict(result)).isIn("SAFE", "NEUTRAL");
-        }
-
-        @Test
-        @DisplayName("collider warning — conditioning on B increases correlation")
-        void colliderDetected() throws Exception {
-            // B is a collider: treatment -> B <- confounder
-            // Conditioning on B induces spurious correlation between treatment and confounder
-            var sb = new StringBuilder();
-            for (var i = 0; i < 400; i++) {
-                var treat = (i % 20) * 0.1;        // treatment: 0 to 1.9
-                var conf = ((i * 7) % 20) * 0.1;   // confounder: independent of treatment
-                var b = treat + conf;               // collider: caused by both
-                var out = treat * 0.5;
+                // columns: feature_a, mediator_b, outcome, treatment, confounder, modifier, ...
                 sb.append(String.format("(0, %s, %s, %s, %s, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
-                    out, b, out, treat, conf));
+                    b, out, treat, conf));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifyColliderConditioning(
                 "obs", "treatment", "confounder", "mediator_b", null, toolContext);
 
-            // Conditioning on the sum of two independent variables induces negative correlation
+            assertThat(verdict(result)).isIn("SAFE", "NEUTRAL");
+            assertThat(material(result)).isFalse();
+        }
+
+        @Test
+        @DisplayName("collider warning — conditioning on B increases correlation")
+        void colliderDetected() throws Exception {
+            // B is a collider: treatment → B ← confounder, where B = treatment + confounder
+            // Orthogonal grid ensures treatment and confounder are marginally independent
+            var sb = new StringBuilder();
+            for (var i = 0; i < 400; i++) {
+                var treat = (i % 20) * 0.1;
+                var conf = (i / 20) * 0.1;          // orthogonal to treatment
+                var b = treat + conf;                 // collider
+                var out = treat * 0.5;
+                // columns: feature_a, mediator_b, outcome, treatment, confounder, modifier, ...
+                sb.append(String.format("(0, %s, %s, %s, %s, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
+                    b, out, treat, conf));
+            }
+            insertRows(sb.substring(0, sb.length() - 1));
+
+            var result = tool.verifyColliderConditioning(
+                "obs", "treatment", "confounder", "mediator_b", null, toolContext);
+
             assertThat(verdict(result)).isEqualTo("COLLIDER_WARNING");
             assertThat(material(result)).isTrue();
         }
@@ -584,15 +592,11 @@ class HypothesisVerificationToolTest {
         @DisplayName("survivorship confirmed — retired units had worse outcomes")
         void survivorshipConfirmed() throws Exception {
             var sb = new StringBuilder();
-            // Active units: low outcome rate
             for (var i = 0; i < 150; i++) {
-                var out = 0.2 + (i % 5) * 0.01;
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", out));
+                sb.append("(0, 0, 0.2, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),");
             }
-            // Retired units: high outcome rate (they were removed because they failed)
             for (var i = 0; i < 100; i++) {
-                var out = 0.7 + (i % 5) * 0.01;
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'retired', 0, 'P1', 'G1', 0),", out));
+                sb.append("(0, 0, 0.7, 0, 0, 0, 'X', 0, 'retired', 0, 'P1', 'G1', 0),");
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
@@ -601,6 +605,12 @@ class HypothesisVerificationToolTest {
 
             assertThat(verdict(result)).isEqualTo("SURVIVORSHIP_CONFIRMED");
             assertThat(material(result)).isTrue();
+
+            var ev = evidence(result);
+            assertThat(((Number) ev.get("retired_outcome_rate")).doubleValue()).isEqualByComparingTo(0.7);
+            assertThat(((Number) ev.get("active_outcome_rate")).doubleValue()).isEqualByComparingTo(0.2);
+            assertThat(((Number) ev.get("retired_n")).longValue()).isEqualTo(100);
+            assertThat(((Number) ev.get("active_n")).longValue()).isEqualTo(150);
         }
 
         @Test
@@ -608,12 +618,10 @@ class HypothesisVerificationToolTest {
         void survivorshipUnlikely() throws Exception {
             var sb = new StringBuilder();
             for (var i = 0; i < 150; i++) {
-                var out = 0.5 + (i % 7) * 0.005;
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", out));
+                sb.append("(0, 0, 0.5, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),");
             }
             for (var i = 0; i < 100; i++) {
-                var out = 0.5 + (i % 7) * 0.005;
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'retired', 0, 'P1', 'G1', 0),", out));
+                sb.append("(0, 0, 0.5, 0, 0, 0, 'X', 0, 'retired', 0, 'P1', 'G1', 0),");
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
@@ -636,13 +644,14 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("true cohort effect — gradient consistent within periods")
         void trueCohortEffect() throws Exception {
+            // Cohort has positive effect on outcome in ALL time periods
             var sb = new StringBuilder();
             var periods = new String[]{"2020", "2021", "2022"};
             for (var i = 0; i < 300; i++) {
                 var period = periods[i % 3];
-                var coh = (i % 100);
-                var out = coh * 0.01 + (i % 7) * 0.002;
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', %d, '%s', 'G1', 0),", out, coh, period));
+                var coh = (i / 3) * 1.0;         // cohort = 0..99
+                var out = coh * 0.01;             // positive slope in all periods
+                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', %s, '%s', 'G1', 0),", out, coh, period));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
@@ -650,29 +659,29 @@ class HypothesisVerificationToolTest {
                 "obs", "cohort", "outcome", "time_period", null, toolContext);
 
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
+            assertThat(material(result)).isFalse();
         }
 
         @Test
         @DisplayName("temporal confound — gradient reverses within periods")
         void temporalConfound() throws Exception {
+            // Overall: higher cohort → higher outcome (because later cohorts are in higher-baseline periods)
+            // Within each period: higher cohort → LOWER outcome
             var sb = new StringBuilder();
-            for (var i = 0; i < 300; i++) {
-                String period;
-                double coh, out;
-                if (i < 100) {
-                    period = "2020";
-                    coh = i;
-                    out = 0.8 - coh * 0.005;  // negative slope
-                } else if (i < 200) {
-                    period = "2021";
-                    coh = i - 100;
-                    out = 0.6 - coh * 0.004;  // negative slope
-                } else {
-                    period = "2022";
-                    coh = i - 200;
-                    out = 0.4 - coh * 0.003;  // negative slope
-                }
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', %s, '%s', 'G1', 0),", out, coh, period));
+            for (var i = 0; i < 100; i++) {
+                var coh = i * 1.0;
+                var out = 0.8 - coh * 0.005;     // negative within-period slope
+                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', %s, '2020', 'G1', 0),", out, coh));
+            }
+            for (var i = 0; i < 100; i++) {
+                var coh = 100 + i * 1.0;          // higher cohort numbers in later period
+                var out = 1.2 - (coh - 100) * 0.005;
+                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', %s, '2021', 'G1', 0),", out, coh));
+            }
+            for (var i = 0; i < 100; i++) {
+                var coh = 200 + i * 1.0;
+                var out = 1.6 - (coh - 200) * 0.005;
+                sb.append(String.format("(0, 0, %s, 0, 0, 0, 'X', 0, 'active', %s, '2022', 'G1', 0),", out, coh));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
@@ -697,19 +706,28 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("adequate — all strata have sufficient n")
         void adequate() throws Exception {
+            // 3 strata, 200 rows each, with meaningful effect sizes
             var sb = new StringBuilder();
             var categories = new String[]{"low", "mid", "high"};
+            var baselines = new double[]{0.2, 0.5, 0.8};
             for (var i = 0; i < 600; i++) {
-                var cat = categories[i % 3];
-                var out = (i % 3) * 0.3 + (i % 7) * 0.01;
-                sb.append(String.format("(0, 0, %s, 0, 0, 0, '%s', 0, 'active', 0, 'P1', 'G1', 0),", out, cat));
+                var catIdx = i % 3;
+                var out = baselines[catIdx] + (i / 3) * 0.001; // slight variation to avoid zero variance
+                sb.append(String.format("(0, 0, %s, 0, 0, 0, '%s', 0, 'active', 0, 'P1', 'G1', 0),",
+                    out, categories[catIdx]));
             }
             insertRows(sb.substring(0, sb.length() - 1));
 
             var result = tool.verifySampleSizeAdequacy(
-                "obs", "category_x", "outcome", 0.05, null, toolContext);
+                "obs", "category_x", "outcome", 1.0, null, toolContext);
 
-            assertThat(verdict(result)).isIn("ADEQUATE", "PARTIALLY_ADEQUATE");
+            // 3 strata × 200 rows each, minimumMeaningfulEffect=1.0 → all strata adequate
+            assertThat(verdict(result)).isEqualTo("ADEQUATE");
+            assertThat(material(result)).isFalse();
+
+            var ev = evidence(result);
+            assertThat(((Number) ev.get("adequate_strata")).intValue()).isEqualTo(3);
+            assertThat(((Number) ev.get("underpowered_strata")).intValue()).isEqualTo(0);
         }
 
         @Test
@@ -763,12 +781,12 @@ class HypothesisVerificationToolTest {
         @Test
         @DisplayName("missing confounder — candidate correlates with both treatment and outcome")
         void missingConfounder() throws Exception {
-            // candidate_z is a common cause of both treatment and outcome
+            // Z is a common cause: Z → treatment, Z → outcome
             var sb = new StringBuilder();
             for (var i = 0; i < 200; i++) {
-                var z = i * 0.05;
-                var treat = z * 0.7 + (i % 5) * 0.01;
-                var out = z * 0.6 + (i % 7) * 0.01;
+                var z = i * 0.1;
+                var treat = z * 0.7;    // strong Z→treatment
+                var out = z * 0.6;      // strong Z→outcome
                 sb.append(String.format("(0, 0, %s, %s, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', %s),", out, treat, z));
             }
             insertRows(sb.substring(0, sb.length() - 1));
@@ -782,8 +800,15 @@ class HypothesisVerificationToolTest {
             var ev = evidence(result);
             @SuppressWarnings("unchecked")
             var missing = (List<Map<String, Object>>) ev.get("missing_confounders");
-            assertThat(missing).hasSize(1);
-            assertThat(missing.getFirst().get("variable")).isEqualTo("candidate_z");
+            assertThat(missing).hasSize(1)
+                .first()
+                .satisfies(m -> {
+                    assertThat(m.get("variable")).isEqualTo("candidate_z");
+                    // Z positively correlated with both → positive bias direction
+                    assertThat(m.get("bias_direction")).isEqualTo("positive");
+                    assertThat(((Number) m.get("corr_with_treatment")).doubleValue()).isGreaterThan(0.9);
+                    assertThat(((Number) m.get("corr_with_outcome")).doubleValue()).isGreaterThan(0.9);
+                });
         }
     }
 
@@ -799,18 +824,18 @@ class HypothesisVerificationToolTest {
         @DisplayName("filter expression is applied — restricts data before computation")
         void filterRestrictsData() throws Exception {
             var sb = new StringBuilder();
-            // treatment=0 group: no correlation between A and outcome
+            // treatment=0: A and outcome are V-shaped / uncorrelated
             for (var i = 0; i < 100; i++) {
-                var a = i * 0.05;
-                var b = (i % 7) * 0.1;
-                var out = 0.5 + (i % 11) * 0.002;
+                var a = i * 0.1;
+                var b = Math.abs(i - 50) * 0.1;
+                var out = Math.abs(i - 50) * 0.05;
                 sb.append(String.format("(%s, %s, %s, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", a, b, out));
             }
-            // treatment=1 group: strong A -> B -> outcome mediation
+            // treatment=1: clean A → B → outcome chain
             for (var i = 0; i < 100; i++) {
-                var a = i * 0.05;
+                var a = i * 0.1;
                 var b = a * 0.9;
-                var out = b * 0.95;
+                var out = b * 0.8;
                 sb.append(String.format("(%s, %s, %s, 1, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),", a, b, out));
             }
             insertRows(sb.substring(0, sb.length() - 1));
@@ -826,6 +851,7 @@ class HypothesisVerificationToolTest {
 
             assertThat(parse(result).get("success")).isEqualTo(true);
             assertThat(verdict(result)).isEqualTo("SUPPORTED");
+            assertThat(material(result)).isFalse();
         }
 
         @Test

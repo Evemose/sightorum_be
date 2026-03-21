@@ -78,6 +78,7 @@ export class MlInfraStack extends cdk.Stack {
         const alb = new elbv2.ApplicationLoadBalancer(this, 'MlAlb', {
             vpc,
             internetFacing: true,
+            idleTimeout: cdk.Duration.seconds(4000)
         });
 
         const listener = alb.addListener('Http', {port: 80});
