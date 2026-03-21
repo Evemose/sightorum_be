@@ -177,7 +177,21 @@ class ShapCurveService:
         if progress_callback:
             progress_callback(0.92, "Aggregating SHAP curves")
 
-        # Aggregate results
+        # Submit breakpoint detection for all numeric features in parallel
+        bp_futures: dict[str, Any] = {}
+        for feat in target_features:
+            if feat not in col_mapping or feature_types.get(feat) != "numeric":
+                continue
+            stacked = numeric_stacks.get(feat)
+            if stacked is None:
+                continue
+            centers = (bin_edges[feat][:-1] + bin_edges[feat][1:]) / 2.0
+            bp_futures[feat] = self.worker_pool.submit(
+                1 * 1024 * 1024,
+                lambda s=stacked, c=centers, nb=n_breakpoints: self._detect_breakpoints(s, c, nb),
+            )
+
+        # Build output entries, collecting breakpoint results as they complete
         curves_output = []
         total_features = len(target_features)
 
@@ -197,7 +211,12 @@ class ShapCurveService:
                 std_shap = np.nanstd(stacked, axis=0)
                 n_contributing = np.sum(~np.isnan(stacked), axis=0)
 
-                breakpoint_info = self._detect_breakpoints(stacked, bin_centers, n_breakpoints)
+                bp_future = bp_futures.get(feat)
+                try:
+                    breakpoint_info = bp_future.result() if bp_future else {}
+                except Exception:
+                    logger.error(f"Breakpoint detection failed for {feat}", exc_info=True)
+                    breakpoint_info = {}
 
                 entry = {
                     "feature": feat,

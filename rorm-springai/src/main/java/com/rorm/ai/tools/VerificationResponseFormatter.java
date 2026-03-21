@@ -15,11 +15,11 @@ class VerificationResponseFormatter {
     private final ObjectMapper objectMapper;
 
     String format(String pattern, double generatorNumber, double skepticNumber,
-                  String verdict, boolean material, String executorNote,
-                  Map<String, Object> evidence) {
+                  Verdict verdict, Map<String, Object> evidence) {
         try {
             var response = new VerificationResponse(true, pattern, generatorNumber, skepticNumber,
-                skepticNumber - generatorNumber, verdict, material, executorNote, evidence, null);
+                skepticNumber - generatorNumber, verdict.name(), verdict.material(), verdict.note(),
+                evidence, null);
             return objectMapper.writeValueAsString(response);
         } catch (JsonProcessingException e) {
             return error("Failed to format verification: " + e.getMessage());
@@ -32,6 +32,20 @@ class VerificationResponseFormatter {
                 new VerificationResponse(false, null, 0, 0, 0, null, false, null, null, message));
         } catch (JsonProcessingException e) {
             return "{\"success\":false,\"error\":\"" + message.replace("\"", "\\\"") + "\"}";
+        }
+    }
+
+    record Verdict(String name, boolean material, String note) {
+        static Verdict supported(String note) {
+            return new Verdict("SUPPORTED", false, note);
+        }
+
+        static Verdict material(String name, String note) {
+            return new Verdict(name, true, note);
+        }
+
+        static Verdict nonMaterial(String name, String note) {
+            return new Verdict(name, false, note);
         }
     }
 
