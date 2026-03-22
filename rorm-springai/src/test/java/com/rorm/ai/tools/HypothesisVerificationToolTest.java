@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.StepJournal;
 import com.rorm.ai.RormToolContext;
 import com.rorm.dto.dense.DenseExpressionDto;
+import com.rorm.engine.ExpressionTypeResolver;
 import com.rorm.engine.TestQueryStack;
 import com.rorm.mapper.DenseQueryMapper;
 import com.rorm.mapper.QueryMapper;
 import com.rorm.metamodel.*;
+import com.rorm.testutil.TestHandlerRegistry;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.*;
 import org.mapstruct.factory.Mappers;
@@ -87,7 +89,10 @@ class HypothesisVerificationToolTest {
         var fetcher = TestQueryStack.createFetcher(sharedDsl);
 
         om = new ObjectMapper();
-        tool = new HypothesisVerificationTool(fetcher, om, denseQueryMapper);
+        var typeResolver = new ExpressionTypeResolver(TestHandlerRegistry.createWithAllBuiltIns());
+        var queryExecutor = new VerificationQueryExecutor(fetcher, denseQueryMapper, typeResolver);
+        var responseFormatter = new VerificationResponseFormatter(om);
+        tool = new HypothesisVerificationTool(queryExecutor, responseFormatter);
 
         // Create shared test schema and table
         testSchema = "hvt_" + UUID.randomUUID().toString().replace("-", "");
@@ -872,6 +877,35 @@ class HypothesisVerificationToolTest {
             assertThat(parsed).containsKeys("success", "pattern", "verdict", "material",
                 "generatorNumber", "skepticNumber", "delta", "executorNote", "evidence");
             assertThat(parsed.get("pattern")).isEqualTo("SCREENING_MEDIATION");
+        }
+
+        @Test
+        @DisplayName("rejects categorical expression where numeric is required")
+        void rejectsCategoricalExpression() throws Exception {
+            insertRows("(1, 1, 1, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0)");
+
+            // category_x is StringType — cannot be used in CORR/REGR_SLOPE
+            var result = tool.verifyScreeningMediation(
+                "obs", path("category_x"), path("mediator_b"), path("outcome"), 0.5, null, toolContext);
+            var parsed = parse(result);
+
+            assertThat(parsed.get("success")).isEqualTo(false);
+            assertThat((String) parsed.get("error")).contains("requires a numeric expression");
+        }
+
+        @Test
+        @DisplayName("rejects categorical cohort in temporal confounding")
+        void rejectsCategoricalCohort() throws Exception {
+            insertRows("(1, 1, 1, 0, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0)");
+
+            // group_var is StringType — cannot be used as cohortVariable in REGR_SLOPE
+            var result = tool.verifyTemporalConfounding(
+                "obs", path("group_var"), path("outcome"), path("time_period"), null, toolContext);
+            var parsed = parse(result);
+
+            assertThat(parsed.get("success")).isEqualTo(false);
+            assertThat((String) parsed.get("error")).contains("cohortVariable");
+            assertThat((String) parsed.get("error")).contains("StringType");
         }
     }
 }
