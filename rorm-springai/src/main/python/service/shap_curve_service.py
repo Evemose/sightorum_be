@@ -426,11 +426,12 @@ class ShapCurveService:
             model_idx: int,
             budget_per_bin: int = 50,
             min_per_bin: int = 20,
+            min_per_category: int = 5,
     ) -> np.ndarray:
-        """Subsample rows for SHAP with bin-coverage guarantees.
+        """Subsample rows for SHAP with bin/category coverage guarantees.
 
         Draws budget_per_bin * max_bins rows uniformly, then patches any numeric
-        bin that received fewer than min_per_bin observations.
+        bin or categorical level that received too few observations.
         """
         n = len(sample_indices)
         if not ctx.bin_edges:
@@ -444,6 +445,7 @@ class ShapCurveService:
         rng = np.random.default_rng((model_idx, ctx.request_seed))
         chosen = set(rng.choice(n, target, replace=False).tolist())
 
+        # Patch sparse numeric bins
         for feat, edges in ctx.bin_edges.items():
             if ctx.feature_types.get(feat) != "numeric" or len(edges) < 2:
                 continue
@@ -458,6 +460,27 @@ class ShapCurveService:
                 rows_in_bin = np.where(assignments == b)[0]
                 not_chosen = np.setdiff1d(rows_in_bin, chosen_arr)
                 deficit = min_per_bin - int(chosen_per_bin[b])
+                take = min(deficit, len(not_chosen))
+                if take > 0:
+                    chosen.update(rng.choice(not_chosen, take, replace=False).tolist())
+
+        # Patch sparse categorical levels
+        for feat in ctx.target_features:
+            if ctx.feature_types.get(feat) != "categorical":
+                continue
+            orig = ctx.feature_values_dict.get(feat)
+            if orig is None:
+                continue
+            values = orig[sample_indices].astype(str)
+            cats, inverse = np.unique(values, return_inverse=True)
+
+            chosen_arr = np.array(sorted(chosen), dtype=np.intp)
+            chosen_per_cat = np.bincount(inverse[chosen_arr], minlength=len(cats))
+
+            for ci in np.where(chosen_per_cat < min_per_category)[0]:
+                rows_in_cat = np.where(inverse == ci)[0]
+                not_chosen = np.setdiff1d(rows_in_cat, chosen_arr)
+                deficit = min_per_category - int(chosen_per_cat[ci])
                 take = min(deficit, len(not_chosen))
                 if take > 0:
                     chosen.update(rng.choice(not_chosen, take, replace=False).tolist())

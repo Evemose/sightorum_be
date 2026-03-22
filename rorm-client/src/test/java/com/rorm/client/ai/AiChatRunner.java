@@ -452,7 +452,7 @@ class AiChatRunner {
     void simpleChat() {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            durableRuntime.submit("runner-generator-mech-sceptic-v1", new JobSpec(
+            durableRuntime.submit("runner-generator-mech-sceptic-v2", new JobSpec(
                 "agentJp",
                 "runGeneratorMechanicalSceptic"
             ));
@@ -2271,8 +2271,91 @@ class AiChatRunner {
             
             </verification_patterns>
             
-            <rebutal_rules>
+            <methodology>
+            VERIFICATION CHECKLIST:
             
+            Before executing any tools, produce a VERIFICATION PLAN by scanning the\s
+            generator output and checking off which items apply. Execute in priority\s
+            order (P1 → P2 → P3). Skip only with documented reason.
+            
+            ═══ P1: SATURATION DECISIONS (highest priority) ═══
+            
+            For EVERY variable listed in controlFeatures across any SS run:
+            
+            □ Collider check (#7): Does conditioning on this variable induce\s
+              spurious correlation between treatment and a confounder?
+              Tool: verifyColliderConditioning
+            
+            □ Mediation verification (#1): If claimed as mediator, does the\s
+              treatment actually predict it? Does it actually predict the outcome?
+              Tool: verifyScreeningMediation
+            
+            ═══ P2: HYPOTHESES ═══
+            
+            For EVERY HYPOTHESIS block:
+            
+            □ Treatment direction (#3): Does the claimed direction hold within\s
+              strata of the strongest confounder from exploration?
+              Tool: verifyTreatmentDirection
+            
+            □ Ecological fallacy (#6): Does the within-group effect match the\s
+              between-group effect at the most granular grouping available?
+              Tool: verifyEcologicalFallacy
+            
+            □ Proxy absorption (#2): If a categorical is claimed to absorb a\s
+              continuous variable, does the continuous gradient vanish within\s
+              each category?
+              Tool: verifyProxyAbsorption
+            
+            □ Confounder completeness (#12): For each DAG edge, are there\s
+              unlisted variables correlated with both treatment and outcome?
+              Tool: verifyConfounderCompleteness (run at least once per hypothesis)
+            
+            □ Effect modifier evidence (#4): For each listed effect_modifier,\s
+              is it empirically supported or domain-assumed?
+              Tool: verifyEffectModifier
+            
+            ═══ P3: RARE EVENTS & NULLS ═══
+            
+            For EVERY RARE_EVENT_FINDING:
+            
+            □ Tautology (#10): Is the rare condition measured before the outcome?\s
+              Could detection depend on the outcome occurring?
+            
+            □ Sample size (#11): Is the stratum adequately powered for the\s
+              claimed effect?
+              Tool: verifySampleSizeAdequacy
+            
+            □ Independence: If multiple rare events are reported, cross-tabulate\s
+              them. Are they measuring the same underlying event?
+            
+            For EVERY BELOW_DETECTION_THRESHOLD:
+            
+            □ Absence (#5): Compute the gradient within the domain-expected\s
+              subpopulation (use thresholds from generator's exploration).
+              Tool: verifyAbsence
+            
+            □ Survivorship (#8): If aging variable, compare outcome rates for\s
+              retired vs active units at comparable ages.
+              Tool: verifySurvivorshipBias
+            
+            For EVERY DOMAIN_DISCREPANCY:
+            
+            □ Temporal confounding (#9): If cohort/vintage effect claimed,\s
+              check within-period gradients.
+              Tool: verifyTemporalConfounding
+            
+            ═══ OUTPUT RULES ═══
+            
+            - Produce the VERIFICATION PLAN first, before any tool calls
+            - Mark each checklist item: WILL_TEST / SKIP (reason) / NOT_APPLICABLE
+            - Execute P1 items before P2, P2 before P3
+            - If a tool fails, attempt the same check via executeQuery fallback
+            - Every VERIFICATION block must cite the checklist item it addresses
+            
+            </methodology>
+            
+            <rebutal_rules>
             Generator receives VERIFICATION blocks and responds ONCE per challenge:
             
             ACCEPT: Retract or narrow the claim.
@@ -2285,7 +2368,6 @@ class AiChatRunner {
             
             NARROW: Restrict claim scope based on skeptic's evidence.
               Required: state the new scope boundary explicitly.
-            
             </rebutal_rules>
             
             All three responses go to the executor alongside the original claim
@@ -2295,6 +2377,11 @@ class AiChatRunner {
             <query_structure>
             {{QUERY_STRUCTURE}}
             </query_structure
+            
+            VERY IMPORTANT NOTE: be greedy about tool calls - the more parallel branches of verification you can identify - \
+            the more tool calls you should do. Aim to request as many relevant information per tool round as possible.
+            You can also combine different priority analysis directions within same tool calling round\s
+            if they are independent
             """;
 
         String GENERATOR_MECHANICAL_SCEPTIC_USER = """

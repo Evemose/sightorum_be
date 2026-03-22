@@ -1,12 +1,10 @@
 package com.rorm.ai.tools;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.JournaledTool;
 import com.rorm.ai.RormToolContext;
 import com.rorm.ai.tools.VerificationResponseFormatter.Verdict;
 import com.rorm.dto.dense.DenseExpressionDto;
-import com.rorm.fetcher.Fetcher;
-import com.rorm.mapper.DenseQueryMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
@@ -24,6 +22,7 @@ import static com.rorm.ai.tools.VerificationQueryExecutor.numVal;
 @Slf4j
 @Component
 @JournaledTool
+@RequiredArgsConstructor
 public class HypothesisVerificationTool {
 
     private static final String EXPR_HINT = "Expression (path for column, or derived e.g. function/binary). " +
@@ -31,11 +30,6 @@ public class HypothesisVerificationTool {
 
     private final VerificationQueryExecutor executor;
     private final VerificationResponseFormatter formatter;
-
-    public HypothesisVerificationTool(Fetcher fetcher, ObjectMapper objectMapper, DenseQueryMapper denseQueryMapper) {
-        this.executor = new VerificationQueryExecutor(fetcher, denseQueryMapper);
-        this.formatter = new VerificationResponseFormatter(objectMapper);
-    }
 
     @Tool(description = """
         SCREENING / MEDIATION — Tests whether mediator B screens the association between feature A and outcome.
@@ -55,6 +49,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, featureA, "featureA", mediatorB, "mediatorB", outcome, "outcome");
             var row = executor.executeSingle(query(rootName, filter,
                 corr(featureA, outcome, "corr_a_outcome"),
                 corr(featureA, mediatorB, "corr_a_b"),
@@ -87,6 +82,12 @@ public class HypothesisVerificationTool {
         }
     }
 
+    private void requireNumeric(RormToolContext ctx, String rootName, Object... pairs) {
+        for (var i = 0; i < pairs.length; i += 2) {
+            executor.requireNumeric((DenseExpressionDto) pairs[i], (String) pairs[i + 1], rootName, ctx);
+        }
+    }
+
     private static double partialCorrelation(double corrAO, double corrAB, double corrBO) {
         var numerator = corrAO - corrAB * corrBO;
         var denominator = Math.sqrt((1 - corrAB * corrAB) * (1 - corrBO * corrBO));
@@ -109,6 +110,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, continuousY, "continuousY", outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, categoricalX, filter,
                 corr(continuousY, outcome, "gradient"), count("n")
             ), ctx);
@@ -164,6 +166,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, outcome, "outcome");
             var results = executor.execute(doubleGroupedQuery(rootName, confounder, treatment, filter,
                 avg(outcome, "outcome_rate"), count("n")), ctx);
 
@@ -244,6 +247,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, treatment, "treatment", outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, modifier, filter,
                 regrSlope(outcome, treatment, "treatment_effect"), count("n")
             ), ctx);
@@ -303,6 +307,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, feature, "feature", outcome, "outcome");
             var row = executor.executeSingle(query(rootName, subpopulationFilter,
                 corr(feature, outcome, "gradient"), count("n")
             ), ctx);
@@ -344,6 +349,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, feature, "feature", outcome, "outcome");
 
             var betweenEffect = numVal(executor.executeSingle(
                     query(rootName, filter, regrSlope(outcome, feature, "between_group_effect")), ctx),
@@ -408,6 +414,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, treatment, "treatment", confounderVar, "confounderVar");
 
             var uncondCorr = numVal(executor.executeSingle(
                     query(rootName, filter, corr(treatment, confounderVar, "unconditional_correlation")), ctx),
@@ -468,6 +475,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, statusFlag, filter,
                 avg(outcome, "outcome_rate"), count("n")), ctx);
 
@@ -528,6 +536,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, cohortVariable, "cohortVariable", outcome, "outcome");
 
             var overallGradient = numVal(executor.executeSingle(
                     query(rootName, filter, regrSlope(outcome, cohortVariable, "overall_gradient")), ctx),
@@ -591,6 +600,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, stratumVariable, filter,
                 avg(outcome, "observed_effect"), stddevPop(outcome, "outcome_sd"), count("n")
             ), ctx);
@@ -654,6 +664,8 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
+            requireNumeric(ctx, rootName, treatment, "treatment", outcome, "outcome");
+            for (var c : candidateVariables) requireNumeric(ctx, rootName, c, "candidateVariable");
             var missingConfounders = new ArrayList<Map<String, Object>>();
 
             for (var candidate : candidateVariables) {

@@ -13,7 +13,9 @@ import java.util.List;
     Types: path (path), literal (value), function (functionName, arguments), \
     aggregation (functionName, arguments, distinct), binary (left, operator, right), \
     unary (operator, operand), ternary (first, operator, second, third), \
-    window (functionName, arguments, windowSpec), subquery (query), outerRef (depth, path).""")
+    window (functionName, arguments, windowSpec), subquery (query), outerRef (depth, path).
+    For more references, see <query_structure> section of you system prompt
+    """)
 public record DenseExpressionDto(
     @JsonProperty(value = "@type", required = true)
     @JsonPropertyDescription("Expression type: path, literal, function, aggregation, binary, unary, ternary, window, subquery, outerRef")
@@ -28,7 +30,15 @@ public record DenseExpressionDto(
     Object value,
 
     @JsonProperty
-    @JsonPropertyDescription("Function name. Used by 'function', 'aggregation', and 'window' types.")
+    @JsonPropertyDescription("""
+        Function or aggregate name. Used by 'function', 'aggregation', and 'window' types.
+        For @type=function: String — UPPER, LOWER, TRIM, LTRIM, RTRIM, CONCAT, SUBSTRING, REPLACE, LEFT, RIGHT, REVERSE, LPAD, RPAD, INITCAP, REPEAT, LENGTH, POSITION; \
+        Numeric — ABS, ROUND, FLOOR, CEIL, TRUNC, SIGN, MOD, SQRT, POWER, EXP, LN, LOG; \
+        Date/Time — NOW, CURRENT_DATE, CURRENT_TIME, DATE_TRUNC, EXTRACT; \
+        Conditional — COALESCE, NULLIF, GREATEST, LEAST, CASE; \
+        Special — CAST.
+        For @type=aggregation: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP, STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR, CORR, REGR_SLOPE.
+        For @type=window: ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, NTH_VALUE, NTILE (or any aggregate used as window).""")
     String functionName,
 
     @JsonProperty
@@ -36,7 +46,13 @@ public record DenseExpressionDto(
     List<DenseExpressionDto> arguments,
 
     @JsonProperty
-    @JsonPropertyDescription("Operator: EQUALS, GREATER_THAN, LESS_THAN, LIKE, IN, AND, OR, IS_NULL, NOT, BETWEEN, etc. Used by 'binary', 'unary', and 'ternary' types.")
+    @JsonPropertyDescription("""
+        Operator name. Used by 'binary', 'unary', and 'ternary' types.
+        For @type=binary: comparison — EQUALS, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, LIKE, IN; \
+        logical — AND, OR; arithmetic — ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO.
+        For @type=unary: IS_NULL, IS_NOT_NULL, IS_TRUE, IS_FALSE, NOT, NEGATE.
+        For @type=ternary: BETWEEN.
+        Negated forms (NOT_EQUALS, NOT_LIKE, NOT_IN, NOT BETWEEN) are expressed as unary NOT wrapping the positive form.""")
     String operator,
 
     @JsonProperty
