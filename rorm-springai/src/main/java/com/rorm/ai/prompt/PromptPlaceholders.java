@@ -83,7 +83,8 @@ public class PromptPlaceholders {
         
         **Ternary**: BETWEEN (for NOT BETWEEN, wrap with NOT unary)
         
-        **Aggregates**: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP, STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR
+        **Aggregates**: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP, STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR \
+        CORR (correlation), REGR_SLOPE (regression slope)
         
         **Functions**:
         String: UPPER, LOWER, TRIM, LTRIM, RTRIM, CONCAT, SUBSTRING, REPLACE, LEFT, RIGHT, REVERSE, LPAD, RPAD, INITCAP, REPEAT, LENGTH, POSITION

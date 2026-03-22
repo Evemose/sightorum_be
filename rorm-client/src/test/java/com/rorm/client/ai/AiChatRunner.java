@@ -15,7 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Objects;
 
-import static com.rorm.client.ai.AiChatRunner.SwarmResearchPromptsV2.GENERATOR_CACHE_STRATEGY;
+import static com.rorm.client.ai.AiChatRunner.SwarmResearchPromptsV2.*;
 
 /**
  * Manual runner for testing AI chat workflows against real data.
@@ -106,7 +106,7 @@ class AiChatRunner {
         - **Direction**: Degraded reefer unit → higher excursion risk
         - **Mechanism**: Compressor inefficiency, refrigerant leaks, condenser/evaporator coil fouling, electrical faults
         - **Evidence**: WELL_ESTABLISHED
-        - **Effect size**: 
+        - **Effect size**:
         Predictive maintenance software claims to reduce refrigeration unit breakdowns by 50%.
         
         Preventative measures significantly reduce the likelihood of costly downtimes and repairs.
@@ -451,8 +451,11 @@ class AiChatRunner {
     @Test
     void simpleChat() {
         //noinspection ConstantValue
-        if (false) { // guard from accidental execution
-            durableRuntime.submit("runner-generator-v3", new JobSpec("agentJp", "run"));
+        if (true) { // guard from accidental execution
+            durableRuntime.submit("runner-generator-mech-sceptic-v1", new JobSpec(
+                "agentJp",
+                "runGeneratorMechanicalSceptic"
+            ));
         }
     }
 
@@ -2083,6 +2086,227 @@ class AiChatRunner {
             }
             return CacheTTL.SHORT;
         };
+
+        String GENERATOR_MECHANICAL_SCEPTIC_SYSTEM = """
+            You verify causal hypothesis claims by computing ALTERNATIVE EVIDENCE
+            for the same underlying quantity. You do not argue — you calculate.
+            
+            For each testable claim in the generator output, you:
+            1. EXTRACT the claim and the generator's evidence path
+            2. DESIGN an alternative computation that tests the same assertion
+               via different conditioning, aggregation, or stratification
+            3. EXECUTE it using executeQuery or analyzeExpression
+            4. REPORT both numbers and the delta
+            
+            You have the same exploratory tools as the generator: executeQuery,
+            analyzeExpression, getEntityProfile. You do NOT run stability selection
+            or SHAP — you verify claims against the raw data.
+            
+            Every subpopulation filter you use must reference a specific threshold
+            or stratum from the GENERATOR'S OWN EXPLORATION. You recombine the
+            generator's findings; you do not explore de novo.
+            
+            <verification_patterns>
+            
+            ## 1. SCREENING / MEDIATION
+            Claim: "Feature A's effect is screened by mediator B"
+            Compute:
+              - corr(A, outcome) — total association
+              - partial_corr(A, outcome | B) — residual after controlling B
+              - corr(A, B) — mediator path strength
+            Verdict:
+              - partial_corr ≈ 0 AND corr(A,B) substantial → SUPPORTED (full mediation)
+              - partial_corr > 0 but reduced → INCOMPLETE (partial mediation, report residual)
+              - corr(A,B) ≈ 0 → CONTRADICTED (no mediation path exists)
+            
+            ## 2. PROXY ABSORPTION
+            Claim: "Categorical X absorbs continuous Y's signal"
+            Compute:
+              - Within each category of X: corr(Y, outcome) or stratified outcome
+                rates at Y quartiles
+            Verdict:
+              - Within-category gradient ≈ 0 for all categories → SUPPORTED
+              - Within-category gradient > 0 for any category → INCOMPLETE, report
+                per-category deltas and which categories retain signal
+            
+            ## 3. TREATMENT DIRECTION
+            Claim: "Treatment T has direction D on outcome"
+            Compute:
+              - Outcome rate per T level, stratified by the strongest confounder
+                identified during the generator's exploration phase
+              - Focus on the stratum where confounding pressure is strongest
+            Verdict:
+              - Direction holds in all strata → SUPPORTED
+              - Direction holds marginally but flips in ≥1 stratum → CONDITIONAL,
+                report which stratum and reversal magnitude
+              - Direction flips in majority of strata → CONTRADICTED (Simpson's Paradox)
+            
+            ## 4. EFFECT MODIFIER
+            Claim: "Variable M modifies the treatment effect"
+            Compute:
+              - Check SS nonlinear_or_interaction_candidates for the treatment feature
+              - Stratify outcome by treatment levels within M quartiles
+              - Compare treatment effect magnitude across M strata
+            Verdict:
+              - Treatment effect varies >2× across M strata AND M appears in
+                interaction candidates → EMPIRICALLY SUPPORTED
+              - Treatment effect varies but M absent from interaction candidates
+                → PARTIALLY SUPPORTED (data shows it, SS didn't flag it)
+              - Treatment effect constant across M strata → UNSUPPORTED, relabel
+                as "domain-suggested, not empirically confirmed"
+            
+            ## 5. ABSENCE / BELOW DETECTION
+            Claim: "Feature F has no signal after saturation"
+            Compute:
+              - Filter to subpopulation where signal is domain-expected, using
+                thresholds FROM THE GENERATOR'S OWN EXPLORATION
+              - Compute outcome rate gradient of F within that subpopulation
+            Verdict:
+              - Subpopulation gradient ≈ 0 → CONFIRMED NULL
+              - Subpopulation gradient > 0 → CONDITIONAL SIGNAL EXISTS, report
+                subpopulation definition, n, and effect size
+            
+            ## 6. ECOLOGICAL FALLACY
+            Claim: Any hypothesis where evidence is marginal rates across groups
+            Compute:
+              - Within-group effect for the most granular grouping available
+                (within-stratum of the primary confounder)
+              - Compare within-group effect direction/magnitude to between-group
+            Verdict:
+              - Within-group matches between-group → SUPPORTED
+              - Within-group differs substantially → ECOLOGICAL, report both and
+                which level the executor should condition on
+            
+            ## 7. COLLIDER CONDITIONING
+            Claim: Variable B is saturated as mediator/confounder
+            Compute:
+              - corr(treatment, confounder) unconditionally
+              - corr(treatment, confounder | B) after conditioning on B
+              - If conditioning on B INCREASES the correlation between two variables
+                that were previously independent, B may be a collider
+            Verdict:
+              - |corr_conditional| > |corr_unconditional| + 0.05 → COLLIDER WARNING,
+                report the induced association magnitude
+              - No increase → SAFE, conditioning did not open spurious path
+            
+            ## 8. SURVIVORSHIP BIAS
+            Claim: Feature F shows weak/no effect (especially aging variables)
+            Prerequisite: Dataset contains retired/removed units
+            Compute:
+              - Age distribution of retired vs active units
+              - Outcome rate for units in the period BEFORE retirement vs
+                comparable active units at the same age
+              - If retired units had worse outcomes pre-retirement, their removal
+                attenuates the observable age gradient
+            Verdict:
+              - Retired units show higher pre-retirement outcome rates → SURVIVORSHIP
+                CONFIRMED, report attenuation magnitude
+              - No difference → SURVIVORSHIP UNLIKELY
+              - Retirement data unavailable → UNTESTABLE, flag for executor
+            
+            ## 9. TEMPORAL CONFOUNDING
+            Claim: "Cohort / vintage / category causes outcome difference"
+            Compute:
+              - Within-time-period, within-stratum outcome rates across cohorts
+              - If cohort A only exists in period 1 and cohort B only exists in
+                period 2, the "cohort effect" may be a calendar effect (policy
+                changes, market shifts, infrastructure upgrades, measurement drift)
+            Verdict:
+              - Within-period cohort gradient matches overall → SUPPORTED
+              - Within-period gradient absent or reversed → TEMPORAL CONFOUND,
+                report within-period deltas
+            
+            ## 10. RARE EVENT TAUTOLOGY
+            Claim: RARE_EVENT_FINDING with high rate ratio
+            Compute:
+              - Check temporal ordering: does the rare condition precede the
+                outcome measurement?
+              - Check whether the rare condition could be DETECTED only because
+                the outcome occurred (reverse causation)
+              - Check whether the condition is operationally independent of the
+                outcome measurement process
+            Verdict:
+              - Clear temporal precedence, independent detection → GENUINE
+              - Ambiguous timing or detection coupling → TAUTOLOGY RISK
+              - Condition is definitionally post-outcome → TAUTOLOGICAL, retract
+            
+            ## 11. SAMPLE SIZE ADEQUACY
+            Claim: Any stratified or conditional finding
+            Compute:
+              - n per stratum in the supporting evidence
+              - Expected effect size vs detectable effect size at that n
+              - For binary outcome at base rate p, minimum n ≈ 16/(p × delta²)
+                for delta = minimum meaningful effect
+            Verdict:
+              - n sufficient for claimed effect size → ADEQUATE
+              - n < 100 per stratum or effect within noise band → UNDERPOWERED,
+                report n and confidence interval width
+            
+            ## 12. CONFOUNDER COMPLETENESS
+            Claim: DAG edge (treatment → outcome) with listed confounders
+            Compute:
+              - For each treatment: check correlation with UNSATURATED variables
+                not listed as confounders
+              - If treatment correlates with an unlisted variable that also
+                predicts outcome, the DAG is missing an edge
+            Verdict:
+              - No unlisted variable correlates with both treatment and outcome
+                → COMPLETE (for observed variables)
+              - Unlisted variable found → MISSING CONFOUNDER, report the variable,
+                both correlations, and potential bias direction
+            
+            OUTPUT per claim:
+            
+            VERIFICATION:
+              claim: <generator's assertion>
+              generator_evidence: <what the generator cited — run ID, number, path>
+              alternative_path: <what you computed — query description>
+              generator_number: <the number implied by generator's evidence>
+              skeptic_number: <the number from your alternative computation>
+              delta: <difference>
+              pattern: <which of the 12 patterns applies>
+              verdict: SUPPORTED | INCOMPLETE | OVERSTATED | CONDITIONAL | CONTRADICTED
+              material: <yes/no — does this delta change the downstream estimation strategy?>
+              executor_note: <if material=yes, what should the executor do differently?>
+            
+            </verification_patterns>
+            
+            <rebutal_rules>
+            
+            Generator receives VERIFICATION blocks and responds ONCE per challenge:
+            
+            ACCEPT: Retract or narrow the claim.
+              Required: state the revised claim text.
+            
+            REBUT: Dispute the skeptic's finding.
+              Required: a counter-computation WITH A NUMBER from the generator's
+              own tools (executeQuery, analyzeExpression). Narrative-only rebuttals
+              are automatically flagged REBUTTAL_UNSUBSTANTIATED by the executor.
+            
+            NARROW: Restrict claim scope based on skeptic's evidence.
+              Required: state the new scope boundary explicitly.
+            
+            </rebutal_rules>
+            
+            All three responses go to the executor alongside the original claim
+            and skeptic delta. Executor adjudicates unresolved disputes based on
+            which side has stronger quantitative backing.
+            
+            <query_structure>
+            {{QUERY_STRUCTURE}}
+            </query_structure
+            """;
+
+        String GENERATOR_MECHANICAL_SCEPTIC_USER = """
+            Generator session dump:
+            {{GENERATOR_SESSION}}
+            
+            Metamodel:
+            {{METAMODEL}}
+            """;
+
+        CacheStrategy GENERATOR_MECHANICAL_SCEPTIC_CACHE_STRATEGY = _ -> CacheTTL.SHORT;
+
     }
 
     @TestComponent("agentJp")
@@ -2092,8 +2316,10 @@ class AiChatRunner {
         MetamodelService metamodelService;
         @Autowired
         AiChatService chatService;
+        @Autowired
+        private ChatConversationFormatter chatConversationFormatter;
 
-        public void run() {
+        public void runGenerator() {
             var modelSpace = metamodelService.getModelSpace(SCHEMA);
             var genUser = SwarmResearchPromptsV2.GENERATOR_USER.replace(
                 "{{USER_QUERY}}",
@@ -2107,10 +2333,6 @@ class AiChatRunner {
             ).replace(
                 "{{CLUSTER_CONTEXT}}",
                 SAMPLE_SURVEY
-            );
-            var scoutUser = SwarmResearchPromptsV2.SURVEY_SCOUT_USER.replace(
-                "{{USER_QUERY}}",
-                "How can I decrease excursion rates"
             );
             chatService.stream(
                     ChatRequest.usingData(SCHEMA, modelSpace)
@@ -2129,6 +2351,50 @@ class AiChatRunner {
                 .blockLast();
         }
 
-    }
+        public void runScout() {
+            var modelSpace = metamodelService.getModelSpace(SCHEMA);
+            var scoutUser = SwarmResearchPromptsV2.SURVEY_SCOUT_USER.replace(
+                "{{USER_QUERY}}",
+                "How can I decrease excursion rates"
+            );
+            chatService.stream(
+                    ChatRequest.usingData(SCHEMA, modelSpace)
+                        .withToolGroups(ToolGroup.WEB_ACCESS, ToolGroup.QUERY)
+                        .withThinkingLevel(ThinkingLevel.HIGH)
+                        .withSystemPrompt(SwarmResearchPromptsV2.SURVEY_SCOUT_SYSTEM)
+                        .withModelName("claude-sonnet-4-6")
+                        .withCachingStrategyFunction(SCOUT_CACHE_STRATEGY)
+                        .ask(scoutUser)
+                )
+                .doOnError(e -> System.err.println("Error during chat: " + e.getMessage()))
+                .doOnNext(t -> {
+                    System.out.print(t);
+                    System.out.flush();
+                })
+                .blockLast();
+        }
 
+        public void runGeneratorMechanicalSceptic() {
+            var modelSpace = metamodelService.getModelSpace(SCHEMA);
+            var formattedGeneratorConv = chatConversationFormatter.toMarkdown("conv-dump-equipment-aging");
+            chatService.stream(
+                    ChatRequest.usingData(SCHEMA, modelSpace)
+                        .withToolGroups(ToolGroup.QUERY, ToolGroup.VERIFICATION)
+                        .withThinkingLevel(ThinkingLevel.HIGH)
+                        .withSystemPrompt(GENERATOR_MECHANICAL_SCEPTIC_SYSTEM)
+                        .withModelName("claude-sonnet-4-6")
+                        .withCachingStrategyFunction(GENERATOR_MECHANICAL_SCEPTIC_CACHE_STRATEGY)
+                        .ask(SwarmResearchPromptsV2.GENERATOR_MECHANICAL_SCEPTIC_USER.replace(
+                            "{{GENERATOR_SESSION}}",
+                            formattedGeneratorConv
+                        ))
+                )
+                .doOnError(e -> System.err.println("Error during chat: " + e.getMessage()))
+                .doOnNext(t -> {
+                    System.out.print(t);
+                    System.out.flush();
+                })
+                .blockLast();
+        }
+    }
 }

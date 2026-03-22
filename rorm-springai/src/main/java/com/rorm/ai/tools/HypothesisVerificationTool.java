@@ -3,6 +3,7 @@ package com.rorm.ai.tools;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.JournaledTool;
 import com.rorm.ai.RormToolContext;
+import com.rorm.ai.tools.VerificationResponseFormatter.Verdict;
 import com.rorm.dto.dense.DenseExpressionDto;
 import com.rorm.fetcher.Fetcher;
 import com.rorm.mapper.DenseQueryMapper;
@@ -67,29 +68,17 @@ public class HypothesisVerificationTool {
             var n = longVal(row, "n");
             var partialCorr = partialCorrelation(corrAO, corrAB, corrBO);
 
-            String verdict;
-            var material = false;
-            String executorNote;
+            var verdict = Verdict.rules()
+                .supported(Math.abs(partialCorr) < 0.05 && Math.abs(corrAB) > 0.3,
+                    "Full mediation confirmed. Condition on B instead of A.")
+                .when(Math.abs(partialCorr) < Math.abs(corrAO) && Math.abs(corrAB) > 0.3,
+                    "INCOMPLETE", "Partial mediation. Residual: %.3f. Include both A and B.".formatted(partialCorr))
+                .when(Math.abs(corrAB) < 0.1,
+                    "CONTRADICTED", "No mediation path exists. B does not screen A.")
+                .orElse("CONDITIONAL", "Weak mediation. corr(A,O)=%.3f, partial=%.3f, corr(A,B)=%.3f"
+                    .formatted(corrAO, partialCorr, corrAB));
 
-            if (Math.abs(partialCorr) < 0.05 && Math.abs(corrAB) > 0.3) {
-                verdict = "SUPPORTED";
-                executorNote = "Full mediation confirmed. Condition on B instead of A.";
-            } else if (Math.abs(partialCorr) < Math.abs(corrAO) && Math.abs(corrAB) > 0.3) {
-                verdict = "INCOMPLETE";
-                material = true;
-                executorNote = String.format("Partial mediation. Residual: %.3f. Include both A and B.", partialCorr);
-            } else if (Math.abs(corrAB) < 0.1) {
-                verdict = "CONTRADICTED";
-                material = true;
-                executorNote = "No mediation path exists. B does not screen A.";
-            } else {
-                verdict = "CONDITIONAL";
-                material = true;
-                executorNote = String.format("Weak mediation. corr(A,O)=%.3f, partial=%.3f, corr(A,B)=%.3f",
-                    corrAO, partialCorr, corrAB);
-            }
-
-            return formatter.format("SCREENING_MEDIATION", generatorNumber, partialCorr, verdict, material, executorNote,
+            return formatter.format("SCREENING_MEDIATION", generatorNumber, partialCorr, verdict,
                 Map.of("corr_a_outcome", corrAO, "corr_a_b", corrAB, "corr_b_outcome", corrBO,
                     "partial_correlation", partialCorr, "n", n));
         } catch (Exception e) {
@@ -126,42 +115,30 @@ public class HypothesisVerificationTool {
 
             var categoryGradients = new ArrayList<Map<String, Object>>();
             var significantCount = 0;
-
             for (var row : results) {
                 var gradient = numVal(row, "gradient");
                 var n = longVal(row, "n");
-                var category = String.valueOf(row.get("category"));
                 var significant = Math.abs(gradient) > 0.1 && n >= 30;
                 if (significant) {
                     significantCount++;
                 }
-                categoryGradients.add(Map.of("category", category, "gradient", gradient,
-                    "n", n, "significant", significant));
+                categoryGradients.add(Map.of("category", String.valueOf(row.get("category")),
+                    "gradient", gradient, "n", n, "significant", significant));
             }
 
-            var totalCategories = results.size();
-            String verdict;
-            var material = false;
-            String executorNote;
-
-            if (significantCount == 0) {
-                verdict = "SUPPORTED";
-                executorNote = "Complete absorption confirmed. Use X instead of Y.";
-            } else if (significantCount < totalCategories / 2) {
-                verdict = "INCOMPLETE";
-                material = true;
-                executorNote = String.format("Partial absorption. %d/%d categories retain signal. Include interaction term.",
-                    significantCount, totalCategories);
-            } else {
-                verdict = "CONTRADICTED";
-                material = true;
-                executorNote = String.format("No absorption. %d/%d categories show independent Y signal.",
-                    significantCount, totalCategories);
-            }
+            var total = results.size();
+            var verdict = Verdict.rules()
+                .supported(significantCount == 0,
+                    "Complete absorption confirmed. Use X instead of Y.")
+                .when(significantCount < total / 2,
+                    "INCOMPLETE", "%d/%d categories retain signal. Include interaction term."
+                        .formatted(significantCount, total))
+                .orElse("CONTRADICTED", "No absorption. %d/%d categories show independent Y signal."
+                    .formatted(significantCount, total));
 
             return formatter.format("PROXY_ABSORPTION", 0.0,
-                significantCount / (double) Math.max(totalCategories, 1),
-                verdict, material, executorNote, Map.of("category_gradients", categoryGradients));
+                significantCount / (double) Math.max(total, 1),
+                verdict, Map.of("category_gradients", categoryGradients));
         } catch (Exception e) {
             log.error("Proxy absorption verification failed", e);
             return formatter.error("Verification failed: " + e.getMessage());
@@ -190,73 +167,63 @@ public class HypothesisVerificationTool {
             var results = executor.execute(doubleGroupedQuery(rootName, confounder, treatment, filter,
                 avg(outcome, "outcome_rate"), count("n")), ctx);
 
-            var byStratum = new HashMap<String, List<Map<String, Object>>>();
-            for (var row : results) {
-                byStratum.computeIfAbsent(String.valueOf(row.get("group1")), _ -> new ArrayList<>()).add(row);
-            }
+            var stratumEffects = computeStratumEffects(results, claimedDirection, minStratumSize);
+            var consistent = (int) stratumEffects.stream().filter(e -> (boolean) e.get("matches_claim")).count();
+            var flipped = (int) stratumEffects.stream()
+                .filter(e -> !(boolean) e.get("matches_claim") && !"null".equals(e.get("direction")))
+                .count();
+            var totalValid = consistent + flipped;
 
-            var consistentStrata = 0;
-            var flippedStrata = 0;
-            var stratumEffects = new ArrayList<Map<String, Object>>();
-
-            for (var entry : byStratum.entrySet()) {
-                var stratumData = entry.getValue();
-                if (stratumData.size() < 2) {
-                    continue;
-                }
-
-                stratumData.sort(Comparator.comparing(m -> numVal(m, "group2")));
-                var firstRate = numVal(stratumData.getFirst(), "outcome_rate");
-                var lastRate = numVal(stratumData.getLast(), "outcome_rate");
-                var totalN = stratumData.stream().mapToLong(m -> longVal(m, "n")).sum();
-                if (totalN < minStratumSize) {
-                    continue;
-                }
-
-                var effect = lastRate - firstRate;
-                var observedDirection = effect > 0.02 ? "positive" : (effect < -0.02 ? "negative" : "null");
-                var matches = observedDirection.equals(claimedDirection);
-                if (matches) {
-                    consistentStrata++;
-                } else if (!observedDirection.equals("null")) {
-                    flippedStrata++;
-                }
-
-                stratumEffects.add(Map.of("stratum", entry.getKey(), "effect", effect,
-                    "direction", observedDirection, "matches_claim", matches, "n", totalN));
-            }
-
-            var totalValid = consistentStrata + flippedStrata;
-            String verdict;
-            var material = false;
-            String executorNote;
-
-            if (flippedStrata == 0 && consistentStrata > 0) {
-                verdict = "SUPPORTED";
-                executorNote = String.format("Direction holds in all %d strata.", consistentStrata);
-            } else if (flippedStrata > 0 && flippedStrata < totalValid / 2) {
-                verdict = "CONDITIONAL";
-                material = true;
-                executorNote = String.format("Simpson's Paradox. Direction flips in %d/%d strata.",
-                    flippedStrata, totalValid);
-            } else if (flippedStrata >= totalValid / 2) {
-                verdict = "CONTRADICTED";
-                material = true;
-                executorNote = String.format("Direction reverses in %d/%d strata. Marginal effect confounded.",
-                    flippedStrata, totalValid);
-            } else {
-                verdict = "INSUFFICIENT";
-                material = true;
-                executorNote = "No valid strata with sufficient sample size.";
-            }
+            var verdict = Verdict.rules()
+                .supported(flipped == 0 && consistent > 0,
+                    "Direction holds in all %d strata.".formatted(consistent))
+                .when(flipped > 0 && flipped < totalValid / 2,
+                    "CONDITIONAL", "Simpson's Paradox. Direction flips in %d/%d strata."
+                        .formatted(flipped, totalValid))
+                .when(flipped >= totalValid / 2,
+                    "CONTRADICTED", "Direction reverses in %d/%d strata. Marginal effect confounded."
+                        .formatted(flipped, totalValid))
+                .orElse("INSUFFICIENT", "No valid strata with sufficient sample size.");
 
             return formatter.format("TREATMENT_DIRECTION", 0.0,
-                totalValid > 0 ? consistentStrata / (double) totalValid : 0.0,
-                verdict, material, executorNote, Map.of("stratum_effects", stratumEffects));
+                totalValid > 0 ? consistent / (double) totalValid : 0.0,
+                verdict, Map.of("stratum_effects", stratumEffects));
         } catch (Exception e) {
             log.error("Treatment direction verification failed", e);
             return formatter.error("Verification failed: " + e.getMessage());
         }
+    }
+
+    private static List<Map<String, Object>> computeStratumEffects(
+        List<Map<String, Object>> rows, String claimedDirection, int minStratumSize
+    ) {
+        var byStratum = new HashMap<String, List<Map<String, Object>>>();
+        for (var row : rows) {
+            byStratum.computeIfAbsent(String.valueOf(row.get("group1")), _ -> new ArrayList<>()).add(row);
+        }
+
+        var effects = new ArrayList<Map<String, Object>>();
+        for (var entry : byStratum.entrySet()) {
+            var stratumData = entry.getValue();
+            if (stratumData.size() < 2) {
+                continue;
+            }
+            stratumData.sort(Comparator.comparing(m -> numVal(m, "group2")));
+            var totalN = stratumData.stream().mapToLong(m -> longVal(m, "n")).sum();
+            if (totalN < minStratumSize) {
+                continue;
+            }
+
+            var effect = numVal(stratumData.getLast(), "outcome_rate") - numVal(stratumData.getFirst(), "outcome_rate");
+            var direction = classifyDirection(effect);
+            effects.add(Map.of("stratum", entry.getKey(), "effect", effect,
+                "direction", direction, "matches_claim", direction.equals(claimedDirection), "n", totalN));
+        }
+        return effects;
+    }
+
+    private static String classifyDirection(double effect) {
+        return effect > 0.02 ? "positive" : (effect < -0.02 ? "negative" : "null");
     }
 
     @Tool(description = """
@@ -288,7 +255,6 @@ public class HypothesisVerificationTool {
             var minEffect = Double.MAX_VALUE;
             var maxEffect = -Double.MAX_VALUE;
             var stratumEffects = new ArrayList<Map<String, Object>>();
-
             for (var row : results) {
                 var effect = numVal(row, "treatment_effect");
                 var n = longVal(row, "n");
@@ -299,32 +265,20 @@ public class HypothesisVerificationTool {
                         "treatment_effect", effect, "n", n));
                 }
             }
-
             if (stratumEffects.isEmpty()) {
                 return formatter.error("No adequately powered strata (n >= 30)");
             }
 
-            var varianceRatio = Math.abs(minEffect) < 1e-10 ? Double.MAX_VALUE : Math.abs(maxEffect / minEffect);
+            var ratio = Math.abs(minEffect) < 1e-10 ? Double.MAX_VALUE : Math.abs(maxEffect / minEffect);
+            var verdict = Verdict.rules()
+                .when(ratio > 2.0 && inInteractionCandidates,
+                    "EMPIRICALLY_SUPPORTED", "Strong effect modification (%.2fx). Include interaction term.".formatted(ratio))
+                .when(ratio > 2.0,
+                    "PARTIALLY_SUPPORTED", "Data shows modification (%.2fx) but SS didn't flag it.".formatted(ratio))
+                .orElse("UNSUPPORTED", false, "Effect constant across strata (%.2fx). No interaction needed.".formatted(ratio));
 
-            String verdict;
-            var material = false;
-            String executorNote;
-
-            if (varianceRatio > 2.0 && inInteractionCandidates) {
-                verdict = "EMPIRICALLY_SUPPORTED";
-                material = true;
-                executorNote = String.format("Strong effect modification (%.2fx). Include interaction term.", varianceRatio);
-            } else if (varianceRatio > 2.0) {
-                verdict = "PARTIALLY_SUPPORTED";
-                material = true;
-                executorNote = String.format("Data shows modification (%.2fx) but SS didn't flag it.", varianceRatio);
-            } else {
-                verdict = "UNSUPPORTED";
-                executorNote = String.format("Effect constant across strata (%.2fx). No interaction needed.", varianceRatio);
-            }
-
-            return formatter.format("EFFECT_MODIFIER", 0.0, varianceRatio, verdict, material, executorNote,
-                Map.of("stratum_effects", stratumEffects, "variance_ratio", varianceRatio,
+            return formatter.format("EFFECT_MODIFIER", 0.0, ratio, verdict,
+                Map.of("stratum_effects", stratumEffects, "variance_ratio", ratio,
                     "min_effect", minEffect, "max_effect", maxEffect));
         } catch (Exception e) {
             log.error("Effect modifier verification failed", e);
@@ -356,25 +310,16 @@ public class HypothesisVerificationTool {
             var gradient = numVal(row, "gradient");
             var n = longVal(row, "n");
 
-            String verdict;
-            var material = false;
-            String executorNote;
+            var verdict = Verdict.rules()
+                .when(Math.abs(gradient) < 0.05,
+                    "CONFIRMED_NULL", false, "No signal in expected subpopulation (n=%d). Safe to exclude.".formatted(n))
+                .when(n < 100,
+                    "UNDERPOWERED", "Gradient %.3f but n=%d too small. Collect more data or pool.".formatted(gradient, n))
+                .orElse("CONDITIONAL_SIGNAL_EXISTS",
+                    "Signal exists: gradient=%.3f (n=%d). Filter: %s. Include conditional term."
+                        .formatted(gradient, n, subpopulationDefinition));
 
-            if (Math.abs(gradient) < 0.05) {
-                verdict = "CONFIRMED_NULL";
-                executorNote = String.format("No signal in expected subpopulation (n=%d). Safe to exclude.", n);
-            } else if (n < 100) {
-                verdict = "UNDERPOWERED";
-                material = true;
-                executorNote = String.format("Gradient %.3f but n=%d too small. Collect more data or pool.", gradient, n);
-            } else {
-                verdict = "CONDITIONAL_SIGNAL_EXISTS";
-                material = true;
-                executorNote = String.format("Signal exists: gradient=%.3f (n=%d). Filter: %s. Include conditional term.",
-                    gradient, n, subpopulationDefinition);
-            }
-
-            return formatter.format("ABSENCE_BELOW_DETECTION", 0.0, gradient, verdict, material, executorNote,
+            return formatter.format("ABSENCE_BELOW_DETECTION", 0.0, gradient, verdict,
                 Map.of("gradient", gradient, "n", n, "subpopulation", subpopulationDefinition));
         } catch (Exception e) {
             log.error("Absence verification failed", e);
@@ -400,9 +345,8 @@ public class HypothesisVerificationTool {
         try {
             var ctx = RormToolContext.from(toolContext);
 
-            var betweenEffect = numVal(
-                executor.executeSingle(query(rootName, filter,
-                    regrSlope(outcome, feature, "between_group_effect")), ctx),
+            var betweenEffect = numVal(executor.executeSingle(
+                    query(rootName, filter, regrSlope(outcome, feature, "between_group_effect")), ctx),
                 "between_group_effect");
 
             var withinResults = executor.execute(groupedQuery(rootName, groupingVariable, filter,
@@ -413,26 +357,18 @@ public class HypothesisVerificationTool {
             var nGroups = (int) withinResults.stream()
                 .filter(r -> longVal(r, "n") >= 10 && Double.isFinite(numVal(r, "slope")))
                 .count();
-
             var delta = Math.abs(betweenEffect - withinEffect);
             var relativeDelta = Math.abs(betweenEffect) > 1e-10 ? delta / Math.abs(betweenEffect) : 0.0;
 
-            String verdict;
-            var material = false;
-            String executorNote;
+            var verdict = Verdict.rules()
+                .supported(relativeDelta < 0.2,
+                    "Within-group matches between-group (delta=%.1f%%). Marginal analysis valid."
+                        .formatted(relativeDelta * 100))
+                .orElse("ECOLOGICAL",
+                    "Ecological fallacy. Between=%.3f, Within=%.3f (delta=%.1f%%, %d groups). Condition at within-group level."
+                        .formatted(betweenEffect, withinEffect, relativeDelta * 100, nGroups));
 
-            if (relativeDelta < 0.2) {
-                verdict = "SUPPORTED";
-                executorNote = String.format("Within-group matches between-group (delta=%.1f%%). Marginal analysis valid.",
-                    relativeDelta * 100);
-            } else {
-                verdict = "ECOLOGICAL";
-                material = true;
-                executorNote = String.format("Ecological fallacy. Between=%.3f, Within=%.3f (delta=%.1f%%, %d groups). Condition at within-group level.",
-                    betweenEffect, withinEffect, relativeDelta * 100, nGroups);
-            }
-
-            return formatter.format("ECOLOGICAL_FALLACY", betweenEffect, withinEffect, verdict, material, executorNote,
+            return formatter.format("ECOLOGICAL_FALLACY", betweenEffect, withinEffect, verdict,
                 Map.of("between_group_effect", betweenEffect, "within_group_effect", withinEffect,
                     "delta", delta, "relative_delta", relativeDelta, "n_groups", nGroups));
         } catch (Exception e) {
@@ -473,40 +409,29 @@ public class HypothesisVerificationTool {
         try {
             var ctx = RormToolContext.from(toolContext);
 
-            var uncondCorr = numVal(
-                executor.executeSingle(query(rootName, filter,
-                    corr(treatment, confounderVar, "unconditional_correlation")), ctx),
+            var uncondCorr = numVal(executor.executeSingle(
+                    query(rootName, filter, corr(treatment, confounderVar, "unconditional_correlation")), ctx),
                 "unconditional_correlation");
 
             var condResults = executor.execute(groupedQuery(rootName, colliderB, filter,
                 corr(treatment, confounderVar, "cond_corr"), count("n")
             ), ctx);
-
             var condCorr = weightedAverageCorrelation(condResults, "cond_corr");
-            var inducedAssociation = Math.abs(condCorr) - Math.abs(uncondCorr);
+            var induced = Math.abs(condCorr) - Math.abs(uncondCorr);
 
-            String verdict;
-            var material = false;
-            String executorNote;
+            var verdict = Verdict.rules()
+                .when(induced > 0.05,
+                    "COLLIDER_WARNING", "Collider detected. Conditioning increases correlation by %.3f (%.3f -> %.3f). Do NOT condition on B."
+                        .formatted(induced, uncondCorr, condCorr))
+                .when(induced < -0.05,
+                    "SAFE", false, "Conditioning reduces correlation (%.3f -> %.3f). Safe to condition on B."
+                        .formatted(uncondCorr, condCorr))
+                .orElse("NEUTRAL", false, "No meaningful change (%.3f -> %.3f). Conditioning on B is neutral."
+                    .formatted(uncondCorr, condCorr));
 
-            if (inducedAssociation > 0.05) {
-                verdict = "COLLIDER_WARNING";
-                material = true;
-                executorNote = String.format("Collider detected. Conditioning increases correlation by %.3f (%.3f -> %.3f). Do NOT condition on B.",
-                    inducedAssociation, uncondCorr, condCorr);
-            } else if (inducedAssociation < -0.05) {
-                verdict = "SAFE";
-                executorNote = String.format("Conditioning reduces correlation (%.3f -> %.3f). Safe to condition on B.",
-                    uncondCorr, condCorr);
-            } else {
-                verdict = "NEUTRAL";
-                executorNote = String.format("No meaningful change (%.3f -> %.3f). Conditioning on B is neutral.",
-                    uncondCorr, condCorr);
-            }
-
-            return formatter.format("COLLIDER_CONDITIONING", uncondCorr, condCorr, verdict, material, executorNote,
+            return formatter.format("COLLIDER_CONDITIONING", uncondCorr, condCorr, verdict,
                 Map.of("unconditional_correlation", uncondCorr, "conditional_correlation", condCorr,
-                    "induced_association", inducedAssociation));
+                    "induced_association", induced));
         } catch (Exception e) {
             log.error("Collider conditioning verification failed", e);
             return formatter.error("Verification failed: " + e.getMessage());
@@ -531,7 +456,6 @@ public class HypothesisVerificationTool {
         SURVIVORSHIP BIAS — Tests whether a weak/no effect is due to selective removal of high-risk units.
 
         Compares AVG(outcome) between active and retired/removed units.
-        The statusFlag must partition units into groups where one value marks retired units.
 
         Verdict: SURVIVORSHIP_CONFIRMED / SURVIVORSHIP_UNLIKELY / UNDERPOWERED / UNTESTABLE.""")
     public String verifySurvivorshipBias(
@@ -548,8 +472,9 @@ public class HypothesisVerificationTool {
                 avg(outcome, "outcome_rate"), count("n")), ctx);
 
             if (results.size() < 2) {
-                return formatter.format("SURVIVORSHIP_BIAS", 0, 0, "UNTESTABLE", true,
-                    "Insufficient data. Need both active and retired groups.", Map.of("results", results));
+                var verdict = new Verdict("UNTESTABLE", true,
+                    "Insufficient data. Need both active and retired groups.");
+                return formatter.format("SURVIVORSHIP_BIAS", 0, 0, verdict, Map.of("results", results));
             }
 
             Double retiredRate = null, activeRate = null;
@@ -564,31 +489,20 @@ public class HypothesisVerificationTool {
                     activeN = longVal(row, "n");
                 }
             }
-
             if (retiredRate == null || activeRate == null) {
                 return formatter.error("Could not find both retired ('" + retiredValue + "') and active groups");
             }
 
             var attenuation = retiredRate - activeRate;
-            String verdict;
-            var material = false;
-            String executorNote;
+            var verdict = Verdict.rules()
+                .when(attenuation > 0.05 && retiredN >= 30,
+                    "SURVIVORSHIP_CONFIRMED", "Survivorship bias detected. Retired units had %.1f%% higher outcome rate. Attenuation: %.3f."
+                        .formatted(attenuation * 100, attenuation))
+                .when(Math.abs(attenuation) < 0.05,
+                    "SURVIVORSHIP_UNLIKELY", false, "No survivorship bias. Similar outcomes (delta=%.3f).".formatted(attenuation))
+                .orElse("UNDERPOWERED", "Retired sample too small (n=%d). Cannot rule out survivorship.".formatted(retiredN));
 
-            if (attenuation > 0.05 && retiredN >= 30) {
-                verdict = "SURVIVORSHIP_CONFIRMED";
-                material = true;
-                executorNote = String.format("Survivorship bias detected. Retired units had %.1f%% higher outcome rate. Attenuation: %.3f.",
-                    attenuation * 100, attenuation);
-            } else if (Math.abs(attenuation) < 0.05) {
-                verdict = "SURVIVORSHIP_UNLIKELY";
-                executorNote = String.format("No survivorship bias. Similar outcomes (delta=%.3f).", attenuation);
-            } else {
-                verdict = "UNDERPOWERED";
-                material = true;
-                executorNote = String.format("Retired sample too small (n=%d). Cannot rule out survivorship.", retiredN);
-            }
-
-            return formatter.format("SURVIVORSHIP_BIAS", activeRate, retiredRate, verdict, material, executorNote,
+            return formatter.format("SURVIVORSHIP_BIAS", activeRate, retiredRate, verdict,
                 Map.of("retired_outcome_rate", retiredRate, "active_outcome_rate", activeRate,
                     "attenuation", attenuation, "retired_n", retiredN, "active_n", activeN));
         } catch (Exception e) {
@@ -615,9 +529,8 @@ public class HypothesisVerificationTool {
         try {
             var ctx = RormToolContext.from(toolContext);
 
-            var overallGradient = numVal(
-                executor.executeSingle(query(rootName, filter,
-                    regrSlope(outcome, cohortVariable, "overall_gradient")), ctx),
+            var overallGradient = numVal(executor.executeSingle(
+                    query(rootName, filter, regrSlope(outcome, cohortVariable, "overall_gradient")), ctx),
                 "overall_gradient");
 
             var withinResults = executor.execute(groupedQuery(rootName, timePeriod, filter,
@@ -627,12 +540,10 @@ public class HypothesisVerificationTool {
             var periodGradients = new ArrayList<Map<String, Object>>();
             var consistentPeriods = 0;
             var reversedPeriods = 0;
-
             for (var row : withinResults) {
                 var withinGradient = numVal(row, "within_gradient");
                 var n = longVal(row, "n");
                 var sameSign = (overallGradient * withinGradient) > 0;
-
                 if (n >= 50) {
                     if (sameSign) {
                         consistentPeriods++;
@@ -640,33 +551,22 @@ public class HypothesisVerificationTool {
                         reversedPeriods++;
                     }
                 }
-
                 periodGradients.add(Map.of("period", String.valueOf(row.get("category")),
                     "gradient", withinGradient, "n", n, "same_sign_as_overall", sameSign));
             }
 
             var totalValid = consistentPeriods + reversedPeriods;
-            String verdict;
-            var material = false;
-            String executorNote;
-
-            if (reversedPeriods == 0 && consistentPeriods > 0) {
-                verdict = "SUPPORTED";
-                executorNote = String.format("True cohort effect. Gradient consistent across %d periods.", consistentPeriods);
-            } else if (reversedPeriods > totalValid / 2) {
-                verdict = "TEMPORAL_CONFOUND";
-                material = true;
-                executorNote = String.format("Calendar effect. Gradient reverses in %d/%d periods. Overall (%.3f) confounded. Include time controls.",
-                    reversedPeriods, totalValid, overallGradient);
-            } else {
-                verdict = "CONDITIONAL";
-                material = true;
-                executorNote = String.format("Mixed: %d consistent, %d reversed periods.", consistentPeriods, reversedPeriods);
-            }
+            var verdict = Verdict.rules()
+                .supported(reversedPeriods == 0 && consistentPeriods > 0,
+                    "True cohort effect. Gradient consistent across %d periods.".formatted(consistentPeriods))
+                .when(reversedPeriods > totalValid / 2,
+                    "TEMPORAL_CONFOUND", "Calendar effect. Gradient reverses in %d/%d periods. Overall (%.3f) confounded. Include time controls."
+                        .formatted(reversedPeriods, totalValid, overallGradient))
+                .orElse("CONDITIONAL", "Mixed: %d consistent, %d reversed periods."
+                    .formatted(consistentPeriods, reversedPeriods));
 
             return formatter.format("TEMPORAL_CONFOUNDING", overallGradient,
-                totalValid > 0 ? consistentPeriods / (double) totalValid : 0.0,
-                verdict, material, executorNote,
+                totalValid > 0 ? consistentPeriods / (double) totalValid : 0.0, verdict,
                 Map.of("overall_gradient", overallGradient, "period_gradients", periodGradients,
                     "consistent_periods", consistentPeriods, "reversed_periods", reversedPeriods));
         } catch (Exception e) {
@@ -677,9 +577,9 @@ public class HypothesisVerificationTool {
 
     @Tool(description = """
         SAMPLE SIZE ADEQUACY — Tests whether a stratified finding has adequate statistical power.
-        
+
         Computes per-stratum: n, AVG(outcome), detectable effect size, confidence interval width.
-        
+
         Verdict: ADEQUATE / PARTIALLY_ADEQUATE / UNDERPOWERED.""")
     public String verifySampleSizeAdequacy(
         @ToolParam(description = "Root entity name") String rootName,
@@ -698,51 +598,36 @@ public class HypothesisVerificationTool {
             var stratumAdequacy = new ArrayList<Map<String, Object>>();
             var adequateStrata = 0;
             var underpoweredStrata = 0;
-
             for (var row : results) {
                 var n = longVal(row, "n");
                 var observedEffect = numVal(row, "observed_effect");
                 var baseRate = Math.clamp(observedEffect, 0.01, 0.99);
-
                 var detectableEffect = Math.sqrt(16.0 / (n * baseRate));
                 var ciWidth = 1.96 * Math.sqrt(baseRate * (1 - baseRate) / n);
                 var adequate = n >= 100 && detectableEffect <= minimumMeaningfulEffect;
                 var effectAboveNoise = Math.abs(observedEffect) > ciWidth;
-
                 if (adequate && effectAboveNoise) {
                     adequateStrata++;
                 } else {
                     underpoweredStrata++;
                 }
-
                 stratumAdequacy.add(Map.of("stratum", String.valueOf(row.get("category")), "n", n,
                     "observed_effect", observedEffect, "detectable_effect", detectableEffect,
                     "ci_width", ciWidth, "adequate", adequate, "effect_above_noise", effectAboveNoise));
             }
 
             var totalStrata = adequateStrata + underpoweredStrata;
-            String verdict;
-            var material = false;
-            String executorNote;
-
-            if (underpoweredStrata == 0) {
-                verdict = "ADEQUATE";
-                executorNote = String.format("All %d strata have sufficient power.", adequateStrata);
-            } else if (underpoweredStrata < totalStrata / 2) {
-                verdict = "PARTIALLY_ADEQUATE";
-                material = true;
-                executorNote = String.format("%d/%d strata underpowered. Consider pooling weak strata.",
-                    underpoweredStrata, totalStrata);
-            } else {
-                verdict = "UNDERPOWERED";
-                material = true;
-                executorNote = String.format("%d/%d strata underpowered. Finding unreliable.",
-                    underpoweredStrata, totalStrata);
-            }
+            var verdict = Verdict.rules()
+                .when(underpoweredStrata == 0,
+                    "ADEQUATE", false, "All %d strata have sufficient power.".formatted(adequateStrata))
+                .when(underpoweredStrata < totalStrata / 2,
+                    "PARTIALLY_ADEQUATE", "%d/%d strata underpowered. Consider pooling weak strata."
+                        .formatted(underpoweredStrata, totalStrata))
+                .orElse("UNDERPOWERED", "%d/%d strata underpowered. Finding unreliable."
+                    .formatted(underpoweredStrata, totalStrata));
 
             return formatter.format("SAMPLE_SIZE_ADEQUACY", minimumMeaningfulEffect,
-                totalStrata > 0 ? adequateStrata / (double) totalStrata : 0.0,
-                verdict, material, executorNote,
+                totalStrata > 0 ? adequateStrata / (double) totalStrata : 0.0, verdict,
                 Map.of("stratum_adequacy", stratumAdequacy,
                     "adequate_strata", adequateStrata, "underpowered_strata", underpoweredStrata));
         } catch (Exception e) {
@@ -753,7 +638,7 @@ public class HypothesisVerificationTool {
 
     @Tool(description = """
         CONFOUNDER COMPLETENESS — Tests whether a DAG edge (treatment -> outcome) is missing confounders.
-        
+
         For each candidate: computes CORR(candidate, treatment) and CORR(candidate, outcome).
         If any unlisted variable correlates with both, the DAG is incomplete.
 
@@ -777,47 +662,39 @@ public class HypothesisVerificationTool {
                     corr(candidate, outcome, "corr_outcome"),
                     count("n")
                 ), ctx);
-
                 var corrTreatment = numVal(row, "corr_treatment");
                 var corrOutcome = numVal(row, "corr_outcome");
                 var n = longVal(row, "n");
 
                 if (Math.abs(corrTreatment) >= correlationThreshold
-                    && Math.abs(corrOutcome) >= correlationThreshold
-                    && n >= 100) {
-                    var biasDirection = (corrTreatment * corrOutcome > 0) ? "positive" : "negative";
+                    && Math.abs(corrOutcome) >= correlationThreshold && n >= 100) {
                     var label = candidate.path() != null ? candidate.path() : candidate.toString();
                     missingConfounders.add(Map.of("variable", label,
                         "corr_with_treatment", corrTreatment, "corr_with_outcome", corrOutcome,
-                        "bias_direction", biasDirection, "n", n));
+                        "bias_direction", (corrTreatment * corrOutcome > 0) ? "positive" : "negative", "n", n));
                 }
             }
 
-            String verdict;
-            var material = false;
-            String executorNote;
+            var verdict = missingConfounders.isEmpty()
+                ? new Verdict("COMPLETE", false, "No missing confounders detected among observed variables.")
+                : new Verdict("MISSING_CONFOUNDER", true, formatStrongestConfounder(missingConfounders));
 
-            if (missingConfounders.isEmpty()) {
-                verdict = "COMPLETE";
-                executorNote = "No missing confounders detected among observed variables.";
-            } else {
-                verdict = "MISSING_CONFOUNDER";
-                material = true;
-                var strongest = missingConfounders.stream()
-                    .max(Comparator.comparingDouble(m ->
-                        Math.abs((double) m.get("corr_with_treatment")) * Math.abs((double) m.get("corr_with_outcome"))))
-                    .orElseThrow();
-                executorNote = String.format("Missing confounder(s). Strongest: %s (r_treat=%.3f, r_out=%.3f, bias=%s). Total: %d",
-                    strongest.get("variable"), (double) strongest.get("corr_with_treatment"),
-                    (double) strongest.get("corr_with_outcome"), strongest.get("bias_direction"),
-                    missingConfounders.size());
-            }
-
-            return formatter.format("CONFOUNDER_COMPLETENESS", 0.0, missingConfounders.size(),
-                verdict, material, executorNote, Map.of("missing_confounders", missingConfounders));
+            return formatter.format("CONFOUNDER_COMPLETENESS", 0.0, missingConfounders.size(), verdict,
+                Map.of("missing_confounders", missingConfounders));
         } catch (Exception e) {
             log.error("Confounder completeness verification failed", e);
             return formatter.error("Verification failed: " + e.getMessage());
         }
+    }
+
+    private static String formatStrongestConfounder(List<Map<String, Object>> confounders) {
+        var strongest = confounders.stream()
+            .max(Comparator.comparingDouble(m ->
+                Math.abs((double) m.get("corr_with_treatment")) * Math.abs((double) m.get("corr_with_outcome"))))
+            .orElseThrow();
+        return "Missing confounder(s). Strongest: %s (r_treat=%.3f, r_out=%.3f, bias=%s). Total: %d".formatted(
+            strongest.get("variable"), (double) strongest.get("corr_with_treatment"),
+            (double) strongest.get("corr_with_outcome"), strongest.get("bias_direction"),
+            confounders.size());
     }
 }

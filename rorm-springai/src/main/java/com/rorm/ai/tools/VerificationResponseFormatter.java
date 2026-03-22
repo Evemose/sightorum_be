@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -36,16 +38,40 @@ class VerificationResponseFormatter {
     }
 
     record Verdict(String name, boolean material, String note) {
-        static Verdict supported(String note) {
-            return new Verdict("SUPPORTED", false, note);
+
+        static VerdictRules rules() {
+            return new VerdictRules();
         }
 
-        static Verdict material(String name, String note) {
-            return new Verdict(name, true, note);
-        }
+        static final class VerdictRules {
+            private final List<VerdictRule> rules = new ArrayList<>();
 
-        static Verdict nonMaterial(String name, String note) {
-            return new Verdict(name, false, note);
+            VerdictRules when(boolean condition, String name, String note) {
+                return when(condition, name, true, note);
+            }
+
+            VerdictRules when(boolean condition, String name, boolean material, String note) {
+                rules.add(new VerdictRule(condition, name, material, note));
+                return this;
+            }
+
+            VerdictRules supported(boolean condition, String note) {
+                return when(condition, "SUPPORTED", false, note);
+            }
+
+            Verdict orElse(String name, String note) {
+                return orElse(name, true, note);
+            }
+
+            Verdict orElse(String name, boolean material, String note) {
+                return rules.stream()
+                    .filter(VerdictRule::condition)
+                    .findFirst()
+                    .map(r -> new Verdict(r.name(), r.material(), r.note()))
+                    .orElse(new Verdict(name, material, note));
+            }
+
+            private record VerdictRule(boolean condition, String name, boolean material, String note) {}
         }
     }
 
