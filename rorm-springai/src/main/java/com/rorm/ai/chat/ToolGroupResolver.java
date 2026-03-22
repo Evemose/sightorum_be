@@ -31,8 +31,8 @@ public class ToolGroupResolver {
                     tools.add(queryExecutionTool);
                     tools.add(dataOverviewTool);
                     tools.add(featureEngineeringTool);
-                    tools.add(hypothesisVerificationTool);
                 }
+                case VERIFICATION -> tools.add(hypothesisVerificationTool);
                 case ML -> tools.add(mlTrainingTool);
                 case DATA_RELATIONS -> {
                     tools.add(dataRelationsTool);

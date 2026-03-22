@@ -3,6 +3,7 @@
 import joblib
 import logging
 import numpy as np
+import time
 from concurrent.futures import as_completed
 from io import BytesIO
 from typing import Any, Callable, Optional
@@ -120,6 +121,7 @@ class ShapCurveService:
             bin_edges=bin_edges,
             tail_bounds=tail_bounds,
             subsample=subsample,
+            request_seed=time.time_ns() if subsample else 0,
         )
 
         # Submit all models to thread pool
@@ -439,7 +441,7 @@ class ShapCurveService:
         if n <= target:
             return sample_indices
 
-        rng = np.random.default_rng(model_idx)
+        rng = np.random.default_rng((model_idx, ctx.request_seed))
         chosen = set(rng.choice(n, target, replace=False).tolist())
 
         for feat, edges in ctx.bin_edges.items():
@@ -539,11 +541,11 @@ class _ShapWorkerContext:
     """Read-only context shared across SHAP worker threads."""
     __slots__ = ("encoded_array", "feature_values_dict", "target_features",
                  "col_mapping", "feature_types", "bin_edges", "tail_bounds",
-                 "subsample")
+                 "subsample", "request_seed")
 
     def __init__(self, encoded_array, feature_values_dict, target_features,
                  col_mapping, feature_types, bin_edges, tail_bounds,
-                 subsample=False):
+                 subsample=False, request_seed=0):
         self.encoded_array = encoded_array
         self.feature_values_dict = feature_values_dict
         self.target_features = target_features
@@ -552,3 +554,4 @@ class _ShapWorkerContext:
         self.bin_edges = bin_edges
         self.tail_bounds = tail_bounds
         self.subsample = subsample
+        self.request_seed = request_seed

@@ -4,5 +4,6 @@ public enum ToolGroup {
     WEB_ACCESS,
     QUERY,
     ML,
-    DATA_RELATIONS
+    DATA_RELATIONS,
+    VERIFICATION
 }
