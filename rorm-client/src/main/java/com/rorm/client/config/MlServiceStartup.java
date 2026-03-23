@@ -81,10 +81,6 @@ public class MlServiceStartup implements SmartLifecycle {
         }
 
         log.info("No running tasks, setting desired count to 1...");
-        ecs.updateService(r -> r
-            .cluster(cluster)
-            .service(service)
-            .desiredCount(1));
 
         waitForHealthy();
     }
@@ -103,16 +99,35 @@ public class MlServiceStartup implements SmartLifecycle {
     }
 
     private void waitForHealthy() {
+        if (ping()) {
+            return;
+        }
+
         var deadline = Instant.now().plus(timeout);
+        var spamWakeupThread = Thread.ofVirtual().name("ml-service-wakeup").start(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    ecs.updateService(r -> r
+                        .cluster(cluster)
+                        .service(service)
+                        .desiredCount(1));
+                    Thread.sleep(30_000);
+                } catch (InterruptedException _) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        });
 
         while (Instant.now().isBefore(deadline)) {
             if (ping()) {
+                spamWakeupThread.interrupt();
                 return;
             }
 
             try {
                 Thread.sleep(pollInterval.toMillis());
-            } catch (InterruptedException e) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("Interrupted waiting for ML service");
             }

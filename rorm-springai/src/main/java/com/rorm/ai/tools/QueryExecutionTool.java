@@ -2,6 +2,7 @@ package com.rorm.ai.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ai.JournaledTool;
 import com.rorm.ai.RormAiProperties;
 import com.rorm.ai.RormToolContext;
 import com.rorm.dto.dense.DenseQueryDto;
@@ -20,6 +21,7 @@ import java.util.Map;
 
 @Slf4j
 @Component
+@JournaledTool
 @RequiredArgsConstructor
 public class QueryExecutionTool {
 

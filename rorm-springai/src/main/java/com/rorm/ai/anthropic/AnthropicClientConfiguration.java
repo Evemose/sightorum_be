@@ -4,10 +4,9 @@ import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.chat.JsonbChatMemoryRepository;
+import io.micrometer.observation.ObservationRegistry;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -32,8 +31,12 @@ class AnthropicClientConfiguration {
     }
 
     @Bean
-    ChatModel chatModel(AnthropicClient client, ObjectMapper objectMapper, TokenThrottle throttle) {
-        return new JournaledAnthropicChatModel(client, objectMapper, throttle, null);
+    ChatModel chatModel(
+        AnthropicClient client,
+        AnthropicParamsBuilder paramsBuilder,
+        TokenThrottle throttle
+    ) {
+        return new JournaledAnthropicChatModel(client, paramsBuilder, throttle, ObservationRegistry.NOOP);
     }
 
     @Bean
@@ -44,14 +47,6 @@ class AnthropicClientConfiguration {
     @Bean
     ChatClient chatClient(ChatClient.Builder chatClientBuilder) {
         return chatClientBuilder.build();
-    }
-
-    @Bean
-    ChatMemory chatMemory(ChatMemoryRepository repository) {
-        return MessageWindowChatMemory.builder()
-            .chatMemoryRepository(repository)
-            .maxMessages(Integer.MAX_VALUE)
-            .build();
     }
 
     @Bean

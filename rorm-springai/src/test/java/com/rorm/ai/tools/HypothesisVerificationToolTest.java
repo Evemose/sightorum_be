@@ -117,7 +117,7 @@ class HypothesisVerificationToolTest {
             )
         """);
 
-        var ctx = new RormToolContext(modelSpace, testSchema, StepJournal.NOOP, null);
+        var ctx = new RormToolContext(modelSpace, testSchema, StepJournal.DEFAULT, null);
         toolContext = new ToolContext(ctx.toMap());
     }
 
@@ -890,7 +890,7 @@ class HypothesisVerificationToolTest {
             var parsed = parse(result);
 
             assertThat(parsed.get("success")).isEqualTo(false);
-            assertThat((String) parsed.get("error")).contains("requires a numeric expression");
+            assertThat((String) parsed.get("error")).contains("cannot be used in correlation/regression");
         }
 
         @Test
@@ -906,6 +906,142 @@ class HypothesisVerificationToolTest {
             assertThat(parsed.get("success")).isEqualTo(false);
             assertThat((String) parsed.get("error")).contains("cohortVariable");
             assertThat((String) parsed.get("error")).contains("StringType");
+        }
+    }
+
+    @Nested
+    @DisplayName("Pattern 13: DAG Completeness")
+    class DAGCompleteness {
+
+        @Test
+        @DisplayName("DAG complete — no undocumented associations")
+        void dagComplete() throws Exception {
+            // treatment, control, excluded, otherTreatment are all independent
+            var sb = new StringBuilder();
+            for (var i = 0; i < 200; i++) {
+                var treat = i * 0.1;
+                var out = treat * 0.5;
+                var control = Math.abs(i - 100) * 0.1;          // V-shape, uncorrelated with treatment
+                var excluded = ((i * 13) % 200) * 0.01;         // pseudo-random permutation
+                var other = ((i * 7 + 50) % 200) * 0.01;        // different permutation
+                sb.append(String.format("(%s, %s, %s, %s, %s, %s, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
+                    control, excluded, out, treat, other, 0));
+            }
+            insertRows(sb.substring(0, sb.length() - 1));
+
+            // feature_a=control, mediator_b=excluded, outcome=out, treatment=treat, confounder=otherTreat
+            var result = tool.verifyDAGCompleteness(
+                "obs", path("treatment"), path("outcome"),
+                List.of(path("feature_a")),
+                List.of(path("mediator_b")),
+                List.of(path("confounder")),
+                0.15, null, toolContext);
+
+            assertThat(verdict(result)).isEqualTo("DAG_COMPLETE");
+            assertThat(material(result)).isFalse();
+        }
+
+        @Test
+        @DisplayName("missing edge — control correlates with treatment")
+        void controlTreatmentEdge() throws Exception {
+            // Control is strongly correlated with treatment (undocumented mediator/collider)
+            var sb = new StringBuilder();
+            for (var i = 0; i < 200; i++) {
+                var treat = i * 0.1;
+                var control = treat * 0.8;  // strong correlation
+                var out = treat * 0.5;
+                sb.append(String.format("(%s, 0, %s, %s, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
+                    control, out, treat));
+            }
+            insertRows(sb.substring(0, sb.length() - 1));
+
+            var result = tool.verifyDAGCompleteness(
+                "obs", path("treatment"), path("outcome"),
+                List.of(path("feature_a")),
+                List.of(),
+                List.of(),
+                0.15, null, toolContext);
+
+            assertThat(verdict(result)).isEqualTo("MISSING_EDGE");
+            assertThat(material(result)).isTrue();
+
+            @SuppressWarnings("unchecked")
+            var edges = (List<Map<String, Object>>) evidence(result).get("missing_edges");
+            assertThat(edges).hasSize(1)
+                .first()
+                .satisfies(edge -> {
+                    assertThat(edge.get("check")).isEqualTo("CONTROL_TREATMENT");
+                    assertThat(edge.get("variable")).isEqualTo("feature_a");
+                    assertThat(((Number) edge.get("correlation")).doubleValue()).isGreaterThan(0.9);
+                });
+        }
+
+        @Test
+        @DisplayName("missing edge — excluded variable is confounder")
+        void excludedConfounder() throws Exception {
+            // Excluded variable (mediator_b) correlates with both treatment and outcome
+            var sb = new StringBuilder();
+            for (var i = 0; i < 200; i++) {
+                var confound = i * 0.1;
+                var treat = confound * 0.7;
+                var out = confound * 0.6;
+                sb.append(String.format("(0, %s, %s, %s, 0, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
+                    confound, out, treat));
+            }
+            insertRows(sb.substring(0, sb.length() - 1));
+
+            var result = tool.verifyDAGCompleteness(
+                "obs", path("treatment"), path("outcome"),
+                List.of(),
+                List.of(path("mediator_b")),
+                List.of(),
+                0.15, null, toolContext);
+
+            assertThat(verdict(result)).isEqualTo("MISSING_EDGE");
+
+            @SuppressWarnings("unchecked")
+            var edges = (List<Map<String, Object>>) evidence(result).get("missing_edges");
+            assertThat(edges).hasSize(1)
+                .first()
+                .satisfies(edge -> {
+                    assertThat(edge.get("check")).isEqualTo("EXCLUDED_CONFOUNDER");
+                    assertThat(edge.get("variable")).isEqualTo("mediator_b");
+                    assertThat(edge.get("bias_direction")).isEqualTo("positive");
+                });
+        }
+
+        @Test
+        @DisplayName("missing edge — cross-hypothesis treatments correlated")
+        void crossHypothesisEdge() throws Exception {
+            // treatment and confounder (acting as another hypothesis's treatment) are correlated
+            var sb = new StringBuilder();
+            for (var i = 0; i < 200; i++) {
+                var treat = i * 0.1;
+                var otherTreat = treat * 0.6;
+                var out = treat * 0.5;
+                sb.append(String.format("(0, 0, %s, %s, %s, 0, 'X', 0, 'active', 0, 'P1', 'G1', 0),",
+                    out, treat, otherTreat));
+            }
+            insertRows(sb.substring(0, sb.length() - 1));
+
+            var result = tool.verifyDAGCompleteness(
+                "obs", path("treatment"), path("outcome"),
+                List.of(),
+                List.of(),
+                List.of(path("confounder")),
+                0.15, null, toolContext);
+
+            assertThat(verdict(result)).isEqualTo("MISSING_EDGE");
+
+            @SuppressWarnings("unchecked")
+            var edges = (List<Map<String, Object>>) evidence(result).get("missing_edges");
+            assertThat(edges).hasSize(1)
+                .first()
+                .satisfies(edge -> {
+                    assertThat(edge.get("check")).isEqualTo("CROSS_HYPOTHESIS");
+                    assertThat(edge.get("variable")).isEqualTo("confounder");
+                    assertThat((String) edge.get("implication")).contains("biased");
+                });
         }
     }
 }

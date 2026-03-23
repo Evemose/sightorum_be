@@ -2,10 +2,14 @@ package com.rorm.ai.anthropic;
 
 import com.anthropic.core.JsonValue;
 import com.anthropic.models.messages.*;
+import com.anthropic.models.messages.MessageCreateParams.Builder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
+import com.rorm.ai.chat.ServerToolMessage;
 import com.rorm.ai.chat.ThinkingLevel;
+import com.rorm.ai.chat.ThinkingMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -16,12 +20,14 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class AnthropicParamsBuilder {
 
@@ -30,11 +36,7 @@ public class AnthropicParamsBuilder {
 
     private final ObjectMapper objectMapper;
 
-    public MessageCreateParams build(Prompt prompt) {
-        return toBuilder(prompt).build();
-    }
-
-    public MessageCreateParams.Builder toBuilder(Prompt prompt) {
+    public MessageCreateParams.Builder toBuilder(Prompt prompt, CacheTTL cacheTTL) {
         var options = prompt.getOptions();
         var model = options != null && options.getModel() != null ? options.getModel() : DEFAULT_MODEL;
         var maxTokens = options != null && options.getMaxTokens() != null
@@ -45,9 +47,9 @@ public class AnthropicParamsBuilder {
             .maxTokens(maxTokens);
 
         configureThinking(builder, options);
-        configureSystemPrompt(builder, prompt);
-        configureTools(builder, options);
-        addMessages(builder, prompt);
+        configureSystemPrompt(builder, prompt, cacheTTL);
+        configureTools(builder, options, cacheTTL);
+        addMessages(builder, prompt, cacheTTL);
 
         return builder;
     }
@@ -63,16 +65,21 @@ public class AnthropicParamsBuilder {
         builder.temperature(temp);
     }
 
-    private void configureSystemPrompt(MessageCreateParams.Builder builder, Prompt prompt) {
+    private void configureSystemPrompt(MessageCreateParams.Builder builder, Prompt prompt, CacheTTL cacheTTL) {
         prompt.getInstructions().stream()
             .filter(SystemMessage.class::isInstance)
             .findFirst()
-            .ifPresent(sys -> builder.systemOfTextBlockParams(List.of(
-                TextBlockParam.builder().text(sys.getText()).cacheControl(longCache()).build()
-            )));
+            .ifPresent(sys -> {
+                var textBuilder = TextBlockParam.builder().text(sys.getText());
+                var cc = cacheControl(cacheTTL);
+                if (cc != null) {
+                    textBuilder.cacheControl(cc);
+                }
+                builder.systemOfTextBlockParams(List.of(textBuilder.build()));
+            });
     }
 
-    private void configureTools(MessageCreateParams.Builder builder, ChatOptions options) {
+    private void configureTools(MessageCreateParams.Builder builder, ChatOptions options, CacheTTL cacheTTL) {
         List<ToolCallback> callbacks = List.of();
         boolean webAccess = false;
 
@@ -87,36 +94,43 @@ public class AnthropicParamsBuilder {
             return;
         }
 
+        var cc = cacheControl(cacheTTL);
         var tools = callbacks.stream().map(this::toSdkTool)
             .sorted(java.util.Comparator.comparing(Tool::name))
             .toList();
         for (int i = 0; i < tools.size(); i++) {
             var tool = tools.get(i);
-            if (i == tools.size() - 1 && !webAccess) {
-                tool = tool.toBuilder().cacheControl(longCache()).build();
+            if (cc != null && i == tools.size() - 1 && !webAccess) {
+                tool = tool.toBuilder().cacheControl(cc).build();
             }
             builder.addTool(tool);
         }
         if (webAccess) {
-            builder.addTool(WebSearchTool20260209.builder()
-                .cacheControl(longCache()).build());
+            var webToolBuilder = WebSearchTool20260209.builder();
+            if (cc != null) {
+                webToolBuilder.cacheControl(cc);
+            }
+            builder.addTool(webToolBuilder.build());
         }
         builder.toolChoice(ToolChoiceAuto.builder().build());
     }
 
-    private void addMessages(MessageCreateParams.Builder builder, Prompt prompt) {
+    private void addMessages(MessageCreateParams.Builder builder, Prompt prompt, CacheTTL cacheTTL) {
         var instructions = prompt.getInstructions();
+        var cc = cacheControl(cacheTTL);
         var firstUserMessageSeen = false;
         for (var i = 0; i < instructions.size(); i++) {
             var message = instructions.get(i);
             switch (message) {
                 case UserMessage user -> {
                     var textBuilder = TextBlockParam.builder().text(user.getText());
-                    if (!firstUserMessageSeen) {
-                        firstUserMessageSeen = true;
-                        textBuilder.cacheControl(longCache());
-                    } else if (i == instructions.size() - 1) {
-                        textBuilder.cacheControl(shortCache());
+                    if (cc != null) {
+                        if (!firstUserMessageSeen) {
+                            firstUserMessageSeen = true;
+                            textBuilder.cacheControl(cc);
+                        } else if (i == instructions.size() - 1) {
+                            textBuilder.cacheControl(cc);
+                        }
                     }
                     builder.addUserMessageOfBlockParams(List.of(
                         ContentBlockParam.ofText(textBuilder.build())
@@ -124,15 +138,20 @@ public class AnthropicParamsBuilder {
                 }
                 case AssistantMessage assistant -> addAssistantMessage(builder, assistant);
                 case ToolResponseMessage toolResp -> addToolResponses(builder, toolResp);
-                case SystemMessage _ -> {
+                case ThinkingMessage thinking -> addThinkingMessage(builder, thinking);
+                case SystemMessage _, ServerToolMessage _ -> {
                 }
                 default -> log.debug("Ignoring message type: {}", message.getClass().getSimpleName());
             }
         }
     }
 
-    private static CacheControlEphemeral longCache() {
-        return CacheControlEphemeral.builder().ttl(CacheControlEphemeral.Ttl.TTL_1H).build();
+    private static CacheControlEphemeral cacheControl(CacheTTL cacheTTL) {
+        return switch (cacheTTL) {
+            case NONE -> null;
+            case SHORT -> CacheControlEphemeral.builder().ttl(CacheControlEphemeral.Ttl.TTL_5M).build();
+            case LONG -> CacheControlEphemeral.builder().ttl(CacheControlEphemeral.Ttl.TTL_1H).build();
+        };
     }
 
     @SuppressWarnings("unchecked")
@@ -154,10 +173,6 @@ public class AnthropicParamsBuilder {
                     JsonValue.from(schema.getOrDefault("required", List.of())))
                 .build())
             .build();
-    }
-
-    private CacheControlEphemeral shortCache() {
-        return CacheControlEphemeral.builder().ttl(CacheControlEphemeral.Ttl.TTL_5M).build();
     }
 
     private void addAssistantMessage(MessageCreateParams.Builder builder, AssistantMessage assistant) {
@@ -192,6 +207,14 @@ public class AnthropicParamsBuilder {
                 .build()))
             .toList();
         builder.addUserMessageOfBlockParams(blocks);
+    }
+
+    private void addThinkingMessage(Builder builder, ThinkingMessage thinking) {
+        builder.addMessage(MessageParam.builder()
+            .role(MessageParam.Role.ASSISTANT)
+            .content(thinking.text())
+            .build()
+        );
     }
 
     private JsonValue parseJsonValue(String json) {

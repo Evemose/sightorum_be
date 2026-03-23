@@ -2,6 +2,7 @@ package com.rorm.ai.tools;
 
 import com.rorm.ai.DeferredToolResult;
 import com.rorm.ai.RormToolContext;
+import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
 import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.ThinkingLevel;
@@ -127,13 +128,14 @@ public class FeatureEngineeringTool {
         var name = ctx.id() == null ? ctx.stepJournal().randomUUID().toString() : ctx.id();
         return DeferredToolResult.defer(
             toolContext,
-            ctx.stepJournal().runAsync(name, String.class, () -> aiChatService.call(
+            ctx.stepJournal().runAsync(name, () -> aiChatService.call(
                 ChatRequest.usingData(ctx.schema(), ctx.modelSpace())
                     .withThinkingLevel(ThinkingLevel.MEDIUM)
                     .withToolGroups(ToolGroup.QUERY)
                     .withModelName("claude-sonnet-4-6")
                     .withSystemPrompt(FEATURE_ENGINEER_SYSTEM)
                     .withSessionId("feature-engineering-" + name)
+                    .withCachingStrategyFunction(_ -> CacheTTL.SHORT)
                     .ask(prompt)
             ))
         );

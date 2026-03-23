@@ -1,9 +1,6 @@
 package com.rorm.ai.chat;
 
-import com.rorm.ai.tools.DataOverviewTool;
-import com.rorm.ai.tools.FeatureEngineeringTool;
-import com.rorm.ai.tools.HypothesisVerificationTool;
-import com.rorm.ai.tools.QueryExecutionTool;
+import com.rorm.ai.tools.*;
 import com.rorm.ml.tools.DataRelationsTool;
 import com.rorm.ml.tools.MlTrainingTool;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +19,7 @@ public class ToolGroupResolver {
     private final DataRelationsTool dataRelationsTool;
     private final FeatureEngineeringTool featureEngineeringTool;
     private final HypothesisVerificationTool hypothesisVerificationTool;
+    private final DataExplorationTool explorationTool;
 
     public Set<Object> resolve(Set<ToolGroup> groups) {
         var tools = new HashSet<>();
@@ -31,6 +29,7 @@ public class ToolGroupResolver {
                     tools.add(queryExecutionTool);
                     tools.add(dataOverviewTool);
                     tools.add(featureEngineeringTool);
+                    tools.add(explorationTool);
                 }
                 case VERIFICATION -> tools.add(hypothesisVerificationTool);
                 case ML -> tools.add(mlTrainingTool);

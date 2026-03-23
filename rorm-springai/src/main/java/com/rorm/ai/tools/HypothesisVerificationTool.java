@@ -49,7 +49,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, featureA, "featureA", mediatorB, "mediatorB", outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, featureA, "featureA", mediatorB, "mediatorB", outcome, "outcome");
             var row = executor.executeSingle(query(rootName, filter,
                 corr(featureA, outcome, "corr_a_outcome"),
                 corr(featureA, mediatorB, "corr_a_b"),
@@ -82,9 +82,9 @@ public class HypothesisVerificationTool {
         }
     }
 
-    private void requireNumeric(RormToolContext ctx, String rootName, Object... pairs) {
+    private void requireCorrCompatible(RormToolContext ctx, String rootName, Object... pairs) {
         for (var i = 0; i < pairs.length; i += 2) {
-            executor.requireNumeric((DenseExpressionDto) pairs[i], (String) pairs[i + 1], rootName, ctx);
+            executor.requireCorrCompatible((DenseExpressionDto) pairs[i], (String) pairs[i + 1], rootName, ctx);
         }
     }
 
@@ -110,7 +110,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, continuousY, "continuousY", outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, continuousY, "continuousY", outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, categoricalX, filter,
                 corr(continuousY, outcome, "gradient"), count("n")
             ), ctx);
@@ -166,7 +166,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, outcome, "outcome");
             var results = executor.execute(doubleGroupedQuery(rootName, confounder, treatment, filter,
                 avg(outcome, "outcome_rate"), count("n")), ctx);
 
@@ -247,7 +247,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, treatment, "treatment", outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, treatment, "treatment", outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, modifier, filter,
                 regrSlope(outcome, treatment, "treatment_effect"), count("n")
             ), ctx);
@@ -307,7 +307,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, feature, "feature", outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, feature, "feature", outcome, "outcome");
             var row = executor.executeSingle(query(rootName, subpopulationFilter,
                 corr(feature, outcome, "gradient"), count("n")
             ), ctx);
@@ -349,7 +349,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, feature, "feature", outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, feature, "feature", outcome, "outcome");
 
             var betweenEffect = numVal(executor.executeSingle(
                     query(rootName, filter, regrSlope(outcome, feature, "between_group_effect")), ctx),
@@ -359,7 +359,7 @@ public class HypothesisVerificationTool {
                 regrSlope(outcome, feature, "slope"), count("n")
             ), ctx);
 
-            var withinEffect = weightedAverageSlope(withinResults);
+            var withinEffect = StatisticalPrimitives.weightedAverage(withinResults, "slope", 10);
             var nGroups = (int) withinResults.stream()
                 .filter(r -> longVal(r, "n") >= 10 && Double.isFinite(numVal(r, "slope")))
                 .count();
@@ -383,20 +383,6 @@ public class HypothesisVerificationTool {
         }
     }
 
-    private static double weightedAverageSlope(List<Map<String, Object>> rows) {
-        var totalWeight = 0L;
-        var weightedSum = 0.0;
-        for (var row : rows) {
-            var slope = numVal(row, "slope");
-            var n = longVal(row, "n");
-            if (n >= 10 && Double.isFinite(slope)) {
-                weightedSum += slope * n;
-                totalWeight += n;
-            }
-        }
-        return totalWeight > 0 ? weightedSum / totalWeight : 0.0;
-    }
-
     @Tool(description = """
         COLLIDER CONDITIONING — Tests whether conditioning on B induces spurious correlation.
 
@@ -414,7 +400,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, treatment, "treatment", confounderVar, "confounderVar");
+            requireCorrCompatible(ctx, rootName, treatment, "treatment", confounderVar, "confounderVar");
 
             var uncondCorr = numVal(executor.executeSingle(
                     query(rootName, filter, corr(treatment, confounderVar, "unconditional_correlation")), ctx),
@@ -423,7 +409,7 @@ public class HypothesisVerificationTool {
             var condResults = executor.execute(groupedQuery(rootName, colliderB, filter,
                 corr(treatment, confounderVar, "cond_corr"), count("n")
             ), ctx);
-            var condCorr = weightedAverageCorrelation(condResults, "cond_corr");
+            var condCorr = StatisticalPrimitives.weightedAverage(condResults, "cond_corr", 10);
             var induced = Math.abs(condCorr) - Math.abs(uncondCorr);
 
             var verdict = Verdict.rules()
@@ -445,20 +431,6 @@ public class HypothesisVerificationTool {
         }
     }
 
-    private static double weightedAverageCorrelation(List<Map<String, Object>> rows, String corrKey) {
-        var totalWeight = 0L;
-        var weightedSum = 0.0;
-        for (var row : rows) {
-            var corrVal = numVal(row, corrKey);
-            var n = longVal(row, "n");
-            if (n >= 10 && Double.isFinite(corrVal)) {
-                weightedSum += corrVal * n;
-                totalWeight += n;
-            }
-        }
-        return totalWeight > 0 ? weightedSum / totalWeight : 0.0;
-    }
-
     @Tool(description = """
         SURVIVORSHIP BIAS — Tests whether a weak/no effect is due to selective removal of high-risk units.
 
@@ -475,7 +447,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, statusFlag, filter,
                 avg(outcome, "outcome_rate"), count("n")), ctx);
 
@@ -536,7 +508,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, cohortVariable, "cohortVariable", outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, cohortVariable, "cohortVariable", outcome, "outcome");
 
             var overallGradient = numVal(executor.executeSingle(
                     query(rootName, filter, regrSlope(outcome, cohortVariable, "overall_gradient")), ctx),
@@ -600,7 +572,7 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, outcome, "outcome");
+            requireCorrCompatible(ctx, rootName, outcome, "outcome");
             var results = executor.execute(groupedQuery(rootName, stratumVariable, filter,
                 avg(outcome, "observed_effect"), stddevPop(outcome, "outcome_sd"), count("n")
             ), ctx);
@@ -664,8 +636,8 @@ public class HypothesisVerificationTool {
     ) {
         try {
             var ctx = RormToolContext.from(toolContext);
-            requireNumeric(ctx, rootName, treatment, "treatment", outcome, "outcome");
-            for (var c : candidateVariables) requireNumeric(ctx, rootName, c, "candidateVariable");
+            requireCorrCompatible(ctx, rootName, treatment, "treatment", outcome, "outcome");
+            for (var c : candidateVariables) requireCorrCompatible(ctx, rootName, c, "candidateVariable");
             var missingConfounders = new ArrayList<Map<String, Object>>();
 
             for (var candidate : candidateVariables) {
@@ -697,6 +669,149 @@ public class HypothesisVerificationTool {
             log.error("Confounder completeness verification failed", e);
             return formatter.error("Verification failed: " + e.getMessage());
         }
+    }
+
+    @Tool(description = """
+        DAG COMPLETENESS — Tests whether the causal DAG is missing edges by checking pairwise
+        correlations among variables in different roles.
+        
+        Three checks:
+        (a) CONTROL → TREATMENT: corr(control, treatment). If substantial but no DAG edge,
+            the control may be a mediator or collider.
+        (b) EXCLUDED → INCLUDED: corr(excluded, treatment) and corr(excluded, outcome).
+            If both substantial, the excluded variable may be a confounder biasing the estimate.
+        (c) CROSS-HYPOTHESIS: If variable X is treatment in one hypothesis but control in another,
+            check corr(X, otherTreatment). Undocumented association means biased estimates.
+        
+        Verdict: DAG_COMPLETE / MISSING_EDGE.""")
+    public String verifyDAGCompleteness(
+        @ToolParam(description = "Root entity name") String rootName,
+        @ToolParam(description = "Treatment variable (the hypothesized cause). " + EXPR_HINT) DenseExpressionDto treatment,
+        @ToolParam(description = "Outcome variable. " + EXPR_HINT) DenseExpressionDto outcome,
+        @ToolParam(description = "Saturated control variables (controlFeatures from SS runs). " + EXPR_HINT) List<DenseExpressionDto> controls,
+        @ToolParam(description = "Excluded variables (BELOW_DETECTION, absorbed by proxy). " + EXPR_HINT) List<DenseExpressionDto> excluded,
+        @ToolParam(description = "Treatments from other hypotheses that share variables with this one. " + EXPR_HINT) List<DenseExpressionDto> crossHypothesisTreatments,
+        @ToolParam(description = "Minimum correlation threshold to flag a missing edge") double correlationThreshold,
+        @ToolParam(description = "Optional WHERE filter") @Nullable DenseExpressionDto filter,
+        ToolContext toolContext
+    ) {
+        try {
+            var ctx = RormToolContext.from(toolContext);
+            requireCorrCompatible(ctx, rootName, treatment, "treatment", outcome, "outcome");
+
+            var missingEdges = new ArrayList<Map<String, Object>>();
+
+            checkControlTreatmentEdges(rootName, treatment, controls, correlationThreshold, filter, ctx, missingEdges);
+            checkExcludedVariableEdges(rootName, treatment, outcome, excluded, correlationThreshold, filter, ctx, missingEdges);
+            checkCrossHypothesisEdges(rootName, treatment, crossHypothesisTreatments, correlationThreshold, filter, ctx, missingEdges);
+
+            var verdict = missingEdges.isEmpty()
+                ? new Verdict("DAG_COMPLETE", false,
+                "No undocumented pairwise associations above threshold %.2f.".formatted(correlationThreshold))
+                : new Verdict("MISSING_EDGE", true,
+                "Found %d missing edge(s). Strongest: %s".formatted(missingEdges.size(),
+                    formatStrongestEdge(missingEdges)));
+
+            return formatter.format("DAG_COMPLETENESS", 0.0, missingEdges.size(), verdict,
+                Map.of("missing_edges", missingEdges, "threshold", correlationThreshold));
+        } catch (Exception e) {
+            log.error("DAG completeness verification failed", e);
+            return formatter.error("Verification failed: " + e.getMessage());
+        }
+    }
+
+    private void checkControlTreatmentEdges(
+        String rootName, DenseExpressionDto treatment, List<DenseExpressionDto> controls,
+        double threshold, @Nullable DenseExpressionDto filter, RormToolContext ctx,
+        List<Map<String, Object>> missingEdges
+    ) {
+        for (var control : controls) {
+            requireCorrCompatible(ctx, rootName, control, "control");
+            var row = executor.executeSingle(query(rootName, filter,
+                corr(control, treatment, "corr_value"), count("n")
+            ), ctx);
+            var corrValue = numVal(row, "corr_value");
+            var n = longVal(row, "n");
+            if (Math.abs(corrValue) >= threshold && n >= 100) {
+                missingEdges.add(Map.of(
+                    "check", "CONTROL_TREATMENT",
+                    "variable", labelOf(control),
+                    "correlation", corrValue,
+                    "n", n,
+                    "implication", Math.abs(corrValue) > 0.5
+                        ? "Control may be a mediator (blocking real signal) or collider (opening spurious path)"
+                        : "Weak undocumented association between control and treatment"));
+            }
+        }
+    }
+
+    private void checkExcludedVariableEdges(
+        String rootName, DenseExpressionDto treatment, DenseExpressionDto outcome,
+        List<DenseExpressionDto> excluded, double threshold,
+        @Nullable DenseExpressionDto filter, RormToolContext ctx,
+        List<Map<String, Object>> missingEdges
+    ) {
+        for (var excl : excluded) {
+            requireCorrCompatible(ctx, rootName, excl, "excluded");
+            var row = executor.executeSingle(query(rootName, filter,
+                corr(excl, treatment, "corr_treatment"),
+                corr(excl, outcome, "corr_outcome"),
+                count("n")
+            ), ctx);
+            var corrTreat = numVal(row, "corr_treatment");
+            var corrOut = numVal(row, "corr_outcome");
+            var n = longVal(row, "n");
+            if (Math.abs(corrTreat) >= threshold && Math.abs(corrOut) >= threshold && n >= 100) {
+                missingEdges.add(Map.of(
+                    "check", "EXCLUDED_CONFOUNDER",
+                    "variable", labelOf(excl),
+                    "corr_with_treatment", corrTreat,
+                    "corr_with_outcome", corrOut,
+                    "n", n,
+                    "bias_direction", (corrTreat * corrOut > 0) ? "positive" : "negative",
+                    "implication", "Excluded variable correlates with both treatment and outcome — potential confounder"));
+            }
+        }
+    }
+
+    private void checkCrossHypothesisEdges(
+        String rootName, DenseExpressionDto treatment, List<DenseExpressionDto> otherTreatments,
+        double threshold, @Nullable DenseExpressionDto filter, RormToolContext ctx,
+        List<Map<String, Object>> missingEdges
+    ) {
+        for (var otherTreat : otherTreatments) {
+            requireCorrCompatible(ctx, rootName, otherTreat, "crossHypothesisTreatment");
+            var row = executor.executeSingle(query(rootName, filter,
+                corr(treatment, otherTreat, "corr_value"), count("n")
+            ), ctx);
+            var corrValue = numVal(row, "corr_value");
+            var n = longVal(row, "n");
+            if (Math.abs(corrValue) >= threshold && n >= 100) {
+                missingEdges.add(Map.of(
+                    "check", "CROSS_HYPOTHESIS",
+                    "variable", labelOf(otherTreat),
+                    "correlation", corrValue,
+                    "n", n,
+                    "implication", "Undocumented association between treatments of different hypotheses — " +
+                                   "estimates may be biased by unmodeled path"));
+            }
+        }
+    }
+
+    private static String formatStrongestEdge(List<Map<String, Object>> edges) {
+        var strongest = edges.stream()
+            .max(Comparator.comparingDouble(e -> {
+                if (e.containsKey("correlation")) {
+                    return Math.abs((double) e.get("correlation"));
+                }
+                return Math.abs((double) e.get("corr_with_treatment")) * Math.abs((double) e.get("corr_with_outcome"));
+            }))
+            .orElseThrow();
+        return "%s (%s) — %s".formatted(strongest.get("variable"), strongest.get("check"), strongest.get("implication"));
+    }
+
+    private static String labelOf(DenseExpressionDto expr) {
+        return expr.path() != null ? expr.path() : expr.toString();
     }
 
     private static String formatStrongestConfounder(List<Map<String, Object>> confounders) {

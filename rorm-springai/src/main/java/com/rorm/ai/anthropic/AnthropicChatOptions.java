@@ -27,7 +27,7 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
     private @Nullable Integer maxTokens;
     private @Nullable ThinkingLevel thinkingLevel;
     @lombok.Builder.Default
-    private StepJournal journal = StepJournal.NOOP;
+    private StepJournal journal = StepJournal.DEFAULT;
     @lombok.Builder.Default
     private boolean webAccess = false;
     @lombok.Builder.Default
@@ -44,7 +44,7 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
      * If null, defaults to SHORT cache.
      */
     @lombok.Builder.Default
-    private @Nullable CacheStrategy cachingStrategyFunction = _ -> CacheTTL.NONE;
+    private CacheStrategy cachingStrategyFunction = _ -> CacheTTL.NONE;
 
     @Override
     public @Nullable Double getFrequencyPenalty() {
