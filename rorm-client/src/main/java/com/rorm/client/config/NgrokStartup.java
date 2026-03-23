@@ -9,7 +9,7 @@ import java.io.IOException;
 
 @Slf4j
 @Component
-@Profile("dev")
+@Profile("tunnel:ngrok")
 public class NgrokStartup implements SmartLifecycle {
 
     private final Thread thread = Thread.ofVirtual().unstarted(() -> {

@@ -6,6 +6,7 @@ import org.springframework.ai.chat.messages.*;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 @Component
 @RequiredArgsConstructor
@@ -14,7 +15,13 @@ public class ChatConversationFormatter {
     private final ChatMemoryRepository chatMemoryRepository;
 
     public String toMarkdown(String conversationId) {
-        var messages = chatMemoryRepository.findByConversationId(conversationId);
+        return toMarkdown(conversationId, _ -> true);
+    }
+
+    public String toMarkdown(String conversationId, Predicate<Message> filter) {
+        var messages = chatMemoryRepository.findByConversationId(conversationId).stream()
+            .filter(filter)
+            .toList();
         return toMarkdown(messages);
     }
 

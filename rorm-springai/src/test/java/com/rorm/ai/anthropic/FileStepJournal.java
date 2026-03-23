@@ -1,6 +1,7 @@
 package com.rorm.ai.anthropic;
 
 import com.anthropic.core.ObjectMappers;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.CompletableDurableFuture;
 import com.rorm.DurableFuture;
@@ -10,6 +11,7 @@ import lombok.SneakyThrows;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 @SuppressWarnings("preview")
@@ -24,13 +26,18 @@ class FileStepJournal implements StepJournal {
         this.mapper = ObjectMappers.jsonMapper();
     }
 
+    @Override
+    public <T> T run(String stepName, TypeReference<T> typeRef, Supplier<T> action) {
+        return null;
+    }
+
     @SneakyThrows
     @Override
-    public <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
+    public <T> T run(String stepName, Supplier<T> action) {
         var idx = stepIndex++;
         var file = dir.resolve(idx + ".json");
         if (Files.exists(file)) {
-            return mapper.readValue(file.toFile(), resultType);
+            return mapper.readValue(file.toFile(), new TypeReference<>() {});
         }
         var result = action.get();
         mapper.writeValue(file.toFile(), result);
@@ -38,8 +45,8 @@ class FileStepJournal implements StepJournal {
     }
 
     @Override
-    public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
-        return CompletableDurableFuture.completed(run(stepName, resultType, action));
+    public <T> DurableFuture<T> runAsync(String stepName, Supplier<T> action) {
+        return CompletableDurableFuture.by(CompletableFuture.supplyAsync(action));
     }
 
     @Override

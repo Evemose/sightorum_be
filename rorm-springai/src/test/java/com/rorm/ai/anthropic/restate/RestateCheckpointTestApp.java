@@ -2,6 +2,7 @@ package com.rorm.ai.anthropic.restate;
 
 import com.anthropic.client.AnthropicClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ai.anthropic.AnthropicParamsBuilder;
 import com.rorm.ai.anthropic.JournaledAnthropicChatModel;
 import com.rorm.ai.anthropic.ScriptedAnthropicClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -38,7 +39,7 @@ public class RestateCheckpointTestApp {
 
     @Bean
     ChatModel chatModel(AnthropicClient client, ObjectMapper mapper) {
-        return new JournaledAnthropicChatModel(client, mapper, null, null);
+        return new JournaledAnthropicChatModel(client, new AnthropicParamsBuilder(mapper), null, null);
     }
 
     @EventListener(ApplicationReadyEvent.class)

@@ -63,13 +63,13 @@ class VerificationQueryExecutor {
         throw new IllegalArgumentException("'" + key + "' is not numeric: " + value);
     }
 
-    void requireNumeric(DenseExpressionDto expr, String paramName,
-                        String rootName, RormToolContext ctx) {
+    void requireCorrCompatible(DenseExpressionDto expr, String paramName,
+                               String rootName, RormToolContext ctx) {
         var root = findRoot(rootName, ctx);
         var domainExpr = denseQueryMapper.expressionToEntity(expr, ctx.modelSpace(), rootName);
         var dataType = typeResolver.resolveWithRoot(domainExpr, root);
-        if (dataType != null && !(dataType instanceof DataType.NumericType)) {
-            throw new NonNumericExpressionException(paramName, dataType);
+        if (dataType instanceof DataType.StringType || dataType instanceof DataType.CategorcialType) {
+            throw new CorrIncompatibleTypeException(paramName, dataType);
         }
     }
 
@@ -80,12 +80,12 @@ class VerificationQueryExecutor {
             .orElseThrow(() -> new IllegalArgumentException("Unknown root: " + rootName));
     }
 
-    static final class NonNumericExpressionException extends RuntimeException {
-        NonNumericExpressionException(String paramName, DataType actualType) {
-            super(("Parameter '%s' resolves to %s, but this verification pattern requires a numeric " +
-                   "expression. For categorical variables, use a pattern that groups by them " +
-                   "(e.g. PROXY_ABSORPTION, TREATMENT_DIRECTION) instead of one that computes " +
-                   "correlation/regression on them.")
+    static final class CorrIncompatibleTypeException extends RuntimeException {
+        CorrIncompatibleTypeException(String paramName, DataType actualType) {
+            super(("Parameter '%s' resolves to %s which cannot be used in correlation/regression. " +
+                   "Only numeric, temporal, and boolean types are supported. " +
+                   "For categorical variables, use a pattern that groups by them " +
+                   "(e.g. PROXY_ABSORPTION, TREATMENT_DIRECTION) or wrap in a numeric expression.")
                 .formatted(paramName, actualType.getClass().getSimpleName()));
         }
     }

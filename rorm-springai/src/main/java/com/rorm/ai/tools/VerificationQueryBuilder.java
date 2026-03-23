@@ -19,7 +19,20 @@ final class VerificationQueryBuilder {
     static DenseQueryDto query(String rootName, @Nullable DenseExpressionDto filter,
                                SelectedExpressionDto... selections) {
         return new DenseQueryDto(rootName, "t", DenseSelectorDto.multi(Set.of(selections), false),
-            null, filter, null, null, null, null, null);
+            null, normalizeFilter(filter), null, null, null, null, null);
+    }
+
+    private static @Nullable DenseExpressionDto normalizeFilter(@Nullable DenseExpressionDto filter) {
+        if (filter == null) {
+            return null;
+        }
+        if ("literal".equals(filter.type())) {
+            return null;
+        }
+        if ("path".equals(filter.type())) {
+            return DenseExpressionDto.unary("IS_TRUE", filter);
+        }
+        return filter;
     }
 
     static DenseQueryDto groupedQuery(String rootName, DenseExpressionDto groupByExpr,
@@ -31,7 +44,7 @@ final class VerificationQueryBuilder {
 
         var groupBy = new DenseQueryDto.GroupByDto(List.of(groupByExpr));
         return new DenseQueryDto(rootName, "t", DenseSelectorDto.multi(allSelections, false),
-            null, filter, groupBy, null, null, null, null);
+            null, normalizeFilter(filter), groupBy, null, null, null, null);
     }
 
     static DenseQueryDto doubleGroupedQuery(String rootName,
@@ -45,7 +58,7 @@ final class VerificationQueryBuilder {
 
         var groupBy = new DenseQueryDto.GroupByDto(List.of(g1, g2));
         return new DenseQueryDto(rootName, "t", DenseSelectorDto.multi(allSelections, false),
-            null, filter, groupBy, null, null, null, null);
+            null, normalizeFilter(filter), groupBy, null, null, null, null);
     }
 
     static SelectedExpressionDto corr(DenseExpressionDto y, DenseExpressionDto x, String alias) {

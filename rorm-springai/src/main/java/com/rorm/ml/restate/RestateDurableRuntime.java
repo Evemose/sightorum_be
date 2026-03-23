@@ -1,6 +1,7 @@
 package com.rorm.ml.restate;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.rorm.AwakableHandle;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
 import dev.restate.client.Client;
@@ -34,6 +35,22 @@ public class RestateDurableRuntime implements DurableRuntime {
                 return DurableJobServiceClient.fromClient(restateClient, sessionId)
                     .execute(spec);
             });
+    }
+
+    @Override
+    public <T> AwakableHandle<T> handle(String awakableId, Class<T> resultType) {
+        var handle = restateClient.awakeableHandle(awakableId);
+        return new AwakableHandle<T>() {
+            @Override
+            public void resolve(T result) {
+                handle.resolve(resultType, result);
+            }
+
+            @Override
+            public void reject(String reason) {
+                handle.reject(reason);
+            }
+        };
     }
 
     private Optional<String> findPausedInvocation(String sessionId) {

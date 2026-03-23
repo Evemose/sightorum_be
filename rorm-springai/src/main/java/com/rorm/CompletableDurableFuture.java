@@ -7,7 +7,7 @@ import java.util.function.Function;
 
 /**
  * In-memory {@link DurableFuture} backed by {@link CompletableFuture}.
- * Used by {@link StepJournal#NOOP} and the in-memory runtime.
+ * Used by {@link StepJournal#DEFAULT} and the in-memory runtime.
  */
 public class CompletableDurableFuture<T> implements DurableFuture<T> {
 
@@ -17,6 +17,10 @@ public class CompletableDurableFuture<T> implements DurableFuture<T> {
     private CompletableDurableFuture(CompletableFuture<T> delegate, String id) {
         this.delegate = delegate;
         this.id = id;
+    }
+
+    public static <T> CompletableDurableFuture<T> by(CompletableFuture<T> cf) {
+        return new CompletableDurableFuture<>(cf, UUID.randomUUID().toString());
     }
 
     public static <T> CompletableDurableFuture<T> completed(T value) {

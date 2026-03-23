@@ -7,7 +7,6 @@ import com.anthropic.helpers.MessageAccumulator;
 import com.anthropic.models.messages.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableFuture;
 import com.rorm.StepJournal;
 import com.rorm.ai.DeferredToolResult;
@@ -16,7 +15,10 @@ import com.rorm.ai.anthropic.AnthropicChatOptions.RoundContext;
 import com.rorm.ai.anthropic.AnthropicChatOptions.ToolRoundInfo;
 import com.rorm.ai.chat.CacheStrategy;
 import io.micrometer.observation.ObservationRegistry;
+import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -41,9 +43,11 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Slf4j
+@RequiredArgsConstructor
 public class JournaledAnthropicChatModel implements ChatModel {
 
     private static final String PROVIDER = "anthropic";
@@ -56,18 +60,6 @@ public class JournaledAnthropicChatModel implements ChatModel {
     private final TokenThrottle throttle;
     private final ObservationRegistry observationRegistry;
     private final ChatModelObservationConvention observationConvention = DEFAULT_OBSERVATION_CONVENTION;
-
-    public JournaledAnthropicChatModel(
-        AnthropicClient client,
-        ObjectMapper objectMapper,
-        TokenThrottle throttle,
-        @Nullable ObservationRegistry observationRegistry
-    ) {
-        this.client = client;
-        this.paramsBuilder = new AnthropicParamsBuilder(objectMapper);
-        this.throttle = throttle;
-        this.observationRegistry = observationRegistry != null ? observationRegistry : ObservationRegistry.NOOP;
-    }
 
     private static String writeAnthropicJson(Object value) {
         try {
@@ -117,6 +109,22 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return block.toParam();
     }
 
+    private static List<ContentBlockParam> toToolResultBlocks(
+        List<ToolCallResult> results, boolean cacheLastBlock, CacheControlEphemeral.Ttl cacheTtl
+    ) {
+        var blocks = new ArrayList<ContentBlockParam>(results.size());
+        for (int i = 0; i < results.size(); i++) {
+            var r = results.get(i);
+            var trBuilder = ToolResultBlockParam.builder()
+                .toolUseId(r.toolUseId()).content(r.content());
+            if (cacheLastBlock && i == results.size() - 1) {
+                trBuilder.cacheControl(CacheControlEphemeral.builder().ttl(cacheTtl).build());
+            }
+            blocks.add(ContentBlockParam.ofToolResult(trBuilder.build()));
+        }
+        return blocks;
+    }
+
     @Override
     public ChatResponse call(Prompt prompt) {
         return withObservation(prompt, observationCtx -> {
@@ -127,8 +135,8 @@ public class JournaledAnthropicChatModel implements ChatModel {
             var rounds = new ArrayList<ToolRound>();
 
             for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-                var builder = paramsBuilder.toBuilder(prompt);
                 var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
+                var builder = paramsBuilder.toBuilder(prompt, strategy);
                 addToolRounds(builder, rounds, strategy);
                 var params = builder.build();
                 var response = journal.run("llm-" + round, Message.class,
@@ -146,6 +154,28 @@ public class JournaledAnthropicChatModel implements ChatModel {
             }
             throw toolLoopExceeded();
         });
+    }
+
+    private StepJournal resolveJournal(@Nullable ChatOptions options) {
+        if (options instanceof AnthropicChatOptions ao) {
+            return ao.getJournal();
+        }
+        return StepJournal.DEFAULT;
+    }
+
+    private static UsageConsuming estimateUsage(MessageCreateParams params) {
+        long chars = 0;
+        for (var msg : params.messages()) {
+            chars += msg.toString().length();
+        }
+        if (params.system().isPresent()) {
+            chars += params.system().get().toString().length();
+        }
+        return TokenUsage.estimate(chars / 4, params.model().toString());
+    }
+
+    private static IllegalStateException toolLoopExceeded() {
+        return new IllegalStateException("Tool call loop exceeded " + MAX_TOOL_ROUNDS + " rounds");
     }
 
     private CacheStrategy resolveCachingStrategyFunction(
@@ -242,21 +272,6 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
-    private static UsageConsuming estimateUsage(MessageCreateParams params) {
-        long chars = 0;
-        for (var msg : params.messages()) {
-            chars += msg.toString().length();
-        }
-        if (params.system().isPresent()) {
-            chars += params.system().get().toString().length();
-        }
-        return TokenUsage.estimate(chars / 4, params.model().toString());
-    }
-
-    private static IllegalStateException toolLoopExceeded() {
-        return new IllegalStateException("Tool call loop exceeded " + MAX_TOOL_ROUNDS + " rounds");
-    }
-
     private String safeToolInput(ToolUseBlockParam tu) {
         if (tu._input().isMissing()) {
             return "{}";
@@ -277,22 +292,6 @@ public class JournaledAnthropicChatModel implements ChatModel {
             .map(ToolUseBlockParam::name)
             .findFirst()
             .orElse("unknown");
-    }
-
-    private static List<ContentBlockParam> toToolResultBlocks(
-        List<ToolCallResult> results, boolean cacheLastBlock, CacheControlEphemeral.Ttl cacheTtl
-    ) {
-        var blocks = new ArrayList<ContentBlockParam>(results.size());
-        for (int i = 0; i < results.size(); i++) {
-            var r = results.get(i);
-            var trBuilder = ToolResultBlockParam.builder()
-                .toolUseId(r.toolUseId()).content(r.content());
-            if (cacheLastBlock && i == results.size() - 1) {
-                trBuilder.cacheControl(CacheControlEphemeral.builder().ttl(cacheTtl).build());
-            }
-            blocks.add(ContentBlockParam.ofToolResult(trBuilder.build()));
-        }
-        return blocks;
     }
 
     private ToolRound buildToolRound(
@@ -426,11 +425,19 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return new ToolContext(Map.of());
     }
 
-    private StepJournal resolveJournal(@Nullable ChatOptions options) {
-        if (options instanceof AnthropicChatOptions ao) {
-            return ao.getJournal();
-        }
-        return StepJournal.NOOP;
+    @Override
+    public Flux<ChatResponse> stream(Prompt prompt) {
+        return Flux.<ChatResponse>create(sink -> doStream(prompt, sink))
+            .subscribeOn(Schedulers.boundedElastic())
+            .windowUntil(batchingBoundary())
+            .flatMap(f -> f.reduce((a, b) -> new ChatResponse(
+                List.of(new Generation(
+                    new AssistantMessage(
+                        a.getResult().getOutput().getText() + b.getResult().getOutput().getText()
+                    )
+                )),
+                b.getMetadata()
+            ))).onBackpressureBuffer();
     }
 
     private boolean hasToolCalls(Message response, Map<String, ToolCallback> callbackMap) {
@@ -553,29 +560,6 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
-    @Override
-    public Flux<ChatResponse> stream(Prompt prompt) {
-        return Flux.<ChatResponse>create(sink -> doStream(prompt, sink))
-            .subscribeOn(Schedulers.boundedElastic())
-            .limitRate(1);
-    }
-
-    private void emitCachedRound(Message message, FluxSink<ChatResponse> sink) {
-        for (var block : message.content()) {
-            if (block.isText()) {
-                sink.next(textChunk(block.asText().text()));
-            } else if (block.isThinking()) {
-                sink.next(textChunk("[thinking] " + block.asThinking().thinking()));
-            } else if (block.isToolUse()) {
-                sink.next(textChunk("[tool_call] " + block.asToolUse().name() + "\n"));
-            } else if (block.isServerToolUse()) {
-                sink.next(textChunk(formatServerToolStart(block.asServerToolUse()) + "\n"));
-            } else if (block.isWebSearchToolResult()) {
-                emitWebSearchResult(block.asWebSearchToolResult().content(), sink);
-            }
-        }
-    }
-
     private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
         var callbackMap = resolveToolCallbackMap(prompt.getOptions());
         var toolCtx = resolveToolContext(prompt.getOptions());
@@ -584,8 +568,8 @@ public class JournaledAnthropicChatModel implements ChatModel {
         var rounds = new ArrayList<ToolRound>();
 
         for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-            var builder = paramsBuilder.toBuilder(prompt);
             var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
+            var builder = paramsBuilder.toBuilder(prompt, strategy);
             addToolRounds(builder, rounds, strategy);
             var params = builder.build();
             var executed = new boolean[]{false};
@@ -609,6 +593,62 @@ public class JournaledAnthropicChatModel implements ChatModel {
         sink.error(toolLoopExceeded());
     }
 
+    // this is necessary to account for spring AI bug stalling downstream subscribers due to publishOn with default buffer (256),
+    // that never re-requests, so after 256 elements downstream just stops receiving updates
+    private static @NonNull Predicate<ChatResponse> batchingBoundary() {
+        return new Predicate<>() {
+            private static final int MIN_CHARS = 100;
+            private static final int MAX_CHARS = 5000;
+            private static final int BUDGET = 256;
+            // midpoint: where the ramp is steepest (% of budget used)
+            private static final double MIDPOINT = 0.6;
+            // steepness: higher = sharper transition
+            private static final double STEEPNESS = 12.0;
+            private int chars = 0;
+            private int windowsEmitted = 0;
+
+            @Override
+            public boolean test(ChatResponse cr) {
+                var text = Objects.requireNonNullElse(
+                    cr.getResult().getOutput().getText(), "");
+                chars += text.length();
+
+                if (chars >= charThreshold()) {
+                    chars = 0;
+                    windowsEmitted++;
+                    return true;
+                }
+                return false;
+            }
+
+            private int charThreshold() {
+                double x = (double) windowsEmitted / BUDGET;
+                double sigmoid = 1.0 / (1.0 + Math.exp(-STEEPNESS * (x - MIDPOINT)));
+                return (int) (MIN_CHARS + (MAX_CHARS - MIN_CHARS) * sigmoid);
+            }
+        };
+    }
+
+    @SneakyThrows
+    private Message streamRound(MessageCreateParams params, FluxSink<ChatResponse> sink) {
+        var accumulator = MessageAccumulator.create();
+        var thinkingStarted = new boolean[]{false};
+        try (var stream = client.messages().createStreaming(params)) {
+            stream.stream().peek(event -> {
+                try {
+                    accumulator.accumulate(event);
+                } catch (Exception e) {
+                    log.debug("Accumulator skipped: {}", e.getMessage());
+                }
+            }).forEach(event -> {
+                event.contentBlockDelta().ifPresent(d -> emitDelta(d.delta(), sink, thinkingStarted));
+                event.contentBlockStart().ifPresent(s -> emitBlockStart(s.contentBlock(), sink, thinkingStarted));
+            });
+        }
+        log.info("{}", ObjectMappers.jsonMapper().writeValueAsString(accumulator.message()));
+        return accumulator.message();
+    }
+
     private Message fixMissingToolInputs(Message message) {
         var content = message.content();
         var needsFix = content.stream().anyMatch(b ->
@@ -627,22 +667,20 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }).toList()).build();
     }
 
-    private Message streamRound(MessageCreateParams params, FluxSink<ChatResponse> sink) {
-        var accumulator = MessageAccumulator.create();
-        var thinkingStarted = new boolean[]{false};
-        try (var stream = client.messages().createStreaming(params)) {
-            stream.stream().peek(event -> {
-                try {
-                    accumulator.accumulate(event);
-                } catch (Exception e) {
-                    log.debug("Accumulator skipped: {}", e.getMessage());
-                }
-            }).forEach(event -> {
-                event.contentBlockDelta().ifPresent(d -> emitDelta(d.delta(), sink, thinkingStarted));
-                event.contentBlockStart().ifPresent(s -> emitBlockStart(s.contentBlock(), sink, thinkingStarted));
-            });
+    private void emitCachedRound(Message message, FluxSink<ChatResponse> sink) {
+        for (var block : message.content()) {
+            if (block.isText()) {
+                sink.next(textChunk(block.asText().text()));
+            } else if (block.isThinking()) {
+                sink.next(textChunk("[thinking] " + block.asThinking().thinking()));
+            } else if (block.isToolUse()) {
+                sink.next(textChunk("[tool_call] " + block.asToolUse().name() + "\n"));
+            } else if (block.isServerToolUse()) {
+                sink.next(textChunk(formatServerToolStart(block.asServerToolUse())));
+            } else if (block.isWebSearchToolResult()) {
+                emitWebSearchResult(block.asWebSearchToolResult().content(), sink);
+            }
         }
-        return accumulator.message();
     }
 
     private void emitDelta(RawContentBlockDelta delta, FluxSink<ChatResponse> sink, boolean[] thinkingStarted) {

@@ -24,7 +24,7 @@ rorm:
     cluster: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS
     service: MlInfraStack-MlServiceAC8BC53F-R1WsD6iG3HoP
     restateAdminUrl: http://3.75.210.208:9070
-    restateEndpointUrl: https://unsiding-sparrowless-chaya.ngrok-free.dev
+    restateEndpointUrl: http://100.69.197.31:9081
     valkeyUrl: redis://:rorm-valkey-pass123!@3.75.210.208:6379
     durable-execution: true
     serviceBaseUrl: http://MlInfr-MlAlb-fsf84yGJ69Ex-1790046904.eu-central-1.elb.amazonaws.com
