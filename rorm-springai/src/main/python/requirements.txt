@@ -16,6 +16,9 @@ statsmodels>=0.14.0
 # Causal Inference
 dowhy>=0.11.0
 causalimpact>=0.2.6
+econml>=0.16.0
+networkx>=3.6.1
+scipy>=1.17.1
 
 # Association Rules
 mlxtend>=0.23.0
@@ -48,6 +51,7 @@ optuna>=3.0.0
 # SHAP analysis
 shap>=0.43.0
 piecewise-regression>=1.4.0
+ruptures>=1.1.10
 
 # System memory detection
 psutil>=7.2.2

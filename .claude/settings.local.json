@@ -105,7 +105,8 @@
       "Bash",
       "Read",
       "Edit",
-      "Write"
+      "Write",
+      "WebFetch(domain:pypi.org)"
     ]
   },
   "hooks": {
