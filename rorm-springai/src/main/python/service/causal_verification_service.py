@@ -386,7 +386,8 @@ class CausalVerificationService:
     def _load_data(self, spec: CausalVerificationRequest, datasource) -> pd.DataFrame:
         sql = spec.datasource.sql
         bind_vars = spec.datasource.bind_variables
-        data = datasource.execute_query_to_dataframe(sql, bind_vars)
+        result = datasource.fetch(sql, bind_vars)
+        data = result.dataframe.to_pandas()
         if spec.strip_columns:
             data = data.drop(
                 columns=[c for c in spec.strip_columns if c in data.columns],
