@@ -3,6 +3,7 @@ package com.rorm.ai.anthropic;
 import com.anthropic.core.JsonValue;
 import com.anthropic.models.messages.*;
 import com.anthropic.models.messages.MessageCreateParams.Builder;
+import com.anthropic.models.messages.OutputConfig.Effort;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -58,7 +60,16 @@ public class AnthropicParamsBuilder {
         if (options instanceof AnthropicChatOptions ao
             && ao.getThinkingLevel() != null
             && ao.getThinkingLevel() != ThinkingLevel.NONE) {
-            builder.thinking(ThinkingConfigAdaptive.builder().build());
+            builder
+                .thinking(ThinkingConfigAdaptive.builder().build())
+                .outputConfig(OutputConfig.builder().effort(switch (ao.getThinkingLevel()) {
+                    case NONE -> throw new IllegalStateException("Can't have NONE thinking level here");
+                    case MEDIUM -> Effort.HIGH;
+                    case HIGH -> Optional.ofNullable(options.getModel())
+                        .filter(m -> m.equals("claude-opus-4-6"))
+                        .map(_ -> Effort.MAX)
+                        .orElse(Effort.HIGH);
+                }).build());
             return;
         }
         var temp = options != null && options.getTemperature() != null ? options.getTemperature() : 0.7;

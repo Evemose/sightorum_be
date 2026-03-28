@@ -1808,6 +1808,16 @@ The engine cannot execute prose. A variant annotated "Filter: region IN ('Midwes
 runs on the full population, producing wrong estimates labeled as subpopulation estimates. The filter DTO
 `{column: "region", operator: "IN", values: [...]}` is mechanically executable and unambiguous.
 
+### Why persistent pipeline state for skeptic re-execution?
+
+The original skeptic correction loop required full re-compilation + full engine re-run for every proposed correction.
+This was expensive (re-running the entire pipeline for a single W matrix change) and imprecise (the skeptic saw only the
+final ATE delta, not which intermediate stages were affected). Persistent state at stage boundaries enables targeted
+replay: a W matrix correction invalidates estimation and downstream but preserves the cached query result and d-sep
+tests. The skeptic sees deltas at every stage — "removing this variable changed the ATE by X, the E-value by Y, and the
+GRF subgroup Z flipped sign." Richer evidence than a single before/after comparison, and cheaper because upstream stages
+don't re-execute. Implementation uses Restate's journaled workflow state with one handler per pipeline stage.
+
 ### Why unmeasured confounding in PipelineSpec rather than only Phase 5?
 
 E-values and Rosenbaum bounds quantify "how strong would an unmeasured confounder need to be to explain away this
@@ -1912,6 +1922,14 @@ empirically during development:
     Temporal.io) with heartbeating; agent tool calls dispatch workflows and return immediately with workflow ID.
 13. **Calibration without ground truth**: How to validate pipeline quality when true causal effects are unknown.
     Currently an open architectural question.
+14. **CausalImpact / ITS track**: PipelineSpec currently supports DML/GRF only. Single-unit time series designs (
+    Bayesian structural time series) need schema extension: `estimation_variants.model_type: CausalImpact` with pre/post
+    period specification. TBD when temporal intervention hypotheses arise.
+15. **Preprocessing specification**: Original hypothesis spec included clustering, PCA, dimensionality reduction.
+    PipelineSpec has no preprocessing fields — feature engineering happens inside `engineerDerivedFeature` during
+    compilation. Add `preprocessing` section to PipelineSpec if needed.
+16. **Phase 2 nuisance model reuse**: P48 resolution requires model serialization + PipelineSpec artifact references (
+    `nuisance_model_artifacts: [path]`). Deferred until Engine orchestration matures.
 
 ### Conceptual — Requiring Design Work
 
@@ -2509,6 +2527,58 @@ effect — physically correct (heat gradient × degraded insulation). Age effect
 validated that Advocate role produces high-quality analysis from results alone; Prosecutor needs pipeline history to
 catch DAG construction artifacts.
 
+### Session 10: Executor Compiler Validation & Architectural Split (2026-03-23)
+
+Six iterative compiler runs on H1 (containerInsulationType → excursionFlag) and one on H3 (nodeRefrigHealthPct →
+excursionFlag) validated the PipelineSpec architecture and exposed systematic parameter drift.
+
+**P63–P73** documented above in the resolution table. Key findings from iterative validation:
+
+- PELT penalties drifted from 0.5 to 14.4 across runs for the same 120-month dataset until formula was codified (P64)
+- D-sep noise floor ranged 0.013–0.055 depending on whether causally connected pairs were selected (P65)
+- Bundled variables (containerWallAM2/doorAM2) entered W in 2 of 6 runs, biasing ATE toward zero (P66)
+- Ecological fallacy dimension (nodeId) was replaced by coarser proxy (region) in 1 run, losing 47% of confounding
+  control (P67)
+- Temporal confounding at only one grain (dispatchMonth but not dispatchYear) in 5 of 6 runs (P68)
+- Scoped variants written as prose notes the engine cannot execute (P69)
+
+**P74 — Phase 2 model reuse architecturally orphaned.** P48 (Session 8) resolved that Phase 2 LGBM/ensemble models serve
+as DML first-stage nuisance estimators. PipelineSpec has no mechanism to pass Phase 2 models to the Engine. The Engine
+trains nuisance models from scratch.
+
+**Status: DEFERRED.** Model reuse is a performance optimization, not a correctness issue. DML cross-fitting produces
+valid inference regardless of nuisance model provenance. When Engine orchestration matures (Restate workflows with
+artifact passing), Phase 2 model serialization can be added as a PipelineSpec extension (
+`nuisance_model_artifacts: [path]`).
+
+**P75 — DoWhy identification gate missing from PipelineSpec.** Original Phase 4 design had DoWhy verify backdoor
+criterion before estimation, with REJECT → generator if identification fails. PipelineSpec has no identification abort
+gate.
+
+**Status: DEFERRED.** The Engine runs DoWhy identification as an informational step. The Compiler's DAG construction and
+W matrix already encode the backdoor set — if the DAG is correct, identification succeeds by construction. Adding
+`identification_gate: {abort_on_failure: bool}` is straightforward when needed.
+
+**P76 — Phase 4/5 boundary blurred.** Original Phase 5 agents (Specification Sensitivity, Quasi-Experimental Check,
+Robustness Checks, Residual Diagnostics, Range Restriction Check) collapsed into Engine execution steps configured by
+PipelineSpec. Phase 5 no longer has independent agents.
+
+**Status: ACCEPTED.** Phase 5 "agents" were always mechanical (no LLM). Making them Engine steps configured by
+PipelineSpec is architecturally cleaner: all configuration in one place, all execution in one runner. The phase boundary
+persists conceptually (evaluation ≠ estimation) but not as a separate orchestration step.
+
+**P77 — Skeptic re-execution is full pipeline rerun.** Current design: skeptic proposes PipelineSpec corrections,
+Compiler re-compiles, Engine re-runs from scratch. A correction to the W matrix only invalidates estimation and
+downstream, not query or d-sep.
+
+**Resolution: Persistent pipeline state with stage-level replay.** See Phase 4.2 revision.
+
+**H3 validation results:** First-try pass on nodeRefrigHealthPct → excursionFlag. Correct mediator handling (
+preDepartureTempC excluded from primary W, direct-effect variant created), severe positivity documented (3,889 treated
+at 70% threshold), threshold variants at 50/60/70/80/90, discrepancy log caught generator tier mislabeling (generator
+said 4,952 for "<70% health" but data shows that's <90%). PELT and structural max formulas applied correctly on first
+attempt.
+
 ---
 
 ## Problem Resolution Table
@@ -2600,6 +2670,10 @@ catch DAG construction artifacts.
 | P71    | Post-treatment variables slip through                 | 10      | POST-TREATMENT failure mode with examples                                                                    | —                                                                      |
 | P72    | Treatment structural max R² inconsistent              | 10      | Formula codified: categorical=1-(1/k), binary=4×p×(1-p)                                                      | —                                                                      |
 | P73    | Table-grain variables undocumented                    | 10      | TABLE-GRAIN CONFUSION failure mode: document entity-constant variables and which entity ID absorbs them      | —                                                                      |
+| P74    | Phase 2 model reuse orphaned                          | 10      | DEFERRED: Engine trains fresh nuisance models; model serialization deferred to orchestration maturity        | Chernozhukov et al. 2018                                               |
+| P75    | DoWhy identification gate missing                     | 10      | DEFERRED: Engine runs DoWhy identification as informational step; hard abort deferred                        | Pearl 2009                                                             |
+| P76    | Phase 4/5 boundary blurred                            | 10      | ACCEPTED: Phase 5 agents were always mechanical; collapse into Engine steps is cleaner                       | —                                                                      |
+| P77    | Skeptic re-execution is full pipeline rerun           | 10      | Persistent pipeline state with stage-level replay; skeptic mutations replay from invalidation point          | —                                                                      |
 
 ### Complete Literature References
 

@@ -7,7 +7,8 @@ public enum MLJobType {
     TRAINING(TrainingJobRequest.class),
     TUNING(TuningJobRequest.class),
     STABILITY_SELECTION(StabilitySelectionJobRequest.class),
-    SHAP(ShapJobRequest.class);
+    SHAP(ShapJobRequest.class),
+    CAUSAL_VERIFICATION(CausalVerificationJobRequest.class);
 
     private final Class<? extends AsyncJobRequest> requestType;
 

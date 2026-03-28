@@ -5,5 +5,6 @@ public enum ToolGroup {
     QUERY,
     ML,
     DATA_RELATIONS,
+    CAUSAL_REEXECUTION,
     VERIFICATION
 }
