@@ -533,25 +533,25 @@ class CausalVerificationRequest:
             treatment_form=TreatmentForm(d["treatment_form"]),
             datasource=SQLDatasourceConfig.from_dict(d["datasource"]),
             expected_row_count=d["expected_row_count"],
-            strip_columns=d.get("strip_columns", []),
+            strip_columns=d.get("strip_columns") or [],
             dag_edges=d["dag_edges"],
             dsep_threshold=d["dsep_threshold"],
             adjustment_set=d["adjustment_set"],
-            mediators_excluded=[MediatorExclusion.from_dict(x) for x in d.get("mediators_excluded", [])],
+            mediators_excluded=[MediatorExclusion.from_dict(x) for x in (d.get("mediators_excluded") or [])],
             estimation_variants=[EstimationVariant.from_dict(x) for x in d["estimation_variants"]],
             gates=QualityGates.from_dict(d["gates"]),
             mediation=[MediationConfig.from_dict(x) for x in d["mediation"]] if d.get("mediation") else None,
-            grf_configs=[GrfConfig.from_dict(x) for x in d.get("grf_configs", [])],
-            refutations=[RefutationConfig.from_dict(x) for x in d.get("refutations", [])],
+            grf_configs=[GrfConfig.from_dict(x) for x in (d.get("grf_configs") or [])],
+            refutations=[RefutationConfig.from_dict(x) for x in (d.get("refutations") or [])],
             sensitivity=SensitivityConfig.from_dict(d["sensitivity"]),
-            structural_breaks=[StructuralBreakConfig.from_dict(x) for x in d.get("structural_breaks", [])],
+            structural_breaks=[StructuralBreakConfig.from_dict(x) for x in (d.get("structural_breaks") or [])],
             residual_checks=ResidualChecks.from_dict(d["residual_checks"]),
             range_checks=RangeChecks.from_dict(d["range_checks"]),
             unmeasured_confounding=[
-                UnmeasuredConfoundingConfig.from_dict(x) for x in d.get("unmeasured_confounding", [])
+                UnmeasuredConfoundingConfig.from_dict(x) for x in (d.get("unmeasured_confounding") or [])
             ],
-            externalization=ExternalizationConfig.from_dict(d.get("externalization", {})),
-            discrepancy_log=[DiscrepancyEntry.from_dict(x) for x in d.get("discrepancy_log", [])],
+            externalization=ExternalizationConfig.from_dict(d.get("externalization") or {}),
+            discrepancy_log=[DiscrepancyEntry.from_dict(x) for x in (d.get("discrepancy_log") or [])],
         )
 
     def to_dict(self) -> dict[str, Any]:
