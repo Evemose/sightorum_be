@@ -44,7 +44,7 @@ class AiChatRunner {
     void simpleChat() {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            durableRuntime.submit("runner-pipeline-h1-v1", new JobSpec(
+            durableRuntime.submit("runner-pipeline-h1-v1_1", new JobSpec(
                 "agentJp",
                 "runH1Pipeline"
             ));
@@ -208,9 +208,8 @@ class AiChatRunner {
             var spec = SamplePipelineSpecs.h1(objectMapper);
             var request = pipelineSpecConverter.convert(
                 spec, "H1: containerInsulationType causal effect on excursionFlag", modelSpace, SCHEMA);
-            var response = mlService.submitCausalVerification(request);
-            System.out.printf("H1 submitted: status=%s, analysisId=%s%n",
-                response.status(), response.analysisId());
+            var event = mlService.submit(request).join();
+            System.out.printf("H1 completed: %s – %s%n", event.eventType(), event.message());
         }
 
         public void runH3Pipeline() {
@@ -218,9 +217,8 @@ class AiChatRunner {
             var spec = SamplePipelineSpecs.h3(objectMapper);
             var request = pipelineSpecConverter.convert(
                 spec, "H3: nodeRefrigHealthPct causal effect on excursionFlag", modelSpace, SCHEMA);
-            var response = mlService.submitCausalVerification(request);
-            System.out.printf("H3 submitted: status=%s, analysisId=%s%n",
-                response.status(), response.analysisId());
+            var event = mlService.submit(request).join();
+            System.out.printf("H3 completed: %s – %s%n", event.eventType(), event.message());
         }
     }
 }
