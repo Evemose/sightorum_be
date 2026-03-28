@@ -1,10 +1,13 @@
 package com.rorm.client.ai;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
 import com.rorm.ai.chat.*;
 import com.rorm.client.ai.AiChatRunner.AgentJP;
 import com.rorm.client.metamodel.MetamodelService;
+import com.rorm.ml.MlTrainingService;
+import com.rorm.ml.PipelineSpecConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,10 +43,10 @@ class AiChatRunner {
     @Test
     void simpleChat() {
         //noinspection ConstantValue
-        if (false) { // guard from accidental execution
-            durableRuntime.submit("runner-executor-v9", new JobSpec(
+        if (true) { // guard from accidental execution
+            durableRuntime.submit("runner-pipeline-h1-v1", new JobSpec(
                 "agentJp",
-                "runExecutor"
+                "runH1Pipeline"
             ));
         }
     }
@@ -59,6 +62,12 @@ class AiChatRunner {
         private ChatConversationFormatter chatConversationFormatter;
         @Autowired
         private ChatMemoryRepository chatMemoryRepository;
+        @Autowired
+        private ObjectMapper objectMapper;
+        @Autowired
+        private PipelineSpecConverter pipelineSpecConverter;
+        @Autowired
+        private MlTrainingService mlService;
 
         public void runGenerator() {
             var modelSpace = metamodelService.getModelSpace(SCHEMA);
@@ -192,6 +201,26 @@ class AiChatRunner {
                     System.out.flush();
                 })
                 .blockLast();
+        }
+
+        public void runH1Pipeline() {
+            var modelSpace = metamodelService.getModelSpace(SCHEMA);
+            var spec = SamplePipelineSpecs.h1(objectMapper);
+            var request = pipelineSpecConverter.convert(
+                spec, "H1: containerInsulationType causal effect on excursionFlag", modelSpace, SCHEMA);
+            var response = mlService.submitCausalVerification(request);
+            System.out.printf("H1 submitted: status=%s, analysisId=%s%n",
+                response.status(), response.analysisId());
+        }
+
+        public void runH3Pipeline() {
+            var modelSpace = metamodelService.getModelSpace(SCHEMA);
+            var spec = SamplePipelineSpecs.h3(objectMapper);
+            var request = pipelineSpecConverter.convert(
+                spec, "H3: nodeRefrigHealthPct causal effect on excursionFlag", modelSpace, SCHEMA);
+            var response = mlService.submitCausalVerification(request);
+            System.out.printf("H3 submitted: status=%s, analysisId=%s%n",
+                response.status(), response.analysisId());
         }
     }
 }
