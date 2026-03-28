@@ -393,7 +393,25 @@ class CausalVerificationService:
                 columns=[c for c in spec.strip_columns if c in data.columns],
                 errors="ignore",
             )
+        data = self._encode_categoricals(data)
         return data
+
+    @staticmethod
+    def _encode_categoricals(df: pd.DataFrame) -> pd.DataFrame:
+        """Label-encode object/category columns to integers for DML compatibility.
+
+        Label encoding (not one-hot) preserves column names so the DAG graph
+        stays valid.  LGBMRegressor nuisance models handle ordinal-encoded
+        categoricals natively; the DML final-stage LinearRegression only sees
+        residualized Y/T, not W directly, so arbitrary ordering is harmless.
+        """
+        cat_cols = df.select_dtypes(include=["object", "category"]).columns
+        if cat_cols.empty:
+            return df
+        df = df.copy()
+        for col in cat_cols:
+            df[col] = df[col].astype("category").cat.codes
+        return df
 
     # ------------------------------------------------------------------
     # Step 1: D-sep refinement
