@@ -405,7 +405,7 @@ class CausalVerificationService:
         categoricals natively; the DML final-stage LinearRegression only sees
         residualized Y/T, not W directly, so arbitrary ordering is harmless.
         """
-        cat_cols = df.select_dtypes(include=["object", "category"]).columns
+        cat_cols = df.select_dtypes(include=["object", "category", "string"]).columns
         if cat_cols.empty:
             return df
         df = df.copy()
