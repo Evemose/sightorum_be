@@ -57,6 +57,13 @@ public class MlTrainingService {
 //                }
 //                yield resp.analysisId();
             }
+            case CausalVerificationJobRequest r -> {
+                var resp = submitCausalVerification(r);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("Causal verification not accepted: " + resp.message());
+                }
+                yield resp.analysisId();
+            }
         };
         return futureRegistry.register(jobId);
     }
@@ -209,6 +216,54 @@ public class MlTrainingService {
                 .body(AsyncJobResponse.class);
         } catch (RestClientException e) {
             throw new MlServiceException("Failed to submit async SHAP computation", e);
+        }
+    }
+
+    public AsyncJobResponse submitCausalVerification(CausalVerificationJobRequest request) {
+        try {
+            return restClient.post()
+                .uri("/analysis/causal-verification/async")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(AsyncJobResponse.class);
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to submit causal verification", e);
+        }
+    }
+
+    public Map<String, Object> reexecutePipeline(String runId, Map<String, Object> specPatch) {
+        try {
+            return restClient.post()
+                .uri("/analysis/causal-verification/runs/{runId}/reexecute", runId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(specPatch)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to re-execute pipeline run " + runId, e);
+        }
+    }
+
+    public List<Map<String, Object>> listCausalRuns(int limit) {
+        try {
+            return restClient.get()
+                .uri("/analysis/causal-verification/runs?limit={limit}", limit)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to list causal runs", e);
+        }
+    }
+
+    public Map<String, Object> getCausalRun(String runId) {
+        try {
+            return restClient.get()
+                .uri("/analysis/causal-verification/runs/{runId}", runId)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to get causal run " + runId, e);
         }
     }
 

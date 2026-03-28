@@ -46,11 +46,13 @@ async def lifespan(_: FastAPI):
     tuning_node = container.tuning_node()
     stability_selection_node = container.stability_selection_node()
     shap_node = container.shap_node()
+    causal_verification_node = container.causal_verification_node()
 
     training_task = asyncio.create_task(training_node.start())
     tuning_task = asyncio.create_task(tuning_node.start())
     stability_selection_task = asyncio.create_task(stability_selection_node.start())
     shap_task = asyncio.create_task(shap_node.start())
+    causal_verification_task = asyncio.create_task(causal_verification_node.start())
 
     logger.info("Pipeline nodes started")
 
@@ -64,11 +66,13 @@ async def lifespan(_: FastAPI):
         await tuning_node.stop()
         await stability_selection_node.stop()
         await shap_node.stop()
+        await causal_verification_node.stop()
 
         training_task.cancel()
         tuning_task.cancel()
         stability_selection_task.cancel()
         shap_task.cancel()
+        causal_verification_task.cancel()
 
         try:
             await asyncio.gather(
@@ -76,6 +80,7 @@ async def lifespan(_: FastAPI):
                 tuning_task,
                 stability_selection_task,
                 shap_task,
+                causal_verification_task,
                 return_exceptions=True,
             )
         except asyncio.CancelledError:
@@ -104,6 +109,7 @@ def create_app() -> FastAPI:
     _add_prediction_routes(app)
     _add_unsupervised_routes(app)
     _add_analysis_routes(app)
+    _add_causal_verification_routes(app)
     _add_info_routes(app)
 
     return app
@@ -512,6 +518,164 @@ def _add_analysis_routes(app: FastAPI):
             "status": "accepted",
             "analysis_id": analysis_id,
             "message": "Stability selection request queued successfully",
+        }
+
+
+# ========== Causal Verification Routes ==========
+
+
+def _add_causal_verification_routes(app: FastAPI):
+    """Add causal verification pipeline routes."""
+
+    @app.post("/analysis/causal-verification", response_model=dict, tags=["Causal Verification"])
+    @inject
+    async def causal_verification_sync(
+            request: dict,
+            causal_verification_service=Depends(Provide[ApplicationContainer.causal_verification_service]),
+            datasource=Depends(Provide[ApplicationContainer.datasource]),
+            config: Settings = Depends(Provide[ApplicationContainer.config]),
+    ):
+        """
+        Run the full causal verification pipeline synchronously.
+
+        Accepts a PipelineSpec JSON body and returns the complete pipeline result.
+        Steps are checkpointed — a retry with the same hypothesis_id resumes
+        from the last completed step.
+        Use the async variant for long-running pipelines.
+        """
+        import asyncio
+        from dto.causal_verification_request import CausalVerificationRequest
+        from service.pipeline_checkpoint import PipelineCheckpoint
+
+        spec = CausalVerificationRequest.from_dict(request)
+        run_id = spec.hypothesis_id
+        checkpoint = PipelineCheckpoint(run_id=run_id, redis_url=config.redis.get_url())
+
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: causal_verification_service.run_pipeline(
+                spec, datasource, checkpoint=checkpoint,
+            ),
+        )
+        return result
+
+    @app.post("/analysis/causal-verification/async", response_model=dict, tags=["Causal Verification"])
+    @inject
+    async def causal_verification_async(
+            request: dict,
+            event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
+            config: Settings = Depends(Provide[ApplicationContainer.config]),
+    ):
+        """
+        Queue async causal verification pipeline execution.
+
+        Returns analysis_id immediately. Monitor progress via event
+        channels: ml_training.events and ml_training.<analysis_id>
+        """
+        analysis_id = str(uuid.uuid4())
+
+        await event_publisher.add_to_stream(
+            config.pipeline.streams.causal_verification_requests,
+            {
+                "message_type": "causal_verification_request",
+                "payload": json.dumps({
+                    "analysis_id": analysis_id,
+                    "request_data": request,
+                }),
+                "metadata": json.dumps({}),
+                "timestamp": datetime.now().isoformat(),
+                "retry_count": "0",
+            }
+        )
+
+        return {
+            "status": "accepted",
+            "analysis_id": analysis_id,
+            "message": "Causal verification pipeline request queued successfully",
+        }
+
+    @app.post(
+        "/analysis/causal-verification/runs/{run_id}/reexecute",
+        response_model=dict,
+        tags=["Causal Verification"],
+    )
+    @inject
+    async def reexecute_sync(
+            run_id: str,
+            spec_patch: dict,
+            reexecution_engine=Depends(Provide[ApplicationContainer.reexecution_engine]),
+            datasource=Depends(Provide[ApplicationContainer.datasource]),
+    ):
+        """
+        Re-execute a completed run with a partial spec change.
+
+        Only the steps affected by the changed fields are re-computed.
+        Returns the new run_id, per-step diffs, and the full result.
+        Both the base run and the new run are frozen on completion.
+        """
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: reexecution_engine.reexecute(
+                base_run_id=run_id,
+                spec_patch=spec_patch,
+                datasource=datasource,
+            ),
+        )
+
+    @app.get(
+        "/analysis/causal-verification/runs",
+        response_model=list,
+        tags=["Causal Verification"],
+    )
+    @inject
+    async def list_causal_runs(
+            limit: int = Query(50, ge=1, le=500),
+            config: Settings = Depends(Provide[ApplicationContainer.config]),
+    ):
+        """List completed causal verification runs (most recent first)."""
+        from service.pipeline_checkpoint import PipelineCheckpoint
+        return PipelineCheckpoint.list_runs(config.redis.get_url(), limit=limit)
+
+    @app.get(
+        "/analysis/causal-verification/runs/{run_id}",
+        response_model=dict,
+        tags=["Causal Verification"],
+    )
+    @inject
+    async def get_causal_run(
+            run_id: str,
+            config: Settings = Depends(Provide[ApplicationContainer.config]),
+    ):
+        """Get metadata and result for a specific run."""
+        from service.pipeline_checkpoint import PipelineCheckpoint
+        cp = PipelineCheckpoint(run_id, config.redis.get_url())
+        meta = cp.load_run_meta()
+        if meta is None:
+            raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+        meta["run_id"] = run_id
+        return meta
+
+    @app.get(
+        "/analysis/causal-verification/dag",
+        response_model=dict,
+        tags=["Causal Verification"],
+    )
+    async def get_pipeline_dag():
+        """Return the static dependency DAG used for re-execution invalidation."""
+        from service.reexecution_engine import PIPELINE_DAG, STEP_ORDER
+        return {
+            "step_order": STEP_ORDER,
+            "steps": {
+                name: {
+                    "spec_inputs": sorted(defn.spec_inputs),
+                    "step_inputs": sorted(defn.step_inputs),
+                }
+                for name, defn in PIPELINE_DAG.items()
+            },
         }
 
 

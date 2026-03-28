@@ -80,6 +80,7 @@ class PipelineStreams:
     training_results: str = "ml_training:training_results"
     stability_selection_requests: str = "ml_training:stability_selection_requests"
     shap_requests: str = "ml_training:shap_requests"
+    causal_verification_requests: str = "ml_training:causal_verification_requests"
 
 
 @dataclass
@@ -88,6 +89,7 @@ class PipelineConsumerGroups:
     training: str = "training_workers"
     stability_selection: str = "analysis_workers"
     shap: str = "shap_workers"
+    causal_verification: str = "causal_verification_workers"
 
 
 @dataclass

@@ -11,7 +11,8 @@ import org.jspecify.annotations.Nullable;
  * eliminating the possibility of enum/request mismatch.
  */
 public sealed interface AsyncJobRequest
-    permits TrainingJobRequest, TuningJobRequest, StabilitySelectionJobRequest, ShapJobRequest {
+    permits TrainingJobRequest, TuningJobRequest, StabilitySelectionJobRequest, ShapJobRequest,
+    CausalVerificationJobRequest {
 
     String reason();
 

@@ -1,6 +1,7 @@
 package com.rorm.ai.chat;
 
 import com.rorm.ai.tools.*;
+import com.rorm.ml.tools.CausalReexecutionTool;
 import com.rorm.ml.tools.DataRelationsTool;
 import com.rorm.ml.tools.MlTrainingTool;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ public class ToolGroupResolver {
     private final DataOverviewTool dataOverviewTool;
     private final MlTrainingTool mlTrainingTool;
     private final DataRelationsTool dataRelationsTool;
+    private final CausalReexecutionTool causalReexecutionTool;
     private final FeatureEngineeringTool featureEngineeringTool;
     private final HypothesisVerificationTool hypothesisVerificationTool;
     private final DataExplorationTool explorationTool;
@@ -37,6 +39,7 @@ public class ToolGroupResolver {
                     tools.add(dataRelationsTool);
                     tools.add(featureEngineeringTool);
                 }
+                case CAUSAL_REEXECUTION -> tools.add(causalReexecutionTool);
                 case WEB_ACCESS -> {
                     // Web access tools to be added when available
                 }

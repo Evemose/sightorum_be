@@ -172,6 +172,18 @@ class ApplicationContainer(containers.DeclarativeContainer):
         worker_pool=worker_pool,
     )
 
+    causal_verification_service = providers.Singleton(
+        lambda db_storage, worker_pool: _create_causal_verification_service(db_storage, worker_pool),
+        db_storage=db_storage,
+        worker_pool=worker_pool,
+    )
+
+    reexecution_engine = providers.Singleton(
+        lambda causal_verification_service, cfg: _create_reexecution_engine(causal_verification_service, cfg),
+        causal_verification_service=causal_verification_service,
+        cfg=config,
+    )
+
     # ========== Event Publishing ==========
     event_publisher = providers.Singleton(
         lambda cfg: _create_event_publisher(cfg),
@@ -225,6 +237,20 @@ class ApplicationContainer(containers.DeclarativeContainer):
         cfg=config,
         shap_curve_service=shap_curve_service,
         event_publisher=event_publisher,
+        worker_pool=worker_pool,
+    )
+
+    causal_verification_node = providers.Singleton(
+        lambda cfg, causal_verification_service, pool, query_throttler, event_publisher, async_throttler, worker_pool:
+        _create_causal_verification_node(
+            cfg, causal_verification_service, pool, query_throttler, event_publisher, async_throttler, worker_pool
+        ),
+        cfg=config,
+        causal_verification_service=causal_verification_service,
+        pool=db_pool,
+        query_throttler=query_throttler,
+        event_publisher=event_publisher,
+        async_throttler=async_throttler,
         worker_pool=worker_pool,
     )
 
@@ -490,6 +516,54 @@ def _create_shap_node(cfg: Settings, shap_curve_service, event_publisher, worker
         shap_curve_service=shap_curve_service,
         event_publisher=event_publisher,
         consumer_group=cfg.pipeline.consumer_groups.shap,
+        worker_pool=worker_pool,
+        backpressure=cfg.backpressure,
+    )
+
+
+def _create_causal_verification_service(db_storage, worker_pool):
+    from service.causal_verification_service import CausalVerificationService
+    return CausalVerificationService(db_storage=db_storage, worker_pool=worker_pool)
+
+
+def _create_reexecution_engine(causal_verification_service, cfg: Settings):
+    from service.reexecution_engine import ReexecutionEngine
+    return ReexecutionEngine(
+        causal_service=causal_verification_service,
+        redis_url=cfg.redis.get_url(),
+    )
+
+
+def _create_causal_verification_node(
+        cfg: Settings,
+        causal_verification_service,
+        pool,
+        query_throttler,
+        event_publisher,
+        async_throttler,
+        worker_pool,
+):
+    from processing.causal_verification_node import CausalVerificationPipelineNode
+    from datasource.sql_datasource import PostgreSQLDatasource
+
+    def datasource_factory():
+        return PostgreSQLDatasource(
+            pool=pool,
+            throttler=query_throttler,
+            query_timeout=cfg.datasource.query_timeout_seconds,
+            explain_timeout=cfg.datasource.explain_analyze_timeout_seconds,
+            lazy_threshold_bytes=cfg.datasource.lazy_materialization_threshold_bytes,
+            absolute_max_bytes=cfg.datasource.absolute_max_bytes,
+        )
+
+    return CausalVerificationPipelineNode(
+        redis_url=cfg.redis.get_url(),
+        input_stream=cfg.pipeline.streams.causal_verification_requests,
+        causal_verification_service=causal_verification_service,
+        datasource_factory=datasource_factory,
+        event_publisher=event_publisher,
+        throttler=async_throttler,
+        consumer_group=cfg.pipeline.consumer_groups.causal_verification,
         worker_pool=worker_pool,
         backpressure=cfg.backpressure,
     )
