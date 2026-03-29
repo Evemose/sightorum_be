@@ -43,6 +43,7 @@ from typing import Any, Callable, Optional
 warnings.filterwarnings("ignore")
 logging.getLogger("dowhy.utils.graphviz_plotting").setLevel(logging.CRITICAL)
 logging.getLogger("dowhy.graph").setLevel(logging.CRITICAL)
+logging.getLogger("dowhy.causal_refuter").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 logger.info("dowhy=%s  networkx=%s  econml=%s", dowhy.__version__, nx.__version__,
             __import__("econml").__version__)
@@ -211,6 +212,27 @@ class CausalVerificationService:
                 "primary_ci": primary_ci,
             })
         result["steps"]["estimation"] = estimation_results
+
+        if primary_effect is None:
+            failed_variants = [vid for vid, r in estimation_results.items()
+                               if r.get("effect") is None]
+            result["aborted"] = True
+            result["abort_reason"] = (
+                f"Primary variant '{spec.estimation_variants[0].id}' produced no "
+                f"effect estimate. Failed variants: {failed_variants}"
+            )
+            result["final_effect"] = None
+            result["final_ci"] = None
+            if checkpoint:
+                from datetime import datetime
+                checkpoint.save_run_meta({
+                    "spec": spec.to_dict(), "status": "completed",
+                    "completed_at": datetime.utcnow().isoformat(),
+                    "_score": datetime.utcnow().timestamp(),
+                    "result": result,
+                })
+            report(1.0, "Pipeline aborted — primary estimation failed")
+            return result
 
         # ==================================================================
         # Step 4  —  Quality gates
@@ -846,10 +868,15 @@ class CausalVerificationService:
             outcome_col: str,
     ) -> dict[str, Any]:
         filtered = self._apply_variant_filter(data, variant)
-        df = filtered.encoded
+        df = filtered.encoded.copy()
         treatment_col = variant.treatment_column
         W_cols = variant.w_columns
         discrete = variant.treatment_form != TreatmentForm.CONTINUOUS
+
+        # Re-map treatment to contiguous 0..n after filtering so EconML's
+        # internal OneHotEncoder doesn't encounter gaps in category codes
+        if discrete and treatment_col in df.columns:
+            df[treatment_col] = df[treatment_col].astype("category").cat.codes
 
         if variant.treatment_form == TreatmentForm.BINARY_THRESHOLD and variant.threshold_value is not None:
             bin_col = f"_bin_{treatment_col}_{variant.threshold_value}"
@@ -897,6 +924,7 @@ class CausalVerificationService:
             model = dowhy.CausalModel(
                 data=df, treatment=treatment_col,
                 outcome=outcome_col, graph=dag_nx,
+                effect_modifiers=[],
             )
             identified = model.identify_effect(proceed_when_unidentifiable=False)
             estimate = model.estimate_effect(
@@ -1120,6 +1148,7 @@ class CausalVerificationService:
             model = dowhy.CausalModel(
                 data=data.encoded, treatment=spec.treatment,
                 outcome=spec.outcome, graph=dag_nx,
+                effect_modifiers=[],
             )
             ident = model.identify_effect(proceed_when_unidentifiable=False)
             est = model.estimate_effect(
@@ -1294,11 +1323,15 @@ class CausalVerificationService:
         baseline_rate = float(enc[spec.outcome].mean())
         results = []
         for uc in spec.unmeasured_confounding:
-            variant = estimation_results.get(uc.variant_id, {})
+            variant = estimation_results.get(uc.variant_id)
+            if variant is None:
+                results.append({"variant_id": uc.variant_id, "error": "variant not found in estimation results"})
+                continue
             effect = variant.get("effect")
             ci = variant.get("ci")
             if effect is None:
-                results.append({"variant_id": uc.variant_id, "error": "variant not found"})
+                results.append({"variant_id": uc.variant_id,
+                                "error": f"variant estimation failed: {variant.get('error', 'unknown')}"})
                 continue
 
             if uc.method == UnmeasuredMethod.E_VALUE:
@@ -1432,7 +1465,11 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _structural_breaks(self, data, spec, effect, ci) -> list[dict]:
-        raw = data.raw.copy()
+        # Mix raw grouping columns with encoded numeric columns for aggregation
+        work = pd.DataFrame({
+            "_entity": data.raw[spec.structural_breaks[0].entity_column]
+            if spec.structural_breaks else pd.Series(dtype="object"),
+        })
         results = []
         for sb in spec.structural_breaks:
             if sb.entity_column not in data.columns or sb.temporal_column not in data.columns:
@@ -1440,11 +1477,15 @@ class CausalVerificationService:
                 continue
 
             try:
-                raw["_period"] = pd.to_datetime(raw[sb.temporal_column]).dt.to_period(
-                    sb.temporal_grain[0].upper()
-                )
+                df_agg = pd.DataFrame({
+                    sb.entity_column: data.raw[sb.entity_column],
+                    "_period": pd.to_datetime(data.raw[sb.temporal_column]).dt.to_period(
+                        sb.temporal_grain[0].upper()),
+                    spec.outcome: data.encoded[spec.outcome],
+                    spec.treatment: data.encoded[spec.treatment],
+                })
                 agg = (
-                    raw.groupby([sb.entity_column, "_period"])
+                    df_agg.groupby([sb.entity_column, "_period"])
                     .agg(
                         _rate=(spec.outcome, "mean"),
                         _mean_t=(spec.treatment, "mean"),
