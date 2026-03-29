@@ -1840,9 +1840,10 @@ class CausalVerificationService:
         try:
             # W = all parents of treatment and outcome, minus treatment itself
             w_cols = sorted(
-                (set(dag.predecessors(treatment)) if dag.has_node(treatment) else set())
-                | (set(dag.predecessors(outcome)) if dag.has_node(outcome) else set())
-            ) - {treatment, outcome}
+                ((set(dag.predecessors(treatment)) if dag.has_node(treatment) else set())
+                 | (set(dag.predecessors(outcome)) if dag.has_node(outcome) else set()))
+                - {treatment, outcome}
+            )
             w_cols = [c for c in w_cols if c in data.columns]
             if not w_cols:
                 w_cols = [c for c in data.columns if c not in (treatment, outcome)]
