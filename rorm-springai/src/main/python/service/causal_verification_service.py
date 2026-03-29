@@ -41,6 +41,7 @@ from typing import Any, Callable, Optional
 
 warnings.filterwarnings("ignore")
 logging.getLogger("dowhy.utils.graphviz_plotting").setLevel(logging.CRITICAL)
+logging.getLogger("dowhy.graph").setLevel(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 LGBM_DEFAULTS = dict(n_estimators=300, max_depth=6, learning_rate=0.05, verbose=-1)
@@ -1786,24 +1787,35 @@ class CausalVerificationService:
         return pd.Series(True, index=data.index)
 
     def _run_dml_quick(self, data, treatment, outcome, dag_str) -> Optional[float]:
+        """Fast DML estimate using econml directly (bypasses DoWhy graph layer)."""
         try:
-            m = dowhy.CausalModel(
-                data=data, treatment=treatment, outcome=outcome, graph=dag_str,
+            G = nx.DiGraph()
+            for line in dag_str.replace("digraph", "").replace("{", "").replace("}", "").split(";"):
+                line = line.strip()
+                if "->" in line:
+                    parts = [p.strip().strip('"') for p in line.split("->")]
+                    if len(parts) == 2:
+                        G.add_edge(parts[0], parts[1])
+            # W = all parents of treatment and outcome, minus treatment itself
+            w_cols = sorted(
+                (set(G.predecessors(treatment)) | set(G.predecessors(outcome)))
+                - {treatment, outcome}
             )
-            ident = m.identify_effect(proceed_when_unidentifiable=False)
-            est = m.estimate_effect(
-                ident, method_name="backdoor.econml.dml.DML",
-                method_params={
-                    "init_params": {
-                        "model_y": LGBMRegressor(**LGBM_DEFAULTS),
-                        "model_t": LGBMRegressor(**LGBM_DEFAULTS),
-                        "model_final": LinearRegression(),
-                        "discrete_treatment": False,
-                    },
-                    "fit_params": {},
-                },
+            w_cols = [c for c in w_cols if c in data.columns]
+            if not w_cols:
+                w_cols = [c for c in data.columns if c not in (treatment, outcome)]
+
+            Y = data[outcome].values
+            T = data[treatment].values
+            W = data[w_cols].values
+
+            dml = LinearDML(
+                model_y=LGBMRegressor(**LGBM_DEFAULTS),
+                model_t=LGBMRegressor(**LGBM_DEFAULTS),
+                discrete_treatment=False,
             )
-            return float(est.value)
+            dml.fit(Y, T, W=W)
+            return float(dml.effect().mean())
         except Exception as e:
             logger.warning(f"Quick DML failed: {e}")
             return None

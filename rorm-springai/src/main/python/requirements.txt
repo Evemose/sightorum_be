@@ -13,7 +13,7 @@ xgboost>=2.0.0
 statsmodels>=0.14.0
 
 # Causal Inference
-dowhy>=0.11.0
+dowhy>=0.13
 causalimpact>=0.2.6
 econml>=0.16.0
 networkx>=3.6.1
