@@ -32,6 +32,7 @@ from econml.inference import BootstrapInference
 from itertools import combinations
 from lightgbm import LGBMRegressor
 from scipy.stats import pearsonr, spearmanr
+from service.pipeline_dataframe import PipelineDataFrame
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import KFold, cross_val_score
 from statsmodels.stats.diagnostic import acorr_ljungbox
@@ -72,7 +73,7 @@ class CausalVerificationService:
         return f
 
     @staticmethod
-    def _mem_estimate(data: pd.DataFrame, factor: int = 3) -> int:
+    def _mem_estimate(data, factor: int = 3) -> int:
         """Rough memory estimate for one DML fit over data."""
         return int(data.memory_usage(deep=True).sum()) * factor
 
@@ -405,7 +406,7 @@ class CausalVerificationService:
     # Step 0: Data loading
     # ------------------------------------------------------------------
 
-    def _load_data(self, spec: CausalVerificationRequest, datasource) -> pd.DataFrame:
+    def _load_data(self, spec: CausalVerificationRequest, datasource) -> PipelineDataFrame:
         sql = spec.datasource.sql
         bind_vars = spec.datasource.bind_variables
         result = datasource.fetch(sql, bind_vars)
@@ -415,25 +416,7 @@ class CausalVerificationService:
                 columns=[c for c in spec.strip_columns if c in data.columns],
                 errors="ignore",
             )
-        data = self._encode_categoricals(data)
-        return data
-
-    @staticmethod
-    def _encode_categoricals(df: pd.DataFrame) -> pd.DataFrame:
-        """Label-encode object/category columns to integers for DML compatibility.
-
-        Label encoding (not one-hot) preserves column names so the DAG graph
-        stays valid.  LGBMRegressor nuisance models handle ordinal-encoded
-        categoricals natively; the DML final-stage LinearRegression only sees
-        residualized Y/T, not W directly, so arbitrary ordering is harmless.
-        """
-        cat_cols = df.select_dtypes(include=["object", "category", "string"]).columns
-        if cat_cols.empty:
-            return df
-        df = df.copy()
-        for col in cat_cols:
-            df[col] = df[col].astype("category").cat.codes
-        return df
+        return PipelineDataFrame.from_dataframe(data)
 
     @staticmethod
     def _validate_spec(spec: CausalVerificationRequest, data: pd.DataFrame) -> None:
@@ -452,9 +435,10 @@ class CausalVerificationService:
                               f"Available: {sorted(cols)}")
 
         def _require_numeric(col: str, context: str) -> None:
-            if col in cols and not pd.api.types.is_numeric_dtype(data[col]):
+            if col in cols and not pd.api.types.is_numeric_dtype(data.raw[col]):
                 errors.append(f"{context}: column '{col}' has dtype "
-                              f"'{data[col].dtype}', expected numeric")
+                              f"'{data.raw[col].dtype}', expected numeric "
+                              f"(will be label-encoded but semantically wrong)")
 
         def _validate_filter(f: "VariantFilter", context: str) -> None:
             if f.and_filters is not None:
@@ -799,12 +783,13 @@ class CausalVerificationService:
 
     @staticmethod
     def _test_ci(data, a, b, cond_set):
-        a_vals = data[a].values.astype(float)
-        b_vals = data[b].values.astype(float)
+        enc = data.encoded
+        a_vals = enc[a].values.astype(float)
+        b_vals = enc[b].values.astype(float)
         if not cond_set:
             r, p = pearsonr(a_vals, b_vals)
         else:
-            X = data[list(cond_set)].values.astype(float)
+            X = enc[list(cond_set)].values.astype(float)
             res_a = a_vals - LinearRegression().fit(X, a_vals).predict(X)
             res_b = b_vals - LinearRegression().fit(X, b_vals).predict(X)
             r, p = pearsonr(res_a, res_b)
@@ -841,7 +826,8 @@ class CausalVerificationService:
             dag_dot: str,
             outcome_col: str,
     ) -> dict[str, Any]:
-        df = self._apply_variant_filter(data, variant)
+        filtered = self._apply_variant_filter(data, variant)
+        df = filtered.encoded
         treatment_col = variant.treatment_column
         W_cols = variant.w_columns
         discrete = variant.treatment_form != TreatmentForm.CONTINUOUS
@@ -924,13 +910,14 @@ class CausalVerificationService:
     ) -> dict[str, Any]:
         gates = spec.gates
         result: dict[str, Any] = {"abort": False}
+        enc = data.encoded
 
         # Nuisance R2
         outcome_r2 = float(np.mean(cross_val_score(
-            LGBMRegressor(**LGBM_DEFAULTS), data[confounders], data[spec.outcome],
+            LGBMRegressor(**LGBM_DEFAULTS), enc[confounders], enc[spec.outcome],
             cv=5, scoring="r2")))
         treatment_r2 = float(np.mean(cross_val_score(
-            LGBMRegressor(**LGBM_DEFAULTS), data[confounders], data[spec.treatment],
+            LGBMRegressor(**LGBM_DEFAULTS), enc[confounders], enc[spec.treatment],
             cv=5, scoring="r2")))
 
         result["nuisance_r2"] = {
@@ -987,14 +974,15 @@ class CausalVerificationService:
                 results.append({"mediator": med.mediator, "error": "total variant not found"})
                 continue
 
-            W_med = data[confounders + [med.mediator]].values
+            enc = data.encoded
+            W_med = enc[confounders + [med.mediator]].values
             try:
                 dml = LinearDML(
                     model_y=LGBMRegressor(**LGBM_DEFAULTS),
                     model_t=LGBMRegressor(**LGBM_DEFAULTS),
                     discrete_treatment=False,
                 )
-                dml.fit(data[spec.outcome].values, data[spec.treatment].values, W=W_med)
+                dml.fit(enc[spec.outcome].values, enc[spec.treatment].values, W=W_med)
                 direct = float(dml.effect().mean())
                 mediated = total_effect - direct
                 fraction = mediated / total_effect if total_effect != 0 else 0
@@ -1014,12 +1002,14 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _grf_heterogeneity(self, data, spec, confounders) -> list[dict]:
+        enc = data.encoded
+
         def _fit_one_grf(cfg: GrfConfig) -> dict:
             try:
-                X_grf = data[cfg.modifier_columns].values
-                Y = data[spec.outcome].values
-                T = data[spec.treatment].values
-                W = data[confounders].values
+                X_grf = enc[cfg.modifier_columns].values
+                Y = enc[spec.outcome].values
+                T = enc[spec.treatment].values
+                W = enc[confounders].values
 
                 grf = CausalForestDML(
                     model_y=LGBMRegressor(**LGBM_DEFAULTS),
@@ -1087,7 +1077,7 @@ class CausalVerificationService:
         }
 
         model = dowhy.CausalModel(
-            data=data, treatment=spec.treatment,
+            data=data.encoded, treatment=spec.treatment,
             outcome=spec.outcome, graph=dag_dot,
         )
         identified = model.identify_effect(proceed_when_unidentifiable=False)
@@ -1162,14 +1152,15 @@ class CausalVerificationService:
         if temporal_col is None and spec.residual_checks.autocorrelation:
             temporal_col = spec.residual_checks.autocorrelation[0].temporal_column
         if temporal_col is None:
-            dt_cols = data.select_dtypes(include=["datetime", "datetimetz"]).columns
+            dt_cols = data.raw.select_dtypes(include=["datetime", "datetimetz"]).columns
             if len(dt_cols) > 0:
                 temporal_col = dt_cols[0]
         if temporal_col is None or temporal_col not in data.columns:
             return {"error": "no temporal column available for temporal placebo"}
 
-        sorted_data = data.sort_values(temporal_col).reset_index(drop=True)
-        n = len(sorted_data)
+        sort_idx = data.raw[temporal_col].sort_values().index
+        sorted_enc = data.encoded.loc[sort_idx].reset_index(drop=True)
+        n = len(sorted_enc)
 
         # Probe at 10%, 20%, 33% of the dataset in both directions
         lag_fractions = [0.10, 0.20, 0.33]
@@ -1184,17 +1175,19 @@ class CausalVerificationService:
         )
         placebo_col = f"_tp_{spec.treatment}"
 
-        mem = self._mem_estimate(sorted_data)
+        mem = self._mem_estimate(data)
 
         def _run_probe(label, lag):
-            df = sorted_data.copy()
+            df = sorted_enc.copy()
             df[placebo_col] = df[spec.treatment].shift(lag)
             df = df.dropna(subset=[placebo_col])
             if len(df) < 5:
                 return {"label": label, "lag": lag,
                         "error": f"only {len(df)} rows after shift"}
+            # Wrap as PipelineDataFrame (already encoded, no categoricals)
+            probe_data = PipelineDataFrame(df, df, [], {})
             effect = self._run_dml_quick(
-                df, placebo_col, spec.outcome, placebo_dag
+                probe_data, placebo_col, spec.outcome, placebo_dag
             )
             if effect is None:
                 return {"label": label, "lag": lag,
@@ -1246,7 +1239,8 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _unmeasured_confounding(self, data, spec, estimation_results) -> list[dict]:
-        baseline_rate = float(data[spec.outcome].mean())
+        enc = data.encoded
+        baseline_rate = float(enc[spec.outcome].mean())
         results = []
         for uc in spec.unmeasured_confounding:
             variant = estimation_results.get(uc.variant_id, {})
@@ -1257,8 +1251,8 @@ class CausalVerificationService:
                 continue
 
             if uc.method == UnmeasuredMethod.E_VALUE:
-                iqr = float(data[spec.treatment].quantile(0.75)
-                            - data[spec.treatment].quantile(0.25))
+                iqr = float(enc[spec.treatment].quantile(0.75)
+                            - enc[spec.treatment].quantile(0.25))
                 multiplier = iqr
                 abs_eff = abs(effect * multiplier)
                 rr = (baseline_rate + abs_eff) / baseline_rate if baseline_rate > 0 else 1
@@ -1343,15 +1337,21 @@ class CausalVerificationService:
         thresh = []
         for tv in spec.sensitivity.threshold_variants:
             col = f"_thresh_{tv.threshold}"
-            data[col] = (data[spec.treatment] > tv.threshold).astype(int)
-            n_treated = int(data[col].sum())
-            n_control = int((~data[col].astype(bool)).sum())
+            bin_series = (data.encoded[spec.treatment] > tv.threshold).astype(int)
+            n_treated = int(bin_series.sum())
+            n_control = int((~bin_series.astype(bool)).sum())
+            # Build a temporary PipelineDataFrame with the binary column added
+            aug_enc = data.encoded.copy()
+            aug_enc[col] = bin_series
+            aug_raw = data.raw.copy()
+            aug_raw[col] = bin_series
+            aug_data = PipelineDataFrame(aug_raw, aug_enc, data.cat_columns, data.encoders)
             dag_v = self._edges_to_dot(
                 [(col if s == spec.treatment else s,
                   col if d == spec.treatment else d)
                  for s, d in refined_edges]
             )
-            est = self._run_dml_quick(data, col, spec.outcome, dag_v)
+            est = self._run_dml_quick(aug_data, col, spec.outcome, dag_v)
             thresh.append({
                 "threshold": tv.threshold,
                 "effect": float(est) if est is not None else None,
@@ -1381,6 +1381,7 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _structural_breaks(self, data, spec, effect, ci) -> list[dict]:
+        raw = data.raw.copy()
         results = []
         for sb in spec.structural_breaks:
             if sb.entity_column not in data.columns or sb.temporal_column not in data.columns:
@@ -1388,11 +1389,11 @@ class CausalVerificationService:
                 continue
 
             try:
-                data["_period"] = pd.to_datetime(data[sb.temporal_column]).dt.to_period(
+                raw["_period"] = pd.to_datetime(raw[sb.temporal_column]).dt.to_period(
                     sb.temporal_grain[0].upper()
                 )
                 agg = (
-                    data.groupby([sb.entity_column, "_period"])
+                    raw.groupby([sb.entity_column, "_period"])
                     .agg(
                         _rate=(spec.outcome, "mean"),
                         _mean_t=(spec.treatment, "mean"),
@@ -1464,13 +1465,13 @@ class CausalVerificationService:
         result: dict[str, Any] = {}
 
         # Compute residuals
-        X_c = data[confounders].values
-        Y_v = data[spec.outcome].values
-        T_v = data[spec.treatment].values
+        X_c = data.encoded_values(confounders)
+        Y_v = data.encoded[spec.outcome].values
+        T_v = data.encoded[spec.treatment].values
         y_res = np.zeros(len(data))
         t_res = np.zeros(len(data))
         kf = KFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
-        for tr, te in kf.split(data):
+        for tr, te in kf.split(X_c):
             m_y = LGBMRegressor(**LGBM_DEFAULTS).fit(X_c[tr], Y_v[tr])
             m_t = LGBMRegressor(**LGBM_DEFAULTS).fit(X_c[tr], T_v[tr])
             y_res[te] = Y_v[te] - m_y.predict(X_c[te])
@@ -1498,11 +1499,7 @@ class CausalVerificationService:
         for col in fc.check_columns:
             if col not in data.columns:
                 continue
-            vals = data[col].values
-            try:
-                vals = vals.astype(float)
-            except (ValueError, TypeError):
-                continue
+            vals = data.encoded[col].values.astype(float)
             valid = ~np.isnan(vals)
             if valid.sum() < 100:
                 continue
@@ -1545,11 +1542,7 @@ class CausalVerificationService:
         for mc in spec.residual_checks.metadata_correlation:
             if mc.column not in data.columns:
                 continue
-            vals = data[mc.column].values
-            try:
-                vals = vals.astype(float)
-            except (ValueError, TypeError):
-                continue
+            vals = data.encoded[mc.column].values.astype(float)
             valid = ~np.isnan(vals)
             if valid.sum() < 100:
                 continue
@@ -1574,7 +1567,7 @@ class CausalVerificationService:
 
         # VIF (add intercept column — variance_inflation_factor requires it)
         vif_cols = confounders + [spec.treatment]
-        X_vif = data[vif_cols].dropna()
+        X_vif = data.encoded[vif_cols].dropna()
         X_vif_const = np.column_stack([np.ones(len(X_vif)), X_vif.values])
         vif_values = {}
         for i, col in enumerate(vif_cols):
@@ -1592,8 +1585,8 @@ class CausalVerificationService:
         }
 
         # Treatment CV
-        cv = float(data[spec.treatment].std() / data[spec.treatment].mean()) \
-            if data[spec.treatment].mean() != 0 else 0
+        t_enc = data.encoded[spec.treatment]
+        cv = float(t_enc.std() / t_enc.mean()) if t_enc.mean() != 0 else 0
         result["treatment_cv"] = cv
 
         # Overlap
@@ -1605,16 +1598,17 @@ class CausalVerificationService:
                 overlaps.append({"variant_id": ov.variant_id, "error": "column not found"})
                 continue
             try:
-                binary = data[t_col]
+                binary = data.encoded[t_col]
                 if binary.nunique() > 2:
                     binary = (binary > binary.median()).astype(int)
                 if binary.nunique() < 2:
                     overlaps.append({"variant_id": ov.variant_id,
                                      "error": "treatment has < 2 classes after binarization"})
                     continue
+                enc_conf = data.encoded[confounders]
                 ps = LogisticRegression(max_iter=1000).fit(
-                    data[confounders], binary
-                ).predict_proba(data[confounders])[:, 1]
+                    enc_conf, binary
+                ).predict_proba(enc_conf)[:, 1]
                 c_lo = max(np.percentile(ps[binary == 1], 5),
                            np.percentile(ps[binary == 0], 5))
                 c_hi = min(np.percentile(ps[binary == 1], 95),
@@ -1635,8 +1629,9 @@ class CausalVerificationService:
         var_checks = []
         for vc in spec.range_checks.variance:
             if vc.column in data.columns:
-                std = float(data[vc.column].std())
-                mean = float(data[vc.column].mean())
+                col_enc = data.encoded[vc.column]
+                std = float(col_enc.std())
+                mean = float(col_enc.mean())
                 var_checks.append({
                     "column": vc.column,
                     "std": std,
@@ -1754,39 +1749,41 @@ class CausalVerificationService:
         return "\n".join(lines)
 
     @staticmethod
-    def _apply_variant_filter(data: pd.DataFrame, variant: EstimationVariant) -> pd.DataFrame:
+    def _apply_variant_filter(
+            data: "PipelineDataFrame", variant: EstimationVariant
+    ) -> "PipelineDataFrame":
         if variant.filter is None:
             return data
-        mask = CausalVerificationService._eval_filter(data, variant.filter)
-        return data[mask]
+        mask = CausalVerificationService._eval_filter(data.raw, variant.filter)
+        return data.filter_mask(mask)
 
     @staticmethod
-    def _eval_filter(data: pd.DataFrame, f: "VariantFilter") -> "pd.Series[bool]":
+    def _eval_filter(df: pd.DataFrame, f: "VariantFilter") -> "pd.Series[bool]":
         if f.and_filters is not None:
-            mask = pd.Series(True, index=data.index)
+            mask = pd.Series(True, index=df.index)
             for sub in f.and_filters:
-                mask = mask & CausalVerificationService._eval_filter(data, sub)
+                mask = mask & CausalVerificationService._eval_filter(df, sub)
             return mask
         if f.or_filters is not None:
-            mask = pd.Series(False, index=data.index)
+            mask = pd.Series(False, index=df.index)
             for sub in f.or_filters:
-                mask = mask | CausalVerificationService._eval_filter(data, sub)
+                mask = mask | CausalVerificationService._eval_filter(df, sub)
             return mask
         if f.not_filter is not None:
-            return ~CausalVerificationService._eval_filter(data, f.not_filter)
+            return ~CausalVerificationService._eval_filter(df, f.not_filter)
         # leaf
         col = f.column
-        if col not in data.columns:
-            return pd.Series(True, index=data.index)
+        if col not in df.columns:
+            return pd.Series(True, index=df.index)
         if f.operator == FilterOperator.IN:
-            return data[col].isin(f.values)
+            return df[col].isin(f.values)
         elif f.operator == FilterOperator.GT:
-            return data[col] > f.values[0]
+            return df[col] > f.values[0]
         elif f.operator == FilterOperator.LT:
-            return data[col] < f.values[0]
+            return df[col] < f.values[0]
         elif f.operator == FilterOperator.EQ:
-            return data[col] == f.values[0]
-        return pd.Series(True, index=data.index)
+            return df[col] == f.values[0]
+        return pd.Series(True, index=df.index)
 
     def _run_dml_quick(self, data, treatment, outcome, dag_str) -> Optional[float]:
         """Fast DML estimate using econml directly (bypasses DoWhy graph layer)."""
@@ -1807,9 +1804,10 @@ class CausalVerificationService:
             if not w_cols:
                 w_cols = [c for c in data.columns if c not in (treatment, outcome)]
 
-            Y = data[outcome].values
-            T = data[treatment].values
-            W = data[w_cols].values
+            enc = data.encoded
+            Y = enc[outcome].values
+            T = enc[treatment].values
+            W = enc[w_cols].values
 
             dml = LinearDML(
                 model_y=LGBMRegressor(**LGBM_DEFAULTS),
