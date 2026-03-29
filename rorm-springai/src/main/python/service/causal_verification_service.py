@@ -152,7 +152,7 @@ class CausalVerificationService:
                 "refined_edges": refined_edges,
             })
         result["steps"]["dsep"] = dsep_result
-        dag_dot = self._edges_to_dot(refined_edges)
+        dag_nx = self._edges_to_nx(refined_edges)
 
         # ==================================================================
         # Step 2  —  Identification
@@ -196,7 +196,7 @@ class CausalVerificationService:
                 else:
                     variant_futures[v.id] = self._pool_submit(
                         mem, lambda v=v: self._run_estimation_variant(
-                            data, v, refined_edges, dag_dot, spec.outcome
+                            data, v, refined_edges, dag_nx, spec.outcome
                         )
                     )
             for vid, future in variant_futures.items():
@@ -302,7 +302,7 @@ class CausalVerificationService:
                 else:
                     report(0, "Refutations")
                     refute_futures = self._refutations_parallel(
-                        data, spec, dag_dot, primary_effect, mem, checkpoint)
+                        data, spec, dag_nx, primary_effect, mem, checkpoint)
                     pending["_refute"] = refute_futures
 
             # Step 8 — Unmeasured confounding (analytical, no model fitting)
@@ -842,7 +842,7 @@ class CausalVerificationService:
             data: pd.DataFrame,
             variant: EstimationVariant,
             refined_edges: list[tuple[str, str]],
-            dag_dot: str,
+            dag_nx: str,
             outcome_col: str,
     ) -> dict[str, Any]:
         filtered = self._apply_variant_filter(data, variant)
@@ -876,7 +876,7 @@ class CausalVerificationService:
             outcome_col: str,
     ) -> dict[str, Any]:
         """Run DML estimation via DoWhy for a single variant."""
-        dag_dot = self._edges_to_dot(refined_edges)
+        dag_nx = self._edges_to_nx(refined_edges)
 
         model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
         dml_params = {
@@ -896,7 +896,7 @@ class CausalVerificationService:
         try:
             model = dowhy.CausalModel(
                 data=df, treatment=treatment_col,
-                outcome=outcome_col, graph=dag_dot,
+                outcome=outcome_col, graph=dag_nx,
             )
             identified = model.identify_effect(proceed_when_unidentifiable=False)
             estimate = model.estimate_effect(
@@ -1097,7 +1097,7 @@ class CausalVerificationService:
     # Step 7: Refutations
     # ------------------------------------------------------------------
 
-    def _refutations_parallel(self, data, spec, dag_dot, primary_effect,
+    def _refutations_parallel(self, data, spec, dag_nx, primary_effect,
                               mem: int, checkpoint=None) -> dict[str, Future]:
         """Submit each refutation type as an independent pool task.
 
@@ -1119,7 +1119,7 @@ class CausalVerificationService:
             }
             model = dowhy.CausalModel(
                 data=data.encoded, treatment=spec.treatment,
-                outcome=spec.outcome, graph=dag_dot,
+                outcome=spec.outcome, graph=dag_nx,
             )
             ident = model.identify_effect(proceed_when_unidentifiable=False)
             est = model.estimate_effect(
@@ -1143,7 +1143,7 @@ class CausalVerificationService:
                 "subset", "data_subset_refuter", subset_fraction=0.8),
             RefutationType.TEMPORAL_PLACEBO: lambda: (
                 "temporal_placebo",
-                self._temporal_placebo(data, spec, dag_dot, primary_effect)),
+                self._temporal_placebo(data, spec, dag_nx, primary_effect)),
         }
 
         futures: dict[str, Future] = {}
@@ -1194,7 +1194,7 @@ class CausalVerificationService:
 
     def _temporal_placebo(
             self, data: pd.DataFrame, spec: CausalVerificationRequest,
-            dag_dot: str, primary_effect: float,
+            dag_nx: str, primary_effect: float,
     ) -> dict[str, Any]:
         """Temporal placebo: shift treatment in both time directions at
         multiple lag magnitudes and re-estimate.
@@ -1232,7 +1232,7 @@ class CausalVerificationService:
             shifts.append((f"backward_{lag}", -lag))
 
         placebo_dag = self._replace_dag_node(
-            dag_dot, spec.treatment, f"_tp_{spec.treatment}"
+            dag_nx, spec.treatment, f"_tp_{spec.treatment}"
         )
         placebo_col = f"_tp_{spec.treatment}"
 
@@ -1279,21 +1279,11 @@ class CausalVerificationService:
         }
 
     @staticmethod
-    def _replace_dag_node(dag_dot: str, old_node: str, new_node: str) -> str:
-        """Replace a node name in a DOT digraph string."""
-        lines = []
-        for line in dag_dot.split("\n"):
-            stripped = line.strip().rstrip(";")
-            if "->" in stripped:
-                src, dst = [s.strip().strip('"') for s in stripped.split("->", 1)]
-                if src == old_node:
-                    src = new_node
-                if dst == old_node:
-                    dst = new_node
-                lines.append(f'    "{src}" -> "{dst}";')
-            else:
-                lines.append(line)
-        return "\n".join(lines)
+    @staticmethod
+    def _replace_dag_node(dag: nx.DiGraph, old_node: str, new_node: str) -> nx.DiGraph:
+        """Return a new DiGraph with old_node renamed to new_node."""
+        mapping = {old_node: new_node}
+        return nx.relabel_nodes(dag, mapping)
 
     # ------------------------------------------------------------------
     # Step 8: Unmeasured confounding
@@ -1352,7 +1342,7 @@ class CausalVerificationService:
         mem = self._mem_estimate(data)
 
         def _run_drop(drop):
-            dag_v = self._edges_to_dot(
+            dag_v = self._edges_to_nx(
                 [(s, d) for s, d in refined_edges
                  if s != drop.column and d != drop.column]
             )
@@ -1377,7 +1367,7 @@ class CausalVerificationService:
         def _run_add(add):
             if add.column not in data.columns:
                 return {"column": add.column, "error": "column not in data"}
-            dag_v = self._edges_to_dot(refined_edges + [(add.column, spec.outcome)])
+            dag_v = self._edges_to_nx(refined_edges + [(add.column, spec.outcome)])
             est = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_v)
             deviation = (abs(est - primary_effect) / abs(primary_effect) * 100
                          if est is not None and primary_effect else None)
@@ -1407,7 +1397,7 @@ class CausalVerificationService:
             aug_raw = data.raw.copy()
             aug_raw[col] = bin_series
             aug_data = PipelineDataFrame(aug_raw, aug_enc, data.cat_columns, data.encoders)
-            dag_v = self._edges_to_dot(
+            dag_v = self._edges_to_nx(
                 [(col if s == spec.treatment else s,
                   col if d == spec.treatment else d)
                  for s, d in refined_edges]
@@ -1580,7 +1570,7 @@ class CausalVerificationService:
         corrected_value = effect
         ac_cfg = spec.residual_checks.auto_correction
         for c in correlations[:ac_cfg.max_iterations]:
-            dag_aug = self._edges_to_dot(refined_edges + [(c["column"], spec.outcome)])
+            dag_aug = self._edges_to_nx(refined_edges + [(c["column"], spec.outcome)])
             corrected = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_aug)
             if corrected is not None:
                 delta_frac = (abs(corrected - corrected_value) / abs(corrected_value)
@@ -1802,12 +1792,11 @@ class CausalVerificationService:
         return edges
 
     @staticmethod
-    def _edges_to_dot(edges: list[tuple[str, str]]) -> str:
-        lines = ["digraph {"]
-        for src, dst in edges:
-            lines.append(f'    "{src}" -> "{dst}";')
-        lines.append("}")
-        return "\n".join(lines)
+    @staticmethod
+    def _edges_to_nx(edges: list[tuple[str, str]]) -> nx.DiGraph:
+        G = nx.DiGraph()
+        G.add_edges_from(edges)
+        return G
 
     @staticmethod
     def _apply_variant_filter(
@@ -1846,21 +1835,14 @@ class CausalVerificationService:
             return df[col] == f.values[0]
         return pd.Series(True, index=df.index)
 
-    def _run_dml_quick(self, data, treatment, outcome, dag_str) -> Optional[float]:
+    def _run_dml_quick(self, data, treatment, outcome, dag: nx.DiGraph) -> Optional[float]:
         """Fast DML estimate using econml directly (bypasses DoWhy graph layer)."""
         try:
-            G = nx.DiGraph()
-            for line in dag_str.replace("digraph", "").replace("{", "").replace("}", "").split(";"):
-                line = line.strip()
-                if "->" in line:
-                    parts = [p.strip().strip('"') for p in line.split("->")]
-                    if len(parts) == 2:
-                        G.add_edge(parts[0], parts[1])
             # W = all parents of treatment and outcome, minus treatment itself
             w_cols = sorted(
-                (set(G.predecessors(treatment)) | set(G.predecessors(outcome)))
-                - {treatment, outcome}
-            )
+                (set(dag.predecessors(treatment)) if dag.has_node(treatment) else set())
+                | (set(dag.predecessors(outcome)) if dag.has_node(outcome) else set())
+            ) - {treatment, outcome}
             w_cols = [c for c in w_cols if c in data.columns]
             if not w_cols:
                 w_cols = [c for c in data.columns if c not in (treatment, outcome)]
