@@ -13,7 +13,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import ruptures
-import threading
 import warnings
 from concurrent.futures import Future
 from dto.causal_verification_request import (
@@ -41,6 +40,7 @@ from statsmodels.stats.stattools import durbin_watson
 from typing import Any, Callable, Optional
 
 warnings.filterwarnings("ignore")
+logging.getLogger("dowhy.utils.graphviz_plotting").setLevel(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 LGBM_DEFAULTS = dict(n_estimators=300, max_depth=6, learning_rate=0.05, verbose=-1)
@@ -238,134 +238,106 @@ class CausalVerificationService:
         # ==================================================================
         if not aborted:
             step_outputs: dict[str, Any] = {}
-            step_lock = threading.Lock()
 
             def _run_cached_step(
                     name: str, cp_key: str, cp_extract: Callable,
                     compute: Callable, cp_pack: Callable,
-            ) -> None:
-                """Run a step with checkpoint load/save, store result."""
+            ) -> tuple[str, Any]:
+                """Run a step with checkpoint load/save, return (key, value)."""
                 cp = _cp_load(cp_key)
                 if cp is not None:
                     report(0, f"{name} (cached)")
-                    val = cp_extract(cp)
-                else:
-                    report(0, name)
-                    val = compute()
-                    _cp_save(cp_key, cp_pack(val))
-                with step_lock:
-                    step_outputs[cp_key] = val
+                    return cp_key, cp_extract(cp)
+                report(0, name)
+                val = compute()
+                _cp_save(cp_key, cp_pack(val))
+                return cp_key, val
 
-            threads: list[threading.Thread] = []
+            mem = self._mem_estimate(data, factor=2)
+            step_futures: list[Future] = []
 
             # Step 5 — Mediation
             if spec.mediation:
-                threads.append(threading.Thread(
-                    target=_run_cached_step,
-                    args=(
-                        "Mediation", "mediation",
-                        lambda cp: cp["mediation_result"],
-                        lambda: self._mediation(
-                            data, spec, confounders, estimation_results, refined_edges),
-                        lambda v: {"mediation_result": v},
-                    ),
-                ))
+                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                    "Mediation", "mediation",
+                    lambda cp: cp["mediation_result"],
+                    lambda: self._mediation(
+                        data, spec, confounders, estimation_results, refined_edges),
+                    lambda v: {"mediation_result": v},
+                )))
 
             # Step 6 — GRF heterogeneity
             if spec.grf_configs:
-                threads.append(threading.Thread(
-                    target=_run_cached_step,
-                    args=(
-                        "GRF heterogeneity", "grf",
-                        lambda cp: cp["grf_result"],
-                        lambda: self._grf_heterogeneity(data, spec, confounders),
-                        lambda v: {"grf_result": v},
-                    ),
-                ))
+                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                    "GRF heterogeneity", "grf",
+                    lambda cp: cp["grf_result"],
+                    lambda: self._grf_heterogeneity(data, spec, confounders),
+                    lambda v: {"grf_result": v},
+                )))
 
             # Step 7 — Refutations
             if spec.refutations:
-                threads.append(threading.Thread(
-                    target=_run_cached_step,
-                    args=(
-                        "Refutations", "refutations",
-                        lambda cp: cp["refutations_result"],
-                        lambda: self._refutations(data, spec, dag_dot, primary_effect),
-                        lambda v: {"refutations_result": v},
-                    ),
-                ))
+                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                    "Refutations", "refutations",
+                    lambda cp: cp["refutations_result"],
+                    lambda: self._refutations(data, spec, dag_dot, primary_effect),
+                    lambda v: {"refutations_result": v},
+                )))
 
             # Step 8 — Unmeasured confounding
             if spec.unmeasured_confounding:
-                threads.append(threading.Thread(
-                    target=_run_cached_step,
-                    args=(
-                        "Unmeasured confounding", "unmeasured_confounding",
-                        lambda cp: cp["uc_result"],
-                        lambda: self._unmeasured_confounding(
-                            data, spec, estimation_results),
-                        lambda v: {"uc_result": v},
-                    ),
-                ))
+                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                    "Unmeasured confounding", "unmeasured_confounding",
+                    lambda cp: cp["uc_result"],
+                    lambda: self._unmeasured_confounding(
+                        data, spec, estimation_results),
+                    lambda v: {"uc_result": v},
+                )))
 
             # Step 9 — Sensitivity
-            threads.append(threading.Thread(
-                target=_run_cached_step,
-                args=(
-                    "Sensitivity", "sensitivity",
-                    lambda cp: cp["sensitivity_result"],
-                    lambda: self._sensitivity(
-                        data, spec, refined_edges, primary_effect, estimation_results),
-                    lambda v: {"sensitivity_result": v},
-                ),
-            ))
+            step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                "Sensitivity", "sensitivity",
+                lambda cp: cp["sensitivity_result"],
+                lambda: self._sensitivity(
+                    data, spec, refined_edges, primary_effect, estimation_results),
+                lambda v: {"sensitivity_result": v},
+            )))
 
             # Step 10 — Structural breaks
             if spec.structural_breaks:
-                threads.append(threading.Thread(
-                    target=_run_cached_step,
-                    args=(
-                        "Structural breaks", "structural_breaks",
-                        lambda cp: cp["breaks_result"],
-                        lambda: self._structural_breaks(
-                            data, spec, primary_effect, primary_ci),
-                        lambda v: {"breaks_result": v},
-                    ),
-                ))
+                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                    "Structural breaks", "structural_breaks",
+                    lambda cp: cp["breaks_result"],
+                    lambda: self._structural_breaks(
+                        data, spec, primary_effect, primary_ci),
+                    lambda v: {"breaks_result": v},
+                )))
 
-            # Step 11 — Residual diagnostics (returns dict with corrected_effect key)
-            threads.append(threading.Thread(
-                target=_run_cached_step,
-                args=(
-                    "Residual diagnostics", "residual_diagnostics",
-                    lambda cp: cp["residual_result"],
-                    lambda: self._residual_diagnostics(
-                        data, spec, confounders, refined_edges, primary_effect),
-                    lambda v: {
-                        "residual_result": v,
-                        "corrected_effect": v.get("corrected_effect"),
-                    },
-                ),
-            ))
+            # Step 11 — Residual diagnostics
+            step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                "Residual diagnostics", "residual_diagnostics",
+                lambda cp: cp["residual_result"],
+                lambda: self._residual_diagnostics(
+                    data, spec, confounders, refined_edges, primary_effect),
+                lambda v: {
+                    "residual_result": v,
+                    "corrected_effect": v.get("corrected_effect"),
+                },
+            )))
 
             # Step 12 — Range checks
-            threads.append(threading.Thread(
-                target=_run_cached_step,
-                args=(
-                    "Range checks", "range_checks",
-                    lambda cp: cp["range_result"],
-                    lambda: self._range_checks(
-                        data, spec, confounders, estimation_results),
-                    lambda v: {"range_result": v},
-                ),
-            ))
+            step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                "Range checks", "range_checks",
+                lambda cp: cp["range_result"],
+                lambda: self._range_checks(
+                    data, spec, confounders, estimation_results),
+                lambda v: {"range_result": v},
+            )))
 
-            # Launch all, wait for all
-            for t in threads:
-                t.daemon = True
-                t.start()
-            for t in threads:
-                t.join()
+            # Collect all step results
+            for f in step_futures:
+                key, val = f.result()
+                step_outputs[key] = val
 
             # Collect results
             result["steps"]["mediation"] = step_outputs.get("mediation")

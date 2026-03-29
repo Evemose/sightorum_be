@@ -10,6 +10,11 @@ rorm:
     consumer-group: spring_consumers
 
 spring:
+  jackson:
+    mapper:
+      allow-coercion-of-scalars: true
+    parser:
+      allow-non-numeric-numbers: true
   data:
     redis:
       url: ${rorm.ml.valkey-url}

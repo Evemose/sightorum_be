@@ -3114,8 +3114,18 @@ public interface SwarmPrompts {
               effect ordering.  Sign determines direction of check:
               threshold ≥ 0 → pass if actual ρ ≥ threshold (positive concordance),
               threshold < 0 → pass if actual ρ ≤ threshold (negative / reversal).
-              Common values:  0.0 = any positive concordance,
-              0.5 = strong positive, -0.3 = expect reversal.
+              CALIBRATION — do not default to 0.0 (too lax: ρ=0.001 passes).
+              Calibrate by domain evidence strength (sign = direction,
+              magnitude = confidence):
+              - WELL_ESTABLISHED monotonic ordering: ±0.5 to ±0.7
+              - DOCUMENTED but may diverge from textbook: ±0.2 to ±0.4
+              - EXPLORATORY / weak prior: ±0.0 to ±0.1
+              Use positive sign when domain ranking should align with data,
+              negative when domain predicts reversal in the scoped
+              subpopulation.  Use the generator's domain_evidence_strength
+              to pick the tier.  Err toward the lower end of each tier when
+              the ranking has few levels (≤4) since Spearman ρ is noisy
+              with few ranks.
             allocation_bias: [
               { treatment_column, grouping_column, flag_threshold }
             ]
