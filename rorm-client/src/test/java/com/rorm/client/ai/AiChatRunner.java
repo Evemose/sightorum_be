@@ -8,6 +8,7 @@ import com.rorm.client.ai.AiChatRunner.AgentJP;
 import com.rorm.client.metamodel.MetamodelService;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.PipelineSpecConverter;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +45,7 @@ class AiChatRunner {
     void simpleChat() throws Exception {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            durableRuntime.submit("runner-pipeline-h1-v1_1", new JobSpec(
+            durableRuntime.submit("runner-pipeline-h1-v1_2", new JobSpec(
                 "agentJp",
                 "runH1Pipeline"
             ));
@@ -203,22 +204,24 @@ class AiChatRunner {
                 .blockLast();
         }
 
+        @SneakyThrows
         public void runH1Pipeline() {
             var modelSpace = metamodelService.getModelSpace(SCHEMA);
             var spec = SamplePipelineSpecs.h1(objectMapper);
             var request = pipelineSpecConverter.convert(
                 spec, "H1: containerInsulationType causal effect on excursionFlag", modelSpace, SCHEMA);
-            var event = mlService.submit(request).join();
-            System.out.printf("H1 completed: %s – %s%n", event.eventType(), event.message());
+            var event = mlService.submit(request).await();
+            System.out.printf("H1 completed: %s – %s%n%s", event.eventType(), event.message(), objectMapper.writeValueAsString(event));
         }
 
+        @SneakyThrows
         public void runH3Pipeline() {
             var modelSpace = metamodelService.getModelSpace(SCHEMA);
             var spec = SamplePipelineSpecs.h3(objectMapper);
             var request = pipelineSpecConverter.convert(
                 spec, "H3: nodeRefrigHealthPct causal effect on excursionFlag", modelSpace, SCHEMA);
-            var event = mlService.submit(request).join();
-            System.out.printf("H3 completed: %s – %s%n", event.eventType(), event.message());
+            var event = mlService.submit(request).await();
+            System.out.printf("H3 completed: %s – %s%n%s", event.eventType(), event.message(), objectMapper.writeValueAsString(event));
         }
     }
 }
