@@ -481,6 +481,33 @@ class CausalVerificationService:
                 errors.append(f"{context}: column '{col}' has dtype "
                               f"'{data[col].dtype}', expected numeric")
 
+        def _validate_filter(f: "VariantFilter", context: str) -> None:
+            if f.and_filters is not None:
+                for i, sub in enumerate(f.and_filters):
+                    _validate_filter(sub, f"{context}.AND[{i}]")
+                return
+            if f.or_filters is not None:
+                for i, sub in enumerate(f.or_filters):
+                    _validate_filter(sub, f"{context}.OR[{i}]")
+                return
+            if f.not_filter is not None:
+                _validate_filter(f.not_filter, f"{context}.NOT")
+                return
+            # leaf
+            if f.column is None:
+                errors.append(f"{context}: leaf filter missing 'column'")
+                return
+            _require_col(f.column, context)
+            if f.operator is None:
+                errors.append(f"{context}: leaf filter missing 'operator'")
+            elif f.operator in (FilterOperator.GT, FilterOperator.LT, FilterOperator.EQ):
+                if not f.values:
+                    errors.append(f"{context}: operator {f.operator.value} "
+                                  f"requires at least one value")
+            elif f.operator == FilterOperator.IN:
+                if not f.values:
+                    errors.append(f"{context}: IN requires a non-empty values list")
+
         # -- minimum data size (cross_val_score uses cv=5) --
         if nrows < 5:
             errors.append(f"data has {nrows} row(s), need at least 5 "
@@ -561,12 +588,7 @@ class CausalVerificationService:
                                   f"numeric, got {type(v.threshold_value).__name__} "
                                   f"'{v.threshold_value}'")
             if v.filter:
-                _require_col(v.filter.column, f"estimation_variant '{v.id}' filter")
-                if v.filter.operator in (FilterOperator.GT, FilterOperator.LT, FilterOperator.EQ):
-                    if not v.filter.values:
-                        errors.append(f"estimation_variant '{v.id}' filter: "
-                                      f"operator {v.filter.operator.value} requires "
-                                      f"at least one value in 'values'")
+                _validate_filter(v.filter, f"estimation_variant '{v.id}' filter")
 
         # duplicate variant IDs
         seen: set[str] = set()
@@ -1722,19 +1744,36 @@ class CausalVerificationService:
     def _apply_variant_filter(data: pd.DataFrame, variant: EstimationVariant) -> pd.DataFrame:
         if variant.filter is None:
             return data
-        f = variant.filter
+        mask = CausalVerificationService._eval_filter(data, variant.filter)
+        return data[mask]
+
+    @staticmethod
+    def _eval_filter(data: pd.DataFrame, f: "VariantFilter") -> "pd.Series[bool]":
+        if f.and_filters is not None:
+            mask = pd.Series(True, index=data.index)
+            for sub in f.and_filters:
+                mask = mask & CausalVerificationService._eval_filter(data, sub)
+            return mask
+        if f.or_filters is not None:
+            mask = pd.Series(False, index=data.index)
+            for sub in f.or_filters:
+                mask = mask | CausalVerificationService._eval_filter(data, sub)
+            return mask
+        if f.not_filter is not None:
+            return ~CausalVerificationService._eval_filter(data, f.not_filter)
+        # leaf
         col = f.column
         if col not in data.columns:
-            return data
+            return pd.Series(True, index=data.index)
         if f.operator == FilterOperator.IN:
-            return data[data[col].isin(f.values)]
+            return data[col].isin(f.values)
         elif f.operator == FilterOperator.GT:
-            return data[data[col] > f.values[0]]
+            return data[col] > f.values[0]
         elif f.operator == FilterOperator.LT:
-            return data[data[col] < f.values[0]]
+            return data[col] < f.values[0]
         elif f.operator == FilterOperator.EQ:
-            return data[data[col] == f.values[0]]
-        return data
+            return data[col] == f.values[0]
+        return pd.Series(True, index=data.index)
 
     def _run_dml_quick(self, data, treatment, outcome, dag_str) -> Optional[float]:
         try:

@@ -53,12 +53,45 @@ class SlicingMethod(str, Enum):
 
 @dataclass
 class VariantFilter:
-    column: str
-    operator: FilterOperator
-    values: list[Any]
+    """Composable filter tree for estimation variant data scoping.
+
+    Leaf node (column comparison)::
+
+        {"column": "region", "operator": "IN", "values": ["Northeast_NJ", ...]}
+
+    AND / OR (list of sub-filters)::
+
+        {"AND": [<filter>, <filter>, ...]}
+        {"OR":  [<filter>, <filter>, ...]}
+
+    NOT (single sub-filter)::
+
+        {"NOT": <filter>}
+
+    Leaves, AND, OR and NOT can be nested arbitrarily.
+    """
+    # Leaf fields (set when this node is a comparison)
+    column: Optional[str] = None
+    operator: Optional[FilterOperator] = None
+    values: Optional[list[Any]] = None
+
+    # Composite fields (at most one is set for non-leaf nodes)
+    and_filters: Optional[list["VariantFilter"]] = None
+    or_filters: Optional[list["VariantFilter"]] = None
+    not_filter: Optional["VariantFilter"] = None
+
+    @property
+    def is_leaf(self) -> bool:
+        return self.column is not None
 
     @classmethod
     def from_dict(cls, d: dict) -> "VariantFilter":
+        if "AND" in d:
+            return cls(and_filters=[cls.from_dict(sub) for sub in d["AND"]])
+        if "OR" in d:
+            return cls(or_filters=[cls.from_dict(sub) for sub in d["OR"]])
+        if "NOT" in d:
+            return cls(not_filter=cls.from_dict(d["NOT"]))
         return cls(
             column=d["column"],
             operator=FilterOperator(d["operator"]),
