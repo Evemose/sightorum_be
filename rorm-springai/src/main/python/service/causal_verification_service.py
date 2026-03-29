@@ -670,13 +670,6 @@ class CausalVerificationService:
         for vc in spec.range_checks.variance:
             _require_col(vc.column, "range_checks.variance")
 
-        # -- refutations --
-        for ref_cfg in spec.refutations:
-            if ref_cfg.type == RefutationType.TEMPORAL_PLACEBO:
-                errors.append("refutations: TEMPORAL_PLACEBO is declared but not "
-                              "implemented in the pipeline; use PLACEBO, "
-                              "RANDOM_CAUSE, or SUBSET")
-
         # -- unmeasured confounding --
         for uc in spec.unmeasured_confounding:
             if uc.variant_id not in seen:
@@ -1085,10 +1078,113 @@ class CausalVerificationService:
                         "new_effect": float(r.new_effect),
                         "shift_pct": float(shift),
                     }
+                elif ref_cfg.type == RefutationType.TEMPORAL_PLACEBO:
+                    results["temporal_placebo"] = self._temporal_placebo(
+                        data, spec, dag_dot, primary_effect
+                    )
             except Exception as e:
                 results[ref_cfg.type.value.lower()] = {"error": str(e)}
 
         return results
+
+    def _temporal_placebo(
+            self, data: pd.DataFrame, spec: CausalVerificationRequest,
+            dag_dot: str, primary_effect: float,
+    ) -> dict[str, Any]:
+        """Temporal placebo: shift treatment in both time directions at
+        multiple lag magnitudes and re-estimate.
+
+        Forward shifts (future treatment → current outcome) detect
+        autocorrelated trends.  Backward shifts (past treatment → current
+        outcome) detect reverse causation / lagged confounding.
+
+        If ANY shift/direction produces an effect whose magnitude rivals
+        the real estimate, the causal claim is suspect.
+        """
+        # Resolve temporal column from spec
+        temporal_col = None
+        if spec.structural_breaks:
+            temporal_col = spec.structural_breaks[0].temporal_column
+        if temporal_col is None and spec.residual_checks.autocorrelation:
+            temporal_col = spec.residual_checks.autocorrelation[0].temporal_column
+        if temporal_col is None:
+            dt_cols = data.select_dtypes(include=["datetime", "datetimetz"]).columns
+            if len(dt_cols) > 0:
+                temporal_col = dt_cols[0]
+        if temporal_col is None or temporal_col not in data.columns:
+            return {"error": "no temporal column available for temporal placebo"}
+
+        sorted_data = data.sort_values(temporal_col).reset_index(drop=True)
+        n = len(sorted_data)
+
+        # Probe at 10%, 20%, 33% of the dataset in both directions
+        lag_fractions = [0.10, 0.20, 0.33]
+        shifts = []
+        for frac in lag_fractions:
+            lag = max(1, int(n * frac))
+            shifts.append((f"forward_{lag}", lag))
+            shifts.append((f"backward_{lag}", -lag))
+
+        placebo_dag = self._replace_dag_node(
+            dag_dot, spec.treatment, f"_tp_{spec.treatment}"
+        )
+        placebo_col = f"_tp_{spec.treatment}"
+
+        probes: list[dict[str, Any]] = []
+        worst_ratio = 0.0
+
+        for label, lag in shifts:
+            df = sorted_data.copy()
+            df[placebo_col] = df[spec.treatment].shift(lag)
+            df = df.dropna(subset=[placebo_col])
+            if len(df) < 5:
+                probes.append({"label": label, "lag": lag,
+                               "error": f"only {len(df)} rows after shift"})
+                continue
+
+            effect = self._run_dml_quick(
+                df, placebo_col, spec.outcome, placebo_dag
+            )
+            if effect is None:
+                probes.append({"label": label, "lag": lag,
+                               "error": "DML estimation failed"})
+                continue
+
+            ratio = abs(effect) / abs(primary_effect) if primary_effect else 0
+            worst_ratio = max(worst_ratio, ratio)
+            probes.append({
+                "label": label,
+                "lag": lag,
+                "n_obs": len(df),
+                "effect": float(effect),
+                "ratio": float(ratio),
+            })
+
+        flag = worst_ratio > spec.gates.placebo.flag_ratio
+        return {
+            "temporal_column": temporal_col,
+            "original_effect": float(primary_effect) if primary_effect else None,
+            "probes": probes,
+            "worst_ratio": float(worst_ratio),
+            "flag": flag,
+        }
+
+    @staticmethod
+    def _replace_dag_node(dag_dot: str, old_node: str, new_node: str) -> str:
+        """Replace a node name in a DOT digraph string."""
+        lines = []
+        for line in dag_dot.split("\n"):
+            stripped = line.strip().rstrip(";")
+            if "->" in stripped:
+                src, dst = [s.strip() for s in stripped.split("->", 1)]
+                if src == old_node:
+                    src = new_node
+                if dst == old_node:
+                    dst = new_node
+                lines.append(f"    {src} -> {dst};")
+            else:
+                lines.append(line)
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Step 8: Unmeasured confounding

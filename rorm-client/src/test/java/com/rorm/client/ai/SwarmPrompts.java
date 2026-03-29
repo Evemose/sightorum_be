@@ -2891,26 +2891,61 @@ public interface SwarmPrompts {
         structured natural language into this schema — write clearly enough
         that extraction is unambiguous.
         
+        The engine performs EAGER VALIDATION before any computation. Specs
+        that violate constraints below are rejected with all errors in one
+        pass. Library-level constraints (sklearn, econml, statsmodels,
+        ruptures, networkx) are enforced — do not rely on the engine to
+        tolerate invalid values silently.
+        
         PipelineSpec:
           hypothesis_id: string          — from the hypothesis spec
-          treatment: string              — column name
-          outcome: string                — column name
-          treatment_form: enum           — CONTINUOUS | BINARY_THRESHOLD | CATEGORICAL
         
+          treatment: string              — column name in query results.
+              CONSTRAINTS:
+              - Must have ≥ 2 unique values after encoding. Constant treatment
+                silently produces garbage (DML residuals collapse to zero).
+              - No NaN allowed (propagates through pearsonr, cross_val_score, DML).
+              - May be categorical — the engine label-encodes object/category/string
+                columns before analysis. Categorical treatment is a first-class path
+                (discrete_treatment=True in econml).
+        
+          outcome: string                — column name in query results.
+              CONSTRAINTS:
+              - Must be numeric (used as continuous Y in LGBMRegressor nuisance models).
+              - No NaN allowed.
+        
+          treatment_form: enum           — CONTINUOUS | BINARY_THRESHOLD | CATEGORICAL
+
           query: DenseQueryDTO           — the actual query DTO (same DSL as executeQuery),
-                                           NOT SQL pseudocode or prose
+                                           NOT SQL pseudocode or prose.
+              CONSTRAINTS:
+              - Must return ≥ 5 rows (quality gates use 5-fold cross-validation;
+                sklearn raises ValueError if n_samples < n_splits).
+        
           expected_row_count: int        — verified by your count query
           strip_columns: [string]        — columns in query but excluded from all analysis
                                            (IDs, temporal ordering columns kept for breaks only)
-        
+
           dag_edges: string              — digraph notation: "A -> B; C -> B; C -> A"
+              CONSTRAINTS:
+              - Must be a DAG (acyclic). networkx.is_d_separator raises
+                NetworkXError on cyclic graphs.
+              - Must contain treatment and outcome as nodes. DoWhy raises
+                NetworkXError if they are absent.
+              - Must have at least one edge.
+              - Every node name must be a column in the query results.
         
-          dsep_threshold: double         — correlation magnitude threshold
+          dsep_threshold: double         — correlation magnitude threshold.
+              CONSTRAINT: strictly > 0.
         
-          adjustment_set: [string]       — W matrix columns (full backdoor set)
+          adjustment_set: [string]       — W matrix columns (full backdoor set).
+              CONSTRAINT: every column must exist in query results.
+        
           mediators_excluded: [          — variables excluded from primary W as mediators
             { column, pathway, direct_effect_variant_id }
           ]
+              CONSTRAINT: direct_effect_variant_id must reference an existing
+              estimation variant ID.
         
           estimation_variants: [
             { id, treatment_column, treatment_form, model_type,
@@ -2922,66 +2957,109 @@ public interface SwarmPrompts {
               values: [string | number]
             }
           ]
+              CONSTRAINTS:
+              - Must be non-empty (at least one variant). Engine accesses [0]
+                as the primary variant.
+              - All variant IDs must be unique.
+              - treatment_column and all w_columns must exist in query results.
+              - BINARY_THRESHOLD variants MUST have a numeric threshold_value.
+              - filter with GT, LT, or EQ operator requires a non-empty values
+                array (engine accesses values[0]).
         
           gates:
             nuisance_r2:
-              outcome_abort: double
-              outcome_flag: double
-              treatment_abort: double
-              treatment_flag: double
-              treatment_structural_max_r2: double
+              outcome_abort: double      — CONSTRAINT: in [0, 1] (R² value)
+              outcome_flag: double       — CONSTRAINT: in [0, 1]
+              treatment_abort: double    — CONSTRAINT: in [0, 1]
+              treatment_flag: double     — CONSTRAINT: in [0, 1]
+              treatment_structural_max_r2: double — CONSTRAINT: in [0, 1]
             sanity:
-              expected_direction: +1 | -1
+              expected_direction: +1 | -1  — CONSTRAINT: exactly -1 or +1, not 0.
               abort_magnitude: double    — per unit or per category
               flag_magnitude: double
             placebo:
               flag_ratio: double         — |placebo| / |real| threshold
-        
+
           mediation: [
             { mediator, pathway, total_variant_id, direct_variant_id }
           ] | null
+              CONSTRAINTS:
+              - mediator must be a column in query results.
+              - total_variant_id and direct_variant_id must reference existing
+                estimation variant IDs.
         
           grf_configs: [
             { id, modifier_columns, slicing: { column: unique|quartile } }
           ]
+              CONSTRAINTS:
+              - modifier_columns must be NUMERIC (CausalForestDML requires
+                numeric feature matrix X; non-numeric raises ValueError).
+              - Every slicing key must be a column in query results.
+              - Slicing values must be exactly "unique" or "quartile".
         
           refutations: [
             { type: PLACEBO | RANDOM_CAUSE | SUBSET | TEMPORAL_PLACEBO }
           ]
-        
+
           sensitivity:
             confounder_drops: [
               { column, deviation_threshold_pct }
             ]
+              CONSTRAINTS:
+              - column must exist in query results.
+              - deviation_threshold_pct must be > 0.
             confounder_adds: [
               { column, reasoning }
             ]
+              CONSTRAINT: column must exist in query results.
             threshold_variants: [        — if applicable
               { threshold, expected_n_treated, expected_n_control }
             ]
+              CONSTRAINT: threshold must be numeric. Treatment column must be
+              numeric for thresholding to work.
             model_variants: [
               { primary_variant_id, alternative_model_type }
             ]
+              CONSTRAINT: primary_variant_id must reference an existing
+              estimation variant ID.
         
           structural_breaks: [
             { id, entity_column, temporal_column, temporal_grain,
               pelt_penalty, min_obs_per_period, known_events_tables,
               entity_count, temporal_points }
           ]
+              CONSTRAINTS:
+              - entity_column and temporal_column must exist in query results.
+              - pelt_penalty must be > 0. ruptures.Pelt does NOT enforce this
+                at runtime — pen=0 makes every point a breakpoint, pen<0
+                actively rewards spurious breaks. Both produce garbage.
+              - min_obs_per_period must be > 0.
+              - temporal_grain must start with D, W, M, Q, or Y (valid pandas
+                period frequency). Other values raise ValueError in
+                pd.to_datetime().dt.to_period().
         
           residual_checks:
             autocorrelation: [
               { temporal_column, grain, lags: [int], threshold }
             ]
+              CONSTRAINTS:
+              - temporal_column must exist in query results.
+              - lags must be non-empty; all values must be positive integers.
+              - max(lags) must be < data row count. acorr_ljungbox computes
+                autocorrelation via acf(nlags=max_lag) — if max_lag ≥ n_rows,
+                it raises ValueError (shape mismatch).
+              - threshold must be > 0.
             field_correlation:
-              threshold: double
-              check_columns: [string]    — non-W columns + W columns
+              threshold: double          — CONSTRAINT: must be > 0.
+              check_columns: [string]    — non-W columns + W columns.
+                  CONSTRAINT: all must exist in query results.
             auto_correction:
-              max_iterations: int
+              max_iterations: int        — CONSTRAINT: must be > 0.
               stop_criterion_ci_pct: double
             metadata_correlation: [
               { column, threshold, alert_type }
             ]
+              CONSTRAINT: column must exist in query results.
         
           range_checks:
             vif:
@@ -2991,30 +3069,36 @@ public interface SwarmPrompts {
               { variant_id, threshold, response_strategy: TRIM|MATCH|LATE,
                 trim_bounds? }
             ]
+              CONSTRAINTS:
+              - variant_id must reference an existing estimation variant ID.
+              - threshold must be in (0, 1].
+              - TRIM strategy requires trim_bounds with exactly 2 values
+                [low, high] where low < high. Omitting trim_bounds with TRIM
+                is a validation error.
             variance: [
               { column, structural_note }
             ]
+              CONSTRAINT: column must exist in query results.
         
           unmeasured_confounding: [
               { variant_id, method: E_VALUE | ROSENBAUM_BOUNDS,
                 null_hypothesis: string,    — "ATE = 0" or "ATE < X"
                 notes: string }             — what strength of confounding would nullify
             ]
-        
-          estimation_variants.filter: {   — optional, per variant
-              column: string,
-              operator: IN | GT | LT | EQ,
-              values: [string | number]
-            } | null
+              CONSTRAINT: variant_id must reference an existing estimation
+              variant ID.
         
           externalization:
             domain_rankings: [
               { domain_ranking, source, comparison_method, scope,
                 expected_concordance }
             ]
+              CONSTRAINT: expected_concordance must be in [0, 1].
             allocation_bias: [
               { treatment_column, grouping_column, flag_threshold }
             ]
+              CONSTRAINT: treatment_column and grouping_column must exist in
+              query results.
         
           discrepancy_log: [             — contradictions with generator
             { field, generator_value, compiler_value, resolution }
