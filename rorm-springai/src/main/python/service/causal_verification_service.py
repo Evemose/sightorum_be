@@ -43,6 +43,8 @@ warnings.filterwarnings("ignore")
 logging.getLogger("dowhy.utils.graphviz_plotting").setLevel(logging.CRITICAL)
 logging.getLogger("dowhy.graph").setLevel(logging.CRITICAL)
 logger = logging.getLogger(__name__)
+logger.info("dowhy=%s  networkx=%s  econml=%s", dowhy.__version__, nx.__version__,
+            __import__("econml").__version__)
 
 LGBM_DEFAULTS = dict(n_estimators=300, max_depth=6, learning_rate=0.05, verbose=-1)
 BOOTSTRAP_SAMPLES = 20
