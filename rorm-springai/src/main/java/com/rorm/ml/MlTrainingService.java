@@ -1,9 +1,11 @@
 package com.rorm.ml;
 
+import com.rorm.DurableFuture;
+import com.rorm.StepJournal;
 import com.rorm.ml.dto.*;
 import com.rorm.ml.exception.MlServiceException;
+import com.rorm.ml.stream.JobCompletionHandler;
 import com.rorm.ml.stream.JobEvent;
-import com.rorm.ml.stream.JobFutureRegistry;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -17,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 @RequiredArgsConstructor
@@ -25,47 +26,62 @@ public class MlTrainingService {
 
     @Qualifier("mlRestClient")
     private final RestClient restClient;
-    private final JobFutureRegistry futureRegistry;
+    private final JobCompletionHandler completionHandler;
 
-    public CompletableFuture<JobEvent> submit(AsyncJobRequest request) {
-        var jobId = switch (request) {
-            case TrainingJobRequest r -> {
-                var resp = submitTraining(r);
-                if (resp.isNotAccepted()) {
-                    throw new MlServiceException("Training not accepted: " + resp.message());
+    /**
+     * Submit an async job and return a {@link DurableFuture} that completes
+     * when the job finishes.
+     * <p>
+     * Uses the current {@link StepJournal} for journaling the HTTP submission
+     * and creates an awakeable via {@link JobCompletionHandler} so the future
+     * survives process crashes when running under Restate.
+     */
+    public DurableFuture<JobEvent> submit(AsyncJobRequest request) {
+        var journal = StepJournal.current();
+
+        var jobId = journal.run("ml:submit:" + request.jobType(), UUID.class, () ->
+            switch (request) {
+                case TrainingJobRequest r -> {
+                    var resp = submitTraining(r);
+                    if (resp.isNotAccepted()) {
+                        throw new MlServiceException("Training not accepted: " + resp.message());
+                    }
+                    yield resp.trainingId();
                 }
-                yield resp.trainingId();
-            }
-            case TuningJobRequest r -> {
-                var resp = submitTuningThenTraining(r);
-                if (resp.isNotAccepted()) {
-                    throw new MlServiceException("Tuning not accepted: " + resp.message());
+                case TuningJobRequest r -> {
+                    var resp = submitTuningThenTraining(r);
+                    if (resp.isNotAccepted()) {
+                        throw new MlServiceException("Tuning not accepted: " + resp.message());
+                    }
+                    yield resp.trainingId();
                 }
-                yield resp.trainingId();
-            }
-            case StabilitySelectionJobRequest r -> {
-                var resp = submitStabilitySelection(r);
-                if (resp.isNotAccepted()) {
-                    throw new MlServiceException("Stability selection not accepted: " + resp.message());
+                case StabilitySelectionJobRequest r -> {
+                    var resp = submitStabilitySelection(r);
+                    if (resp.isNotAccepted()) {
+                        throw new MlServiceException("Stability selection not accepted: " + resp.message());
+                    }
+                    yield resp.analysisId();
                 }
-                yield resp.analysisId();
-            }
-            case ShapJobRequest r -> {
-                var resp = submitShapCurvesAsync(r);
-                if (resp.isNotAccepted()) {
-                    throw new MlServiceException("SHAP not accepted: " + resp.message());
+                case ShapJobRequest r -> {
+                    var resp = submitShapCurvesAsync(r);
+                    if (resp.isNotAccepted()) {
+                        throw new MlServiceException("SHAP not accepted: " + resp.message());
+                    }
+                    yield resp.analysisId();
                 }
-                yield resp.analysisId();
-            }
-            case CausalVerificationJobRequest r -> {
-                var resp = submitCausalVerification(r, "2d512e2a-8e29-449b-abb9-0834b2c12b36");
-                if (resp.isNotAccepted()) {
-                    throw new MlServiceException("Causal verification not accepted: " + resp.message());
+                case CausalVerificationJobRequest r -> {
+                    var resp = submitCausalVerification(r);
+                    if (resp.isNotAccepted()) {
+                        throw new MlServiceException("Causal verification not accepted: " + resp.message());
+                    }
+                    yield resp.analysisId();
                 }
-                yield resp.analysisId();
             }
-        };
-        return futureRegistry.register(jobId);
+        );
+
+        var future = journal.awakeable(JobEvent.class);
+        completionHandler.register(jobId, future);
+        return future;
     }
 
     public TrainingJobResponse submitTraining(TrainingJobRequest request) {
@@ -239,7 +255,7 @@ public class MlTrainingService {
     }
 
     public AsyncJobResponse submitCausalVerification(CausalVerificationJobRequest request) {
-        return submitCausalVerification(request, null);
+        return submitCausalVerification(request, "2d512e2a-8e29-449b-abb9-0834b2c12b36");
     }
 
     public Map<String, Object> validatePipelineSpec(CausalVerificationJobRequest request) {

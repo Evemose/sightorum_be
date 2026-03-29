@@ -2,9 +2,11 @@ package com.rorm.ml.stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.ml.RormMlProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -22,6 +24,8 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
 
     private final JobCompletionHandler completionHandler;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate redisTemplate;
+    private final RormMlProperties properties;
 
     @Override
     @Retryable(retryFor = {Exception.class}, backoff = @Backoff(delay = 1000, multiplier = 2))
@@ -31,6 +35,8 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
         try {
             var event = parseEvent(message.getValue());
             handleEvent(event);
+            redisTemplate.opsForStream().acknowledge(
+                properties.eventStreamName(), properties.consumerGroup(), message.getId());
         } catch (Exception e) {
             log.error("Failed to process stream message: {}", e.getMessage(), e);
         }
