@@ -171,20 +171,26 @@ final class SamplePipelineSpecs {
           {
             "id": "binary_pir_vs_vip_linear",
             "treatment_column": "containerInsulationType",
-            "treatment_form": "BINARY_THRESHOLD",
+            "treatment_form": "CATEGORICAL",
             "model_type": "LinearDML",
             "w_columns": ["preDepartureTempC","ambientTempAtDispatchC","nodeId","vehicleMakeModel","vehicleRefrigModel","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","dayOfWeek","dispatchMonth","dispatchYear","nodeRefrigHealthPct","productClass","palletPosition","productMassAtStopKg","containerAgeMonths","vehicleRefrigAgeMonths","vehicleInsulationRating","vehicleCargoVolumeM3","vehicleReeferKwRated","nodePowerStatus","siteType","siteUrbanRural","isHosRegulated","loggerMonthsSinceCal"],
-            "threshold_value": "PIR_foam=1, VIP_panel=0",
-            "filter": {"column": "region", "operator": "IN", "values": ["Northeast_NJ","Midwest_IN","PacificNW_OR","Mountain_CO"]}
+            "reference_category": "VIP_panel",
+            "filter": {"AND": [
+              {"column": "region", "operator": "IN", "values": ["Northeast_NJ","Midwest_IN","PacificNW_OR","Mountain_CO"]},
+              {"column": "containerInsulationType", "operator": "IN", "values": ["PIR_foam","VIP_panel"]}
+            ]}
           },
           {
             "id": "binary_pir_vs_vip_nonparam",
             "treatment_column": "containerInsulationType",
-            "treatment_form": "BINARY_THRESHOLD",
+            "treatment_form": "CATEGORICAL",
             "model_type": "NonParamDML",
             "w_columns": ["preDepartureTempC","ambientTempAtDispatchC","nodeId","vehicleMakeModel","vehicleRefrigModel","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","dayOfWeek","dispatchMonth","dispatchYear","nodeRefrigHealthPct","productClass","palletPosition","productMassAtStopKg","containerAgeMonths","vehicleRefrigAgeMonths","vehicleInsulationRating","vehicleCargoVolumeM3","vehicleReeferKwRated","nodePowerStatus","siteType","siteUrbanRural","isHosRegulated","loggerMonthsSinceCal"],
-            "threshold_value": "PIR_foam=1, VIP_panel=0",
-            "filter": {"column": "region", "operator": "IN", "values": ["Northeast_NJ","Midwest_IN","PacificNW_OR","Mountain_CO"]}
+            "reference_category": "VIP_panel",
+            "filter": {"AND": [
+              {"column": "region", "operator": "IN", "values": ["Northeast_NJ","Midwest_IN","PacificNW_OR","Mountain_CO"]},
+              {"column": "containerInsulationType", "operator": "IN", "values": ["PIR_foam","VIP_panel"]}
+            ]}
           }
         ]
         """;
