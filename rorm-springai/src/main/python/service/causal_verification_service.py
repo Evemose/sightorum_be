@@ -579,8 +579,6 @@ class CausalVerificationService:
         for cfg in spec.grf_configs:
             for c in cfg.modifier_columns:
                 _require_col(c, f"grf_config '{cfg.id}' modifier_columns")
-                _require_numeric(c, f"grf_config '{cfg.id}' modifier_columns "
-                                    f"(CausalForestDML requires numeric X)")
             for col in cfg.slicing:
                 _require_col(col, f"grf_config '{cfg.id}' slicing")
                 if cfg.slicing[col] not in ("unique", "quartile"):
