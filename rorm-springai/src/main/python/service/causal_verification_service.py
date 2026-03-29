@@ -902,39 +902,26 @@ class CausalVerificationService:
             refined_edges: list[tuple[str, str]],
             outcome_col: str,
     ) -> dict[str, Any]:
-        """Run DML estimation via DoWhy for a single variant."""
-        dag_nx = self._edges_to_nx(refined_edges)
-
-        model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
-        dml_params = {
-            "init_params": {
-                "model_y": LGBMRegressor(**LGBM_DEFAULTS),
-                "model_t": model_t,
-                "model_final": LinearRegression(),
-                "discrete_treatment": discrete,
-            },
-            "fit_params": {
-                "inference": BootstrapInference(
-                    n_bootstrap_samples=BOOTSTRAP_SAMPLES, n_jobs=1
-                ),
-            },
-        }
-
+        """Run DML estimation directly via econml (bypasses DoWhy graph layer)."""
         try:
-            model = dowhy.CausalModel(
-                data=df, treatment=treatment_col,
-                outcome=outcome_col, graph=dag_nx,
-                effect_modifiers=[],
+            Y = df[outcome_col].values
+            T = df[treatment_col].values
+            W = df[w_cols].values
+
+            model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
+            dml = LinearDML(
+                model_y=LGBMRegressor(**LGBM_DEFAULTS),
+                model_t=model_t,
+                model_final=LinearRegression(),
+                discrete_treatment=discrete,
             )
-            identified = model.identify_effect(proceed_when_unidentifiable=False)
-            estimate = model.estimate_effect(
-                identified, method_name="backdoor.econml.dml.DML",
-                method_params=dml_params,
-            )
-            effect = float(estimate.value)
-            econml_obj = estimate.params["_estimator_object"]
-            ci_raw = econml_obj.effect_interval(alpha=CI_ALPHA)
-            ci = (float(ci_raw[0].flatten()[0]), float(ci_raw[1].flatten()[0]))
+            dml.fit(Y, T, W=W,
+                    inference=BootstrapInference(
+                        n_bootstrap_samples=BOOTSTRAP_SAMPLES, n_jobs=1))
+
+            effect = float(dml.effect().mean())
+            ci_lo, ci_hi = dml.effect_interval(alpha=CI_ALPHA)
+            ci = (float(ci_lo.mean()), float(ci_hi.mean()))
         except Exception as e:
             logger.warning(f"Variant {variant.id} estimation failed: {e}")
             return {"variant_id": variant.id, "effect": None, "ci": None, "error": str(e)}
