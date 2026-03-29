@@ -4,6 +4,7 @@ import com.rorm.ai.tools.*;
 import com.rorm.ml.tools.CausalReexecutionTool;
 import com.rorm.ml.tools.DataRelationsTool;
 import com.rorm.ml.tools.MlTrainingTool;
+import com.rorm.ml.tools.PipelineValidationTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,7 @@ public class ToolGroupResolver {
     private final MlTrainingTool mlTrainingTool;
     private final DataRelationsTool dataRelationsTool;
     private final CausalReexecutionTool causalReexecutionTool;
+    private final PipelineValidationTool pipelineValidationTool;
     private final FeatureEngineeringTool featureEngineeringTool;
     private final HypothesisVerificationTool hypothesisVerificationTool;
     private final DataExplorationTool explorationTool;
@@ -40,6 +42,7 @@ public class ToolGroupResolver {
                     tools.add(featureEngineeringTool);
                 }
                 case CAUSAL_REEXECUTION -> tools.add(causalReexecutionTool);
+                case PIPELINE_VALIDATION -> tools.add(pipelineValidationTool);
                 case WEB_ACCESS -> {
                     // Web access tools to be added when available
                 }
