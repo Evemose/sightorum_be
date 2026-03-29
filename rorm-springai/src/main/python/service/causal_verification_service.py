@@ -867,7 +867,7 @@ class CausalVerificationService:
             },
             "fit_params": {
                 "inference": BootstrapInference(
-                    n_bootstrap_samples=BOOTSTRAP_SAMPLES, n_jobs=-1
+                    n_bootstrap_samples=BOOTSTRAP_SAMPLES, n_jobs=1
                 ),
             },
         }

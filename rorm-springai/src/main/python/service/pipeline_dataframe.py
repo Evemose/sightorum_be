@@ -7,6 +7,9 @@ for filters, labels, and slicing.
 Encoding is **stable across runs**: categories are sorted alphabetically
 before assigning integer codes, so the same value always maps to the
 same code regardless of row order in the source data.
+
+Memory: numeric columns are shared (not copied) between raw and encoded
+views.  Only categorical columns are duplicated with different values.
 """
 
 from __future__ import annotations
@@ -35,19 +38,28 @@ class PipelineDataFrame:
 
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame) -> PipelineDataFrame:
-        """Build from a plain DataFrame, encoding all string/object/category columns."""
+        """Build from a plain DataFrame, encoding all string/object/category columns.
+
+        Numeric columns share memory between raw and encoded views —
+        only categorical columns are duplicated.
+        """
         cat_cols = df.select_dtypes(include=["object", "category", "string"]).columns.tolist()
         if not cat_cols:
             return cls(df, df, [], {})
 
-        encoded = df.copy()
+        # Build encoded view sharing numeric columns (no full copy)
+        encoded_cols: dict[str, pd.Series] = {}
         encoders: dict[str, dict[Any, int]] = {}
-        for col in cat_cols:
-            categories = sorted(df[col].dropna().unique())
-            mapping = {v: i for i, v in enumerate(categories)}
-            encoders[col] = mapping
-            encoded[col] = df[col].map(mapping).astype("Int64")
+        for col in df.columns:
+            if col in cat_cols:
+                categories = sorted(df[col].dropna().unique())
+                mapping = {v: i for i, v in enumerate(categories)}
+                encoders[col] = mapping
+                encoded_cols[col] = df[col].map(mapping).astype("Int64")
+            else:
+                encoded_cols[col] = df[col]  # shared reference, no copy
 
+        encoded = pd.DataFrame(encoded_cols, index=df.index)
         return cls(df, encoded, cat_cols, encoders)
 
     # -- primary accessors ------------------------------------------------
@@ -96,9 +108,10 @@ class PipelineDataFrame:
 
     def filter_mask(self, mask: pd.Series) -> PipelineDataFrame:
         """Apply a boolean mask, returning a new wrapper with both views filtered."""
+        idx = mask.values.nonzero()[0]
         return PipelineDataFrame(
-            self._raw[mask].reset_index(drop=True),
-            self._encoded[mask].reset_index(drop=True),
+            self._raw.iloc[idx].reset_index(drop=True),
+            self._encoded.iloc[idx].reset_index(drop=True),
             self._cat_columns,
             self._encoders,
         )
