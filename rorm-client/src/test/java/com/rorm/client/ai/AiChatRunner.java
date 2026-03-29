@@ -42,7 +42,6 @@ class AiChatRunner {
 
     @Test
     void simpleChat() throws Exception {
-        Thread.sleep(10 * 60 * 1000);
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
             durableRuntime.submit("runner-pipeline-h1-v1_1", new JobSpec(

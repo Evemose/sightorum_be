@@ -30,7 +30,7 @@ from dto.causal_verification_request import (
 from econml.dml import CausalForestDML, LinearDML
 from econml.inference import BootstrapInference
 from itertools import combinations
-from lightgbm import LGBMRegressor
+from lightgbm import LGBMClassifier, LGBMRegressor
 from scipy.stats import pearsonr, spearmanr
 from service.pipeline_dataframe import PipelineDataFrame
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -857,10 +857,11 @@ class CausalVerificationService:
         """Run DML estimation via DoWhy for a single variant."""
         dag_dot = self._edges_to_dot(refined_edges)
 
+        model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
         dml_params = {
             "init_params": {
                 "model_y": LGBMRegressor(**LGBM_DEFAULTS),
-                "model_t": LGBMRegressor(**LGBM_DEFAULTS),
+                "model_t": model_t,
                 "model_final": LinearRegression(),
                 "discrete_treatment": discrete,
             },
@@ -973,12 +974,14 @@ class CausalVerificationService:
                 continue
 
             enc = data.encoded
+            discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
             W_med = enc[confounders + [med.mediator]].values
             try:
+                model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
                 dml = LinearDML(
                     model_y=LGBMRegressor(**LGBM_DEFAULTS),
-                    model_t=LGBMRegressor(**LGBM_DEFAULTS),
-                    discrete_treatment=False,
+                    model_t=model_t,
+                    discrete_treatment=discrete,
                 )
                 dml.fit(enc[spec.outcome].values, enc[spec.treatment].values, W=W_med)
                 direct = float(dml.effect().mean())
@@ -1064,12 +1067,14 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _refutations(self, data, spec, dag_dot, primary_effect) -> dict[str, Any]:
+        discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
+        model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
         refute_params = {
             "init_params": {
                 "model_y": LGBMRegressor(**LGBM_DEFAULTS),
-                "model_t": LGBMRegressor(**LGBM_DEFAULTS),
+                "model_t": model_t,
                 "model_final": LinearRegression(),
-                "discrete_treatment": False,
+                "discrete_treatment": discrete,
             },
             "fit_params": {},
         }
