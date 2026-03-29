@@ -13,7 +13,9 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import ruptures
+import threading
 import warnings
+from concurrent.futures import Future
 from dto.causal_verification_request import (
     CausalVerificationRequest,
     EstimationVariant,
@@ -54,6 +56,22 @@ class CausalVerificationService:
     def __init__(self, db_storage=None, worker_pool=None):
         self._db_storage = db_storage
         self._worker_pool = worker_pool
+
+    def _pool_submit(self, mem_bytes: int, fn: Callable[[], Any]) -> "Future[Any]":
+        """Submit to pool if available, else resolve immediately."""
+        if self._worker_pool:
+            return self._worker_pool.submit(mem_bytes, fn)
+        f: Future = Future()
+        try:
+            f.set_result(fn())
+        except Exception as e:
+            f.set_exception(e)
+        return f
+
+    @staticmethod
+    def _mem_estimate(data: pd.DataFrame, factor: int = 3) -> int:
+        """Rough memory estimate for one DML fit over data."""
+        return int(data.memory_usage(deep=True).sum()) * factor
 
     def run_pipeline(
             self,
@@ -165,13 +183,17 @@ class CausalVerificationService:
             report(0.15, "Running estimation variants")
             estimation_results = {}
             primary_variant = spec.estimation_variants[0]
-            for i, variant in enumerate(spec.estimation_variants):
-                report(0.15 + 0.15 * (i / len(spec.estimation_variants)),
-                       f"Estimation variant {variant.id}")
-                est = self._run_estimation_variant(
-                    data, variant, refined_edges, dag_dot, spec.outcome
+            mem = self._mem_estimate(data)
+            variant_futures = {
+                v.id: self._pool_submit(
+                    mem, lambda v=v: self._run_estimation_variant(
+                        data, v, refined_edges, dag_dot, spec.outcome
+                    )
                 )
-                estimation_results[variant.id] = est
+                for v in spec.estimation_variants
+            }
+            for vid, future in variant_futures.items():
+                estimation_results[vid] = future.result()
 
             primary_effect = estimation_results[primary_variant.id]["effect"]
             primary_ci = estimation_results[primary_variant.id].get("ci")
@@ -206,145 +228,168 @@ class CausalVerificationService:
             result["abort_reason"] = gates_result.get("abort_reason")
 
         # ==================================================================
-        # Step 5  —  Mediation
-        # ==================================================================
-        if spec.mediation and not aborted:
-            cp = _cp_load("mediation")
-            if cp is not None:
-                report(0.40, "Mediation (cached)")
-                result["steps"]["mediation"] = cp["mediation_result"]
-            else:
-                report(0.40, "Mediation decomposition")
-                mediation_result = self._mediation(
-                    data, spec, confounders, estimation_results, refined_edges
-                )
-                _cp_save("mediation", {"mediation_result": mediation_result})
-                result["steps"]["mediation"] = mediation_result
-        else:
-            result["steps"]["mediation"] = None
-
-        # ==================================================================
-        # Step 6  —  GRF heterogeneity
-        # ==================================================================
-        if spec.grf_configs and not aborted:
-            cp = _cp_load("grf")
-            if cp is not None:
-                report(0.45, "GRF (cached)")
-                result["steps"]["grf"] = cp["grf_result"]
-            else:
-                report(0.45, "GRF heterogeneity analysis")
-                grf_result = self._grf_heterogeneity(data, spec, confounders)
-                _cp_save("grf", {"grf_result": grf_result})
-                result["steps"]["grf"] = grf_result
-        else:
-            result["steps"]["grf"] = None
-
-        # ==================================================================
-        # Step 7  —  Refutations
-        # ==================================================================
-        if spec.refutations and not aborted:
-            cp = _cp_load("refutations")
-            if cp is not None:
-                report(0.55, "Refutations (cached)")
-                result["steps"]["refutations"] = cp["refutations_result"]
-            else:
-                report(0.55, "Refutations")
-                refutations_result = self._refutations(
-                    data, spec, dag_dot, primary_effect
-                )
-                _cp_save("refutations", {"refutations_result": refutations_result})
-                result["steps"]["refutations"] = refutations_result
-
-        # ==================================================================
-        # Step 8  —  Unmeasured confounding
-        # ==================================================================
-        if spec.unmeasured_confounding and not aborted:
-            cp = _cp_load("unmeasured_confounding")
-            if cp is not None:
-                report(0.62, "Unmeasured confounding (cached)")
-                result["steps"]["unmeasured_confounding"] = cp["uc_result"]
-            else:
-                report(0.62, "Unmeasured confounding")
-                uc_result = self._unmeasured_confounding(
-                    data, spec, estimation_results
-                )
-                _cp_save("unmeasured_confounding", {"uc_result": uc_result})
-                result["steps"]["unmeasured_confounding"] = uc_result
-
-        # ==================================================================
-        # Step 9  —  Sensitivity
+        # Steps 5-12  —  Parallel execution (independent post-gate steps)
+        #
+        # These steps share only read-only inputs (data, confounders,
+        # refined_edges, estimation_results, primary_effect/ci).
+        # Each step is dispatched on a bare thread; heavy DML/GRF leaf
+        # work inside each step goes through _pool_submit so the
+        # WorkerPool governs memory and concurrency.
         # ==================================================================
         if not aborted:
-            cp = _cp_load("sensitivity")
-            if cp is not None:
-                report(0.68, "Sensitivity (cached)")
-                result["steps"]["sensitivity"] = cp["sensitivity_result"]
-            else:
-                report(0.68, "Specification sensitivity")
-                sensitivity_result = self._sensitivity(
-                    data, spec, refined_edges, primary_effect, estimation_results
-                )
-                _cp_save("sensitivity", {"sensitivity_result": sensitivity_result})
-                result["steps"]["sensitivity"] = sensitivity_result
+            step_outputs: dict[str, Any] = {}
+            step_lock = threading.Lock()
 
-        # ==================================================================
-        # Step 10  —  Structural breaks
-        # ==================================================================
-        if spec.structural_breaks and not aborted:
-            cp = _cp_load("structural_breaks")
-            if cp is not None:
-                report(0.75, "Structural breaks (cached)")
-                result["steps"]["structural_breaks"] = cp["breaks_result"]
-            else:
-                report(0.75, "Structural break detection")
-                breaks_result = self._structural_breaks(
-                    data, spec, primary_effect, primary_ci
-                )
-                _cp_save("structural_breaks", {"breaks_result": breaks_result})
-                result["steps"]["structural_breaks"] = breaks_result
+            def _run_cached_step(
+                    name: str, cp_key: str, cp_extract: Callable,
+                    compute: Callable, cp_pack: Callable,
+            ) -> None:
+                """Run a step with checkpoint load/save, store result."""
+                cp = _cp_load(cp_key)
+                if cp is not None:
+                    report(0, f"{name} (cached)")
+                    val = cp_extract(cp)
+                else:
+                    report(0, name)
+                    val = compute()
+                    _cp_save(cp_key, cp_pack(val))
+                with step_lock:
+                    step_outputs[cp_key] = val
 
-        # ==================================================================
-        # Step 11  —  Residual diagnostics
-        # ==================================================================
-        if not aborted:
-            cp = _cp_load("residual_diagnostics")
-            if cp is not None:
-                report(0.82, "Residual diagnostics (cached)")
-                residual_result = cp["residual_result"]
-                if cp.get("corrected_effect") is not None:
-                    primary_effect = cp["corrected_effect"]
-            else:
-                report(0.82, "Residual diagnostics")
-                residual_result = self._residual_diagnostics(
-                    data, spec, confounders, refined_edges, primary_effect
-                )
-                corrected = residual_result.get("corrected_effect")
+            threads: list[threading.Thread] = []
+
+            # Step 5 — Mediation
+            if spec.mediation:
+                threads.append(threading.Thread(
+                    target=_run_cached_step,
+                    args=(
+                        "Mediation", "mediation",
+                        lambda cp: cp["mediation_result"],
+                        lambda: self._mediation(
+                            data, spec, confounders, estimation_results, refined_edges),
+                        lambda v: {"mediation_result": v},
+                    ),
+                ))
+
+            # Step 6 — GRF heterogeneity
+            if spec.grf_configs:
+                threads.append(threading.Thread(
+                    target=_run_cached_step,
+                    args=(
+                        "GRF heterogeneity", "grf",
+                        lambda cp: cp["grf_result"],
+                        lambda: self._grf_heterogeneity(data, spec, confounders),
+                        lambda v: {"grf_result": v},
+                    ),
+                ))
+
+            # Step 7 — Refutations
+            if spec.refutations:
+                threads.append(threading.Thread(
+                    target=_run_cached_step,
+                    args=(
+                        "Refutations", "refutations",
+                        lambda cp: cp["refutations_result"],
+                        lambda: self._refutations(data, spec, dag_dot, primary_effect),
+                        lambda v: {"refutations_result": v},
+                    ),
+                ))
+
+            # Step 8 — Unmeasured confounding
+            if spec.unmeasured_confounding:
+                threads.append(threading.Thread(
+                    target=_run_cached_step,
+                    args=(
+                        "Unmeasured confounding", "unmeasured_confounding",
+                        lambda cp: cp["uc_result"],
+                        lambda: self._unmeasured_confounding(
+                            data, spec, estimation_results),
+                        lambda v: {"uc_result": v},
+                    ),
+                ))
+
+            # Step 9 — Sensitivity
+            threads.append(threading.Thread(
+                target=_run_cached_step,
+                args=(
+                    "Sensitivity", "sensitivity",
+                    lambda cp: cp["sensitivity_result"],
+                    lambda: self._sensitivity(
+                        data, spec, refined_edges, primary_effect, estimation_results),
+                    lambda v: {"sensitivity_result": v},
+                ),
+            ))
+
+            # Step 10 — Structural breaks
+            if spec.structural_breaks:
+                threads.append(threading.Thread(
+                    target=_run_cached_step,
+                    args=(
+                        "Structural breaks", "structural_breaks",
+                        lambda cp: cp["breaks_result"],
+                        lambda: self._structural_breaks(
+                            data, spec, primary_effect, primary_ci),
+                        lambda v: {"breaks_result": v},
+                    ),
+                ))
+
+            # Step 11 — Residual diagnostics (returns dict with corrected_effect key)
+            threads.append(threading.Thread(
+                target=_run_cached_step,
+                args=(
+                    "Residual diagnostics", "residual_diagnostics",
+                    lambda cp: cp["residual_result"],
+                    lambda: self._residual_diagnostics(
+                        data, spec, confounders, refined_edges, primary_effect),
+                    lambda v: {
+                        "residual_result": v,
+                        "corrected_effect": v.get("corrected_effect"),
+                    },
+                ),
+            ))
+
+            # Step 12 — Range checks
+            threads.append(threading.Thread(
+                target=_run_cached_step,
+                args=(
+                    "Range checks", "range_checks",
+                    lambda cp: cp["range_result"],
+                    lambda: self._range_checks(
+                        data, spec, confounders, estimation_results),
+                    lambda v: {"range_result": v},
+                ),
+            ))
+
+            # Launch all, wait for all
+            for t in threads:
+                t.daemon = True
+                t.start()
+            for t in threads:
+                t.join()
+
+            # Collect results
+            result["steps"]["mediation"] = step_outputs.get("mediation")
+            result["steps"]["grf"] = step_outputs.get("grf")
+            if "refutations" in step_outputs:
+                result["steps"]["refutations"] = step_outputs["refutations"]
+            if "unmeasured_confounding" in step_outputs:
+                result["steps"]["unmeasured_confounding"] = step_outputs["unmeasured_confounding"]
+            result["steps"]["sensitivity"] = step_outputs.get("sensitivity")
+            if "structural_breaks" in step_outputs:
+                result["steps"]["structural_breaks"] = step_outputs["structural_breaks"]
+            if "range_checks" in step_outputs:
+                result["steps"]["range_checks"] = step_outputs["range_checks"]
+
+            # Residual diagnostics: extract corrected_effect
+            rd = step_outputs.get("residual_diagnostics")
+            if rd is not None:
+                result["steps"]["residual_diagnostics"] = rd
+                corrected = rd.get("corrected_effect") if isinstance(rd, dict) else None
                 if corrected is not None:
                     primary_effect = corrected
-                _cp_save("residual_diagnostics", {
-                    "residual_result": residual_result,
-                    "corrected_effect": corrected,
-                })
-            result["steps"]["residual_diagnostics"] = residual_result
 
         # ==================================================================
-        # Step 12  —  Range checks
-        # ==================================================================
-        if not aborted:
-            cp = _cp_load("range_checks")
-            if cp is not None:
-                report(0.90, "Range checks (cached)")
-                result["steps"]["range_checks"] = cp["range_result"]
-            else:
-                report(0.90, "Range restriction checks")
-                range_result = self._range_checks(
-                    data, spec, confounders, estimation_results
-                )
-                _cp_save("range_checks", {"range_result": range_result})
-                result["steps"]["range_checks"] = range_result
-
-        # ==================================================================
-        # Step 13  —  Externalization
+        # Step 13  —  Externalization (depends on GRF from step 6)
         # ==================================================================
         if spec.externalization and not aborted:
             cp = _cp_load("externalization")
@@ -965,8 +1010,7 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _grf_heterogeneity(self, data, spec, confounders) -> list[dict]:
-        results = []
-        for cfg in spec.grf_configs:
+        def _fit_one_grf(cfg: GrfConfig) -> dict:
             try:
                 X_grf = data[cfg.modifier_columns].values
                 Y = data[spec.outcome].values
@@ -1006,16 +1050,22 @@ class CausalVerificationService:
                     name: float(imp)
                     for name, imp in zip(cfg.modifier_columns, grf.feature_importances_)
                 }
-                results.append({
+                return {
                     "config_id": cfg.id,
                     "slices": slices,
                     "feature_importances": importances,
                     "mean_cate": float(cates.mean()),
                     "std_cate": float(cates.std()),
-                })
+                }
             except Exception as e:
-                results.append({"config_id": cfg.id, "error": str(e)})
-        return results
+                return {"config_id": cfg.id, "error": str(e)}
+
+        mem = self._mem_estimate(data, factor=5)
+        futures = [
+            self._pool_submit(mem, lambda c=cfg: _fit_one_grf(c))
+            for cfg in spec.grf_configs
+        ]
+        return [f.result() for f in futures]
 
     # ------------------------------------------------------------------
     # Step 7: Refutations
@@ -1130,35 +1180,36 @@ class CausalVerificationService:
         )
         placebo_col = f"_tp_{spec.treatment}"
 
-        probes: list[dict[str, Any]] = []
-        worst_ratio = 0.0
+        mem = self._mem_estimate(sorted_data)
 
-        for label, lag in shifts:
+        def _run_probe(label, lag):
             df = sorted_data.copy()
             df[placebo_col] = df[spec.treatment].shift(lag)
             df = df.dropna(subset=[placebo_col])
             if len(df) < 5:
-                probes.append({"label": label, "lag": lag,
-                               "error": f"only {len(df)} rows after shift"})
-                continue
-
+                return {"label": label, "lag": lag,
+                        "error": f"only {len(df)} rows after shift"}
             effect = self._run_dml_quick(
                 df, placebo_col, spec.outcome, placebo_dag
             )
             if effect is None:
-                probes.append({"label": label, "lag": lag,
-                               "error": "DML estimation failed"})
-                continue
-
+                return {"label": label, "lag": lag,
+                        "error": "DML estimation failed"}
             ratio = abs(effect) / abs(primary_effect) if primary_effect else 0
-            worst_ratio = max(worst_ratio, ratio)
-            probes.append({
-                "label": label,
-                "lag": lag,
-                "n_obs": len(df),
-                "effect": float(effect),
-                "ratio": float(ratio),
-            })
+            return {
+                "label": label, "lag": lag, "n_obs": len(df),
+                "effect": float(effect), "ratio": float(ratio),
+            }
+
+        probe_futures = [
+            self._pool_submit(mem, lambda l=label, g=lag: _run_probe(l, g))
+            for label, lag in shifts
+        ]
+        probes = [f.result() for f in probe_futures]
+        worst_ratio = max(
+            (p.get("ratio", 0) for p in probes if "error" not in p),
+            default=0.0,
+        )
 
         flag = worst_ratio > spec.gates.placebo.flag_ratio
         return {
@@ -1238,9 +1289,10 @@ class CausalVerificationService:
     def _sensitivity(self, data, spec, refined_edges, primary_effect, estimation_results) -> dict:
         result: dict[str, Any] = {}
 
-        # Confounder drops
-        drops = []
-        for drop in spec.sensitivity.confounder_drops:
+        # Confounder drops — each is an independent DML fit
+        mem = self._mem_estimate(data)
+
+        def _run_drop(drop):
             dag_v = self._edges_to_dot(
                 [(s, d) for s, d in refined_edges
                  if s != drop.column and d != drop.column]
@@ -1248,32 +1300,40 @@ class CausalVerificationService:
             est = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_v)
             deviation = (abs(est - primary_effect) / abs(primary_effect) * 100
                          if est is not None and primary_effect else None)
-            drops.append({
+            return {
                 "column": drop.column,
                 "effect": float(est) if est is not None else None,
                 "deviation_pct": float(deviation) if deviation is not None else None,
                 "threshold_pct": drop.deviation_threshold_pct,
                 "flag": deviation is not None and deviation > drop.deviation_threshold_pct,
-            })
-        result["confounder_drops"] = drops
+            }
 
-        # Confounder adds
-        adds = []
-        for add in spec.sensitivity.confounder_adds:
+        drop_futures = [
+            (drop, self._pool_submit(mem, lambda d=drop: _run_drop(d)))
+            for drop in spec.sensitivity.confounder_drops
+        ]
+        result["confounder_drops"] = [f.result() for _, f in drop_futures]
+
+        # Confounder adds — each is an independent DML fit
+        def _run_add(add):
             if add.column not in data.columns:
-                adds.append({"column": add.column, "error": "column not in data"})
-                continue
+                return {"column": add.column, "error": "column not in data"}
             dag_v = self._edges_to_dot(refined_edges + [(add.column, spec.outcome)])
             est = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_v)
             deviation = (abs(est - primary_effect) / abs(primary_effect) * 100
                          if est is not None and primary_effect else None)
-            adds.append({
+            return {
                 "column": add.column,
                 "reasoning": add.reasoning,
                 "effect": float(est) if est is not None else None,
                 "deviation_pct": float(deviation) if deviation is not None else None,
-            })
-        result["confounder_adds"] = adds
+            }
+
+        add_futures = [
+            (add, self._pool_submit(mem, lambda a=add: _run_add(a)))
+            for add in spec.sensitivity.confounder_adds
+        ]
+        result["confounder_adds"] = [f.result() for _, f in add_futures]
 
         # Threshold variants
         thresh = []
