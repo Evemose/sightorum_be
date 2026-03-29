@@ -912,7 +912,6 @@ class CausalVerificationService:
             dml = LinearDML(
                 model_y=LGBMRegressor(**LGBM_DEFAULTS),
                 model_t=model_t,
-                model_final=LinearRegression(),
                 discrete_treatment=discrete,
             )
             dml.fit(Y, T, W=W,
