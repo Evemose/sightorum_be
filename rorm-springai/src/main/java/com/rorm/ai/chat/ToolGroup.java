@@ -6,5 +6,6 @@ public enum ToolGroup {
     ML,
     DATA_RELATIONS,
     CAUSAL_REEXECUTION,
+    PIPELINE_VALIDATION,
     VERIFICATION
 }

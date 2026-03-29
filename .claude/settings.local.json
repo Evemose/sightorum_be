@@ -106,7 +106,13 @@
       "Read",
       "Edit",
       "Write",
-      "WebFetch(domain:pypi.org)"
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:centre-borelli.github.io)",
+      "WebFetch(domain:www.statsmodels.org)",
+      "WebFetch(domain:www.pywhy.org)",
+      "WebFetch(domain:docs.scipy.org)",
+      "WebFetch(domain:networkx.org)",
+      "WebFetch(domain:econml.azurewebsites.net)"
     ]
   },
   "hooks": {

@@ -109,6 +109,8 @@ class CausalVerificationService:
                 "actual": len(data),
             }
 
+        self._validate_spec(spec, data)
+
         # ==================================================================
         # Step 1  —  D-sep refinement
         # ==================================================================
@@ -412,6 +414,291 @@ class CausalVerificationService:
         for col in cat_cols:
             df[col] = df[col].astype("category").cat.codes
         return df
+
+    @staticmethod
+    def _validate_spec(spec: CausalVerificationRequest, data: pd.DataFrame) -> None:
+        """Validate the full PipelineSpec against the loaded data.
+
+        Raises ValueError with all problems collected into a single message
+        so the caller can fix everything in one pass.
+        """
+        errors: list[str] = []
+        cols = set(data.columns)
+        nrows = len(data)
+
+        def _require_col(col: str, context: str) -> None:
+            if col not in cols:
+                errors.append(f"{context}: column '{col}' not found in data. "
+                              f"Available: {sorted(cols)}")
+
+        def _require_numeric(col: str, context: str) -> None:
+            if col in cols and not pd.api.types.is_numeric_dtype(data[col]):
+                errors.append(f"{context}: column '{col}' has dtype "
+                              f"'{data[col].dtype}', expected numeric")
+
+        # -- minimum data size (cross_val_score uses cv=5) --
+        if nrows < 5:
+            errors.append(f"data has {nrows} row(s), need at least 5 "
+                          f"for 5-fold cross-validation in quality gates")
+
+        # -- core columns --
+        _require_col(spec.treatment, "treatment")
+        _require_col(spec.outcome, "outcome")
+
+        # NaN / constant checks on treatment and outcome
+        if spec.treatment in cols:
+            nan_count = int(data[spec.treatment].isna().sum())
+            if nan_count > 0:
+                errors.append(f"treatment column '{spec.treatment}' contains "
+                              f"{nan_count} NaN value(s); pearsonr / DML will fail")
+            if data[spec.treatment].nunique(dropna=True) < 2:
+                errors.append(f"treatment column '{spec.treatment}' has fewer than "
+                              f"2 unique values; DML estimation requires variance")
+        if spec.outcome in cols:
+            _require_numeric(spec.outcome, "outcome")
+            nan_count = int(data[spec.outcome].isna().sum())
+            if nan_count > 0:
+                errors.append(f"outcome column '{spec.outcome}' contains "
+                              f"{nan_count} NaN value(s); pearsonr / DML will fail")
+
+        # -- adjustment set --
+        for c in spec.adjustment_set:
+            _require_col(c, "adjustment_set")
+
+        # -- DAG edges: every node must be a column, graph must be acyclic --
+        parsed_edges: list[tuple[str, str]] = []
+        edges = spec.dag_edges.replace("\n", ";").split(";")
+        for edge_str in edges:
+            edge_str = edge_str.strip()
+            if not edge_str or "->" not in edge_str:
+                continue
+            src, dst = [s.strip() for s in edge_str.split("->", 1)]
+            _require_col(src, f"dag_edges ('{src} -> {dst}')")
+            _require_col(dst, f"dag_edges ('{src} -> {dst}')")
+            parsed_edges.append((src, dst))
+
+        if not parsed_edges:
+            errors.append("dag_edges: no valid edges found (need at least one 'A -> B')")
+        else:
+            dag = nx.DiGraph(parsed_edges)
+            if not nx.is_directed_acyclic_graph(dag):
+                errors.append("dag_edges: graph contains a cycle; "
+                              "nx.is_d_separator requires a DAG")
+            dag_nodes = set(dag.nodes)
+            if spec.treatment in cols and spec.treatment not in dag_nodes:
+                errors.append(f"dag_edges: treatment '{spec.treatment}' is not "
+                              f"a node in the DAG")
+            if spec.outcome in cols and spec.outcome not in dag_nodes:
+                errors.append(f"dag_edges: outcome '{spec.outcome}' is not "
+                              f"a node in the DAG")
+
+        # -- dsep_threshold --
+        if spec.dsep_threshold <= 0:
+            errors.append(f"dsep_threshold must be positive, got {spec.dsep_threshold}")
+
+        # -- estimation variants --
+        if not spec.estimation_variants:
+            errors.append("estimation_variants must not be empty "
+                          "(at least one variant is required)")
+
+        variant_ids: list[str] = []
+        for v in spec.estimation_variants:
+            variant_ids.append(v.id)
+            _require_col(v.treatment_column, f"estimation_variant '{v.id}' treatment_column")
+            for c in v.w_columns:
+                _require_col(c, f"estimation_variant '{v.id}' w_columns")
+            if v.treatment_form == TreatmentForm.BINARY_THRESHOLD:
+                if v.threshold_value is None:
+                    errors.append(f"estimation_variant '{v.id}': BINARY_THRESHOLD "
+                                  f"requires a numeric threshold_value")
+                elif not isinstance(v.threshold_value, (int, float)):
+                    errors.append(f"estimation_variant '{v.id}': threshold_value must be "
+                                  f"numeric, got {type(v.threshold_value).__name__} "
+                                  f"'{v.threshold_value}'")
+            if v.filter:
+                _require_col(v.filter.column, f"estimation_variant '{v.id}' filter")
+                if v.filter.operator in (FilterOperator.GT, FilterOperator.LT, FilterOperator.EQ):
+                    if not v.filter.values:
+                        errors.append(f"estimation_variant '{v.id}' filter: "
+                                      f"operator {v.filter.operator.value} requires "
+                                      f"at least one value in 'values'")
+
+        # duplicate variant IDs
+        seen: set[str] = set()
+        for vid in variant_ids:
+            if vid in seen:
+                errors.append(f"duplicate estimation_variant id: '{vid}'")
+            seen.add(vid)
+
+        # -- mediators_excluded --
+        for m in spec.mediators_excluded:
+            _require_col(m.column, "mediators_excluded")
+            if m.direct_effect_variant_id not in seen:
+                errors.append(f"mediators_excluded '{m.column}': "
+                              f"direct_effect_variant_id '{m.direct_effect_variant_id}' "
+                              f"does not match any estimation variant")
+
+        # -- mediation --
+        if spec.mediation:
+            for med in spec.mediation:
+                _require_col(med.mediator, f"mediation '{med.mediator}'")
+                if med.total_variant_id not in seen:
+                    errors.append(f"mediation '{med.mediator}': total_variant_id "
+                                  f"'{med.total_variant_id}' not found")
+                if med.direct_variant_id not in seen:
+                    errors.append(f"mediation '{med.mediator}': direct_variant_id "
+                                  f"'{med.direct_variant_id}' not found")
+
+        # -- GRF configs --
+        for cfg in spec.grf_configs:
+            for c in cfg.modifier_columns:
+                _require_col(c, f"grf_config '{cfg.id}' modifier_columns")
+                _require_numeric(c, f"grf_config '{cfg.id}' modifier_columns "
+                                    f"(CausalForestDML requires numeric X)")
+            for col in cfg.slicing:
+                _require_col(col, f"grf_config '{cfg.id}' slicing")
+                if cfg.slicing[col] not in ("unique", "quartile"):
+                    errors.append(f"grf_config '{cfg.id}' slicing['{col}']: "
+                                  f"method must be 'unique' or 'quartile', "
+                                  f"got '{cfg.slicing[col]}'")
+
+        # -- quality gates value ranges --
+        g = spec.gates
+        if not (0 <= g.nuisance_r2.outcome_abort <= 1):
+            errors.append(f"gates.nuisance_r2.outcome_abort must be in [0,1], "
+                          f"got {g.nuisance_r2.outcome_abort}")
+        if not (0 <= g.nuisance_r2.outcome_flag <= 1):
+            errors.append(f"gates.nuisance_r2.outcome_flag must be in [0,1], "
+                          f"got {g.nuisance_r2.outcome_flag}")
+        if not (0 <= g.nuisance_r2.treatment_abort <= 1):
+            errors.append(f"gates.nuisance_r2.treatment_abort must be in [0,1], "
+                          f"got {g.nuisance_r2.treatment_abort}")
+        if not (0 <= g.nuisance_r2.treatment_flag <= 1):
+            errors.append(f"gates.nuisance_r2.treatment_flag must be in [0,1], "
+                          f"got {g.nuisance_r2.treatment_flag}")
+        if not (0 <= g.nuisance_r2.treatment_structural_max_r2 <= 1):
+            errors.append(f"gates.nuisance_r2.treatment_structural_max_r2 must be "
+                          f"in [0,1], got {g.nuisance_r2.treatment_structural_max_r2}")
+        if g.sanity.expected_direction not in (-1, 1):
+            errors.append(f"gates.sanity.expected_direction must be -1 or 1, "
+                          f"got {g.sanity.expected_direction}")
+
+        # -- sensitivity --
+        for drop in spec.sensitivity.confounder_drops:
+            _require_col(drop.column, "sensitivity.confounder_drops")
+            if drop.deviation_threshold_pct <= 0:
+                errors.append(f"sensitivity.confounder_drops '{drop.column}': "
+                              f"deviation_threshold_pct must be positive, "
+                              f"got {drop.deviation_threshold_pct}")
+        for add in spec.sensitivity.confounder_adds:
+            _require_col(add.column, "sensitivity.confounder_adds")
+        for tv in spec.sensitivity.threshold_variants:
+            if not isinstance(tv.threshold, (int, float)):
+                errors.append(f"sensitivity.threshold_variants: threshold must be "
+                              f"numeric, got '{tv.threshold}'")
+            else:
+                _require_numeric(spec.treatment,
+                                 f"sensitivity.threshold_variants (threshold={tv.threshold}): "
+                                 f"treatment")
+        for mv in spec.sensitivity.model_variants:
+            if mv.primary_variant_id not in seen:
+                errors.append(f"sensitivity.model_variants: primary_variant_id "
+                              f"'{mv.primary_variant_id}' not found")
+
+        # -- structural breaks --
+        valid_period_freqs = {"D", "W", "M", "Q", "Y"}
+        for sb in spec.structural_breaks:
+            _require_col(sb.entity_column, f"structural_break '{sb.id}' entity_column")
+            _require_col(sb.temporal_column, f"structural_break '{sb.id}' temporal_column")
+            if sb.pelt_penalty <= 0:
+                errors.append(f"structural_break '{sb.id}': pelt_penalty must be "
+                              f"positive, got {sb.pelt_penalty}")
+            if sb.min_obs_per_period <= 0:
+                errors.append(f"structural_break '{sb.id}': min_obs_per_period must "
+                              f"be positive, got {sb.min_obs_per_period}")
+            grain_char = sb.temporal_grain[0].upper() if sb.temporal_grain else ""
+            if grain_char not in valid_period_freqs:
+                errors.append(f"structural_break '{sb.id}': temporal_grain "
+                              f"'{sb.temporal_grain}' is not a valid pandas period "
+                              f"frequency (expected one starting with D/W/M/Q/Y)")
+
+        # -- residual checks --
+        for ac in spec.residual_checks.autocorrelation:
+            _require_col(ac.temporal_column, "residual_checks.autocorrelation temporal_column")
+            if not ac.lags:
+                errors.append("residual_checks.autocorrelation: lags must not be empty")
+            else:
+                if any(lag <= 0 for lag in ac.lags):
+                    errors.append(f"residual_checks.autocorrelation: all lags must "
+                                  f"be positive integers, got {ac.lags}")
+                max_lag = max(ac.lags)
+                if max_lag >= nrows:
+                    errors.append(f"residual_checks.autocorrelation: max lag "
+                                  f"{max_lag} must be < data length {nrows} "
+                                  f"(acorr_ljungbox shape mismatch)")
+            if ac.threshold <= 0:
+                errors.append(f"residual_checks.autocorrelation: threshold must "
+                              f"be positive, got {ac.threshold}")
+        if spec.residual_checks.field_correlation.threshold <= 0:
+            errors.append("residual_checks.field_correlation.threshold must be "
+                          f"positive, got {spec.residual_checks.field_correlation.threshold}")
+        for c in spec.residual_checks.field_correlation.check_columns:
+            _require_col(c, "residual_checks.field_correlation.check_columns")
+        if spec.residual_checks.auto_correction.max_iterations <= 0:
+            errors.append("residual_checks.auto_correction.max_iterations must be "
+                          f"positive, got {spec.residual_checks.auto_correction.max_iterations}")
+        for mc in spec.residual_checks.metadata_correlation:
+            _require_col(mc.column, "residual_checks.metadata_correlation")
+
+        # -- range checks --
+        for ov in spec.range_checks.overlap:
+            if ov.variant_id not in seen:
+                errors.append(f"range_checks.overlap: variant_id "
+                              f"'{ov.variant_id}' not found")
+            if not (0 < ov.threshold <= 1):
+                errors.append(f"range_checks.overlap '{ov.variant_id}': "
+                              f"threshold must be in (0,1], got {ov.threshold}")
+            if ov.response_strategy == OverlapStrategy.TRIM:
+                if ov.trim_bounds is None or len(ov.trim_bounds) != 2:
+                    errors.append(f"range_checks.overlap '{ov.variant_id}': "
+                                  f"TRIM strategy requires trim_bounds with "
+                                  f"exactly 2 values [low, high]")
+                elif ov.trim_bounds[0] >= ov.trim_bounds[1]:
+                    errors.append(f"range_checks.overlap '{ov.variant_id}': "
+                                  f"trim_bounds[0] must be < trim_bounds[1], "
+                                  f"got {ov.trim_bounds}")
+        for vc in spec.range_checks.variance:
+            _require_col(vc.column, "range_checks.variance")
+
+        # -- refutations --
+        for ref_cfg in spec.refutations:
+            if ref_cfg.type == RefutationType.TEMPORAL_PLACEBO:
+                errors.append("refutations: TEMPORAL_PLACEBO is declared but not "
+                              "implemented in the pipeline; use PLACEBO, "
+                              "RANDOM_CAUSE, or SUBSET")
+
+        # -- unmeasured confounding --
+        for uc in spec.unmeasured_confounding:
+            if uc.variant_id not in seen:
+                errors.append(f"unmeasured_confounding: variant_id "
+                              f"'{uc.variant_id}' not found")
+
+        # -- externalization --
+        if spec.externalization:
+            for ab in spec.externalization.allocation_bias:
+                _require_col(ab.treatment_column, "externalization.allocation_bias treatment_column")
+                _require_col(ab.grouping_column, "externalization.allocation_bias grouping_column")
+            for dr in spec.externalization.domain_rankings:
+                if not (0 <= dr.expected_concordance <= 1):
+                    errors.append(f"externalization.domain_rankings '{dr.source}': "
+                                  f"expected_concordance must be in [0,1], "
+                                  f"got {dr.expected_concordance}")
+
+        if errors:
+            raise ValueError(
+                f"Pipeline spec validation failed ({len(errors)} error(s)):\n"
+                + "\n".join(f"  • {e}" for e in errors)
+            )
 
     # ------------------------------------------------------------------
     # Step 1: D-sep refinement
@@ -1125,13 +1412,16 @@ class CausalVerificationService:
     def _range_checks(self, data, spec, confounders, estimation_results) -> dict:
         result: dict[str, Any] = {}
 
-        # VIF
+        # VIF (add intercept column — variance_inflation_factor requires it)
         vif_cols = confounders + [spec.treatment]
         X_vif = data[vif_cols].dropna()
+        X_vif_const = np.column_stack([np.ones(len(X_vif)), X_vif.values])
         vif_values = {}
-        for i, col in enumerate(X_vif.columns):
+        for i, col in enumerate(vif_cols):
             try:
-                vif_values[col] = float(variance_inflation_factor(X_vif.values, i))
+                vif_values[col] = float(
+                    variance_inflation_factor(X_vif_const, i + 1)
+                )
             except Exception:
                 vif_values[col] = None
         result["vif"] = {
@@ -1158,6 +1448,10 @@ class CausalVerificationService:
                 binary = data[t_col]
                 if binary.nunique() > 2:
                     binary = (binary > binary.median()).astype(int)
+                if binary.nunique() < 2:
+                    overlaps.append({"variant_id": ov.variant_id,
+                                     "error": "treatment has < 2 classes after binarization"})
+                    continue
                 ps = LogisticRegression(max_iter=1000).fit(
                     data[confounders], binary
                 ).predict_proba(data[confounders])[:, 1]

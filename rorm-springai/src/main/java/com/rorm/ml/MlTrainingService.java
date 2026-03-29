@@ -232,6 +232,19 @@ public class MlTrainingService {
         }
     }
 
+    public Map<String, Object> validatePipelineSpec(CausalVerificationJobRequest request) {
+        try {
+            return restClient.post()
+                .uri("/analysis/causal-verification/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to validate pipeline spec", e);
+        }
+    }
+
     public Map<String, Object> reexecutePipeline(String runId, Map<String, Object> specPatch) {
         try {
             return restClient.post()

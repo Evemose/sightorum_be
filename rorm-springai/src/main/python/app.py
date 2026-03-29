@@ -596,6 +596,42 @@ def _add_causal_verification_routes(app: FastAPI):
         }
 
     @app.post(
+        "/analysis/causal-verification/validate",
+        response_model=dict,
+        tags=["Causal Verification"],
+    )
+    @inject
+    async def causal_verification_validate(
+            request: dict,
+            causal_verification_service=Depends(Provide[ApplicationContainer.causal_verification_service]),
+            datasource=Depends(Provide[ApplicationContainer.datasource]),
+    ):
+        """
+        Validate a PipelineSpec against the live data without running the pipeline.
+
+        Loads the data, encodes categoricals, then checks every column reference,
+        variant ID cross-reference, threshold type, and structural constraint.
+        Returns ``{"valid": true}`` or ``{"valid": false, "errors": [...]}``.
+        """
+        import asyncio
+        from dto.causal_verification_request import CausalVerificationRequest
+
+        spec = CausalVerificationRequest.from_dict(request)
+
+        def _validate():
+            data = causal_verification_service._load_data(spec, datasource)
+            causal_verification_service._validate_spec(spec, data)
+
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(None, _validate)
+            return {"valid": True, "errors": []}
+        except ValueError as e:
+            lines = str(e).split("\n")
+            detail = [ln.strip().lstrip("• ") for ln in lines[1:] if ln.strip()]
+            return {"valid": False, "errors": detail}
+
+    @app.post(
         "/analysis/causal-verification/runs/{run_id}/reexecute",
         response_model=dict,
         tags=["Causal Verification"],
