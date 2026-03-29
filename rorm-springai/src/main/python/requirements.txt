@@ -17,7 +17,7 @@ dowhy>=0.13
 causalimpact>=0.2.6
 econml>=0.16.0
 networkx>=3.6.1
-scipy>=1.17.1
+scipy>=1.11.0,<=1.15.3
 
 # Association Rules
 mlxtend>=0.23.0
