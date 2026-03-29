@@ -564,16 +564,20 @@ def _add_causal_verification_routes(app: FastAPI):
     @inject
     async def causal_verification_async(
             request: dict,
+            run_id: Optional[str] = Query(None, description="Resume a checkpointed run by ID"),
             event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
             config: Settings = Depends(Provide[ApplicationContainer.config]),
     ):
         """
         Queue async causal verification pipeline execution.
 
+        Pass ``run_id`` of a previous (failed/partial) run to resume from
+        its last checkpoint.  Omit to start a new run.
+
         Returns analysis_id immediately. Monitor progress via event
         channels: ml_training.events and ml_training.<analysis_id>
         """
-        analysis_id = str(uuid.uuid4())
+        analysis_id = run_id or str(uuid.uuid4())
 
         await event_publisher.add_to_stream(
             config.pipeline.streams.causal_verification_requests,

@@ -49,6 +49,7 @@ logger.info("dowhy=%s  networkx=%s  econml=%s", dowhy.__version__, nx.__version_
 
 LGBM_DEFAULTS = dict(n_estimators=300, max_depth=6, learning_rate=0.05, verbose=-1)
 BOOTSTRAP_SAMPLES = 20
+REFUTATION_SIMULATIONS = 10
 GRF_ESTIMATORS = 200
 GRF_MIN_LEAF = 50
 RANDOM_STATE = 42
@@ -257,68 +258,74 @@ class CausalVerificationService:
                 _cp_save(cp_key, cp_pack(val))
                 return cp_key, val
 
-            mem = self._mem_estimate(data, factor=2)
-            step_futures: list[Future] = []
+            # All independent work is submitted to the WorkerPool at the
+            # granularity of individual DML fits.  Steps that internally
+            # submit multiple pool tasks (GRF, sensitivity, refutations)
+            # do so directly — no outer wrapper needed.
 
-            # Step 5 — Mediation
+            mem = self._mem_estimate(data)
+            mem_light = mem // 4
+
+            # Step 5 — Mediation (1 DML fit)
             if spec.mediation:
-                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                step_outputs["mediation"] = _run_cached_step(
                     "Mediation", "mediation",
                     lambda cp: cp["mediation_result"],
                     lambda: self._mediation(
                         data, spec, confounders, estimation_results, refined_edges),
-                    lambda v: {"mediation_result": v},
-                )))
+                    lambda v: {"mediation_result": v})[1]
 
-            # Step 6 — GRF heterogeneity
+            # Steps 6-12: submit all independent work to pool, collect at end
+            pending: dict[str, Future] = {}
+
+            # Step 6 — GRF (internally submits per-config fits to pool)
             if spec.grf_configs:
-                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+                pending["grf"] = self._pool_submit(mem, lambda: _run_cached_step(
                     "GRF heterogeneity", "grf",
                     lambda cp: cp["grf_result"],
                     lambda: self._grf_heterogeneity(data, spec, confounders),
-                    lambda v: {"grf_result": v},
-                )))
+                    lambda v: {"grf_result": v}))
 
-            # Step 7 — Refutations
+            # Step 7 — Refutations: each type is an independent pool task
             if spec.refutations:
-                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
-                    "Refutations", "refutations",
-                    lambda cp: cp["refutations_result"],
-                    lambda: self._refutations(data, spec, dag_dot, primary_effect),
-                    lambda v: {"refutations_result": v},
-                )))
+                cp = _cp_load("refutations")
+                if cp is not None:
+                    report(0, "Refutations (cached)")
+                    step_outputs["refutations"] = cp["refutations_result"]
+                else:
+                    report(0, "Refutations")
+                    refute_futures = self._refutations_parallel(
+                        data, spec, dag_dot, primary_effect, mem)
+                    pending["_refute"] = refute_futures  # marker, collected below
 
-            # Step 8 — Unmeasured confounding
+            # Step 8 — Unmeasured confounding (analytical, no model fitting)
             if spec.unmeasured_confounding:
-                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
-                    "Unmeasured confounding", "unmeasured_confounding",
-                    lambda cp: cp["uc_result"],
-                    lambda: self._unmeasured_confounding(
-                        data, spec, estimation_results),
-                    lambda v: {"uc_result": v},
-                )))
+                pending["unmeasured_confounding"] = self._pool_submit(
+                    mem_light, lambda: _run_cached_step(
+                        "Unmeasured confounding", "unmeasured_confounding",
+                        lambda cp: cp["uc_result"],
+                        lambda: self._unmeasured_confounding(data, spec, estimation_results),
+                        lambda v: {"uc_result": v}))
 
-            # Step 9 — Sensitivity
-            step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+            # Step 9 — Sensitivity (internally submits 33+ DML fits to pool)
+            pending["sensitivity"] = self._pool_submit(mem_light, lambda: _run_cached_step(
                 "Sensitivity", "sensitivity",
                 lambda cp: cp["sensitivity_result"],
                 lambda: self._sensitivity(
                     data, spec, refined_edges, primary_effect, estimation_results),
-                lambda v: {"sensitivity_result": v},
-            )))
+                lambda v: {"sensitivity_result": v}))
 
-            # Step 10 — Structural breaks
+            # Step 10 — Structural breaks (ruptures PELT, no DML)
             if spec.structural_breaks:
-                step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
-                    "Structural breaks", "structural_breaks",
-                    lambda cp: cp["breaks_result"],
-                    lambda: self._structural_breaks(
-                        data, spec, primary_effect, primary_ci),
-                    lambda v: {"breaks_result": v},
-                )))
+                pending["structural_breaks"] = self._pool_submit(
+                    mem_light, lambda: _run_cached_step(
+                        "Structural breaks", "structural_breaks",
+                        lambda cp: cp["breaks_result"],
+                        lambda: self._structural_breaks(data, spec, primary_effect, primary_ci),
+                        lambda v: {"breaks_result": v}))
 
-            # Step 11 — Residual diagnostics
-            step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
+            # Step 11 — Residual diagnostics (5-fold CV + field correlation)
+            pending["residual_diagnostics"] = self._pool_submit(mem, lambda: _run_cached_step(
                 "Residual diagnostics", "residual_diagnostics",
                 lambda cp: cp["residual_result"],
                 lambda: self._residual_diagnostics(
@@ -326,22 +333,29 @@ class CausalVerificationService:
                 lambda v: {
                     "residual_result": v,
                     "corrected_effect": v.get("corrected_effect"),
-                },
-            )))
+                }))
 
-            # Step 12 — Range checks
-            step_futures.append(self._pool_submit(mem, lambda: _run_cached_step(
-                "Range checks", "range_checks",
-                lambda cp: cp["range_result"],
-                lambda: self._range_checks(
-                    data, spec, confounders, estimation_results),
-                lambda v: {"range_result": v},
-            )))
+            # Step 12 — Range checks (VIF + logistic regression)
+            pending["range_checks"] = self._pool_submit(
+                mem_light, lambda: _run_cached_step(
+                    "Range checks", "range_checks",
+                    lambda cp: cp["range_result"],
+                    lambda: self._range_checks(data, spec, confounders, estimation_results),
+                    lambda v: {"range_result": v}))
 
-            # Collect all step results
-            for f in step_futures:
-                key, val = f.result()
+            # Collect results
+            for key, f in pending.items():
+                if key == "_refute":
+                    continue  # handled below
+                _, val = f.result()
                 step_outputs[key] = val
+
+            # Collect refutation sub-tasks
+            if "_refute" in pending:
+                refute_result = self._collect_refutations(
+                    pending["_refute"], spec, primary_effect)
+                _cp_save("refutations", {"refutations_result": refute_result})
+                step_outputs["refutations"] = refute_result
 
             # Collect results
             result["steps"]["mediation"] = step_outputs.get("mediation")
@@ -1066,72 +1080,106 @@ class CausalVerificationService:
     # Step 7: Refutations
     # ------------------------------------------------------------------
 
-    def _refutations(self, data, spec, dag_dot, primary_effect) -> dict[str, Any]:
+    def _refutations_parallel(self, data, spec, dag_dot, primary_effect,
+                              mem: int) -> dict[str, Future]:
+        """Submit each refutation type as an independent pool task."""
         discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
-        model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
-        refute_params = {
-            "init_params": {
-                "model_y": LGBMRegressor(**LGBM_DEFAULTS),
-                "model_t": model_t,
-                "model_final": LinearRegression(),
-                "discrete_treatment": discrete,
-            },
-            "fit_params": {},
-        }
+        model_t_fn = lambda: LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
 
-        model = dowhy.CausalModel(
-            data=data.encoded, treatment=spec.treatment,
-            outcome=spec.outcome, graph=dag_dot,
-        )
-        identified = model.identify_effect(proceed_when_unidentifiable=False)
-        est = model.estimate_effect(
-            identified, method_name="backdoor.econml.dml.DML",
-            method_params=refute_params,
-        )
+        def _build_model():
+            model_t = model_t_fn()
+            params = {
+                "init_params": {
+                    "model_y": LGBMRegressor(**LGBM_DEFAULTS),
+                    "model_t": model_t,
+                    "model_final": LinearRegression(),
+                    "discrete_treatment": discrete,
+                },
+                "fit_params": {},
+            }
+            model = dowhy.CausalModel(
+                data=data.encoded, treatment=spec.treatment,
+                outcome=spec.outcome, graph=dag_dot,
+            )
+            ident = model.identify_effect(proceed_when_unidentifiable=False)
+            est = model.estimate_effect(
+                ident, method_name="backdoor.econml.dml.DML",
+                method_params=params,
+            )
+            return model, ident, est
 
-        results = {}
+        def _run_placebo():
+            model, ident, est = _build_model()
+            r = model.refute_estimate(
+                ident, est,
+                method_name="placebo_treatment_refuter",
+                placebo_type="permute",
+                num_simulations=REFUTATION_SIMULATIONS,
+            )
+            return "placebo", r
+
+        def _run_random_cause():
+            model, ident, est = _build_model()
+            r = model.refute_estimate(
+                ident, est, method_name="random_common_cause",
+                num_simulations=REFUTATION_SIMULATIONS,
+            )
+            return "random_cause", r
+
+        def _run_subset():
+            model, ident, est = _build_model()
+            r = model.refute_estimate(
+                ident, est,
+                method_name="data_subset_refuter", subset_fraction=0.8,
+                num_simulations=REFUTATION_SIMULATIONS,
+            )
+            return "subset", r
+
+        futures: dict[str, Future] = {}
         for ref_cfg in spec.refutations:
+            if ref_cfg.type == RefutationType.PLACEBO:
+                futures["placebo"] = self._pool_submit(mem, _run_placebo)
+            elif ref_cfg.type == RefutationType.RANDOM_CAUSE:
+                futures["random_cause"] = self._pool_submit(mem, _run_random_cause)
+            elif ref_cfg.type == RefutationType.SUBSET:
+                futures["subset"] = self._pool_submit(mem, _run_subset)
+            elif ref_cfg.type == RefutationType.TEMPORAL_PLACEBO:
+                futures["temporal_placebo"] = self._pool_submit(
+                    mem, lambda: ("temporal_placebo",
+                                  self._temporal_placebo(data, spec, dag_dot, primary_effect)))
+        return futures
+
+    def _collect_refutations(self, futures: dict[str, Future],
+                             spec, primary_effect) -> dict[str, Any]:
+        results = {}
+        for key, f in futures.items():
             try:
-                if ref_cfg.type == RefutationType.PLACEBO:
-                    r = model.refute_estimate(
-                        identified, est,
-                        method_name="placebo_treatment_refuter",
-                        placebo_type="permute",
-                    )
+                name, r = f.result()
+                if name == "placebo":
                     ratio = abs(r.new_effect) / abs(primary_effect) if primary_effect else 0
                     results["placebo"] = {
                         "new_effect": float(r.new_effect),
                         "ratio": float(ratio),
                         "flag": ratio > spec.gates.placebo.flag_ratio,
                     }
-                elif ref_cfg.type == RefutationType.RANDOM_CAUSE:
-                    r = model.refute_estimate(
-                        identified, est, method_name="random_common_cause",
-                    )
+                elif name == "random_cause":
                     shift = (abs(r.new_effect - primary_effect) / abs(primary_effect)
                              if primary_effect else 0)
                     results["random_cause"] = {
                         "new_effect": float(r.new_effect),
                         "shift_pct": float(shift),
                     }
-                elif ref_cfg.type == RefutationType.SUBSET:
-                    r = model.refute_estimate(
-                        identified, est,
-                        method_name="data_subset_refuter", subset_fraction=0.8,
-                    )
+                elif name == "subset":
                     shift = (abs(r.new_effect - primary_effect) / abs(primary_effect)
                              if primary_effect else 0)
                     results["subset"] = {
                         "new_effect": float(r.new_effect),
                         "shift_pct": float(shift),
                     }
-                elif ref_cfg.type == RefutationType.TEMPORAL_PLACEBO:
-                    results["temporal_placebo"] = self._temporal_placebo(
-                        data, spec, dag_dot, primary_effect
-                    )
+                elif name == "temporal_placebo":
+                    results["temporal_placebo"] = r
             except Exception as e:
-                results[ref_cfg.type.value.lower()] = {"error": str(e)}
-
+                results[key] = {"error": str(e)}
         return results
 
     def _temporal_placebo(

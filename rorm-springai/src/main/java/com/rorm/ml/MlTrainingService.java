@@ -5,6 +5,7 @@ import com.rorm.ml.exception.MlServiceException;
 import com.rorm.ml.stream.JobEvent;
 import com.rorm.ml.stream.JobFutureRegistry;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -58,7 +59,7 @@ public class MlTrainingService {
 //                yield resp.analysisId();
             }
             case CausalVerificationJobRequest r -> {
-                var resp = submitCausalVerification(r);
+                var resp = submitCausalVerification(r, "2d512e2a-8e29-449b-abb9-0834b2c12b36");
                 if (resp.isNotAccepted()) {
                     throw new MlServiceException("Causal verification not accepted: " + resp.message());
                 }
@@ -219,10 +220,16 @@ public class MlTrainingService {
         }
     }
 
-    public AsyncJobResponse submitCausalVerification(CausalVerificationJobRequest request) {
+    public AsyncJobResponse submitCausalVerification(CausalVerificationJobRequest request,
+                                                     @Nullable String runId) {
         try {
-            return restClient.post()
-                .uri("/analysis/causal-verification/async")
+            var uri = runId != null
+                ? "/analysis/causal-verification/async?run_id={runId}"
+                : "/analysis/causal-verification/async";
+            var spec = runId != null
+                ? restClient.post().uri(uri, runId)
+                : restClient.post().uri(uri);
+            return spec
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
@@ -230,6 +237,10 @@ public class MlTrainingService {
         } catch (RestClientException e) {
             throw new MlServiceException("Failed to submit causal verification", e);
         }
+    }
+
+    public AsyncJobResponse submitCausalVerification(CausalVerificationJobRequest request) {
+        return submitCausalVerification(request, null);
     }
 
     public Map<String, Object> validatePipelineSpec(CausalVerificationJobRequest request) {
