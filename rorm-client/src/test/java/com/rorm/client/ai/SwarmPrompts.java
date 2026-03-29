@@ -3007,8 +3007,8 @@ public interface SwarmPrompts {
             { id, modifier_columns, slicing: { column: unique|quartile } }
           ]
               CONSTRAINTS:
-              - modifier_columns must be NUMERIC (CausalForestDML requires
-                numeric feature matrix X; non-numeric raises ValueError).
+              - modifier_columns may be numeric or categorical (categorical
+                columns are label-encoded automatically before GRF fitting).
               - Every slicing key must be a column in query results.
               - Slicing values must be exactly "unique" or "quartile".
         
