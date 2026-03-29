@@ -51,12 +51,11 @@ public class MlTrainingService {
                 yield resp.analysisId();
             }
             case ShapJobRequest r -> {
-                yield UUID.fromString("f772790d-50df-4222-ad7e-aecd9074f592");
-//                var resp = submitShapCurvesAsync(r);
-//                if (resp.isNotAccepted()) {
-//                    throw new MlServiceException("SHAP not accepted: " + resp.message());
-//                }
-//                yield resp.analysisId();
+                var resp = submitShapCurvesAsync(r);
+                if (resp.isNotAccepted()) {
+                    throw new MlServiceException("SHAP not accepted: " + resp.message());
+                }
+                yield resp.analysisId();
             }
             case CausalVerificationJobRequest r -> {
                 var resp = submitCausalVerification(r, "2d512e2a-8e29-449b-abb9-0834b2c12b36");
