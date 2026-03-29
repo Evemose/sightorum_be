@@ -1191,8 +1191,8 @@ public interface SwarmPrompts {
             HYPOTHESIS:
               treatment: <column name — MUST be anchor-internal>
               treatment_scope: <which anchor/enrichment entity contains this attribute>
-              treatment_form: continuous | binary_threshold | categorical
-              threshold_value: <if binary_threshold, from SHAP breakpoint>
+              treatment_form: continuous | binary_threshold (numeric only) | categorical
+              threshold_value: <if binary_threshold, numeric SHAP breakpoint>
               threshold_convergence: <N converged / N total, from breakpoint metadata>
               outcome: <column name>
               expected_direction: +1 | -1
@@ -2951,20 +2951,35 @@ public interface SwarmPrompts {
             { id, treatment_column, treatment_form, model_type,
               w_columns, reference_category?, threshold_value?,
               notes }                    — one per variant
-            filter?: {                   — optional population restriction
-              column: string,
-              operator: IN | GT | LT | EQ,
-              values: [string | number]
-            }
+            filter?: <FilterExpr>        — optional population restriction
           ]
               CONSTRAINTS:
               - Must be non-empty (at least one variant). Engine accesses [0]
                 as the primary variant.
               - All variant IDs must be unique.
               - treatment_column and all w_columns must exist in query results.
-              - BINARY_THRESHOLD variants MUST have a numeric threshold_value.
+              - BINARY_THRESHOLD is for NUMERIC treatments only (e.g.
+                nodeRefrigHealthPct > 70). threshold_value MUST be a number.
+              - For categorical binary contrasts (e.g. PIR_foam vs VIP_panel),
+                use CATEGORICAL with reference_category and a filter that
+                restricts to the two levels:
+                  treatment_form: CATEGORICAL,
+                  reference_category: "VIP_panel",
+                  filter: { "AND": [
+                    { column: "region", operator: IN, values: [...] },
+                    { column: "containerInsulationType", operator: IN,
+                      values: ["PIR_foam", "VIP_panel"] }
+                  ]}
               - filter with GT, LT, or EQ operator requires a non-empty values
                 array (engine accesses values[0]).
+        
+          <FilterExpr> is a composable filter tree:
+            Leaf:  { column: string, operator: IN|GT|LT|EQ, values: [...] }
+            AND:   { "AND": [<FilterExpr>, <FilterExpr>, ...] }
+            OR:    { "OR":  [<FilterExpr>, <FilterExpr>, ...] }
+            NOT:   { "NOT": <FilterExpr> }
+            Nesting is unlimited.  Use AND to combine scoping conditions
+            (e.g. region filter + treatment-level filter for binary contrasts).
         
           gates:
             nuisance_r2:
@@ -3093,7 +3108,14 @@ public interface SwarmPrompts {
               { domain_ranking, source, comparison_method, scope,
                 expected_concordance }
             ]
-              CONSTRAINT: expected_concordance must be in [0, 1].
+              CONSTRAINT: expected_concordance is a numeric Spearman ρ
+              threshold in [-1, 1].  The pipeline computes actual Spearman
+              rank correlation between domain_ranking order and GRF-discovered
+              effect ordering.  Sign determines direction of check:
+              threshold ≥ 0 → pass if actual ρ ≥ threshold (positive concordance),
+              threshold < 0 → pass if actual ρ ≤ threshold (negative / reversal).
+              Common values:  0.0 = any positive concordance,
+              0.5 = strong positive, -0.3 = expect reversal.
             allocation_bias: [
               { treatment_column, grouping_column, flag_threshold }
             ]

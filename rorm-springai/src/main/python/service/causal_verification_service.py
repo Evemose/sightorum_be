@@ -32,7 +32,7 @@ from econml.dml import CausalForestDML, LinearDML
 from econml.inference import BootstrapInference
 from itertools import combinations
 from lightgbm import LGBMRegressor
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import KFold, cross_val_score
 from statsmodels.stats.diagnostic import acorr_ljungbox
@@ -749,9 +749,16 @@ class CausalVerificationService:
                 _require_col(ab.treatment_column, "externalization.allocation_bias treatment_column")
                 _require_col(ab.grouping_column, "externalization.allocation_bias grouping_column")
             for dr in spec.externalization.domain_rankings:
-                if not (0 <= dr.expected_concordance <= 1):
+                if not isinstance(dr.expected_concordance, (int, float)):
                     errors.append(f"externalization.domain_rankings '{dr.source}': "
-                                  f"expected_concordance must be in [0,1], "
+                                  f"expected_concordance must be numeric "
+                                  f"(Spearman ρ threshold, e.g. 0.0 for positive, "
+                                  f"0.5 for strong positive, -0.3 for negative), "
+                                  f"got {type(dr.expected_concordance).__name__} "
+                                  f"'{dr.expected_concordance}'")
+                elif not (-1 <= dr.expected_concordance <= 1):
+                    errors.append(f"externalization.domain_rankings '{dr.source}': "
+                                  f"expected_concordance must be in [-1, 1], "
                                   f"got {dr.expected_concordance}")
 
         if errors:
@@ -1672,26 +1679,57 @@ class CausalVerificationService:
     def _externalization(self, data, spec, pipeline_result) -> dict:
         result: dict[str, Any] = {}
 
-        # Domain rankings
+        # Domain rankings — compute Spearman ρ between domain-predicted
+        # ordering and GRF-discovered effect ordering, gate on threshold
         grf_results = pipeline_result.get("steps", {}).get("grf")
+        discovered_slopes: dict[str, float] = {}
         if grf_results:
-            discovered_slopes = {}
             for grf_r in grf_results:
                 if isinstance(grf_r, dict) and "slices" in grf_r:
                     for key, val in grf_r["slices"].items():
                         discovered_slopes[key] = val["mean_cate"]
 
-            rankings = []
-            for dr in spec.externalization.domain_rankings:
-                rankings.append({
-                    "source": dr.source,
-                    "domain_ranking": dr.domain_ranking,
-                    "comparison_method": dr.comparison_method,
-                    "scope": dr.scope,
-                    "expected_concordance": dr.expected_concordance,
-                    "discovered_slopes": discovered_slopes,
-                })
-            result["domain_rankings"] = rankings
+        rankings = []
+        for dr in spec.externalization.domain_rankings:
+            entry: dict[str, Any] = {
+                "source": dr.source,
+                "domain_ranking": dr.domain_ranking,
+                "comparison_method": dr.comparison_method,
+                "scope": dr.scope,
+                "expected_concordance": dr.expected_concordance,
+                "discovered_slopes": discovered_slopes,
+            }
+            # Match domain-predicted labels to discovered slopes
+            matched_slopes = []
+            for label in dr.domain_ranking:
+                matches = {k: v for k, v in discovered_slopes.items()
+                           if label in k}
+                if matches:
+                    matched_slopes.append(min(matches.values()))
+                else:
+                    matched_slopes.append(None)
+
+            non_null = [(i, s) for i, s in enumerate(matched_slopes)
+                        if s is not None]
+            if len(non_null) >= 3:
+                domain_ranks = [i for i, _ in non_null]
+                effect_values = [s for _, s in non_null]
+                rho, p_value = spearmanr(domain_ranks, effect_values)
+                entry["spearman_rho"] = float(rho)
+                entry["spearman_p"] = float(p_value)
+                entry["matched_n"] = len(non_null)
+                threshold = dr.expected_concordance
+                entry["pass"] = (float(rho) >= threshold if threshold >= 0
+                                 else float(rho) <= threshold)
+            else:
+                entry["spearman_rho"] = None
+                entry["matched_n"] = len(non_null)
+                entry["pass"] = None
+                entry["note"] = (f"Only {len(non_null)} of "
+                                 f"{len(dr.domain_ranking)} domain labels "
+                                 f"matched GRF slices; need ≥3 for Spearman")
+            rankings.append(entry)
+        result["domain_rankings"] = rankings
 
         # Allocation bias
         alloc_results = []

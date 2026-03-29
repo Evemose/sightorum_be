@@ -43,7 +43,7 @@ class AiChatRunner {
     @Test
     void simpleChat() {
         //noinspection ConstantValue
-        if (false) { // guard from accidental execution
+        if (true) { // guard from accidental execution
             durableRuntime.submit("runner-pipeline-h1-v1_1", new JobSpec(
                 "agentJp",
                 "runH1Pipeline"
