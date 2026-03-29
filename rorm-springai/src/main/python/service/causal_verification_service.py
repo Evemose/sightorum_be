@@ -1285,12 +1285,12 @@ class CausalVerificationService:
         for line in dag_dot.split("\n"):
             stripped = line.strip().rstrip(";")
             if "->" in stripped:
-                src, dst = [s.strip() for s in stripped.split("->", 1)]
+                src, dst = [s.strip().strip('"') for s in stripped.split("->", 1)]
                 if src == old_node:
                     src = new_node
                 if dst == old_node:
                     dst = new_node
-                lines.append(f"    {src} -> {dst};")
+                lines.append(f'    "{src}" -> "{dst}";')
             else:
                 lines.append(line)
         return "\n".join(lines)
