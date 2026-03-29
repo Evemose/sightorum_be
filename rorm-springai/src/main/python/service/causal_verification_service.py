@@ -176,7 +176,7 @@ class CausalVerificationService:
         result["steps"]["identification"] = identification_result
 
         # ==================================================================
-        # Step 3  —  Estimation variants
+        # Step 3  —  Estimation variants (per-variant + coarse checkpoints)
         # ==================================================================
         cp = _cp_load("estimation")
         if cp is not None:
@@ -187,21 +187,24 @@ class CausalVerificationService:
         else:
             report(0.15, "Running estimation variants")
             estimation_results = {}
-            primary_variant = spec.estimation_variants[0]
             mem = self._mem_estimate(data)
-            variant_futures = {
-                v.id: self._pool_submit(
-                    mem, lambda v=v: self._run_estimation_variant(
-                        data, v, refined_edges, dag_dot, spec.outcome
+            variant_futures: dict[str, Future] = {}
+            for v in spec.estimation_variants:
+                vcp = _cp_load(f"estimation:{v.id}")
+                if vcp is not None:
+                    estimation_results[v.id] = vcp
+                else:
+                    variant_futures[v.id] = self._pool_submit(
+                        mem, lambda v=v: self._run_estimation_variant(
+                            data, v, refined_edges, dag_dot, spec.outcome
+                        )
                     )
-                )
-                for v in spec.estimation_variants
-            }
             for vid, future in variant_futures.items():
                 estimation_results[vid] = future.result()
+                _cp_save(f"estimation:{vid}", estimation_results[vid])
 
-            primary_effect = estimation_results[primary_variant.id]["effect"]
-            primary_ci = estimation_results[primary_variant.id].get("ci")
+            primary_effect = estimation_results[spec.estimation_variants[0].id]["effect"]
+            primary_ci = estimation_results[spec.estimation_variants[0].id].get("ci")
             _cp_save("estimation", {
                 "estimation_results": estimation_results,
                 "primary_effect": primary_effect,
@@ -278,25 +281,29 @@ class CausalVerificationService:
             # Steps 6-12: submit all independent work to pool, collect at end
             pending: dict[str, Future] = {}
 
-            # Step 6 — GRF (internally submits per-config fits to pool)
+            # Step 6 — GRF (coarse + per-config checkpoints)
             if spec.grf_configs:
-                pending["grf"] = self._pool_submit(mem, lambda: _run_cached_step(
-                    "GRF heterogeneity", "grf",
-                    lambda cp: cp["grf_result"],
-                    lambda: self._grf_heterogeneity(data, spec, confounders),
-                    lambda v: {"grf_result": v}))
+                cp = _cp_load("grf")
+                if cp is not None:
+                    step_outputs["grf"] = cp["grf_result"]
+                else:
+                    def _run_grf():
+                        r = self._grf_heterogeneity(data, spec, confounders, checkpoint)
+                        _cp_save("grf", {"grf_result": r})
+                        return "grf", r
 
-            # Step 7 — Refutations: each type is an independent pool task
+                    pending["grf"] = self._pool_submit(mem, _run_grf)
+
+            # Step 7 — Refutations (coarse + per-type checkpoints)
             if spec.refutations:
                 cp = _cp_load("refutations")
                 if cp is not None:
-                    report(0, "Refutations (cached)")
                     step_outputs["refutations"] = cp["refutations_result"]
                 else:
                     report(0, "Refutations")
                     refute_futures = self._refutations_parallel(
-                        data, spec, dag_dot, primary_effect, mem)
-                    pending["_refute"] = refute_futures  # marker, collected below
+                        data, spec, dag_dot, primary_effect, mem, checkpoint)
+                    pending["_refute"] = refute_futures
 
             # Step 8 — Unmeasured confounding (analytical, no model fitting)
             if spec.unmeasured_confounding:
@@ -353,7 +360,7 @@ class CausalVerificationService:
             # Collect refutation sub-tasks
             if "_refute" in pending:
                 refute_result = self._collect_refutations(
-                    pending["_refute"], spec, primary_effect)
+                    pending["_refute"], spec, primary_effect, checkpoint)
                 _cp_save("refutations", {"refutations_result": refute_result})
                 step_outputs["refutations"] = refute_result
 
@@ -1016,7 +1023,8 @@ class CausalVerificationService:
     # Step 6: GRF heterogeneity
     # ------------------------------------------------------------------
 
-    def _grf_heterogeneity(self, data, spec, confounders) -> list[dict]:
+    def _grf_heterogeneity(self, data, spec, confounders,
+                           checkpoint=None) -> list[dict]:
         enc = data.encoded
 
         def _fit_one_grf(cfg: GrfConfig) -> dict:
@@ -1070,24 +1078,36 @@ class CausalVerificationService:
                 return {"config_id": cfg.id, "error": str(e)}
 
         mem = self._mem_estimate(data, factor=5)
-        futures = [
-            self._pool_submit(mem, lambda c=cfg: _fit_one_grf(c))
-            for cfg in spec.grf_configs
-        ]
-        return [f.result() for f in futures]
+        results = []
+        futures: dict[str, Future] = {}
+        for cfg in spec.grf_configs:
+            cached = checkpoint.load(f"grf:{cfg.id}") if checkpoint else None
+            if cached is not None:
+                results.append(cached)
+            else:
+                futures[cfg.id] = self._pool_submit(mem, lambda c=cfg: _fit_one_grf(c))
+        for cid, f in futures.items():
+            r = f.result()
+            results.append(r)
+            if checkpoint:
+                checkpoint.save(f"grf:{cid}", r)
+        return results
 
     # ------------------------------------------------------------------
     # Step 7: Refutations
     # ------------------------------------------------------------------
 
     def _refutations_parallel(self, data, spec, dag_dot, primary_effect,
-                              mem: int) -> dict[str, Future]:
-        """Submit each refutation type as an independent pool task."""
+                              mem: int, checkpoint=None) -> dict[str, Future]:
+        """Submit each refutation type as an independent pool task.
+
+        Per-type checkpoints: ``refutation:{type}`` keys.  Cached types
+        are wrapped in already-resolved futures.
+        """
         discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
-        model_t_fn = lambda: LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
 
         def _build_model():
-            model_t = model_t_fn()
+            model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
             params = {
                 "init_params": {
                     "model_y": LGBMRegressor(**LGBM_DEFAULTS),
@@ -1108,76 +1128,66 @@ class CausalVerificationService:
             )
             return model, ident, est
 
-        def _run_placebo():
+        def _run_refutation(ref_type, method_name, **kwargs):
             model, ident, est = _build_model()
-            r = model.refute_estimate(
-                ident, est,
-                method_name="placebo_treatment_refuter",
-                placebo_type="permute",
-                num_simulations=REFUTATION_SIMULATIONS,
-            )
-            return "placebo", r
+            r = model.refute_estimate(ident, est, method_name=method_name,
+                                      num_simulations=REFUTATION_SIMULATIONS, **kwargs)
+            return ref_type, r
 
-        def _run_random_cause():
-            model, ident, est = _build_model()
-            r = model.refute_estimate(
-                ident, est, method_name="random_common_cause",
-                num_simulations=REFUTATION_SIMULATIONS,
-            )
-            return "random_cause", r
-
-        def _run_subset():
-            model, ident, est = _build_model()
-            r = model.refute_estimate(
-                ident, est,
-                method_name="data_subset_refuter", subset_fraction=0.8,
-                num_simulations=REFUTATION_SIMULATIONS,
-            )
-            return "subset", r
+        dispatch = {
+            RefutationType.PLACEBO: lambda: _run_refutation(
+                "placebo", "placebo_treatment_refuter", placebo_type="permute"),
+            RefutationType.RANDOM_CAUSE: lambda: _run_refutation(
+                "random_cause", "random_common_cause"),
+            RefutationType.SUBSET: lambda: _run_refutation(
+                "subset", "data_subset_refuter", subset_fraction=0.8),
+            RefutationType.TEMPORAL_PLACEBO: lambda: (
+                "temporal_placebo",
+                self._temporal_placebo(data, spec, dag_dot, primary_effect)),
+        }
 
         futures: dict[str, Future] = {}
         for ref_cfg in spec.refutations:
-            if ref_cfg.type == RefutationType.PLACEBO:
-                futures["placebo"] = self._pool_submit(mem, _run_placebo)
-            elif ref_cfg.type == RefutationType.RANDOM_CAUSE:
-                futures["random_cause"] = self._pool_submit(mem, _run_random_cause)
-            elif ref_cfg.type == RefutationType.SUBSET:
-                futures["subset"] = self._pool_submit(mem, _run_subset)
-            elif ref_cfg.type == RefutationType.TEMPORAL_PLACEBO:
-                futures["temporal_placebo"] = self._pool_submit(
-                    mem, lambda: ("temporal_placebo",
-                                  self._temporal_placebo(data, spec, dag_dot, primary_effect)))
+            key = ref_cfg.type.value.lower()
+            cached = checkpoint.load(f"refutation:{key}") if checkpoint else None
+            if cached is not None:
+                f: Future = Future()
+                f.set_result(("_cached", cached))
+                futures[key] = f
+            elif ref_cfg.type in dispatch:
+                futures[key] = self._pool_submit(mem, dispatch[ref_cfg.type])
         return futures
 
     def _collect_refutations(self, futures: dict[str, Future],
-                             spec, primary_effect) -> dict[str, Any]:
+                             spec, primary_effect, checkpoint=None) -> dict[str, Any]:
         results = {}
         for key, f in futures.items():
             try:
                 name, r = f.result()
+                if name == "_cached":
+                    results[key] = r
+                    continue
                 if name == "placebo":
                     ratio = abs(r.new_effect) / abs(primary_effect) if primary_effect else 0
-                    results["placebo"] = {
+                    entry = {
                         "new_effect": float(r.new_effect),
                         "ratio": float(ratio),
                         "flag": ratio > spec.gates.placebo.flag_ratio,
                     }
-                elif name == "random_cause":
+                elif name in ("random_cause", "subset"):
                     shift = (abs(r.new_effect - primary_effect) / abs(primary_effect)
                              if primary_effect else 0)
-                    results["random_cause"] = {
-                        "new_effect": float(r.new_effect),
-                        "shift_pct": float(shift),
-                    }
-                elif name == "subset":
-                    shift = (abs(r.new_effect - primary_effect) / abs(primary_effect)
-                             if primary_effect else 0)
-                    results["subset"] = {
+                    entry = {
                         "new_effect": float(r.new_effect),
                         "shift_pct": float(shift),
                     }
                 elif name == "temporal_placebo":
-                    results["temporal_placebo"] = r
+                    entry = r
+                else:
+                    entry = {"error": f"unknown refutation type: {name}"}
+                results[name] = entry
+                if checkpoint:
+                    checkpoint.save(f"refutation:{name}", entry)
             except Exception as e:
                 results[key] = {"error": str(e)}
         return results
@@ -1795,7 +1805,7 @@ class CausalVerificationService:
     def _edges_to_dot(edges: list[tuple[str, str]]) -> str:
         lines = ["digraph {"]
         for src, dst in edges:
-            lines.append(f"    {src} -> {dst};")
+            lines.append(f'    "{src}" -> "{dst}";')
         lines.append("}")
         return "\n".join(lines)
 
