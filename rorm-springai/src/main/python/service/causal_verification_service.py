@@ -1645,7 +1645,7 @@ class CausalVerificationService:
 
         # VIF (add intercept column — variance_inflation_factor requires it)
         vif_cols = confounders + [spec.treatment]
-        X_vif = data.encoded[vif_cols].dropna()
+        X_vif = data.encoded[vif_cols].dropna().astype(float)
         X_vif_const = np.column_stack([np.ones(len(X_vif)), X_vif.values])
         vif_values = {}
         for i, col in enumerate(vif_cols):
@@ -1653,7 +1653,8 @@ class CausalVerificationService:
                 vif_values[col] = float(
                     variance_inflation_factor(X_vif_const, i + 1)
                 )
-            except Exception:
+            except Exception as e:
+                logger.warning("VIF computation failed for column '%s': %s", col, e)
                 vif_values[col] = None
         result["vif"] = {
             "values": vif_values,
