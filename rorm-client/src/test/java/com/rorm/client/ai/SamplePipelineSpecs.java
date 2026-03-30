@@ -424,6 +424,8 @@ final class SamplePipelineSpecs {
               {"alias": "refrigSystemType", "expression": {"@type": "path", "path": "cn.refrigSystemType"}},
               {"alias": "loggerMonthsSinceCal", "expression": {"@type": "path", "path": "s.loggerMonthsSinceCal"}},
               {"alias": "loggerId", "expression": {"@type": "path", "path": "s.loggerId"}},
+              {"alias": "siteUrbanRural", "expression": {"@type": "path", "path": "s.siteUrbanRural"}},
+              {"alias": "routeTotalAirMiles", "expression": {"@type": "path", "path": "s.routeTotalAirMiles"}},
               {"alias": "dispatchDate", "expression": {"@type": "path", "path": "s.date"}},
               {"alias": "dispatchTimestamp", "expression": {"@type": "path", "path": "s.dispatchTimestamp"}}
             ]
@@ -635,7 +637,7 @@ final class SamplePipelineSpecs {
             .treatmentForm("CONTINUOUS")
             .dataQuery(mapper.readValue(H3_QUERY, DenseQueryDto.class))
             .expectedRowCount(563_028)
-            .stripColumns(List.of("shipmentId", "dispatchDate", "dispatchTimestamp", "loggerId", "ambientTempAtArrivalC"))
+            .stripColumns(List.of("shipmentId", "dispatchTimestamp"))
             .dagEdges(H3_DAG_EDGES)
             .dsepThreshold(0.044)
             .adjustmentSet(H3_W_COLUMNS)

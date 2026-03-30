@@ -2925,6 +2925,12 @@ public interface SwarmPrompts {
           expected_row_count: int        — verified by your count query
           strip_columns: [string]        — columns in query but excluded from all analysis
                                            (IDs, temporal ordering columns kept for breaks only)
+              CRITICAL: stripped columns are REMOVED from the data before any
+              step runs.  Do NOT reference stripped columns anywhere else in
+              the spec (dag_edges, adjustment_set, w_columns, check_columns,
+              confounder_adds, metadata_correlation, structural_breaks
+              temporal_column, etc.).  If a column is needed by any step,
+              do not strip it.
 
           dag_edges: string              — digraph notation: "A -> B; C -> B; C -> A"
               CONSTRAINTS:
@@ -2939,7 +2945,7 @@ public interface SwarmPrompts {
               CONSTRAINT: strictly > 0.
         
           adjustment_set: [string]       — W matrix columns (full backdoor set).
-              CONSTRAINT: every column must exist in query results.
+              CONSTRAINT: every column be in query SELECT and NOT in strip_columns.
         
           mediators_excluded: [          — variables excluded from primary W as mediators
             { column, pathway, direct_effect_variant_id }
@@ -2957,7 +2963,7 @@ public interface SwarmPrompts {
               - Must be non-empty (at least one variant). Engine accesses [0]
                 as the primary variant.
               - All variant IDs must be unique.
-              - treatment_column and all w_columns must exist in query results.
+              - treatment_column and all w_columns be in query SELECT and NOT in strip_columns.
               - BINARY_THRESHOLD is for NUMERIC treatments only (e.g.
                 nodeRefrigHealthPct > 70). threshold_value MUST be a number.
               - For categorical binary contrasts (e.g. PIR_foam vs VIP_panel),
@@ -3021,12 +3027,14 @@ public interface SwarmPrompts {
               { column, deviation_threshold_pct }
             ]
               CONSTRAINTS:
-              - column must exist in query results.
+              - column must be in query SELECT and NOT in strip_columns.
               - deviation_threshold_pct must be > 0.
             confounder_adds: [
               { column, reasoning }
             ]
-              CONSTRAINT: column must exist in query results.
+              CONSTRAINT: column must be in query SELECT and NOT in
+              strip_columns. Only reference columns the query actually
+              returns — do not assume columns from other hypotheses.
             threshold_variants: [        — if applicable
               { threshold, expected_n_treated, expected_n_control }
             ]
@@ -3044,7 +3052,7 @@ public interface SwarmPrompts {
               entity_count, temporal_points }
           ]
               CONSTRAINTS:
-              - entity_column and temporal_column must exist in query results.
+              - entity_column and temporal_column be in query SELECT and NOT in strip_columns.
               - pelt_penalty must be > 0. ruptures.Pelt does NOT enforce this
                 at runtime — pen=0 makes every point a breakpoint, pen<0
                 actively rewards spurious breaks. Both produce garbage.
@@ -3058,7 +3066,7 @@ public interface SwarmPrompts {
               { temporal_column, grain, lags: [int], threshold }
             ]
               CONSTRAINTS:
-              - temporal_column must exist in query results.
+              - temporal_column be in query SELECT and NOT in strip_columns.
               - lags must be non-empty; all values must be positive integers.
               - max(lags) must be < data row count. acorr_ljungbox computes
                 autocorrelation via acf(nlags=max_lag) — if max_lag ≥ n_rows,
@@ -3067,14 +3075,16 @@ public interface SwarmPrompts {
             field_correlation:
               threshold: double          — CONSTRAINT: must be > 0.
               check_columns: [string]    — non-W columns + W columns.
-                  CONSTRAINT: all must exist in query results.
+                  CONSTRAINT: all must be in query SELECT and NOT in
+                  strip_columns.
             auto_correction:
               max_iterations: int        — CONSTRAINT: must be > 0.
               stop_criterion_ci_pct: double
             metadata_correlation: [
               { column, threshold, alert_type }
             ]
-              CONSTRAINT: column must exist in query results.
+              CONSTRAINT: column must be in query SELECT and NOT in
+              strip_columns.
         
           range_checks:
             vif:
@@ -3093,7 +3103,7 @@ public interface SwarmPrompts {
             variance: [
               { column, structural_note }
             ]
-              CONSTRAINT: column must exist in query results.
+              CONSTRAINT: column be in query SELECT and NOT in strip_columns.
         
           unmeasured_confounding: [
               { variant_id, method: E_VALUE | ROSENBAUM_BOUNDS,
