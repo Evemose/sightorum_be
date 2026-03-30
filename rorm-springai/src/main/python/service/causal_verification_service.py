@@ -1321,8 +1321,13 @@ class CausalVerificationService:
                 continue
 
             if uc.method == UnmeasuredMethod.E_VALUE:
-                iqr = float(enc[spec.treatment].quantile(0.75)
-                            - enc[spec.treatment].quantile(0.25))
+                # Use raw treatment values for IQR — encoded values are
+                # arbitrary integers that don't reflect the actual scale
+                raw_t = data[spec.treatment]
+                if pd.api.types.is_numeric_dtype(raw_t):
+                    iqr = float(raw_t.quantile(0.75) - raw_t.quantile(0.25))
+                else:
+                    iqr = 1.0  # categorical: effect is already per-category
                 multiplier = iqr
                 abs_eff = abs(effect * multiplier)
                 rr = (baseline_rate + abs_eff) / baseline_rate if baseline_rate > 0 else 1
@@ -1592,11 +1597,21 @@ class CausalVerificationService:
         correlations.sort(key=lambda x: (-x.get("is_metadata", False), -abs(x["correlation"])))
         result["field_correlations"] = correlations
 
-        # Auto-correction
+        # Auto-correction — skip mediators and DAG descendants of treatment
+        # (correcting for a mediator absorbs the causal pathway)
+        mediator_cols = {m.column for m in spec.mediators_excluded}
+        dag = self._edges_to_nx(refined_edges)
+        if dag.has_node(spec.treatment):
+            descendants = nx.descendants(dag, spec.treatment)
+        else:
+            descendants = set()
+        excluded = mediator_cols | descendants | {spec.treatment, spec.outcome}
+
         corrections = []
         corrected_value = effect
         ac_cfg = spec.residual_checks.auto_correction
-        for c in correlations[:ac_cfg.max_iterations]:
+        eligible = [c for c in correlations if c["column"] not in excluded]
+        for c in eligible[:ac_cfg.max_iterations]:
             dag_aug = self._edges_to_nx(refined_edges + [(c["column"], spec.outcome)])
             corrected = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_aug)
             if corrected is not None:
@@ -1673,11 +1688,16 @@ class CausalVerificationService:
         for ov in spec.range_checks.overlap:
             variant = estimation_results.get(ov.variant_id, {})
             t_col = variant.get("treatment_column", spec.treatment)
-            if t_col not in data.columns:
-                overlaps.append({"variant_id": ov.variant_id, "error": "column not found"})
-                continue
             try:
-                binary = data.encoded[t_col]
+                # Binary threshold columns (_bin_*) are created during estimation
+                # but don't exist in the original data — recreate them
+                if t_col.startswith("_bin_") and t_col not in data.columns:
+                    parts = t_col.split("_", 3)  # _bin_{col}_{threshold}
+                    src_col = parts[2] if len(parts) >= 3 else spec.treatment
+                    threshold = float(parts[3]) if len(parts) >= 4 else 0
+                    binary = (data.encoded[src_col] > threshold).astype(int)
+                else:
+                    binary = data.encoded[t_col]
                 if binary.nunique() > 2:
                     binary = (binary > binary.median()).astype(int)
                 if binary.nunique() < 2:
