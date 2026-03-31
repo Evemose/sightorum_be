@@ -891,9 +891,15 @@ class CausalVerificationService:
         discrete = variant.treatment_form != TreatmentForm.CONTINUOUS
 
         # Re-map treatment to contiguous 0..n after filtering so EconML's
-        # internal OneHotEncoder doesn't encounter gaps in category codes
+        # internal OneHotEncoder doesn't encounter gaps in category codes.
+        # Build code→label mapping for per-category effect labeling.
+        code_to_label: dict[int, str] = {}
         if discrete and treatment_col in df.columns:
+            raw_vals = sorted(filtered.raw[treatment_col].dropna().unique())
             df[treatment_col] = df[treatment_col].astype("category").cat.codes
+            codes = sorted(df[treatment_col].dropna().unique())
+            for code, label in zip(codes, raw_vals):
+                code_to_label[int(code)] = str(label)
 
         if variant.treatment_form == TreatmentForm.BINARY_THRESHOLD and variant.threshold_value is not None:
             bin_col = f"_bin_{treatment_col}_{variant.threshold_value}"
@@ -906,7 +912,8 @@ class CausalVerificationService:
             ]
 
         return self._estimate_dml(
-            df, variant, W_cols, treatment_col, discrete, refined_edges, outcome_col
+            df, variant, W_cols, treatment_col, discrete, refined_edges, outcome_col,
+            code_to_label,
         )
 
     def _estimate_dml(
@@ -918,6 +925,7 @@ class CausalVerificationService:
             discrete: bool,
             refined_edges: list[tuple[str, str]],
             outcome_col: str,
+            code_to_label: dict[int, str] | None = None,
     ) -> dict[str, Any]:
         """Run DML estimation directly via econml (bypasses DoWhy graph layer)."""
         try:
@@ -935,14 +943,30 @@ class CausalVerificationService:
                     inference=BootstrapInference(
                         n_bootstrap_samples=BOOTSTRAP_SAMPLES, n_jobs=1))
 
-            effect = float(dml.effect().mean())
+            raw_effect = dml.effect()
+            effect = float(raw_effect.mean())
             ci_lo, ci_hi = dml.effect_interval(alpha=CI_ALPHA)
             ci = (float(ci_lo.mean()), float(ci_hi.mean()))
+
+            # Per-category effects for discrete treatments
+            category_effects = None
+            if discrete and raw_effect.ndim == 2 and code_to_label:
+                codes = sorted(code_to_label.keys())
+                ref_label = code_to_label.get(codes[0], str(codes[0]))
+                non_ref_codes = codes[1:]
+                col_name = variant.treatment_column
+                category_effects = {}
+                for i, code in enumerate(non_ref_codes):
+                    if i < raw_effect.shape[1]:
+                        label = code_to_label.get(code, str(code))
+                        category_effects[f"{col_name}={label}"] = float(raw_effect[:, i].mean())
+                category_effects[f"{col_name}={ref_label}"] = 0.0
+
         except Exception as e:
             logger.warning(f"Variant {variant.id} estimation failed: {e}")
             return {"variant_id": variant.id, "effect": None, "ci": None, "error": str(e)}
 
-        return {
+        result = {
             "variant_id": variant.id,
             "effect": effect,
             "ci": ci,
@@ -951,6 +975,9 @@ class CausalVerificationService:
             "n_obs": len(df),
             "discrete": discrete,
         }
+        if category_effects is not None:
+            result["category_effects"] = category_effects
+        return result
 
     # ------------------------------------------------------------------
     # Step 4: Quality gates
@@ -1829,8 +1856,13 @@ class CausalVerificationService:
                 sample_sizes = tv_sample_sizes
                 entry["source_type"] = "threshold_variants"
             else:
-                effects = grf_effects
-                entry["source_type"] = "grf_slices"
+                # Categorical: use per-category effects from primary estimation
+                primary_est = (pipeline_result.get("steps", {})
+                               .get("estimation", {})
+                               .get(spec.estimation_variants[0].id, {}))
+                cat_effects = primary_est.get("category_effects", {})
+                effects = cat_effects if cat_effects else grf_effects
+                entry["source_type"] = "category_effects" if cat_effects else "grf_slices"
             entry["effects_used"] = effects
 
             eval_result = evaluate_ordering(ordering, effects, sample_sizes=sample_sizes)
