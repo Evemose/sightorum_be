@@ -3115,27 +3115,60 @@ public interface SwarmPrompts {
         
           externalization:
             domain_rankings: [
-              { domain_ranking, source, comparison_method, scope,
-                expected_concordance }
+              { ordering, source, scope, expected_concordance }
             ]
-              CONSTRAINT: expected_concordance is a numeric Spearman ρ
-              threshold in [-1, 1].  The pipeline computes actual Spearman
-              rank correlation between domain_ranking order and GRF-discovered
-              effect ordering.  Sign determines direction of check:
-              threshold ≥ 0 → pass if actual ρ ≥ threshold (positive concordance),
-              threshold < 0 → pass if actual ρ ≤ threshold (negative / reversal).
-              CALIBRATION — do not default to 0.0 (too lax: ρ=0.001 passes).
-              Calibrate by domain evidence strength (sign = direction,
-              magnitude = confidence):
-              - WELL_ESTABLISHED monotonic ordering: ±0.5 to ±0.7
-              - DOCUMENTED but may diverge from textbook: ±0.2 to ±0.4
-              - EXPLORATORY / weak prior: ±0.0 to ±0.1
-              Use positive sign when domain ranking should align with data,
-              negative when domain predicts reversal in the scoped
-              subpopulation.  Use the generator's domain_evidence_strength
-              to pick the tier.  Err toward the lower end of each tier when
-              the ranking has few levels (≤4) since Spearman ρ is noisy
-              with few ranks.
+              ``ordering`` uses TIER NOTATION to express domain-predicted
+              severity ordering.  Tiers are parenthesized groups separated
+              by ``>``.  Elements within a tier are asserted approximately
+              equal.  Cross-tier pairs assert the left tier has larger
+              effect magnitude than the right tier.
+        
+              TIER NOTATION SYNTAX:
+                (A) > (B, C) > (D)
+              Means: A is the most severe tier; B and C are tied in the
+              middle tier; D is the least severe.
+        
+              EXAMPLES:
+                Monotonic categorical (worst→best):
+                  (containerInsulationType=XPS_foam) > (containerInsulationType=PUR_foam) > (containerInsulationType=VIP_panel)
+        
+                Categorical with ties (PIR and XPS group together):
+                  (containerInsulationType=XPS_foam, containerInsulationType=PIR_foam) > (containerInsulationType=PUR_foam) > (containerInsulationType=VIP_panel)
+        
+                Continuous monotonic dose-response (thresholds from sensitivity):
+                  (50) > (60) > (70) > (80) > (90)
+        
+                Continuous with peak at 70 and tail-off:
+                  (70) > (60) > (50, 80) > (90)
+        
+                U-shaped continuous:
+                  (50, 90) > (60, 80) > (70)
+        
+              ROUTING BY TREATMENT FORM:
+              - CONTINUOUS: tier elements are threshold values (numbers).
+                The pipeline matches them to threshold_variants effects
+                from the sensitivity step.
+              - CATEGORICAL: tier elements are GRF slice keys in the
+                format "column=value" (e.g. "containerInsulationType=VIP_panel").
+                The pipeline matches them to GRF category-specific CATEs.
+              Do NOT use the treatment variable itself as a GRF modifier
+              for continuous treatments — "effect varies by treatment level"
+              is a dose-response question answered by threshold_variants,
+              not a heterogeneity question answered by GRF.
+        
+              HOW EVALUATION WORKS:
+              The notation unwinds to all valid chains (one element per
+              tier) and checks every adjacent pair against empirical
+              effects.  Within-tier pairs are checked for approximate
+              equality.  Result: fraction of pairwise assertions satisfied.
+        
+              expected_concordance: float in [0, 1] — minimum fraction of
+              pairwise assertions that must pass.
+              CALIBRATION:
+              - WELL_ESTABLISHED ordering: 0.7–0.9
+              - DOCUMENTED but may diverge: 0.4–0.6
+              - EXPLORATORY: 0.2–0.3
+              Use the generator's domain_evidence_strength to pick tier.
             allocation_bias: [
               { treatment_column, grouping_column, flag_threshold }
             ]
