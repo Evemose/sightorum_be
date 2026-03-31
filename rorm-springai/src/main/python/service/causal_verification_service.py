@@ -757,17 +757,25 @@ class CausalVerificationService:
             for ab in spec.externalization.allocation_bias:
                 _require_col(ab.treatment_column, "externalization.allocation_bias treatment_column")
                 _require_col(ab.grouping_column, "externalization.allocation_bias grouping_column")
+            from service.tier_ordering import parse_ordering
             for dr in spec.externalization.domain_rankings:
+                if not dr.ordering or not dr.ordering.strip():
+                    errors.append(f"externalization.domain_rankings '{dr.source}': "
+                                  f"ordering is empty")
+                else:
+                    try:
+                        parse_ordering(dr.ordering)
+                    except ValueError as e:
+                        errors.append(f"externalization.domain_rankings '{dr.source}': "
+                                      f"invalid ordering notation: {e}")
                 if not isinstance(dr.expected_concordance, (int, float)):
                     errors.append(f"externalization.domain_rankings '{dr.source}': "
                                   f"expected_concordance must be numeric "
-                                  f"(Spearman ρ threshold, e.g. 0.0 for positive, "
-                                  f"0.5 for strong positive, -0.3 for negative), "
-                                  f"got {type(dr.expected_concordance).__name__} "
-                                  f"'{dr.expected_concordance}'")
-                elif not (-1 <= dr.expected_concordance <= 1):
+                                  f"(fraction of pairwise assertions, 0.0-1.0), "
+                                  f"got {type(dr.expected_concordance).__name__}")
+                elif not (0.0 <= dr.expected_concordance <= 1.0):
                     errors.append(f"externalization.domain_rankings '{dr.source}': "
-                                  f"expected_concordance must be in [-1, 1], "
+                                  f"expected_concordance must be in [0, 1], "
                                   f"got {dr.expected_concordance}")
 
         if errors:
@@ -1775,61 +1783,56 @@ class CausalVerificationService:
     def _externalization(self, data, spec, pipeline_result) -> dict:
         result: dict[str, Any] = {}
 
-        # Domain rankings — compute Spearman ρ between domain-predicted
-        # ordering and GRF-discovered effect ordering, gate on threshold
+        # Domain rankings — tier ordering notation evaluated against
+        # empirical effects.  Source depends on treatment form:
+        #   - Continuous → threshold_variants dose-response effects
+        #   - Categorical → GRF category-specific CATEs
+        from service.tier_ordering import parse_ordering, evaluate_ordering
+
         grf_results = pipeline_result.get("steps", {}).get("grf")
-        discovered_slopes: dict[str, float] = {}
+        grf_effects: dict[str, float] = {}
         if grf_results:
             for grf_r in grf_results:
                 if isinstance(grf_r, dict) and "slices" in grf_r:
                     for key, val in grf_r["slices"].items():
-                        discovered_slopes[key] = val["mean_cate"]
+                        grf_effects[key] = val["mean_cate"]
+
+        tv_effects: dict[str, float] = {}
+        for tv in (pipeline_result.get("steps", {})
+                .get("sensitivity", {})
+                .get("threshold_variants", [])):
+            if tv.get("effect") is not None:
+                tv_effects[str(tv["threshold"])] = tv["effect"]
 
         rankings = []
         for dr in spec.externalization.domain_rankings:
             entry: dict[str, Any] = {
+                "ordering": dr.ordering,
                 "source": dr.source,
-                "domain_ranking": dr.domain_ranking,
-                "comparison_method": dr.comparison_method,
                 "scope": dr.scope,
                 "expected_concordance": dr.expected_concordance,
-                "discovered_slopes": discovered_slopes,
             }
-            # Match domain-predicted labels to discovered slopes
-            matched_slopes = []
-            for label in dr.domain_ranking:
-                # Normalize: nodePowerStatus_outage matches nodePowerStatus=outage
-                norm_label = label.replace("_", "=", 1) if "=" not in label else label
-                logger.info("Externalization matching: label='%s', norm='%s', "
-                            "slope_keys_sample=%s",
-                            label, norm_label,
-                            list(discovered_slopes.keys())[:5])
-                matches = {k: v for k, v in discovered_slopes.items()
-                           if norm_label in k or label in k}
-                if matches:
-                    matched_slopes.append(min(matches.values()))
-                else:
-                    matched_slopes.append(None)
+            try:
+                ordering = parse_ordering(dr.ordering)
+            except ValueError as e:
+                entry["error"] = str(e)
+                rankings.append(entry)
+                continue
 
-            non_null = [(i, s) for i, s in enumerate(matched_slopes)
-                        if s is not None]
-            if len(non_null) >= 3:
-                domain_ranks = [i for i, _ in non_null]
-                effect_values = [s for _, s in non_null]
-                rho, p_value = spearmanr(domain_ranks, effect_values)
-                entry["spearman_rho"] = float(rho)
-                entry["spearman_p"] = float(p_value)
-                entry["matched_n"] = len(non_null)
-                threshold = dr.expected_concordance
-                entry["pass"] = (float(rho) >= threshold if threshold >= 0
-                                 else float(rho) <= threshold)
+            # Pick effect source
+            if tv_effects and spec.treatment_form == TreatmentForm.CONTINUOUS:
+                effects = tv_effects
+                entry["source_type"] = "threshold_variants"
             else:
-                entry["spearman_rho"] = None
-                entry["matched_n"] = len(non_null)
-                entry["pass"] = None
-                entry["note"] = (f"Only {len(non_null)} of "
-                                 f"{len(dr.domain_ranking)} domain labels "
-                                 f"matched GRF slices; need ≥3 for Spearman")
+                effects = grf_effects
+                entry["source_type"] = "grf_slices"
+            entry["effects_used"] = effects
+
+            eval_result = evaluate_ordering(ordering, effects)
+            entry.update(eval_result.to_dict())
+            entry["pass"] = (eval_result.concordance >= dr.expected_concordance
+                             if eval_result.total_pairs > 0 else None)
+
             rankings.append(entry)
         result["domain_rankings"] = rankings
 

@@ -324,7 +324,7 @@ final class SamplePipelineSpecs {
     private static final String H1_EXTERNALIZATION = """
         {
           "domain_rankings": [
-            {"domain_ranking": ["VIP_panel","PIR_foam","PUR_foam","XPS_foam"], "source": "Thermal conductivity values: VIP 3-7 mW/m*K, PIR/PUR ~20-24, XPS 28-35.", "comparison_method": "Spearman rank correlation between domain ordering and GRF-derived coefficients", "scope": "Temperate zones only", "expected_concordance": 0.0}
+            {"ordering": "(containerInsulationType=XPS_foam, containerInsulationType=PIR_foam) > (containerInsulationType=PUR_foam) > (containerInsulationType=VIP_panel)", "source": "Thermal conductivity: VIP 3-7 mW/m*K best, PIR/PUR ~20-24 mid, XPS 28-35 worst. PIR empirically groups with XPS.", "scope": "Temperate zones only", "expected_concordance": 0.3}
           ],
           "allocation_bias": [
             {"treatment_column": "containerInsulationType", "grouping_column": "nodeId", "flag_threshold": 0.10},
@@ -581,7 +581,7 @@ final class SamplePipelineSpecs {
     private static final String H3_EXTERNALIZATION = """
         {
           "domain_rankings": [
-            {"domain_ranking": ["nodePowerStatus_outage","nodeRefrigHealthPct_below50","nodeRefrigHealthPct_50to70","nodeRefrigHealthPct_70to90","nodeRefrigHealthPct_above90"], "source": "Domain knowledge: complete refrigeration failure is most severe, followed by graduated degradation levels.", "comparison_method": "Spearman rank correlation between domain severity ordering and GRF-derived coefficients", "scope": "All regions", "expected_concordance": 0.0}
+            {"ordering": "(70) > (60) > (50, 80) > (90)", "source": "Domain: 70pct threshold is inflection point (28.8% vs 8.2% excursion). 50 is severe but fewer obs. 80/90 approach baseline.", "scope": "All regions", "expected_concordance": 0.6}
           ],
           "allocation_bias": [
             {"treatment_column": "nodeRefrigHealthPct", "grouping_column": "region", "flag_threshold": 0.10},

@@ -452,15 +452,29 @@ class UnmeasuredConfoundingConfig:
 
 @dataclass
 class DomainRanking:
-    domain_ranking: list[str]
+    """Domain-predicted severity ordering using tier notation.
+
+    ``ordering`` uses parenthesized tiers separated by ``>``:
+
+        (70) > (60, 80) > (50, 90)
+
+    Elements within a tier are asserted as approximately equal (~).
+    Cross-tier pairs assert left > right in effect magnitude.
+    The notation unwinds to all valid chains and checks each pair.
+    """
+    ordering: str
     source: str
-    comparison_method: str
     scope: str
     expected_concordance: float
 
     @classmethod
     def from_dict(cls, d: dict) -> "DomainRanking":
-        return cls(**d)
+        return cls(
+            ordering=d.get("ordering", ""),
+            source=d.get("source", ""),
+            scope=d.get("scope", ""),
+            expected_concordance=d.get("expected_concordance", 0.0),
+        )
 
 
 @dataclass
