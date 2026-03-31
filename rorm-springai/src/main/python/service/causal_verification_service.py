@@ -950,7 +950,9 @@ class CausalVerificationService:
 
             # Per-category effects for discrete treatments
             category_effects = None
-            if discrete and raw_effect.ndim == 2 and code_to_label:
+            logger.info("Per-category check: discrete=%s, effect_shape=%s, "
+                        "code_to_label=%s", discrete, raw_effect.shape, code_to_label)
+            if discrete and raw_effect.ndim >= 2 and code_to_label:
                 codes = sorted(code_to_label.keys())
                 ref_label = code_to_label.get(codes[0], str(codes[0]))
                 non_ref_codes = codes[1:]
