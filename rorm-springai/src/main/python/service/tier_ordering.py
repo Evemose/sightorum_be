@@ -61,6 +61,8 @@ class PairResult:
     left_value: float
     right_value: float
     satisfied: bool
+    left_n: int | None = None
+    right_n: int | None = None
 
 
 @dataclass
@@ -128,12 +130,14 @@ class OrderingResult:
                 "cross_tier": [
                     {"left": p.left, "right": p.right, "relation": p.relation,
                      "left_value": p.left_value, "right_value": p.right_value,
+                     "left_n": p.left_n, "right_n": p.right_n,
                      "satisfied": p.satisfied}
                     for p in self.cross_tier_pairs
                 ],
                 "within_tier": [
                     {"left": p.left, "right": p.right, "relation": p.relation,
                      "left_value": p.left_value, "right_value": p.right_value,
+                     "left_n": p.left_n, "right_n": p.right_n,
                      "satisfied": p.satisfied}
                     for p in self.within_tier_pairs
                 ],
@@ -145,6 +149,7 @@ def evaluate_ordering(
         ordering: TierOrdering,
         effects: dict[str, float],
         equality_tolerance: float = 0.1,
+        sample_sizes: dict[str, int] | None = None,
 ) -> OrderingResult:
     """Evaluate a tier ordering against a map of element → empirical effect.
 
@@ -188,6 +193,23 @@ def evaluate_ordering(
             return True
         return abs(a - b) / denom <= equality_tolerance
 
+    _sizes = sample_sizes or {}
+
+    def _get_n(elem: str) -> int | None:
+        if elem in _sizes:
+            return _sizes[elem]
+        try:
+            num = float(elem)
+            for k, v in _sizes.items():
+                try:
+                    if float(k) == num:
+                        return v
+                except (ValueError, TypeError):
+                    continue
+        except (ValueError, TypeError):
+            pass
+        return None
+
     # Resolve all elements
     resolved: dict[str, float] = {}
     for tier in ordering.tiers:
@@ -210,12 +232,12 @@ def evaluate_ordering(
                         continue
                     h_val = resolved[h_elem]
                     l_val = resolved[l_elem]
-                    # Higher tier should have larger absolute effect
                     satisfied = abs(h_val) > abs(l_val)
                     result.cross_tier_pairs.append(PairResult(
                         left=h_elem, right=l_elem, relation=">",
                         left_value=h_val, right_value=l_val,
                         satisfied=satisfied,
+                        left_n=_get_n(h_elem), right_n=_get_n(l_elem),
                     ))
 
     # Within-tier pairs: all pairs within each tier should be ~ equal
@@ -230,6 +252,7 @@ def evaluate_ordering(
                     left=a, right=b, relation="~",
                     left_value=a_val, right_value=b_val,
                     satisfied=satisfied,
+                    left_n=_get_n(a), right_n=_get_n(b),
                 ))
 
     return result

@@ -324,7 +324,7 @@ final class SamplePipelineSpecs {
     private static final String H1_EXTERNALIZATION = """
         {
           "domain_rankings": [
-            {"ordering": "(containerInsulationType=XPS_foam, containerInsulationType=PIR_foam) > (containerInsulationType=PUR_foam) > (containerInsulationType=VIP_panel)", "source": "Thermal conductivity: VIP 3-7 mW/m*K best, PIR/PUR ~20-24 mid, XPS 28-35 worst. PIR empirically groups with XPS.", "scope": "Temperate zones only", "expected_concordance": 0.3}
+            {"ordering": "(containerInsulationType=VIP_panel) > (containerInsulationType=PIR_foam) > (containerInsulationType=PUR_foam) > (containerInsulationType=XPS_foam)", "source": "Thermal conductivity values: VIP 3-7 mW/m*K, PIR/PUR ~20-24, XPS 28-35.", "scope": "Temperate zones only", "expected_concordance": 0.3}
           ],
           "allocation_bias": [
             {"treatment_column": "containerInsulationType", "grouping_column": "nodeId", "flag_threshold": 0.10},
@@ -581,7 +581,7 @@ final class SamplePipelineSpecs {
     private static final String H3_EXTERNALIZATION = """
         {
           "domain_rankings": [
-            {"ordering": "(70) > (60) > (50, 80) > (90)", "source": "Domain: 70pct threshold is inflection point (28.8% vs 8.2% excursion). 50 is severe but fewer obs. 80/90 approach baseline.", "scope": "All regions", "expected_concordance": 0.6}
+            {"ordering": "(50) > (60) > (70) > (80) > (90)", "source": "Domain knowledge: complete refrigeration failure is most severe, followed by graduated degradation levels.", "scope": "All regions", "expected_concordance": 0.5}
           ],
           "allocation_bias": [
             {"treatment_column": "nodeRefrigHealthPct", "grouping_column": "region", "flag_threshold": 0.10},
