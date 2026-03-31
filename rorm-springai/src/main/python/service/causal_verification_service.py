@@ -948,20 +948,24 @@ class CausalVerificationService:
             ci_lo, ci_hi = dml.effect_interval(alpha=CI_ALPHA)
             ci = (float(ci_lo.mean()), float(ci_hi.mean()))
 
-            # Per-category effects for discrete treatments
+            # Per-category effects for discrete treatments:
+            # const_marginal_effect() returns (n, d_t) where d_t = n_categories - 1
             category_effects = None
-            logger.info("Per-category check: discrete=%s, effect_shape=%s, "
-                        "code_to_label=%s", discrete, raw_effect.shape, code_to_label)
-            if discrete and raw_effect.ndim >= 2 and code_to_label:
+            if discrete and code_to_label:
+                cme = dml.const_marginal_effect()
+                if cme.ndim == 1:
+                    cme = cme.reshape(-1, 1)
+                logger.info("Per-category: cme_shape=%s, code_to_label=%s",
+                            cme.shape, code_to_label)
                 codes = sorted(code_to_label.keys())
                 ref_label = code_to_label.get(codes[0], str(codes[0]))
                 non_ref_codes = codes[1:]
                 col_name = variant.treatment_column
                 category_effects = {}
                 for i, code in enumerate(non_ref_codes):
-                    if i < raw_effect.shape[1]:
+                    if i < cme.shape[1]:
                         label = code_to_label.get(code, str(code))
-                        category_effects[f"{col_name}={label}"] = float(raw_effect[:, i].mean())
+                        category_effects[f"{col_name}={label}"] = float(cme[:, i].mean())
                 category_effects[f"{col_name}={ref_label}"] = 0.0
 
         except Exception as e:
