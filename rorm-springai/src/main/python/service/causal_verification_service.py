@@ -425,7 +425,16 @@ class CausalVerificationService:
         # Final assembly
         # ==================================================================
         result["final_effect"] = primary_effect
-        result["final_ci"] = primary_ci
+        # If auto-correction changed the effect, the original CI is stale
+        rd = result.get("steps", {}).get("residual_diagnostics")
+        corrected = rd.get("corrected_effect") if isinstance(rd, dict) else None
+        if corrected is not None and corrected != primary_ci:
+            result["final_ci"] = None
+            result["final_ci_note"] = ("CI from primary estimation; final_effect was "
+                                       "adjusted by residual auto-correction — "
+                                       "recompute CI with the corrected W set")
+        else:
+            result["final_ci"] = primary_ci
         result["discrepancy_log"] = [
             {"field": d.field_name, "generator_value": d.generator_value,
              "compiler_value": d.compiler_value, "resolution": d.resolution}
@@ -1321,14 +1330,19 @@ class CausalVerificationService:
                 continue
 
             if uc.method == UnmeasuredMethod.E_VALUE:
-                # Use raw treatment values for IQR — encoded values are
-                # arbitrary integers that don't reflect the actual scale
-                raw_t = data[spec.treatment]
-                if pd.api.types.is_numeric_dtype(raw_t):
-                    iqr = float(raw_t.quantile(0.75) - raw_t.quantile(0.25))
+                # Determine scaling multiplier for effect → absolute risk change
+                v_result = estimation_results.get(uc.variant_id, {})
+                is_binary = v_result.get("discrete", False)
+                if is_binary:
+                    multiplier = 1.0  # binary: effect is already per-unit (0→1)
                 else:
-                    iqr = 1.0  # categorical: effect is already per-category
-                multiplier = iqr
+                    raw_t = data[spec.treatment]
+                    if pd.api.types.is_numeric_dtype(raw_t):
+                        iqr = float(raw_t.quantile(0.75) - raw_t.quantile(0.25))
+                        std = float(raw_t.std())
+                        multiplier = iqr if iqr > 0 else std if std > 0 else 1.0
+                    else:
+                        multiplier = 1.0
                 abs_eff = abs(effect * multiplier)
                 rr = (baseline_rate + abs_eff) / baseline_rate if baseline_rate > 0 else 1
                 e_point = rr + math.sqrt(rr * (rr - 1)) if rr > 1 else 1.0
@@ -1771,8 +1785,10 @@ class CausalVerificationService:
             # Match domain-predicted labels to discovered slopes
             matched_slopes = []
             for label in dr.domain_ranking:
+                # Normalize: nodePowerStatus_outage matches nodePowerStatus=outage
+                norm_label = label.replace("_", "=", 1) if "=" not in label else label
                 matches = {k: v for k, v in discovered_slopes.items()
-                           if label in k}
+                           if norm_label in k or label in k}
                 if matches:
                     matched_slopes.append(min(matches.values()))
                 else:
