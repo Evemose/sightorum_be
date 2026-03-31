@@ -1798,11 +1798,14 @@ class CausalVerificationService:
                         grf_effects[key] = val["mean_cate"]
 
         tv_effects: dict[str, float] = {}
+        tv_sample_sizes: dict[str, int] = {}
         for tv in (pipeline_result.get("steps", {})
                 .get("sensitivity", {})
                 .get("threshold_variants", [])):
             if tv.get("effect") is not None:
-                tv_effects[str(tv["threshold"])] = tv["effect"]
+                key = str(tv["threshold"])
+                tv_effects[key] = tv["effect"]
+                tv_sample_sizes[key] = tv.get("n_control", 0)
 
         rankings = []
         for dr in spec.externalization.domain_rankings:
@@ -1819,16 +1822,18 @@ class CausalVerificationService:
                 rankings.append(entry)
                 continue
 
-            # Pick effect source
+            # Pick effect source + sample sizes
+            sample_sizes: dict[str, int] = {}
             if tv_effects and spec.treatment_form == TreatmentForm.CONTINUOUS:
                 effects = tv_effects
+                sample_sizes = tv_sample_sizes
                 entry["source_type"] = "threshold_variants"
             else:
                 effects = grf_effects
                 entry["source_type"] = "grf_slices"
             entry["effects_used"] = effects
 
-            eval_result = evaluate_ordering(ordering, effects)
+            eval_result = evaluate_ordering(ordering, effects, sample_sizes=sample_sizes)
             entry.update(eval_result.to_dict())
             entry["pass"] = (eval_result.concordance >= dr.expected_concordance
                              if eval_result.total_pairs > 0 else None)
