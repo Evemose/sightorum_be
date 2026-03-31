@@ -1621,11 +1621,19 @@ class CausalVerificationService:
         descendants = nx.descendants(dag, spec.treatment) if dag.has_node(spec.treatment) else set()
         ancestors = nx.ancestors(dag, spec.treatment) if dag.has_node(spec.treatment) else set()
         excluded = mediator_cols | descendants | ancestors | {spec.treatment, spec.outcome}
+        logger.info("Auto-correction exclusions: mediators=%s, descendants=%s, "
+                    "ancestors=%s, total_excluded=%s",
+                    sorted(mediator_cols), sorted(descendants),
+                    sorted(ancestors), sorted(excluded))
 
         corrections = []
         corrected_value = effect
         ac_cfg = spec.residual_checks.auto_correction
         eligible = [c for c in correlations if c["column"] not in excluded]
+        logger.info("Auto-correction: %d correlated fields, %d eligible after exclusion: %s",
+                    len(correlations),
+                    len(eligible),
+                    [c["column"] for c in eligible])
         for c in eligible[:ac_cfg.max_iterations]:
             dag_aug = self._edges_to_nx(refined_edges + [(c["column"], spec.outcome)])
             corrected = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_aug)
@@ -1710,7 +1718,11 @@ class CausalVerificationService:
                     parts = t_col.split("_", 3)  # _bin_{col}_{threshold}
                     src_col = parts[2] if len(parts) >= 3 else spec.treatment
                     threshold = float(parts[3]) if len(parts) >= 4 else 0
+                    logger.info("Overlap: reconstructing binary column '%s' from "
+                                "'%s' > %s (parts=%s)", t_col, src_col, threshold, parts)
                     binary = (data.encoded[src_col] > threshold).astype(int)
+                    logger.info("Overlap: reconstructed %d treated / %d control",
+                                int(binary.sum()), int((~binary.astype(bool)).sum()))
                 else:
                     binary = data.encoded[t_col]
                 if binary.nunique() > 2:
@@ -1788,6 +1800,10 @@ class CausalVerificationService:
             for label in dr.domain_ranking:
                 # Normalize: nodePowerStatus_outage matches nodePowerStatus=outage
                 norm_label = label.replace("_", "=", 1) if "=" not in label else label
+                logger.info("Externalization matching: label='%s', norm='%s', "
+                            "slope_keys_sample=%s",
+                            label, norm_label,
+                            list(discovered_slopes.keys())[:5])
                 matches = {k: v for k, v in discovered_slopes.items()
                            if norm_label in k or label in k}
                 if matches:
