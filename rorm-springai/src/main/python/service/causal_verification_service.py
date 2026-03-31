@@ -1611,15 +1611,16 @@ class CausalVerificationService:
         correlations.sort(key=lambda x: (-x.get("is_metadata", False), -abs(x["correlation"])))
         result["field_correlations"] = correlations
 
-        # Auto-correction — skip mediators and DAG descendants of treatment
-        # (correcting for a mediator absorbs the causal pathway)
+        # Auto-correction — skip any column on the treatment's causal pathway:
+        # mediators (treatment → col → outcome), descendants of treatment,
+        # AND parents/ancestors of treatment (col → treatment) whose variation
+        # is part of the treatment mechanism.  Only truly omitted confounders
+        # (no directed path through treatment) should be added.
         mediator_cols = {m.column for m in spec.mediators_excluded}
         dag = self._edges_to_nx(refined_edges)
-        if dag.has_node(spec.treatment):
-            descendants = nx.descendants(dag, spec.treatment)
-        else:
-            descendants = set()
-        excluded = mediator_cols | descendants | {spec.treatment, spec.outcome}
+        descendants = nx.descendants(dag, spec.treatment) if dag.has_node(spec.treatment) else set()
+        ancestors = nx.ancestors(dag, spec.treatment) if dag.has_node(spec.treatment) else set()
+        excluded = mediator_cols | descendants | ancestors | {spec.treatment, spec.outcome}
 
         corrections = []
         corrected_value = effect
