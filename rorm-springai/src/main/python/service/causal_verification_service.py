@@ -1869,6 +1869,15 @@ class CausalVerificationService:
                 cat_effects = primary_est.get("category_effects", {})
                 effects = cat_effects if cat_effects else grf_effects
                 entry["source_type"] = "category_effects" if cat_effects else "grf_slices"
+                # Per-category sample sizes from raw treatment column
+                if cat_effects:
+                    col = spec.treatment
+                    counts = data.raw[col].value_counts()
+                    for label in cat_effects:
+                        # label is "col=value", extract value part
+                        val = label.split("=", 1)[1] if "=" in label else label
+                        if val in counts.index:
+                            sample_sizes[label] = int(counts[val])
             entry["effects_used"] = effects
 
             eval_result = evaluate_ordering(ordering, effects, sample_sizes=sample_sizes)
