@@ -1934,8 +1934,9 @@ class CausalVerificationService:
         }
 
     @staticmethod
-    def _subpopulation_edge_scan(estimation_results) -> list:
-        """Flag variants where CI nearly excludes zero — borderline findings."""
+    def _subpopulation_edge_scan(estimation_results, z_threshold: float = 1.0) -> list:
+        """Flag variants where CI is within z_threshold SEs of crossing zero."""
+        z_alpha = norm.ppf(1 - CI_ALPHA / 2)
         edges = []
         for vid, est in estimation_results.items():
             ci = est.get("ci")
@@ -1945,22 +1946,24 @@ class CausalVerificationService:
             ci_lo, ci_hi = ci
             crosses_zero = ci_lo <= 0 <= ci_hi
             nearest_to_zero = min(abs(ci_lo), abs(ci_hi))
-            edge_ratio = nearest_to_zero / abs(eff)
+            se = (ci_hi - ci_lo) / (2 * z_alpha)
+            z_nearest = nearest_to_zero / se if se > 0 else float("inf")
 
-            if edge_ratio < 0.10:
+            if z_nearest < z_threshold:
                 edges.append({
                     "variant_id": vid,
                     "effect": eff,
                     "ci": [ci_lo, ci_hi],
                     "crosses_zero": crosses_zero,
                     "nearest_bound_to_zero": float(nearest_to_zero),
-                    "edge_ratio": float(edge_ratio),
+                    "z_nearest": float(z_nearest),
+                    "se": float(se),
                     "classification": ("barely_insignificant"
                                        if crosses_zero
                                        else "barely_significant"),
                 })
 
-        return sorted(edges, key=lambda e: e["edge_ratio"])
+        return sorted(edges, key=lambda e: e["z_nearest"])
 
     # ------------------------------------------------------------------
     # Step 13: Externalization
