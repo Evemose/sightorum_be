@@ -31,7 +31,7 @@ from econml.dml import CausalForestDML, LinearDML
 from econml.inference import BootstrapInference
 from itertools import combinations
 from lightgbm import LGBMClassifier, LGBMRegressor
-from scipy.stats import pearsonr, spearmanr
+from scipy.stats import norm, pearsonr, spearmanr
 from service.pipeline_dataframe import PipelineDataFrame
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import KFold, cross_val_score
@@ -407,6 +407,26 @@ class CausalVerificationService:
                 if corrected is not None:
                     primary_effect = corrected
 
+            # ==============================================================
+            # Null-finding diagnostics (when primary CI crosses zero)
+            # ==============================================================
+            ci_crosses_zero = (
+                    primary_ci is not None and primary_ci[0] * primary_ci[1] <= 0
+            )
+            if ci_crosses_zero:
+                cp = _cp_load("null_diagnostics")
+                if cp is not None:
+                    report(0.92, "Null diagnostics (cached)")
+                    result["steps"]["null_diagnostics"] = cp["nd_result"]
+                else:
+                    report(0.92, "Null-finding diagnostics")
+                    nd_result = self._null_diagnostics(
+                        data, spec, confounders,
+                        primary_effect, primary_ci, estimation_results,
+                        step_outputs.get("sensitivity", {}))
+                    _cp_save("null_diagnostics", {"nd_result": nd_result})
+                    result["steps"]["null_diagnostics"] = nd_result
+
         # ==================================================================
         # Step 13  —  Externalization (depends on GRF from step 6)
         # ==================================================================
@@ -425,6 +445,9 @@ class CausalVerificationService:
         # Final assembly
         # ==================================================================
         result["final_effect"] = primary_effect
+        result["ci_crosses_zero"] = bool(
+            primary_ci is not None and primary_ci[0] * primary_ci[1] <= 0
+        )
         # If auto-correction changed the effect, the original CI is stale
         rd = result.get("steps", {}).get("residual_diagnostics")
         corrected = rd.get("corrected_effect") if isinstance(rd, dict) else None
@@ -1808,6 +1831,136 @@ class CausalVerificationService:
         result["variance"] = var_checks
 
         return result
+
+    # ------------------------------------------------------------------
+    # Null-finding diagnostics (CI crosses zero)
+    # ------------------------------------------------------------------
+
+    def _null_diagnostics(self, data, spec, confounders,
+                          primary_effect, primary_ci, estimation_results,
+                          sensitivity_result) -> dict:
+        """Extra diagnostics for null findings: absorption curve, power, edge scan."""
+        result: dict[str, Any] = {}
+        result["absorption_curve"] = self._absorption_curve(
+            data, spec, confounders, sensitivity_result)
+        result["power_analysis"] = self._power_analysis(
+            data, spec, primary_effect, primary_ci)
+        result["subpopulation_edges"] = self._subpopulation_edge_scan(
+            estimation_results)
+        return result
+
+    def _absorption_curve(self, data, spec, confounders, sensitivity_result) -> dict:
+        """Cumulative confounding absorption: DML with incrementally added W."""
+        drops = sensitivity_result.get("confounder_drops", [])
+        drop_map = {d["column"]: abs(d.get("deviation_pct") or 0) for d in drops}
+        ordered = sorted(confounders, key=lambda c: drop_map.get(c, 0), reverse=True)
+
+        discrete = spec.estimation_variants[0].treatment_form != TreatmentForm.CONTINUOUS
+        enc = data.encoded
+        Y = enc[spec.outcome].values
+        T = enc[spec.treatment].values
+        model_t_cls = LGBMClassifier if discrete else LGBMRegressor
+        mem = self._mem_estimate(data)
+
+        def _fit(w_cols: list[str]) -> float | None:
+            try:
+                W = enc[w_cols].values if w_cols else None
+                dml = LinearDML(
+                    model_y=LGBMRegressor(**LGBM_DEFAULTS),
+                    model_t=model_t_cls(**LGBM_DEFAULTS),
+                    discrete_treatment=discrete,
+                )
+                dml.fit(Y, T, W=W)
+                return float(dml.effect().mean())
+            except Exception as e:
+                logger.warning("Absorption curve fit failed (W=%s): %s", w_cols, e)
+                return None
+
+        valid_cols = [c for c in ordered if c in enc.columns]
+        futures: list[tuple[str | None, Future]] = [
+            (None, self._pool_submit(mem, lambda: _fit([])))
+        ]
+        for i, col in enumerate(valid_cols):
+            w_up_to = list(valid_cols[:i + 1])
+            futures.append((col, self._pool_submit(mem, lambda w=w_up_to: _fit(w))))
+
+        curve = []
+        w_so_far: list[str] = []
+        for step, (col, f) in enumerate(futures):
+            eff = f.result()
+            prev_eff = curve[-1]["effect"] if curve else None
+            absorbed = (prev_eff - eff
+                        if eff is not None and prev_eff is not None
+                        else None)
+            if col is not None:
+                w_so_far.append(col)
+            curve.append({
+                "step": step,
+                "added": col,
+                "confounders": list(w_so_far),
+                "effect": eff,
+                "absorbed": absorbed,
+            })
+
+        return {"curve": curve, "confounder_order": valid_cols}
+
+    def _power_analysis(self, data, spec, primary_effect, primary_ci) -> dict:
+        """MDE at 80% power given observed SE from bootstrap CI."""
+        n = len(data)
+        ci_lo, ci_hi = primary_ci
+        z_alpha = norm.ppf(1 - CI_ALPHA / 2)
+        z_beta = norm.ppf(0.80)
+
+        se_obs = (ci_hi - ci_lo) / (2 * z_alpha)
+        mde = (z_alpha + z_beta) * se_obs
+
+        n_levels = int(data.raw[spec.treatment].nunique())
+
+        n_needed = None
+        below_mde = None
+        if primary_effect and primary_effect != 0:
+            below_mde = abs(primary_effect) < mde
+            if below_mde:
+                n_needed = int(math.ceil(n * (mde / abs(primary_effect)) ** 2))
+
+        return {
+            "n_observations": n,
+            "n_treatment_levels": n_levels,
+            "observed_se": float(se_obs),
+            "mde_80_power": float(mde),
+            "observed_effect": float(primary_effect) if primary_effect else None,
+            "effect_below_mde": below_mde,
+            "n_needed_for_observed_effect": n_needed,
+        }
+
+    @staticmethod
+    def _subpopulation_edge_scan(estimation_results) -> list:
+        """Flag variants where CI nearly excludes zero — borderline findings."""
+        edges = []
+        for vid, est in estimation_results.items():
+            ci = est.get("ci")
+            eff = est.get("effect")
+            if ci is None or eff is None or eff == 0:
+                continue
+            ci_lo, ci_hi = ci
+            crosses_zero = ci_lo <= 0 <= ci_hi
+            nearest_to_zero = min(abs(ci_lo), abs(ci_hi))
+            edge_ratio = nearest_to_zero / abs(eff)
+
+            if edge_ratio < 0.10:
+                edges.append({
+                    "variant_id": vid,
+                    "effect": eff,
+                    "ci": [ci_lo, ci_hi],
+                    "crosses_zero": crosses_zero,
+                    "nearest_bound_to_zero": float(nearest_to_zero),
+                    "edge_ratio": float(edge_ratio),
+                    "classification": ("barely_insignificant"
+                                       if crosses_zero
+                                       else "barely_significant"),
+                })
+
+        return sorted(edges, key=lambda e: e["edge_ratio"])
 
     # ------------------------------------------------------------------
     # Step 13: Externalization

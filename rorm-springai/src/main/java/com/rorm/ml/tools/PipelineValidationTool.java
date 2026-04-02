@@ -64,12 +64,9 @@ public class PipelineValidationTool {
                 spec, "validation-only", context.modelSpace(), context.schema());
 
             var result = mlService.validatePipelineSpec(request);
+            var errors = result.errors() != null ? result.errors() : List.<String>of();
 
-            @SuppressWarnings("unchecked")
-            var errors = (List<String>) result.getOrDefault("errors", List.of());
-            boolean valid = Boolean.TRUE.equals(result.get("valid"));
-
-            if (valid) {
+            if (result.valid()) {
                 log.info("Pipeline spec '{}' validated successfully", spec.hypothesisId());
                 return writeJson(Map.of(
                     "valid", true,

@@ -258,14 +258,14 @@ public class MlTrainingService {
         return submitCausalVerification(request, null);
     }
 
-    public Map<String, Object> validatePipelineSpec(CausalVerificationJobRequest request) {
+    public ValidationResult validatePipelineSpec(CausalVerificationJobRequest request) {
         try {
             return restClient.post()
                 .uri("/analysis/causal-verification/validate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+                .body(ValidationResult.class);
         } catch (RestClientException e) {
             throw new MlServiceException("Failed to validate pipeline spec", e);
         }
@@ -284,7 +284,7 @@ public class MlTrainingService {
         }
     }
 
-    public List<Map<String, Object>> listCausalRuns(int limit) {
+    public List<CausalRunMeta> listCausalRuns(int limit) {
         try {
             return restClient.get()
                 .uri("/analysis/causal-verification/runs?limit={limit}", limit)
@@ -295,12 +295,12 @@ public class MlTrainingService {
         }
     }
 
-    public Map<String, Object> getCausalRun(String runId) {
+    public CausalRunMeta getCausalRun(String runId) {
         try {
             return restClient.get()
                 .uri("/analysis/causal-verification/runs/{runId}", runId)
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+                .body(CausalRunMeta.class);
         } catch (RestClientException e) {
             throw new MlServiceException("Failed to get causal run " + runId, e);
         }
