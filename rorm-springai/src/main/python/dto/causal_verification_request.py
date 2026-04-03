@@ -502,6 +502,19 @@ class ExternalizationConfig:
 
 
 @dataclass
+class PositivityCheck:
+    confounder_column: str
+    expected_cell_size: int
+    min_cell_threshold: int
+    treatment_hierarchy: list[str]
+    min_coverage_pct: float
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PositivityCheck":
+        return cls(**d)
+
+
+@dataclass
 class DiscrepancyEntry:
     field_name: str
     generator_value: str
@@ -547,6 +560,8 @@ class CausalVerificationRequest:
     adjustment_set: list[str]
     mediators_excluded: list[MediatorExclusion]
 
+    positivity_check: Optional[PositivityCheck]
+
     estimation_variants: list[EstimationVariant]
 
     gates: QualityGates
@@ -585,6 +600,7 @@ class CausalVerificationRequest:
             dsep_threshold=d["dsep_threshold"],
             adjustment_set=d["adjustment_set"],
             mediators_excluded=[MediatorExclusion.from_dict(x) for x in (d.get("mediators_excluded") or [])],
+            positivity_check=PositivityCheck.from_dict(d["positivity_check"]) if d.get("positivity_check") else None,
             estimation_variants=[EstimationVariant.from_dict(x) for x in d["estimation_variants"]],
             gates=QualityGates.from_dict(d["gates"]),
             mediation=[MediationConfig.from_dict(x) for x in d["mediation"]] if d.get("mediation") else None,

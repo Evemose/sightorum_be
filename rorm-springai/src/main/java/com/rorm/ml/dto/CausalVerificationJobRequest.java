@@ -25,6 +25,7 @@ public record CausalVerificationJobRequest(
     double dsepThreshold,
     List<String> adjustmentSet,
     @Nullable List<Map<String, Object>> mediatorsExcluded,
+    @Nullable Map<String, Object> positivityCheck,
     List<Map<String, Object>> estimationVariants,
     Map<String, Object> gates,
     @Nullable List<Map<String, Object>> mediation,
