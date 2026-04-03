@@ -45,9 +45,11 @@ class WorkerPool:
     _instance: 'WorkerPool | None' = None
     _init_lock = threading.Lock()
 
+    SAFETY_FACTOR = 0.75  # reserve 25% headroom for internal copies, GC lag
+
     def __init__(self, max_workers: int, memory_budget_bytes: int):
         self._max_workers = max_workers
-        self._memory_budget_bytes = memory_budget_bytes
+        self._memory_budget_bytes = int(memory_budget_bytes * self.SAFETY_FACTOR)
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers,
             thread_name_prefix="pool-",
@@ -57,7 +59,8 @@ class WorkerPool:
         self._cond = threading.Condition()
         logger.info(
             f"WorkerPool: {max_workers} workers, "
-            f"{memory_budget_bytes / (1024 ** 3):.1f} GB memory budget"
+            f"{self._memory_budget_bytes / (1024 ** 3):.1f} GB effective memory budget "
+            f"({memory_budget_bytes / (1024 ** 3):.1f} GB raw, {self.SAFETY_FACTOR:.0%} safety factor)"
         )
 
     @classmethod

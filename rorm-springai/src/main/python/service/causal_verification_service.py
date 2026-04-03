@@ -75,8 +75,12 @@ class CausalVerificationService:
         return f
 
     @staticmethod
-    def _mem_estimate(data, factor: int = 3) -> int:
-        """Rough memory estimate for one DML fit over data."""
+    def _mem_estimate(data, factor: int = 5) -> int:
+        """Memory estimate for one DML fit over data.
+
+        factor=5 accounts for: encoded arrays (1x), cross-val train/test
+        splits (2x), LGBM model internals + prediction buffers (2x).
+        """
         return int(data.memory_usage(deep=True).sum()) * factor
 
     def run_pipeline(
@@ -1338,7 +1342,7 @@ class CausalVerificationService:
             except Exception as e:
                 return {"config_id": cfg.id, "error": str(e)}
 
-        mem = self._mem_estimate(data, factor=5)
+        mem = self._mem_estimate(data, factor=7)
         results = []
         futures: dict[str, Future] = {}
         for cfg in spec.grf_configs:
