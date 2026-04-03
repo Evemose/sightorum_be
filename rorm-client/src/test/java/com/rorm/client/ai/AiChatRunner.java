@@ -45,9 +45,9 @@ class AiChatRunner {
     void simpleChat() throws Exception {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            durableRuntime.submit("runner-pipeline-h1-v2_8", new JobSpec(
+            durableRuntime.submit("runner-pipeline-h2-2", new JobSpec(
                 "agentJp",
-                "runH1Pipeline"
+                "runH2Pipeline"
             ));
         }
     }
@@ -175,12 +175,18 @@ class AiChatRunner {
 
         public void runExecutor() {
             var modelSpace = metamodelService.getModelSpace(SCHEMA);
-            var singleHypothesis = SAMPLE_GENERATOR_REVISED.substring(
+            var rareEvents = SAMPLE_GENERATOR_REVISED.substring(
                 0,
-                SAMPLE_GENERATOR_REVISED.indexOf("--TRIM_AFTER")
-            ) + SAMPLE_GENERATOR_REVISED.substring(
-                SAMPLE_GENERATOR_REVISED.indexOf("--RESTORE-AFTER") + "--RESTORE-AFTER".length()
+                SAMPLE_GENERATOR_REVISED.indexOf("-- H1 HYPOTHESIS START")
             );
+            var belowDetection = SAMPLE_GENERATOR_REVISED.substring(
+                SAMPLE_GENERATOR_REVISED.indexOf("-- H3 HYPOTHESIS END") + "-- H3 HYPOTHESIS END".length()
+            );
+            var h2 = SAMPLE_GENERATOR_REVISED.substring(
+                SAMPLE_GENERATOR_REVISED.indexOf("-- H1 HYPOTHESIS END") + "-- H1 HYPOTHESIS END".length(),
+                SAMPLE_GENERATOR_REVISED.indexOf("-- H2 HYPOTHESIS END")
+            );
+            var singleHypothesis = rareEvents + h2 + belowDetection;
             chatService.stream(
                     ChatRequest.usingData(SCHEMA, modelSpace)
                         .withThinkingLevel(ThinkingLevel.HIGH)
@@ -215,6 +221,16 @@ class AiChatRunner {
         }
 
         @SneakyThrows
+        public void runH2Pipeline() {
+            var modelSpace = metamodelService.getModelSpace(SCHEMA);
+            var spec = SamplePipelineSpecs.h2(objectMapper);
+            var request = pipelineSpecConverter.convert(
+                spec, "H2: vehicleEquipmentCohort causal effect on excursionFlag", modelSpace, SCHEMA);
+            var event = mlService.submit(request).await();
+            System.out.printf("H2 completed: %s – %s%n%s", event.eventType(), event.message(), objectMapper.writeValueAsString(event));
+        }
+
+        @SneakyThrows
         public void runH3Pipeline() {
             var modelSpace = metamodelService.getModelSpace(SCHEMA);
             var spec = SamplePipelineSpecs.h3(objectMapper);
@@ -223,5 +239,39 @@ class AiChatRunner {
             var event = mlService.submit(request).await();
             System.out.printf("H3 completed: %s – %s%n%s", event.eventType(), event.message(), objectMapper.writeValueAsString(event));
         }
+
+        public void runFP() {
+            var modelSpace = metamodelService.getModelSpace(SCHEMA);
+            var h1Start = SAMPLE_GENERATOR_REVISED.indexOf("-- H1 HYPOTHESIS START");
+            var h1End = SAMPLE_GENERATOR_REVISED.indexOf("-- H1 HYPOTHESIS END");
+            var singleHypothesis = SAMPLE_GENERATOR_REVISED.substring(
+                h1Start + "-- H1 HYPOTHESIS START".length(),
+                h1End
+            ).trim();
+            chatService.stream(
+                    ChatRequest.usingData(SCHEMA, modelSpace)
+                        .withThinkingLevel(ThinkingLevel.HIGH)
+                        .withSystemPrompt(FORENSIC_PATHOLOGIST_SYSTEM)
+                        .withModelName("claude-opus-4-6")
+                        .withCachingStrategyFunction(FORENSIC_PATHOLOGIST_CACHE_STRATEGY)
+                        .ask(FORENSIC_PATHOLOGIST_USER.replace(
+                            "{{HYPOTHESIS_SPEC}}",
+                            singleHypothesis
+                        ).replace(
+                            "{{DOMAIN_KNOWLEDGE}}",
+                            SAMPLE_DOMAIN_RESEARCH
+                        ).replace(
+                            "{{PIPELINE_OUTPUT}}",
+                            SAMPLE_H1_PIPELINE_OUTPUT
+                        ))
+                )
+                .doOnError(e -> System.err.println("Error during chat: " + e.getMessage()))
+                .doOnNext(t -> {
+                    System.out.print(t);
+                    System.out.flush();
+                })
+                .blockLast();
+        }
+
     }
 }

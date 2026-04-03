@@ -1088,7 +1088,7 @@ public interface SampleRunLog {
           downstream_action: DIRECT_PRESCRIPTIVE
         ```
         
-        --TRIM_AFTER
+        -- H1 HYPOTHESIS START
         
         ```
         HYPOTHESIS:
@@ -1237,6 +1237,8 @@ public interface SampleRunLog {
             [loggerMonthsSinceCal, loggerId]
         ```
         
+        -- H1 HYPOTHESIS END
+        
         ```
         HYPOTHESIS:
           treatment: vehicleEquipmentCohort (vehicleMakeModel × vehicleRefrigModel interaction)
@@ -1320,7 +1322,7 @@ public interface SampleRunLog {
             [loggerMonthsSinceCal, loggerId]
         ```
         
-        --RESTORE-AFTER
+        -- H2 HYPOTHESIS END
         
         ```
         HYPOTHESIS:
@@ -1403,6 +1405,8 @@ public interface SampleRunLog {
           MEASUREMENT_METADATA:
             [loggerMonthsSinceCal, loggerId]
         ```
+        
+        -- H3 HYPOTHESIS END
         
         ```
         BELOW_DETECTION_THRESHOLD:
@@ -2102,6 +2106,568 @@ public interface SampleRunLog {
         | discrepancy_log | ✅ 1 discrepancy documented |
         """;
 
+    String SAMPLE_COMPILED_H2 = """
+        ## Pipeline Specification
+        
+        ---
+        
+        ### hypothesis_id
+        
+        `vehicleEquipmentCohort_excursionFlag`
+        
+        ---
+        
+        ### treatment
+        
+        `vehicleEquipmentCohort`
+        
+        ---
+        
+        ### outcome
+        
+        `excursionFlag`
+        
+        ---
+        
+        ### treatment_form
+        
+        `CATEGORICAL`
+        
+        Treatment has 27 observed levels (9 makeModels × 9 refrigModels = 27 combinations). Rates range from 2.59% (Ford_E-Transit\\_\\_Thermo_King_Advancer_A400) to 11.71% (Ford_E-Transit\\_\\_Carrier_Vector_HE_19). Smallest cohort has n=4,150.
+        
+        ---
+        
+        ### query
+        
+        ```json
+        {
+          "from": "shipments",
+          "fromAlias": "s",
+          "joins": [
+            {
+              "joinType": "LEFT",
+              "joinedRoot": { "alias": "cn", "rootName": "cold_nodes" },
+              "onCondition": {
+                "@type": "binary",
+                "left": { "@type": "path", "path": "s.nodeId" },
+                "operator": "EQUALS",
+                "right": { "@type": "path", "path": "cn.nodeId" }
+              }
+            }
+          ],
+          "selector": {
+            "@type": "multi",
+            "distinct": false,
+            "expressions": [
+              { "alias": "shipmentId", "expression": { "@type": "path", "path": "s.shipmentId" } },
+              { "alias": "vehicleEquipmentCohort", "expression": { "@type": "function", "functionName": "CONCAT", "arguments": [ { "@type": "path", "path": "s.vehicleMakeModel" }, { "@type": "literal", "value": "__" }, { "@type": "path", "path": "s.vehicleRefrigModel" } ] } },
+              { "alias": "vehicleMakeModel", "expression": { "@type": "path", "path": "s.vehicleMakeModel" } },
+              { "alias": "vehicleRefrigModel", "expression": { "@type": "path", "path": "s.vehicleRefrigModel" } },
+              { "alias": "excursionFlag", "expression": { "@type": "path", "path": "s.excursionFlag" } },
+              { "alias": "nodeId", "expression": { "@type": "path", "path": "s.nodeId" } },
+              { "alias": "region", "expression": { "@type": "path", "path": "cn.region" } },
+              { "alias": "ambientTempAtDispatchC", "expression": { "@type": "path", "path": "s.ambientTempAtDispatchC" } },
+              { "alias": "ambientTempAtArrivalC", "expression": { "@type": "path", "path": "s.ambientTempAtArrivalC" } },
+              { "alias": "preDepartureTempC", "expression": { "@type": "path", "path": "s.preDepartureTempC" } },
+              { "alias": "routeTotalStops", "expression": { "@type": "path", "path": "s.routeTotalStops" } },
+              { "alias": "routeTotalDriveHours", "expression": { "@type": "path", "path": "s.routeTotalDriveHours" } },
+              { "alias": "routeTotalAirMiles", "expression": { "@type": "path", "path": "s.routeTotalAirMiles" } },
+              { "alias": "stopSequence", "expression": { "@type": "path", "path": "s.stopSequence" } },
+              { "alias": "receivingDelayMin", "expression": { "@type": "path", "path": "s.receivingDelayMin" } },
+              { "alias": "containerAgeMonths", "expression": { "@type": "path", "path": "s.containerAgeMonths" } },
+              { "alias": "palletPosition", "expression": { "@type": "path", "path": "s.palletPosition" } },
+              { "alias": "productMassAtStopKg", "expression": { "@type": "path", "path": "s.productMassAtStopKg" } },
+              { "alias": "nodeRefrigHealthPct", "expression": { "@type": "path", "path": "s.nodeRefrigHealthPct" } },
+              { "alias": "isAfterHoursArrival", "expression": { "@type": "path", "path": "s.isAfterHoursArrival" } },
+              { "alias": "receivingDockTempControlled", "expression": { "@type": "path", "path": "s.receivingDockTempControlled" } },
+              { "alias": "containerInsulationType", "expression": { "@type": "path", "path": "s.containerInsulationType" } },
+              { "alias": "productClass", "expression": { "@type": "path", "path": "s.productClass" } },
+              { "alias": "siteUrbanRural", "expression": { "@type": "path", "path": "s.siteUrbanRural" } },
+              { "alias": "siteType", "expression": { "@type": "path", "path": "s.siteType" } },
+              { "alias": "dayOfWeek", "expression": { "@type": "path", "path": "s.dayOfWeek" } },
+              { "alias": "vehicleRefrigAgeMonths", "expression": { "@type": "path", "path": "s.vehicleRefrigAgeMonths" } },
+              { "alias": "vehicleInsulationRating", "expression": { "@type": "path", "path": "s.vehicleInsulationRating" } },
+              { "alias": "vehicleReeferKwRated", "expression": { "@type": "path", "path": "s.vehicleReeferKwRated" } },
+              { "alias": "vehicleCargoVolumeM3", "expression": { "@type": "path", "path": "s.vehicleCargoVolumeM3" } },
+              { "alias": "loggerMonthsSinceCal", "expression": { "@type": "path", "path": "s.loggerMonthsSinceCal" } },
+              { "alias": "loggerId", "expression": { "@type": "path", "path": "s.loggerId" } },
+              { "alias": "date", "expression": { "@type": "path", "path": "s.date" } },
+              { "alias": "dispatchYear", "expression": { "@type": "function", "functionName": "EXTRACT", "arguments": [ { "@type": "literal", "value": "YEAR" }, { "@type": "path", "path": "s.date" } ] } },
+              { "alias": "dispatchMonth", "expression": { "@type": "function", "functionName": "EXTRACT", "arguments": [ { "@type": "literal", "value": "MONTH" }, { "@type": "path", "path": "s.date" } ] } }
+            ]
+          }
+        }
+        ```
+        
+        ---
+        
+        ### expected_row_count
+        
+        563,028 — Verified: query returns 563,028 rows, 27 distinct cohorts, 0 null nodeId, 0 null region. LEFT JOIN on cold_nodes (28 nodes, all matched) produces no fan-out or row loss.
+        
+        ---
+        
+        ### strip_columns
+        
+        `["shipmentId"]`
+        
+        shipmentId is a unique row identifier with no analytical meaning. No step references it.
+        
+        ---
+        
+        ### dag_edges
+        
+        ```
+        vehicleEquipmentCohort -> excursionFlag;    # direct equipment thermal performance (insulation, refrig capacity) during transit
+        vehicleEquipmentCohort -> preDepartureTempC; # equipment cooling performance during staging affects departure temp
+        nodeId -> vehicleEquipmentCohort;            # deployment assignment — vehicles assigned non-randomly to nodes
+        nodeId -> ambientTempAtDispatchC;            # node geographic location determines local climate
+        nodeId -> preDepartureTempC;                 # facility staging conditions affect pre-departure temp
+        nodeId -> nodeRefrigHealthPct;               # facility-level refrigeration equipment health
+        nodeId -> excursionFlag;                     # residual facility effects (loading practices, staffing, etc.)
+        ambientTempAtDispatchC -> preDepartureTempC; # ambient heat infiltrates facility, raises staging temp
+        ambientTempAtDispatchC -> excursionFlag;     # transit heat load during delivery
+        preDepartureTempC -> excursionFlag;          # thermal buffer — higher pre-departure temp = less margin
+        nodeRefrigHealthPct -> preDepartureTempC;    # degraded facility refrig = warmer staging area
+        containerInsulationType -> excursionFlag;    # transit thermal insulation quality (NOT through preDep — corr=0.016)
+        routeTotalStops -> stopSequence;             # stop sequence is bounded by total stops on route
+        routeTotalStops -> excursionFlag;            # cumulative door openings = cumulative heat ingress
+        stopSequence -> excursionFlag;               # position-specific cumulative heat exposure
+        receivingDelayMin -> excursionFlag;          # post-delivery uncontrolled exposure
+        dispatchMonth -> ambientTempAtDispatchC;     # seasonality drives local climate
+        dispatchYear -> vehicleEquipmentCohort;      # fleet modernization changes cohort composition over time
+        dispatchYear -> excursionFlag;               # secular trends (protocol improvements, fleet upgrades)
+        ```
+        
+        DAG has 12 nodes with intermediate structure: nodeId is a fork (confounding treatment and outcome through multiple pathways), preDepartureTempC is a mediator (chain: treatment → preDep → outcome), ambientTempAtDispatchC mediates node → outcome. D-sep has testable implications (e.g., containerInsulationType ⊥ routeTotalStops | ∅).
+        
+        ---
+        
+        ### dsep_threshold
+        
+        **0.035**
+        
+        Calibration from 5 genuinely independent pairs (unrelated measurement domains, no shared upstream cause):
+        
+        | Pair | Correlation | Reasoning |
+        |------|------------|-----------|
+        | loggerMonthsSinceCal ↔ palletPosition | 0.000193 | Measurement calibration vs. loading position — no causal connection |
+        | loggerMonthsSinceCal ↔ stopSequence | 0.000260 | Calibration timing vs. route assignment — independent |
+        | containerAgeMonths ↔ palletPosition | 0.0138 | Container lifecycle vs. loading position — independent |
+        | containerAgeMonths ↔ stopSequence | 0.0169 | Container lifecycle vs. route assignment — weak spurious through fleet composition |
+        | loggerMonthsSinceCal ↔ containerAgeMonths | 0.0172 | Both temporal ages but unrelated processes |
+        
+        Max noise-floor correlation = 0.0172. Threshold = 2.0 × 0.0172 = 0.034, rounded to **0.035**.
+        
+        ---
+        
+        ### adjustment_set
+        
+        22 variables — full backdoor adjustment set for total effect:
+        
+        1. **nodeId** — MANDATORY IN W. Ecological fallacy dimension: deployment concentration is the primary confounding mechanism. NOD_024 (Southwest_AZ) has 20.8% marginal excursion rate and concentrates 51.7% of the worst-performing cohort (Ford_E-Transit__Carrier_Vector_HE_19). 28 levels — finer than region (7 levels).
+        2. **ambientTempAtDispatchC** — Climate confounder. corr with excursionFlag = 0.342. Hotter nodes get both different vehicles AND higher excursion rates.
+        3. **ambientTempAtArrivalC** — Destination climate. Complementary to dispatch ambient. Potentially high collinearity with dispatch ambient — flagged for VIF check.
+        4. **containerInsulationType** — Container confounder. 4 levels. Not causally connected to treatment (container selection is independent of vehicle assignment).
+        5. **routeTotalStops** — Route complexity. Assigned by hub/node, not vehicle. More stops = more heat ingress.
+        6. **routeTotalDriveHours** — Route duration. corr with airMiles = 0.363 (moderate, VIF acceptable).
+        7. **routeTotalAirMiles** — Route distance.
+        8. **stopSequence** — Stop position within route. corr with excursionFlag = 0.240.
+        9. **receivingDelayMin** — Receiving-side delay. Property of destination site, not vehicle.
+        10. **isAfterHoursArrival** — After-hours delivery. Determines staffing availability at destination.
+        11. **receivingDockTempControlled** — Destination dock facility.
+        12. **containerAgeMonths** — Container property. Confirmed null by generator (no age gradient), but included greedily.
+        13. **productClass** — Product sensitivity (A vs B). Different excursion tolerances.
+        14. **palletPosition** — Loading position. Affects airflow/cooling distribution.
+        15. **productMassAtStopKg** — Thermal mass. Affects heat absorption rate.
+        16. **siteUrbanRural** — Site accessibility proxy.
+        17. **siteType** — Destination type (pharmacy, hospital, clinic).
+        18. **dayOfWeek** — Operational rhythm. 6 levels (no Sunday shipments).
+        19. **nodeRefrigHealthPct** — Facility refrigeration health. mean=99.5%, stddev=5.5.
+        20. **dispatchYear** — Secular temporal confounder. 10 levels (2015-2024). Controls for fleet modernization, protocol changes.
+        21. **dispatchMonth** — Seasonal temporal confounder. 12 levels. Controls for climate seasonality.
+        22. **vehicleRefrigAgeMonths** — Vehicle refrig unit age. Within-cohort variation exists (same model ages over time). Generator shows within-model slopes negligible, but included greedily.
+        
+        **EXCLUDED AS MEDIATOR:**
+        - **preDepartureTempC** — Pathway: vehicleEquipmentCohort → preDepartureTempC → excursionFlag. Equipment cooling performance during staging determines pre-departure temp, which determines thermal buffer. Including blocks indirect effect. Direct effect variant (direct_effect_linear) includes it in W.
+        
+        **EXCLUDED AS BUNDLED (co-determined with treatment):**
+        - **vehicleInsulationRating** — Determined by vehicleMakeModel component of treatment. Generator: sel_freq=0.0 after saturating categoricals. Within-model gradients all insignificant. Added as confounder_add sensitivity.
+        - **vehicleReeferKwRated** — Determined by vehicleRefrigModel component. Generator: "Flat SHAP even in long-route subpopulation." Added as confounder_add sensitivity.
+        - **vehicleCargoVolumeM3** — Determined by makeModel chassis specification. Added as confounder_add sensitivity.
+        
+        **PROXY ABSORPTION:**
+        - **region** (7 levels) — Strictly coarser than nodeId (28 levels). Each region has exactly 4 nodes. Including region instead of nodeId would leave within-region, between-node confounding uncontrolled. region is included in GRF for interpretability but NOT in W.
+        
+        ---
+        
+        ### mediators_excluded
+        
+        ```json
+        [
+          {
+            "column": "preDepartureTempC",
+            "pathway": "vehicleEquipmentCohort → preDepartureTempC → excursionFlag",
+            "direct_effect_variant_id": "direct_effect_linear"
+          }
+        ]
+        ```
+        
+        ---
+        
+        ### estimation_variants
+        
+        **Variant 1: primary_cat_linear**
+        - id: `primary_cat_linear`
+        - treatment_column: `vehicleEquipmentCohort`
+        - treatment_form: `CATEGORICAL`
+        - model_type: `LinearDML`
+        - w_columns: [nodeId, ambientTempAtDispatchC, ambientTempAtArrivalC, containerInsulationType, routeTotalStops, routeTotalDriveHours, routeTotalAirMiles, stopSequence, receivingDelayMin, isAfterHoursArrival, receivingDockTempControlled, containerAgeMonths, productClass, palletPosition, productMassAtStopKg, siteUrbanRural, siteType, dayOfWeek, nodeRefrigHealthPct, dispatchYear, dispatchMonth, vehicleRefrigAgeMonths]
+        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"` — lowest marginal excursion rate at 2.59% (n=6,456)
+        - notes: Primary total effect. 27 levels, 26 indicator contrasts. preDepartureTempC excluded (mediator).
+        
+        **Variant 2: primary_cat_nonparam**
+        - id: `primary_cat_nonparam`
+        - treatment_column: `vehicleEquipmentCohort`
+        - treatment_form: `CATEGORICAL`
+        - model_type: `NonParamDML`
+        - w_columns: [same 22 as variant 1]
+        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"`
+        - notes: Functional form check for primary estimate.
+        
+        **Variant 3: direct_effect_linear**
+        - id: `direct_effect_linear`
+        - treatment_column: `vehicleEquipmentCohort`
+        - treatment_form: `CATEGORICAL`
+        - model_type: `LinearDML`
+        - w_columns: [same 22 as variant 1 PLUS preDepartureTempC — 23 total]
+        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"`
+        - notes: Direct effect variant. preDepartureTempC included to block mediated pathway. Indirect effect = total (variant 1) - direct (variant 3).
+        
+        **Variant 4: binary_worst_vs_best**
+        - id: `binary_worst_vs_best`
+        - treatment_column: `vehicleEquipmentCohort`
+        - treatment_form: `CATEGORICAL`
+        - model_type: `LinearDML`
+        - w_columns: [same 22 as variant 1]
+        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"`
+        - filter: `{ "column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit__Carrier_Vector_HE_19", "Ford_E-Transit__Thermo_King_Advancer_A400"] }`
+        - notes: Binary contrast between worst Gen3 combo (11.71% marginal) and best combo (2.59% marginal). n≈12,298. Tests whether the 9.12pp marginal gap persists after controlling for deployment node confounding.
+        
+        **Variant 5: binary_gen1_vs_gen3**
+        - id: `binary_gen1_vs_gen3`
+        - treatment_column: `vehicleEquipmentCohort`
+        - treatment_form: `CATEGORICAL`
+        - model_type: `LinearDML`
+        - w_columns: [same 22 as variant 1]
+        - reference_category: `"Ford_E-450__Thermo_King_T-880R"`
+        - filter: `{ "column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit__Carrier_Vector_HE_19", "Ford_E-450__Thermo_King_T-880R"] }`
+        - notes: Cross-generation contrast. Reference is Gen1 good performer (4.05%, n=35,312). Treatment level is Gen3 worst performer (11.71%, n=5,842). Expected positive coefficient if Gen3-bad is truly worse than Gen1-good after confounding adjustment. Directly tests hypothesis that generation label is unreliable.
+        
+        ---
+        
+        ### gates
+        
+        **nuisance_r2:**
+        - outcome_abort: **0.005** — Binary outcome p=0.065. Achievable R² from W: ambientTempAtDispatchC alone gives r²=0.342²=0.117; with LightGBM nonlinear models and 22 confounders, achievable R²≈0.15-0.25. Abort at 0.005 catches only pipeline failure.
+        - outcome_flag: **0.04** — Roughly 1/3 of single-predictor achievable R².
+        - treatment_abort: **0.02** — Structural max for 27-level categorical: 1 - 1/27 = 0.963. Abort at 0.02 ≈ 2% of structural max. Below this, confounders capture effectively nothing about treatment assignment.
+        - treatment_flag: **0.10** — ~10% of structural max. Low treatment R² indicates near-exogenous assignment (after nodeId conditioning) — which is informative, not bad.
+        - treatment_structural_max_r2: **0.963** — 1 - 1/27 for 27-level categorical.
+        
+        **sanity:**
+        - expected_direction: **+1** — Reference is best performer; all other levels should show higher excursion risk (positive coefficient).
+        - abort_magnitude: **0.20** — 20pp. No single equipment combination could plausibly cause 20pp excursion rate increase after controlling for deployment, climate, and route.
+        - flag_magnitude: **0.10** — 10pp. Marginal max difference is 9.12pp; after confounding adjustment, within-node effects should be substantially smaller. 10pp warrants investigation.
+        
+        **placebo:**
+        - flag_ratio: **0.30** — Flag if |placebo ATE| > 30% of |real ATE|. With n=563K, statistical significance of placebo is expected; magnitude comparison is the test.
+        
+        ---
+        
+        ### mediation
+        
+        ```json
+        [
+          {
+            "mediator": "preDepartureTempC",
+            "pathway": "vehicleEquipmentCohort → preDepartureTempC → excursionFlag",
+            "total_variant_id": "primary_cat_linear",
+            "direct_variant_id": "direct_effect_linear"
+          }
+        ]
+        ```
+        
+        preDepartureTempC correlates with excursionFlag at r=0.625 (strongest predictor in dataset). Equipment cooling performance during facility staging determines how cold product departs. The indirect pathway (equipment → staging temp → thermal buffer → excursion) could carry a substantial portion of the total effect.
+        
+        ---
+        
+        ### grf_configs
+        
+        **GRF Config 1: Primary — deployment and climate modifiers**
+        - id: `grf_deployment_climate`
+        - modifier_columns: [nodeId, region, ambientTempAtDispatchC]
+        - slicing:
+          - nodeId: `unique` (28 levels — tests whether equipment effect varies by deployment node)
+          - region: `unique` (7 levels — interpretable regional summary)
+          - ambientTempAtDispatchC: `quartile` (tests whether equipment effect intensifies in heat)
+        
+        **GRF Config 2: Secondary — operational modifiers**
+        - id: `grf_operational`
+        - modifier_columns: [containerInsulationType, productClass, routeTotalStops, dispatchMonth, stopSequence]
+        - slicing:
+          - containerInsulationType: `unique` (4 levels — equipment × container interaction)
+          - productClass: `unique` (2 levels — sensitivity class interaction)
+          - routeTotalStops: `unique` (7 levels: 3-9 — route complexity interaction)
+          - dispatchMonth: `unique` (12 levels — seasonal effect modification)
+          - stopSequence: `quartile`
+        
+        Note: vehicleMakeModel and vehicleRefrigModel are NOT used as GRF modifiers because they are components of the treatment itself. "How does the treatment effect vary by treatment level?" is a dose-response question, not a heterogeneity question.
+        
+        ---
+        
+        ### refutations
+        
+        ```json
+        [
+          { "type": "PLACEBO" },
+          { "type": "RANDOM_CAUSE" },
+          { "type": "SUBSET" },
+          { "type": "TEMPORAL_PLACEBO" }
+        ]
+        ```
+        
+        TEMPORAL_PLACEBO included because data spans 2015-2024 (10 years). Fleet transitions occurred throughout (191 vehicle replacements 2017-2024). Temporal confounding from fleet modernization is a first-order concern.
+        
+        ---
+        
+        ### sensitivity
+        
+        **confounder_drops:**
+        
+        | column | deviation_threshold_pct | reasoning |
+        |--------|------------------------|-----------|
+        | nodeId | 15 | Critical deployment confounder — removing should substantially change estimate |
+        | ambientTempAtDispatchC | 15 | Primary climate confounder |
+        | ambientTempAtArrivalC | 25 | Secondary climate; correlated with dispatch ambient |
+        | containerInsulationType | 25 | Container property, independent of vehicle |
+        | routeTotalStops | 25 | Route complexity |
+        | routeTotalDriveHours | 25 | Route duration |
+        | routeTotalAirMiles | 25 | Route distance |
+        | stopSequence | 25 | Stop position |
+        | receivingDelayMin | 25 | Receiving-side variable |
+        | isAfterHoursArrival | 25 | Receiving-side binary |
+        | receivingDockTempControlled | 25 | Destination facility |
+        | containerAgeMonths | 25 | Confirmed null in generator |
+        | productClass | 25 | Product sensitivity |
+        | palletPosition | 25 | Loading position |
+        | productMassAtStopKg | 25 | Thermal mass |
+        | siteUrbanRural | 25 | Site characteristic |
+        | siteType | 25 | Site type |
+        | dayOfWeek | 25 | Operational rhythm |
+        | nodeRefrigHealthPct | 25 | Facility condition |
+        | dispatchYear | 20 | Secular trend — removal exposes time confounding |
+        | dispatchMonth | 20 | Seasonal pattern — removal exposes seasonality |
+        | vehicleRefrigAgeMonths | 25 | Within-model age |
+        
+        **confounder_adds:**
+        
+        | column | reasoning |
+        |--------|-----------|
+        | vehicleInsulationRating | Excluded as bundled with treatment (absorbed by makeModel). Testing if independent within-model variation matters after controlling for cohort identity. |
+        | vehicleReeferKwRated | Excluded as bundled with treatment (absorbed by refrigModel). Testing residual within-model kW variation. |
+        | vehicleCargoVolumeM3 | Excluded as bundled with treatment (absorbed by makeModel chassis). Testing if cargo volume has independent confounding effect. |
+        
+        **threshold_variants:** N/A — Treatment is categorical (no continuous thresholding).
+        
+        **model_variants:**
+        
+        | primary_variant_id | alternative_model_type |
+        |-------------------|----------------------|
+        | primary_cat_linear | NonParamDML |
+        | primary_cat_nonparam | LinearDML |
+        | direct_effect_linear | NonParamDML |
+        
+        ---
+        
+        ### structural_breaks
+        
+        **Config 1: Node-level monthly**
+        - id: `breaks_node_monthly`
+        - entity_column: `nodeId`
+        - temporal_column: `date`
+        - temporal_grain: `M`
+        - pelt_penalty: **4.79** (sensitive — log(120) for T=120 months)
+        - min_obs_per_period: **50** (563,028 / (28 × 120) ≈ 168 avg; 50 allows sparse node-months)
+        - known_events_tables: [hub_interventions, fleet_transitions]
+        - entity_count: 28
+        - temporal_points: 120
+        
+        **Config 2: Node-level monthly (conservative)**
+        - id: `breaks_node_monthly_conservative`
+        - entity_column: `nodeId`
+        - temporal_column: `date`
+        - temporal_grain: `M`
+        - pelt_penalty: **14.37** (conservative — 3 × log(120))
+        - min_obs_per_period: **50**
+        - known_events_tables: [hub_interventions, fleet_transitions]
+        - entity_count: 28
+        - temporal_points: 120
+        
+        ---
+        
+        ### residual_checks
+        
+        **autocorrelation:**
+        ```json
+        [
+          {
+            "temporal_column": "date",
+            "grain": "M",
+            "lags": [1, 3, 6, 12],
+            "threshold": 0.05
+          }
+        ]
+        ```
+        Monthly grain over 120 months. Lag-1 (month-over-month), lag-3 (quarterly), lag-6 (semi-annual), lag-12 (annual seasonality). All lags < 120 data points.
+        
+        **field_correlation:**
+        - threshold: **0.03** — Below d-sep threshold (0.035). At n=563K, correlations as small as 0.003 are statistically significant. 0.03 represents a practically meaningful residual structure.
+        - check_columns: [nodeId, ambientTempAtDispatchC, ambientTempAtArrivalC, containerInsulationType, routeTotalStops, routeTotalDriveHours, routeTotalAirMiles, stopSequence, receivingDelayMin, isAfterHoursArrival, receivingDockTempControlled, containerAgeMonths, productClass, palletPosition, productMassAtStopKg, siteUrbanRural, siteType, dayOfWeek, nodeRefrigHealthPct, dispatchYear, dispatchMonth, vehicleRefrigAgeMonths, preDepartureTempC, region, vehicleInsulationRating, vehicleReeferKwRated, vehicleCargoVolumeM3, loggerMonthsSinceCal]
+        
+        **auto_correction:**
+        - max_iterations: **3**
+        - stop_criterion_ci_pct: **5.0** — Stop if CI width changes by <5% between iterations.
+        
+        **metadata_correlation:**
+        
+        | column | threshold | alert_type |
+        |--------|----------|------------|
+        | loggerMonthsSinceCal | 0.03 | WARNING — logger drift could create measurement artifact. If residuals correlate with calibration age, DML estimate may reflect logger bias rather than true equipment effect. |
+        | loggerId | 0.03 | WARNING — specific logger devices with systematic bias. High-cardinality categorical (800 loggers). |
+        
+        ---
+        
+        ### range_checks
+        
+        **vif:**
+        - threshold: **10.0**
+        - drop_pairs:
+          - keep: `ambientTempAtDispatchC`, drop: `ambientTempAtArrivalC`, reasoning: "Both measure ambient temperature at different shipment stages. Dispatch ambient is temporally prior and causally closer to node assignment (confounding mechanism). Arrival ambient is measured after departure — partially post-treatment-timing. Expected corr >0.95, VIF >10."
+        
+        **overlap:**
+        
+        | variant_id | threshold | response_strategy | trim_bounds |
+        |-----------|----------|------------------|-------------|
+        | binary_worst_vs_best | 0.05 | TRIM | [0.05, 0.95] |
+        | binary_gen1_vs_gen3 | 0.05 | TRIM | [0.05, 0.95] |
+        
+        For the primary categorical variant (27 levels), overlap per-level varies. Smallest cohort is 4,150/563,028 = 0.74%. Standard DML with tree-based propensity models handles this adequately at n=563K, but the engine should flag any level with propensity < 1% for >5% of observations.
+        
+        **variance:**
+        
+        | column | structural_note |
+        |--------|----------------|
+        | vehicleEquipmentCohort | 27 categorical levels. Smallest: RAM_ProMaster_3500__TK_Advancer_A400 (n=4,150, 0.74%). Not degenerate — all levels have >4K observations. |
+        | excursionFlag | Binary, p=0.065. Not degenerate but rare event — 36,589 events in 563K observations. |
+        
+        ---
+        
+        ### unmeasured_confounding
+        
+        | variant_id | method | null_hypothesis | notes |
+        |-----------|--------|----------------|-------|
+        | primary_cat_linear | E_VALUE | ATE = 0 | How strong must unmeasured confounder be to explain away average categorical CATE? Key concern: unobserved vehicle maintenance quality varying by cohort. |
+        | primary_cat_linear | ROSENBAUM_BOUNDS | ATE = 0 | How large a departure from random cohort assignment needed to nullify? Deployment bias (nodeId) is controlled, but unobserved within-node assignment mechanisms could remain. |
+        | direct_effect_linear | E_VALUE | ATE = 0 | Direct effect after blocking preDepartureTempC mediation pathway. |
+        | binary_worst_vs_best | E_VALUE | ATE = 0 | Focused contrast — unmeasured confounding between the extreme cohorts. |
+        | binary_worst_vs_best | ROSENBAUM_BOUNDS | ATE = 0 | Binary contrast is most amenable to Rosenbaum analysis. |
+        | binary_gen1_vs_gen3 | E_VALUE | ATE = 0 | Cross-generation contrast — tests if deployment confounding fully explains Gen1 outperforming Gen3. |
+        
+        ---
+        
+        ### externalization
+        
+        **domain_rankings:**
+        
+        ```json
+        [
+          {
+            "ordering": "(vehicleEquipmentCohort=Ford_E-Transit__Carrier_Vector_HE_19, vehicleEquipmentCohort=Ford_E-450__Daikin_RKN) > (vehicleEquipmentCohort=Freightliner_M2_112__Daikin_LXE10, vehicleEquipmentCohort=Hino_195__Thermo_King_T-680Pro) > (vehicleEquipmentCohort=Ford_F-650__Thermo_King_T-680Pro, vehicleEquipmentCohort=Isuzu_NPR_HD__Carrier_Supra_860) > (vehicleEquipmentCohort=Ford_E-Transit__Daikin_ZeSTIA, vehicleEquipmentCohort=Ford_E-450__Thermo_King_T-880R) > (vehicleEquipmentCohort=Ford_E-Transit__Thermo_King_Advancer_A400)",
+            "source": "Marginal excursion rates from data: worst tier 8.6-11.7%, upper-mid 7.3-8.6%, mid 4.9-6.6%, lower-mid 4.0-5.0%, best 2.6-3.9%. Ordering reflects thermal engineering expectations (newer refrig models with higher capacity outperform older units) modulated by deployment confounding.",
+            "scope": "All regions combined — causal ordering may differ from marginal due to deployment concentration (generator documents that Ford_E-Transit__Carrier_Vector_HE_19 has 51.7% deployment at NOD_024, the worst node).",
+            "expected_concordance": 0.5
+          }
+        ]
+        ```
+        
+        Expected concordance at 0.5 (DOCUMENTED level) because the hypothesis explicitly argues that marginal ordering is confounded by deployment — the causal ordering after DML adjustment may substantially differ from the marginal ranking used to construct this domain ordering.
+        
+        **allocation_bias:**
+        
+        | treatment_column | grouping_column | flag_threshold |
+        |-----------------|----------------|---------------|
+        | vehicleEquipmentCohort | nodeId | 0.10 |
+        
+        This is the core confounding concern. Ford_E-Transit__Carrier_Vector_HE_19 has HHI concentration at NOD_024 (3,020/5,842 = 51.7% at a single node). If HHI > 0.10 for ANY cohort, deployment is non-uniform and the causal estimate is sensitive to nodeId conditioning.
+        
+        ---
+        
+        ### discrepancy_log
+        
+        No discrepancies detected between compiler exploration and generator evidence:
+        - Total row count: 563,028 ✓ (matches base table)
+        - 27 distinct cohorts ✓
+        - Ford_E-Transit × Carrier_Vector_HE_19 at NOD_024: 3,020/5,842 = 51.7% ✓ (matches generator's cited 51.7%)
+        - Outcome base rate: 6.50% ✓ (matches generator's 6.5%)
+        - preDepartureTempC corr with excursionFlag: 0.625 ✓ (consistent with generator's mediator assessment)
+        
+        ```json
+        []
+        ```
+        
+        ---
+        
+        ## COMPLETENESS CHECKLIST
+        
+        | Field | Status |
+        |-------|--------|
+        | hypothesis_id | ✅ Provided |
+        | treatment | ✅ vehicleEquipmentCohort |
+        | outcome | ✅ excursionFlag |
+        | treatment_form | ✅ CATEGORICAL |
+        | query | ✅ Full QueryDTO with 35 columns, LEFT JOIN, verified 563K rows |
+        | expected_row_count | ✅ 563,028 |
+        | strip_columns | ✅ [shipmentId] |
+        | dag_edges | ✅ 19 edges, 12 nodes, intermediate structure |
+        | dsep_threshold | ✅ 0.035 — calibrated from 5 noise-floor pairs |
+        | adjustment_set | ✅ 22 variables with per-variable classification |
+        | mediators_excluded | ✅ preDepartureTempC with direct_effect_variant_id |
+        | estimation_variants | ✅ 5 variants (2 primary, 1 direct effect, 2 binary contrasts) |
+        | gates (nuisance_r2) | ✅ All 5 sub-fields with grounded derivations |
+        | gates (sanity) | ✅ Direction +1, abort 0.20, flag 0.10 |
+        | gates (placebo) | ✅ flag_ratio 0.30 |
+        | mediation | ✅ 1 mediator (preDepartureTempC) with variant IDs |
+        | grf_configs | ✅ 2 configs (deployment/climate + operational) |
+        | refutations | ✅ 4 types including TEMPORAL_PLACEBO |
+        | sensitivity (confounder_drops) | ✅ All 22 W variables |
+        | sensitivity (confounder_adds) | ✅ 3 bundled variables |
+        | sensitivity (threshold_variants) | ✅ N/A documented |
+        | sensitivity (model_variants) | ✅ 3 cross-model checks |
+        | structural_breaks | ✅ 2 configs (sensitive + conservative) |
+        | residual_checks (autocorrelation) | ✅ Monthly, 4 lags |
+        | residual_checks (field_correlation) | ✅ threshold 0.03, 28 check columns |
+        | residual_checks (auto_correction) | ✅ max_iterations 3, stop 5% |
+        | residual_checks (metadata_correlation) | ✅ 2 metadata columns |
+        | range_checks (vif) | ✅ threshold 10, 1 drop pair documented |
+        | range_checks (overlap) | ✅ 2 binary variants with TRIM strategy |
+        | range_checks (variance) | ✅ treatment + outcome |
+        | unmeasured_confounding | ✅ 6 entries (E_VALUE + ROSENBAUM_BOUNDS for primary + contrasts) |
+        | externalization (domain_rankings) | ✅ 1 ranking with tier notation, concordance 0.5 |
+        | externalization (allocation_bias) | ✅ 1 test on nodeId |
+        | discrepancy_log | ✅ Empty — no contradictions |
+        """;
+
     String SAMPLE_COMPILED_H3 = """
         Good. The query produces 563,028 rows with no fan-out, all columns populated. The ambient dispatch/arrival correlation is 0.992 — I'll need to drop one for VIF. Now I have all data needed. Let me compile.
         
@@ -2789,4 +3355,2277 @@ public interface SampleRunLog {
         | externalization.allocation_bias | ✓ | 2 entries |
         | discrepancy_log | ✓ | 2 entries documenting tier count mislabeling |
         """;
+
+    String SAMPLE_H1_PIPELINE_OUTPUT = """
+        {
+          "job_id": "d2b1508a-2961-42e0-8835-86ac390b0744",
+          "event_type": "job.success",
+          "timestamp": "2026-04-02T15:41:05.429865Z",
+          "progress": 1.0,
+          "message": "Causal verification pipeline completed successfully",
+          "metrics": {
+            "hypothesis_id": "containerInsulationType_excursionFlag",
+            "steps": {
+              "dsep": {
+                "broad_edge_count": 13,
+                "refined_edge_count": 14,
+                "violation_count": 1,
+                "confirmed_count": 56,
+                "fallback_edges": [
+                  [
+                    "stopSequence",
+                    "preDepartureTempC"
+                  ]
+                ],
+                "refined_edges": [
+                  [
+                    "nodeId",
+                    "containerInsulationType"
+                  ],
+                  [
+                    "nodeId",
+                    "preDepartureTempC"
+                  ],
+                  [
+                    "nodeId",
+                    "ambientTempAtDispatchC"
+                  ],
+                  [
+                    "dispatchMonth",
+                    "ambientTempAtDispatchC"
+                  ],
+                  [
+                    "ambientTempAtDispatchC",
+                    "preDepartureTempC"
+                  ],
+                  [
+                    "ambientTempAtDispatchC",
+                    "excursionFlag"
+                  ],
+                  [
+                    "nodeRefrigHealthPct",
+                    "preDepartureTempC"
+                  ],
+                  [
+                    "preDepartureTempC",
+                    "excursionFlag"
+                  ],
+                  [
+                    "containerInsulationType",
+                    "excursionFlag"
+                  ],
+                  [
+                    "stopSequence",
+                    "excursionFlag"
+                  ],
+                  [
+                    "routeTotalDriveHours",
+                    "excursionFlag"
+                  ],
+                  [
+                    "receivingDelayMin",
+                    "excursionFlag"
+                  ],
+                  [
+                    "vehicleRefrigModel",
+                    "excursionFlag"
+                  ],
+                  [
+                    "stopSequence",
+                    "preDepartureTempC"
+                  ]
+                ],
+                "violations": [
+                  {
+                    "node_a": "preDepartureTempC",
+                    "node_b": "stopSequence",
+                    "correlation": 0.6321972826234361,
+                    "p_value": 0.0
+                  }
+                ]
+              },
+              "identification": {
+                "adjustment_set": [
+                  "preDepartureTempC",
+                  "ambientTempAtDispatchC",
+                  "nodeId",
+                  "vehicleMakeModel",
+                  "vehicleRefrigModel",
+                  "routeTotalStops",
+                  "routeTotalDriveHours",
+                  "routeTotalAirMiles",
+                  "stopSequence",
+                  "receivingDelayMin",
+                  "isAfterHoursArrival",
+                  "receivingDockTempControlled",
+                  "dayOfWeek",
+                  "dispatchMonth",
+                  "dispatchYear",
+                  "nodeRefrigHealthPct",
+                  "productClass",
+                  "palletPosition",
+                  "productMassAtStopKg",
+                  "containerAgeMonths",
+                  "vehicleRefrigAgeMonths",
+                  "vehicleInsulationRating",
+                  "vehicleCargoVolumeM3",
+                  "vehicleReeferKwRated",
+                  "nodePowerStatus",
+                  "siteType",
+                  "siteUrbanRural",
+                  "isHosRegulated",
+                  "loggerMonthsSinceCal"
+                ],
+                "mediators_excluded": []
+              },
+              "estimation": {
+                "primary_categorical_linear": {
+                  "variant_id": "primary_categorical_linear",
+                  "effect": -0.001228702230455477,
+                  "ci": [
+                    -0.015899259377773433,
+                    0.01676661871824172
+                  ],
+                  "treatment_column": "containerInsulationType",
+                  "w_columns": [
+                    "preDepartureTempC",
+                    "ambientTempAtDispatchC",
+                    "nodeId",
+                    "vehicleMakeModel",
+                    "vehicleRefrigModel",
+                    "routeTotalStops",
+                    "routeTotalDriveHours",
+                    "routeTotalAirMiles",
+                    "stopSequence",
+                    "receivingDelayMin",
+                    "isAfterHoursArrival",
+                    "receivingDockTempControlled",
+                    "dayOfWeek",
+                    "dispatchMonth",
+                    "dispatchYear",
+                    "nodeRefrigHealthPct",
+                    "productClass",
+                    "palletPosition",
+                    "productMassAtStopKg",
+                    "containerAgeMonths",
+                    "vehicleRefrigAgeMonths",
+                    "vehicleInsulationRating",
+                    "vehicleCargoVolumeM3",
+                    "vehicleReeferKwRated",
+                    "nodePowerStatus",
+                    "siteType",
+                    "siteUrbanRural",
+                    "isHosRegulated",
+                    "loggerMonthsSinceCal"
+                  ],
+                  "n_obs": 299781,
+                  "discrete": true,
+                  "category_effects": {
+                    "containerInsulationType=PUR_foam": -0.001228702230455477,
+                    "containerInsulationType=VIP_panel": 0.004883784454722361,
+                    "containerInsulationType=XPS_foam": -0.003183795059409147,
+                    "containerInsulationType=PIR_foam": 0.0
+                  }
+                },
+                "primary_categorical_nonparam": {
+                  "variant_id": "primary_categorical_nonparam",
+                  "effect": -0.01119735259313902,
+                  "ci": [
+                    -0.031168389294826602,
+                    -0.0076309598550143385
+                  ],
+                  "treatment_column": "containerInsulationType",
+                  "w_columns": [
+                    "preDepartureTempC",
+                    "ambientTempAtDispatchC",
+                    "nodeId",
+                    "vehicleMakeModel",
+                    "vehicleRefrigModel",
+                    "routeTotalStops",
+                    "routeTotalDriveHours",
+                    "routeTotalAirMiles",
+                    "stopSequence",
+                    "receivingDelayMin",
+                    "isAfterHoursArrival",
+                    "receivingDockTempControlled",
+                    "dayOfWeek",
+                    "dispatchMonth",
+                    "dispatchYear",
+                    "nodeRefrigHealthPct",
+                    "productClass",
+                    "palletPosition",
+                    "productMassAtStopKg",
+                    "containerAgeMonths",
+                    "vehicleRefrigAgeMonths",
+                    "vehicleInsulationRating",
+                    "vehicleCargoVolumeM3",
+                    "vehicleReeferKwRated",
+                    "nodePowerStatus",
+                    "siteType",
+                    "siteUrbanRural",
+                    "isHosRegulated",
+                    "loggerMonthsSinceCal"
+                  ],
+                  "n_obs": 299781,
+                  "discrete": true,
+                  "category_effects": {
+                    "containerInsulationType=PUR_foam": -0.01119735259313902,
+                    "containerInsulationType=VIP_panel": 0.0025249129115217715,
+                    "containerInsulationType=XPS_foam": -0.0066356162353288705,
+                    "containerInsulationType=PIR_foam": 0.0
+                  }
+                },
+                "full_sample_categorical_linear": {
+                  "variant_id": "full_sample_categorical_linear",
+                  "effect": -4.561603714326981E-4,
+                  "ci": [
+                    -0.004052062077833573,
+                    0.0031353067310610086
+                  ],
+                  "treatment_column": "containerInsulationType",
+                  "w_columns": [
+                    "preDepartureTempC",
+                    "ambientTempAtDispatchC",
+                    "nodeId",
+                    "vehicleMakeModel",
+                    "vehicleRefrigModel",
+                    "routeTotalStops",
+                    "routeTotalDriveHours",
+                    "routeTotalAirMiles",
+                    "stopSequence",
+                    "receivingDelayMin",
+                    "isAfterHoursArrival",
+                    "receivingDockTempControlled",
+                    "dayOfWeek",
+                    "dispatchMonth",
+                    "dispatchYear",
+                    "nodeRefrigHealthPct",
+                    "productClass",
+                    "palletPosition",
+                    "productMassAtStopKg",
+                    "containerAgeMonths",
+                    "vehicleRefrigAgeMonths",
+                    "vehicleInsulationRating",
+                    "vehicleCargoVolumeM3",
+                    "vehicleReeferKwRated",
+                    "nodePowerStatus",
+                    "siteType",
+                    "siteUrbanRural",
+                    "isHosRegulated",
+                    "loggerMonthsSinceCal"
+                  ],
+                  "n_obs": 563028,
+                  "discrete": true,
+                  "category_effects": {
+                    "containerInsulationType=PUR_foam": -4.561603714326981E-4,
+                    "containerInsulationType=VIP_panel": 3.970945967147893E-4,
+                    "containerInsulationType=XPS_foam": -0.0021962646913788347,
+                    "containerInsulationType=PIR_foam": 0.0
+                  }
+                },
+                "hot_zone_categorical_linear": {
+                  "variant_id": "hot_zone_categorical_linear",
+                  "effect": -0.022062882551127733,
+                  "ci": [
+                    -0.05183029301858205,
+                    -0.005961730211691781
+                  ],
+                  "treatment_column": "containerInsulationType",
+                  "w_columns": [
+                    "preDepartureTempC",
+                    "ambientTempAtDispatchC",
+                    "nodeId",
+                    "vehicleMakeModel",
+                    "vehicleRefrigModel",
+                    "routeTotalStops",
+                    "routeTotalDriveHours",
+                    "routeTotalAirMiles",
+                    "stopSequence",
+                    "receivingDelayMin",
+                    "isAfterHoursArrival",
+                    "receivingDockTempControlled",
+                    "dayOfWeek",
+                    "dispatchMonth",
+                    "dispatchYear",
+                    "nodeRefrigHealthPct",
+                    "productClass",
+                    "palletPosition",
+                    "productMassAtStopKg",
+                    "containerAgeMonths",
+                    "vehicleRefrigAgeMonths",
+                    "vehicleInsulationRating",
+                    "vehicleCargoVolumeM3",
+                    "vehicleReeferKwRated",
+                    "nodePowerStatus",
+                    "siteType",
+                    "siteUrbanRural",
+                    "isHosRegulated",
+                    "loggerMonthsSinceCal"
+                  ],
+                  "n_obs": 263247,
+                  "discrete": true,
+                  "category_effects": {
+                    "containerInsulationType=PUR_foam": -0.022062882551127733,
+                    "containerInsulationType=VIP_panel": -0.027507744199259308,
+                    "containerInsulationType=XPS_foam": -0.01762615246487964,
+                    "containerInsulationType=PIR_foam": 0.0
+                  }
+                },
+                "binary_pir_vs_vip_linear": {
+                  "variant_id": "binary_pir_vs_vip_linear",
+                  "effect": 0.0038081462154866837,
+                  "ci": [
+                    -0.023218933355226422,
+                    0.011611141612831659
+                  ],
+                  "treatment_column": "containerInsulationType",
+                  "w_columns": [
+                    "preDepartureTempC",
+                    "ambientTempAtDispatchC",
+                    "nodeId",
+                    "vehicleMakeModel",
+                    "vehicleRefrigModel",
+                    "routeTotalStops",
+                    "routeTotalDriveHours",
+                    "routeTotalAirMiles",
+                    "stopSequence",
+                    "receivingDelayMin",
+                    "isAfterHoursArrival",
+                    "receivingDockTempControlled",
+                    "dayOfWeek",
+                    "dispatchMonth",
+                    "dispatchYear",
+                    "nodeRefrigHealthPct",
+                    "productClass",
+                    "palletPosition",
+                    "productMassAtStopKg",
+                    "containerAgeMonths",
+                    "vehicleRefrigAgeMonths",
+                    "vehicleInsulationRating",
+                    "vehicleCargoVolumeM3",
+                    "vehicleReeferKwRated",
+                    "nodePowerStatus",
+                    "siteType",
+                    "siteUrbanRural",
+                    "isHosRegulated",
+                    "loggerMonthsSinceCal"
+                  ],
+                  "n_obs": 133862,
+                  "discrete": true,
+                  "category_effects": {
+                    "containerInsulationType=VIP_panel": 0.0038081462154866837,
+                    "containerInsulationType=PIR_foam": 0.0
+                  }
+                },
+                "binary_pir_vs_vip_nonparam": {
+                  "variant_id": "binary_pir_vs_vip_nonparam",
+                  "effect": -3.3281686246206324E-4,
+                  "ci": [
+                    -0.03246310958466967,
+                    7.596931355015768E-5
+                  ],
+                  "treatment_column": "containerInsulationType",
+                  "w_columns": [
+                    "preDepartureTempC",
+                    "ambientTempAtDispatchC",
+                    "nodeId",
+                    "vehicleMakeModel",
+                    "vehicleRefrigModel",
+                    "routeTotalStops",
+                    "routeTotalDriveHours",
+                    "routeTotalAirMiles",
+                    "stopSequence",
+                    "receivingDelayMin",
+                    "isAfterHoursArrival",
+                    "receivingDockTempControlled",
+                    "dayOfWeek",
+                    "dispatchMonth",
+                    "dispatchYear",
+                    "nodeRefrigHealthPct",
+                    "productClass",
+                    "palletPosition",
+                    "productMassAtStopKg",
+                    "containerAgeMonths",
+                    "vehicleRefrigAgeMonths",
+                    "vehicleInsulationRating",
+                    "vehicleCargoVolumeM3",
+                    "vehicleReeferKwRated",
+                    "nodePowerStatus",
+                    "siteType",
+                    "siteUrbanRural",
+                    "isHosRegulated",
+                    "loggerMonthsSinceCal"
+                  ],
+                  "n_obs": 133862,
+                  "discrete": true,
+                  "category_effects": {
+                    "containerInsulationType=VIP_panel": -3.3281686246206324E-4,
+                    "containerInsulationType=PIR_foam": 0.0
+                  }
+                }
+              },
+              "gates": {
+                "abort": false,
+                "nuisance_r2": {
+                  "outcome_r2": 0.8767930451880612,
+                  "treatment_r2": 0.24611841639860926,
+                  "outcome_status": "pass",
+                  "treatment_status": "pass"
+                },
+                "sanity": {
+                  "direction_ok": false,
+                  "effect_magnitude": 0.001228702230455477,
+                  "abort_magnitude": 0.05,
+                  "flag_magnitude": 0.025,
+                  "status": "pass",
+                  "warning": "Effect direction does not match expected"
+                }
+              },
+        """.concat("""
+              "mediation": null,
+              "grf": [
+                {
+                  "config_id": "grf_primary_region",
+                  "slices": {
+                    "region=Midwest_IN": {
+                      "mean_cate": -5.434927801251507E-4,
+                      "std_cate": 0.002580004287448009,
+                      "n": 69866
+                    },
+                    "region=Mountain_CO": {
+                      "mean_cate": 1.3152341986546589E-5,
+                      "std_cate": 0.002077027409918962,
+                      "n": 62000
+                    },
+                    "region=Northeast_NJ": {
+                      "mean_cate": 0.00100461895777813,
+                      "std_cate": 0.003886963463171216,
+                      "n": 100672
+                    },
+                    "region=PacificNW_OR": {
+                      "mean_cate": -7.142983690032465E-4,
+                      "std_cate": 0.002126220358977102,
+                      "n": 67243
+                    },
+                    "region=SouthCentral_TX": {
+                      "mean_cate": 4.356913433687315E-4,
+                      "std_cate": 0.006301324302703693,
+                      "n": 87550
+                    },
+                    "region=Southeast_GA": {
+                      "mean_cate": -0.001795658877761155,
+                      "std_cate": 0.0034331496236041105,
+                      "n": 90773
+                    },
+                    "region=Southwest_AZ": {
+                      "mean_cate": -8.70176320454919E-5,
+                      "std_cate": 0.003957687473820619,
+                      "n": 84924
+                    },
+                    "dispatchMonth=1.0": {
+                      "mean_cate": -8.582842459979329E-5,
+                      "std_cate": 4.346461527858036E-4,
+                      "n": 47713
+                    },
+                    "dispatchMonth=2.0": {
+                      "mean_cate": 1.2502583717291147E-6,
+                      "std_cate": 7.606001503193854E-5,
+                      "n": 43679
+                    },
+                    "dispatchMonth=3.0": {
+                      "mean_cate": -9.545770641738442E-5,
+                      "std_cate": 3.8569958570475106E-4,
+                      "n": 48024
+                    },
+                    "dispatchMonth=4.0": {
+                      "mean_cate": -8.46075308365409E-4,
+                      "std_cate": 0.001278009259863365,
+                      "n": 45765
+                    },
+                    "dispatchMonth=5.0": {
+                      "mean_cate": -0.0011225086282855728,
+                      "std_cate": 0.005687128999683321,
+                      "n": 47829
+                    },
+                    "dispatchMonth=6.0": {
+                      "mean_cate": -0.0010245944903327128,
+                      "std_cate": 0.004346780708457892,
+                      "n": 46438
+                    },
+                    "dispatchMonth=7.0": {
+                      "mean_cate": -0.0015749536277442522,
+                      "std_cate": 0.006764507534510416,
+                      "n": 47566
+                    },
+                    "dispatchMonth=8.0": {
+                      "mean_cate": 0.0019053709625700998,
+                      "std_cate": 0.008301252941752527,
+                      "n": 48046
+                    },
+                    "dispatchMonth=9.0": {
+                      "mean_cate": -8.637615440251822E-5,
+                      "std_cate": 0.0029811314645457228,
+                      "n": 46228
+                    },
+                    "dispatchMonth=10.0": {
+                      "mean_cate": 2.1462310382450704E-4,
+                      "std_cate": 8.792463139653367E-4,
+                      "n": 47577
+                    },
+                    "dispatchMonth=11.0": {
+                      "mean_cate": -9.031522683768746E-5,
+                      "std_cate": 1.4943854370355202E-4,
+                      "n": 46556
+                    },
+                    "dispatchMonth=12.0": {
+                      "mean_cate": 2.872717199597683E-4,
+                      "std_cate": 3.8302320893155627E-4,
+                      "n": 47607
+                    }
+                  },
+                  "feature_importances": {
+                    "region": 0.4845585476206231,
+                    "dispatchMonth": 0.515441452379377
+                  },
+                  "mean_cate": -2.0654965377461793E-4,
+                  "std_cate": 0.00397057991473072
+                },
+                {
+                  "config_id": "grf_climate_continuous",
+                  "slices": {
+                    "ambientTempAtDispatchC=(-25.501, 10.1]": {
+                      "mean_cate": 1.1112412556022646E-4,
+                      "std_cate": 0.0017407878972956392,
+                      "n": 141185
+                    },
+                    "ambientTempAtDispatchC=(10.1, 18.0]": {
+                      "mean_cate": 1.9901297190887017E-5,
+                      "std_cate": 0.0028510769031185336,
+                      "n": 140926
+                    },
+                    "ambientTempAtDispatchC=(18.0, 25.7]": {
+                      "mean_cate": -5.727115409832367E-4,
+                      "std_cate": 0.00844194990636126,
+                      "n": 140759
+                    },
+                    "ambientTempAtDispatchC=(25.7, 51.8]": {
+                      "mean_cate": 6.163552923434195E-5,
+                      "std_cate": 0.014017586527194847,
+                      "n": 140158
+                    },
+                    "routeTotalDriveHours=(1.499, 3.0]": {
+                      "mean_cate": 4.6268369421480953E-4,
+                      "std_cate": 0.008569455753400325,
+                      "n": 202751
+                    },
+                    "routeTotalDriveHours=(3.0, 3.5]": {
+                      "mean_cate": -8.921801666429977E-4,
+                      "std_cate": 0.007921182481528692,
+                      "n": 124595
+                    },
+                    "routeTotalDriveHours=(3.5, 4.0]": {
+                      "mean_cate": -5.306418396989533E-4,
+                      "std_cate": 0.007872978509508544,
+                      "n": 96982
+                    },
+                    "routeTotalDriveHours=(4.0, 5.5]": {
+                      "mean_cate": 1.1054355918624604E-4,
+                      "std_cate": 0.00861896590460118,
+                      "n": 138700
+                    },
+                    "stopSequence=(0.999, 2.0]": {
+                      "mean_cate": 3.227282098263684E-4,
+                      "std_cate": 0.004169244760059442,
+                      "n": 188708
+                    },
+                    "stopSequence=(2.0, 3.0]": {
+                      "mean_cate": 5.021373171242859E-4,
+                      "std_cate": 0.006544037606317427,
+                      "n": 94354
+                    },
+                    "stopSequence=(3.0, 5.0]": {
+                      "mean_cate": -5.430241460821455E-4,
+                      "std_cate": 0.010372250280917147,
+                      "n": 154303
+                    },
+                    "stopSequence=(5.0, 9.0]": {
+                      "mean_cate": -6.204827677409809E-4,
+                      "std_cate": 0.01097443268274018,
+                      "n": 125663
+                    }
+                  },
+                  "feature_importances": {
+                    "ambientTempAtDispatchC": 0.5465036067232985,
+                    "routeTotalDriveHours": 0.1936911914929136,
+                    "stopSequence": 0.259805201783788
+                  },
+                  "mean_cate": -9.4989807639565E-5,
+                  "std_cate": 0.008342818894978572
+                },
+                {
+                  "config_id": "grf_equipment_interaction",
+                  "slices": {
+                    "vehicleRefrigModel=Carrier_Supra_860": {
+                      "mean_cate": 0.0017058724003278056,
+                      "std_cate": 0.010248429724122175,
+                      "n": 69583
+                    },
+                    "vehicleRefrigModel=Carrier_Vector_8611MT": {
+                      "mean_cate": 8.930709427359965E-5,
+                      "std_cate": 0.007823159610434016,
+                      "n": 54699
+                    },
+                    "vehicleRefrigModel=Carrier_Vector_HE_19": {
+                      "mean_cate": -0.0017001610820790954,
+                      "std_cate": 0.012823937064228928,
+                      "n": 28986
+                    },
+                    "vehicleRefrigModel=Daikin_LXE10": {
+                      "mean_cate": -5.797634599110531E-4,
+                      "std_cate": 0.003334783661583161,
+                      "n": 79785
+                    },
+                    "vehicleRefrigModel=Daikin_RKN": {
+                      "mean_cate": 0.0022148078416620934,
+                      "std_cate": 0.016292872945977345,
+                      "n": 64248
+                    },
+                    "vehicleRefrigModel=Daikin_ZeSTIA": {
+                      "mean_cate": -0.0016693811387331879,
+                      "std_cate": 0.01045649378741725,
+                      "n": 48307
+                    },
+                    "vehicleRefrigModel=Thermo_King_Advancer_A400": {
+                      "mean_cate": 0.002688800645502138,
+                      "std_cate": 0.010880014185266813,
+                      "n": 29853
+                    },
+                    "vehicleRefrigModel=Thermo_King_T-680Pro": {
+                      "mean_cate": 3.795348763389411E-4,
+                      "std_cate": 0.003829345861092994,
+                      "n": 103628
+                    },
+                    "vehicleRefrigModel=Thermo_King_T-880R": {
+                      "mean_cate": -2.422323764707576E-4,
+                      "std_cate": 0.0042681672785691935,
+                      "n": 83939
+                    },
+                    "vehicleInsulationRating=(0.699, 0.74]": {
+                      "mean_cate": -7.642382253194355E-4,
+                      "std_cate": 0.006006572315544082,
+                      "n": 146299
+                    },
+                    "vehicleInsulationRating=(0.74, 0.81]": {
+                      "mean_cate": 5.475859959746534E-4,
+                      "std_cate": 0.007940210875147182,
+                      "n": 154375
+                    },
+                    "vehicleInsulationRating=(0.81, 0.89]": {
+                      "mean_cate": -5.467580310402651E-4,
+                      "std_cate": 0.006869515235571183,
+                      "n": 136423
+                    },
+                    "vehicleInsulationRating=(0.89, 1.0]": {
+                      "mean_cate": 0.0023094563213405007,
+                      "std_cate": 0.013786502012687683,
+                      "n": 125931
+                    },
+                    "nodeRefrigHealthPct=(-0.001, 100.0]": {
+                      "mean_cate": 3.356281981299394E-4,
+                      "std_cate": 0.009055079928396121,
+                      "n": 563028
+                    }
+                  },
+                  "feature_importances": {
+                    "vehicleRefrigModel": 0.359445201443335,
+                    "vehicleInsulationRating": 0.6405547985566651,
+                    "nodeRefrigHealthPct": 0.0
+                  },
+                  "mean_cate": 3.356281981299394E-4,
+                  "std_cate": 0.009055079928396121
+                }
+              ],
+              "refutations": {
+                "placebo": {
+                  "new_effect": -2.324073772480464E-5,
+                  "ratio": 0.018914865741058638,
+                  "flag": false
+                },
+                "random_cause": {
+                  "new_effect": 4.542985969349914E-4,
+                  "shift_pct": 1.369738562911686
+                },
+                "subset": {
+                  "new_effect": 3.9453346940589477E-4,
+                  "shift_pct": 1.3210977075052937
+                },
+                "temporal_placebo": {
+                  "temporal_column": "date",
+                  "original_effect": -0.001228702230455477,
+                  "probes": [
+                    {
+                      "label": "forward_56302",
+                      "lag": 56302,
+                      "n_obs": 506726,
+                      "effect": -3.635529011100984E-4,
+                      "ratio": 0.29588365032537634
+                    },
+                    {
+                      "label": "backward_56302",
+                      "lag": -56302,
+                      "n_obs": 506726,
+                      "effect": -1.5743869940128443E-5,
+                      "ratio": 0.012813413657019428
+                    },
+                    {
+                      "label": "forward_112605",
+                      "lag": 112605,
+                      "n_obs": 450423,
+                      "effect": 3.106498070115846E-5,
+                      "ratio": 0.025282757637416137
+                    },
+                    {
+                      "label": "backward_112605",
+                      "lag": -112605,
+                      "n_obs": 450423,
+                      "effect": 2.2964160228780423E-4,
+                      "ratio": 0.18689768488714847
+                    },
+                    {
+                      "label": "forward_185799",
+                      "lag": 185799,
+                      "n_obs": 377229,
+                      "effect": 6.663852659402583E-5,
+                      "ratio": 0.054234886974464984
+                    },
+                    {
+                      "label": "backward_185799",
+                      "lag": -185799,
+                      "n_obs": 377229,
+                      "effect": -1.424282876225003E-4,
+                      "ratio": 0.11591766018826422
+                    }
+                  ],
+                  "worst_ratio": 0.29588365032537634,
+                  "flag": false
+                }
+              },
+              "unmeasured_confounding": [
+                {
+                  "variant_id": "primary_categorical_linear",
+                  "method": "E_VALUE",
+                  "rr": 1.018907151313479,
+                  "e_value_point": 1.1577042394827555,
+                  "e_value_ci": 1.7964831963253975,
+                  "null_hypothesis": "ATE = 0"
+                },
+                {
+                  "variant_id": "primary_categorical_linear",
+                  "method": "ROSENBAUM_BOUNDS",
+                  "notes": "Critical Gamma for the primary categorical estimate."
+                },
+                {
+                  "variant_id": "full_sample_categorical_linear",
+                  "method": "E_VALUE",
+                  "rr": 1.00701935176165,
+                  "e_value_point": 1.0910944554535495,
+                  "e_value_ci": 1.3197252411558655,
+                  "null_hypothesis": "ATE = 0"
+                },
+                {
+                  "variant_id": "hot_zone_categorical_linear",
+                  "method": "E_VALUE",
+                  "rr": 1.339501506928212,
+                  "e_value_point": 2.0138625231018477,
+                  "e_value_ci": 2.994915288428059,
+                  "null_hypothesis": "ATE = 0"
+                },
+                {
+                  "variant_id": "binary_pir_vs_vip_linear",
+                  "method": "E_VALUE",
+                  "rr": 1.0585993863569114,
+                  "e_value_point": 1.3076641860342604,
+                  "e_value_ci": 2.053672319640299,
+                  "null_hypothesis": "ATE = 0"
+                },
+                {
+                  "variant_id": "binary_pir_vs_vip_linear",
+                  "method": "ROSENBAUM_BOUNDS",
+                  "notes": "Rosenbaum bounds for the PIR vs VIP binary contrast."
+                }
+              ],
+              "sensitivity": {
+                "confounder_drops": [
+                  {
+                    "column": "preDepartureTempC",
+                    "effect": 8.024170682620749E-4,
+                    "deviation_pct": 165.3060642662479,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "ambientTempAtDispatchC",
+                    "effect": -2.337558672511609E-5,
+                    "deviation_pct": 98.09753851293564,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "nodeId",
+                    "effect": -1.4419001044413843E-4,
+                    "deviation_pct": 88.26485320282299,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "vehicleMakeModel",
+                    "effect": -2.3579799674035112E-5,
+                    "deviation_pct": 98.0809182982199,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "vehicleRefrigModel",
+                    "effect": -1.5462733946470017E-4,
+                    "deviation_pct": 87.41539360538313,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "routeTotalStops",
+                    "effect": -3.275081905953817E-5,
+                    "deviation_pct": 97.33451944272963,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "routeTotalDriveHours",
+                    "effect": -5.7146907010794147E-5,
+                    "deviation_pct": 95.34900274498486,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "routeTotalAirMiles",
+                    "effect": -1.5716137158058416E-5,
+                    "deviation_pct": 98.72091571346522,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "stopSequence",
+                    "effect": 8.728538183048536E-5,
+                    "deviation_pct": 107.10386777747843,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "receivingDelayMin",
+                    "effect": -3.0001210449979125E-5,
+                    "deviation_pct": 97.55830096940105,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "isAfterHoursArrival",
+                    "effect": -8.872531011668013E-5,
+                    "deviation_pct": 92.77894123429809,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "receivingDockTempControlled",
+                    "effect": -6.391543613737092E-5,
+                    "deviation_pct": 94.79813460469771,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "dayOfWeek",
+                    "effect": -5.301099963113896E-5,
+                    "deviation_pct": 95.68561053140695,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "dispatchMonth",
+                    "effect": -9.572732104173741E-5,
+                    "deviation_pct": 92.20907078468869,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "dispatchYear",
+                    "effect": -8.636689168722881E-5,
+                    "deviation_pct": 92.97088508944816,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "nodeRefrigHealthPct",
+                    "effect": -5.430895473192867E-5,
+                    "deviation_pct": 95.579974269942,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "productClass",
+                    "effect": -3.5493384276581964E-5,
+                    "deviation_pct": 97.11131115441822,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "palletPosition",
+                    "effect": -7.40879363743912E-5,
+                    "deviation_pct": 93.9702285437435,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "productMassAtStopKg",
+                    "effect": -3.8693426443854286E-5,
+                    "deviation_pct": 96.85087033418091,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "containerAgeMonths",
+                    "effect": -5.529720705885969E-5,
+                    "deviation_pct": 95.49954369022662,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "vehicleRefrigAgeMonths",
+                    "effect": -3.3202861785970674E-5,
+                    "deviation_pct": 97.2977291842579,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "vehicleInsulationRating",
+                    "effect": -6.53360268950175E-5,
+                    "deviation_pct": 94.68251743379699,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "vehicleCargoVolumeM3",
+                    "effect": -1.3623369646220335E-5,
+                    "deviation_pct": 98.89123912136384,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "vehicleReeferKwRated",
+                    "effect": -1.7198025235800043E-5,
+                    "deviation_pct": 98.60030975695187,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "nodePowerStatus",
+                    "effect": -9.325336240417976E-5,
+                    "deviation_pct": 92.41041807423017,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "siteType",
+                    "effect": -7.891840168408724E-5,
+                    "deviation_pct": 93.57709299064001,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "siteUrbanRural",
+                    "effect": -3.556384505307188E-5,
+                    "deviation_pct": 97.10557658547681,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "isHosRegulated",
+                    "effect": -8.094399538559753E-5,
+                    "deviation_pct": 93.41223663640687,
+                    "threshold_pct": 20,
+                    "flag": true
+                  },
+                  {
+                    "column": "loggerMonthsSinceCal",
+                    "effect": -6.782217959956756E-5,
+                    "deviation_pct": 94.48017770958013,
+                    "threshold_pct": 20,
+                    "flag": true
+                  }
+                ],
+                "confounder_adds": [
+                  {
+                    "column": "ambientTempAtArrivalC",
+                    "reasoning": "Excluded from primary W due to collinearity with ambientTempAtDispatchC (corr=0.992). Tests whether arrival-specific ambient exposure captures residual confounding.",
+                    "effect": 1.0686164779391336E-6,
+                    "deviation_pct": 100.08697115146792
+                  },
+                  {
+                    "column": "hasRedundancy",
+                    "reasoning": "Excluded as absorbed by nodeId. Tests whether node-level redundancy has residual effect beyond nodeId fixed effect.",
+                    "effect": -2.8844043961093392E-5,
+                    "deviation_pct": 97.65247891261653
+                  },
+                  {
+                    "column": "refrigSystemType",
+                    "reasoning": "Excluded as absorbed by nodeId. Tests node-level facility equipment confounding residual.",
+                    "effect": -6.60027023719782E-5,
+                    "deviation_pct": 94.62825892750996
+                  },
+                  {
+                    "column": "containerWallAM2",
+                    "reasoning": "Excluded as bundled with treatment (stddev=0 within type). Tests whether controlling for the physical dimension separately absorbs treatment effect.",
+                    "effect": 3.1439879964649726E-4,
+                    "deviation_pct": 125.58787571582337
+                  }
+                ],
+                "threshold_variants": [],
+                "model_variants": [
+                  {
+                    "primary_variant_id": "primary_categorical_linear",
+                    "alternative_model_type": "NonParamDML",
+                    "primary_effect": -0.001228702230455477
+                  },
+                  {
+                    "primary_variant_id": "binary_pir_vs_vip_linear",
+                    "alternative_model_type": "NonParamDML",
+                    "primary_effect": 0.0038081462154866837
+                  }
+                ]
+              },
+              "structural_breaks": [
+                {
+                  "id": "breaks_monthly_sensitive",
+                  "total_breaks": 0,
+                  "direction_matches": 0,
+                  "ci_matches": 0,
+                  "tier": 3,
+                  "matches": []
+                },
+                {
+                  "id": "breaks_monthly_conservative",
+                  "total_breaks": 0,
+                  "direction_matches": 0,
+                  "ci_matches": 0,
+                  "tier": 3,
+                  "matches": []
+                }
+              ],
+              "range_checks": {
+                "vif": {
+                  "values": {
+                    "preDepartureTempC": 3.7667401764153716,
+                    "ambientTempAtDispatchC": 3.3807649358883234,
+                    "nodeId": 1.5234554391316384,
+                    "vehicleMakeModel": 1.189007295004893,
+                    "vehicleRefrigModel": 1.0589549670972762,
+                    "routeTotalStops": "Infinity",
+                    "routeTotalDriveHours": 2.4148358802431007,
+                    "routeTotalAirMiles": 12.850224404911957,
+                    "stopSequence": "Infinity",
+                    "receivingDelayMin": 1.914140082659523,
+                    "isAfterHoursArrival": 2.483076217402906,
+                    "receivingDockTempControlled": 1.2378687386658327,
+                    "dayOfWeek": 1.005946245351026,
+                    "dispatchMonth": 1.456657594856488,
+                    "dispatchYear": 3.301018537433863,
+                    "nodeRefrigHealthPct": 1.2386058539188225,
+                    "productClass": 1.069486930734009,
+                    "palletPosition": 10.939171345149882,
+                    "productMassAtStopKg": "Infinity",
+                    "containerAgeMonths": 1.0396845800080914,
+                    "vehicleRefrigAgeMonths": 1.8798030325294028,
+                    "vehicleInsulationRating": 1.1063573897128607,
+                    "vehicleCargoVolumeM3": 1.9356848187959483,
+                    "vehicleReeferKwRated": 3.4618996372128032,
+                    "nodePowerStatus": 1.1892646968095986,
+                    "siteType": 2.0149546540758867,
+                    "siteUrbanRural": 9.827015905194559,
+                    "isHosRegulated": 3.8372955162130853,
+                    "loggerMonthsSinceCal": 1.4654174967660771,
+                    "containerInsulationType": 1.0729673028258442
+                  },
+                  "threshold": 50,
+                  "flagged": [
+                    "routeTotalStops",
+                    "stopSequence",
+                    "productMassAtStopKg"
+                  ]
+                },
+                "treatment_cv": 0.63227642175567,
+                "overlap": [
+                  {
+                    "variant_id": "binary_pir_vs_vip_linear",
+                    "overlap": 0.8662446627876411,
+                    "threshold": 0.05,
+                    "flagged": false,
+                    "response_strategy": "TRIM"
+                  },
+                  {
+                    "variant_id": "binary_pir_vs_vip_nonparam",
+                    "overlap": 0.8662446627876411,
+                    "threshold": 0.05,
+                    "flagged": false,
+                    "response_strategy": "TRIM"
+                  }
+                ],
+                "variance": [
+                  {
+                    "column": "containerInsulationType",
+                    "std": 1.0656416108907691,
+                    "cv": 0.63227642175567,
+                    "structural_note": "4-level categorical. Approximately balanced: VIP=29.7%, PUR=24.2%, XPS=31.1%, PIR=15.0%."
+                  },
+                  {
+                    "column": "excursionFlag",
+                    "std": 0.24650157025478064,
+                    "cv": 3.793142367853963,
+                    "structural_note": "Binary outcome with 4.2% prevalence in temperate scope (~12,590 events)."
+                  },
+                  {
+                    "column": "nodePowerStatus",
+                    "std": 0.02131849862161951,
+                    "cv": 46.88637360130152,
+                    "structural_note": "Near-degenerate: 256 outage records out of 563,028 (0.045%)."
+                  }
+                ]
+              },
+              "residual_diagnostics": {
+                "autocorrelation": [
+                  {
+                    "temporal_column": "date",
+                    "durbin_watson": 2.012028604126623,
+                    "flagged": true
+                  }
+                ],
+                "field_correlations": [],
+                "corrections": [],
+                "corrected_effect": null,
+                "metadata_correlations": [
+                  {
+                    "column": "loggerMonthsSinceCal",
+                    "correlation": -1.610890229379469E-4,
+                    "threshold": 0.03,
+                    "flagged": false,
+                    "alert_type": "MEASUREMENT_BIAS"
+                  },
+                  {
+                    "column": "loggerId",
+                    "correlation": 8.965617959522762E-4,
+                    "threshold": 0.03,
+                    "flagged": false,
+                    "alert_type": "MEASUREMENT_DEVICE_BIAS"
+                  }
+                ]
+              },
+              "null_diagnostics": {
+                "absorption_curve": {
+                  "curve": [
+                    {
+                      "step": 0,
+                      "added": null,
+                      "confounders": [],
+                      "effect": -0.006123102980020273,
+                      "absorbed": null
+                    },
+                    {
+                      "step": 1,
+                      "added": "preDepartureTempC",
+                      "confounders": [
+                        "preDepartureTempC"
+                      ],
+                      "effect": -6.143886459716949E-4,
+                      "absorbed": -0.005508714334048578
+                    },
+                    {
+                      "step": 2,
+                      "added": "stopSequence",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence"
+                      ],
+                      "effect": -4.033520493935564E-5,
+                      "absorbed": -5.740534410323393E-4
+                    },
+                    {
+                      "step": 3,
+                      "added": "vehicleCargoVolumeM3",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3"
+                      ],
+                      "effect": -4.7931236225718917E-4,
+                      "absorbed": 4.389771573178335E-4
+                    },
+                    {
+                      "step": 4,
+                      "added": "routeTotalAirMiles",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles"
+                      ],
+                      "effect": -6.065352578692824E-4,
+                      "absorbed": 1.2722289561209325E-4
+                    },
+                    {
+                      "step": 5,
+                      "added": "vehicleReeferKwRated",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated"
+                      ],
+                      "effect": -0.001615253525949601,
+                      "absorbed": 0.0010087182680803186
+                    },
+                    {
+                      "step": 6,
+                      "added": "ambientTempAtDispatchC",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC"
+                      ],
+                      "effect": -0.0013830440401919784,
+                      "absorbed": -2.3220948575762264E-4
+                    },
+                    {
+                      "step": 7,
+                      "added": "vehicleMakeModel",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel"
+                      ],
+                      "effect": -0.001923583604146299,
+                      "absorbed": 5.405395639543206E-4
+                    },
+                    {
+                      "step": 8,
+                      "added": "receivingDelayMin",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin"
+                      ],
+                      "effect": -1.0325416446420096E-4,
+                      "absorbed": -0.001820329439682098
+                    },
+                    {
+                      "step": 9,
+                      "added": "routeTotalStops",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops"
+                      ],
+                      "effect": -5.1960261516176184E-5,
+                      "absorbed": -5.129390294802478E-5
+                    },
+                    {
+                      "step": 10,
+                      "added": "vehicleRefrigAgeMonths",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths"
+                      ],
+                      "effect": -5.627592033140387E-4,
+                      "absorbed": 5.107989417978625E-4
+                    },
+                    {
+                      "step": 11,
+                      "added": "productClass",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass"
+                      ],
+                      "effect": -7.962916151216466E-4,
+                      "absorbed": 2.3353241180760792E-4
+                    },
+                    {
+                      "step": 12,
+                      "added": "siteUrbanRural",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural"
+                      ],
+                      "effect": -0.0011437912749172189,
+                      "absorbed": 3.4749965979557226E-4
+                    },
+                    {
+                      "step": 13,
+                      "added": "productMassAtStopKg",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg"
+                      ],
+                      "effect": -6.147594635303276E-4,
+                      "absorbed": -5.290318113868913E-4
+                    },
+                    {
+                      "step": 14,
+                      "added": "dayOfWeek",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek"
+                      ],
+                      "effect": -8.490389514643256E-4,
+                      "absorbed": 2.34279487933998E-4
+                    },
+                    {
+                      "step": 15,
+                      "added": "nodeRefrigHealthPct",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct"
+                      ],
+                      "effect": -5.966781357050808E-4,
+                      "absorbed": -2.5236081575924485E-4
+                    },
+                    {
+                      "step": 16,
+                      "added": "containerAgeMonths",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths"
+                      ],
+                      "effect": -0.0020464013136151835,
+                      "absorbed": 0.0014497231779101029
+                    },
+                    {
+                      "step": 17,
+                      "added": "routeTotalDriveHours",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours"
+                      ],
+                      "effect": -0.0022156002573406495,
+                      "absorbed": 1.69198943725466E-4
+                    },
+                    {
+                      "step": 18,
+                      "added": "receivingDockTempControlled",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled"
+                      ],
+                      "effect": -9.394884826865377E-4,
+                      "absorbed": -0.0012761117746541118
+                    },
+                    {
+                      "step": 19,
+                      "added": "vehicleInsulationRating",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating"
+                      ],
+                      "effect": -0.0020967491182845516,
+                      "absorbed": 0.001157260635598014
+                    },
+                    {
+                      "step": 20,
+                      "added": "loggerMonthsSinceCal",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal"
+                      ],
+                      "effect": -6.648826627445974E-4,
+                      "absorbed": -0.0014318664555399542
+                    },
+                    {
+                      "step": 21,
+                      "added": "palletPosition",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition"
+                      ],
+                      "effect": -0.0018646645163395556,
+                      "absorbed": 0.0011997818535949582
+                    },
+                    {
+                      "step": 22,
+                      "added": "siteType",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType"
+                      ],
+                      "effect": -9.563720300720792E-4,
+                      "absorbed": -9.082924862674764E-4
+                    },
+                    {
+                      "step": 23,
+                      "added": "isHosRegulated",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType",
+                        "isHosRegulated"
+                      ],
+                      "effect": -9.029391384939335E-4,
+                      "absorbed": -5.343289157814569E-5
+                    },
+                    {
+                      "step": 24,
+                      "added": "dispatchYear",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType",
+                        "isHosRegulated",
+                        "dispatchYear"
+                      ],
+                      "effect": -1.4196204891636497E-4,
+                      "absorbed": -7.609770895775686E-4
+                    },
+                    {
+                      "step": 25,
+                      "added": "isAfterHoursArrival",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType",
+                        "isHosRegulated",
+                        "dispatchYear",
+                        "isAfterHoursArrival"
+                      ],
+                      "effect": -4.00149302954755E-4,
+                      "absorbed": 2.5818725403839004E-4
+                    },
+                    {
+                      "step": 26,
+                      "added": "nodePowerStatus",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType",
+                        "isHosRegulated",
+                        "dispatchYear",
+                        "isAfterHoursArrival",
+                        "nodePowerStatus"
+                      ],
+                      "effect": -0.0010399463932454585,
+                      "absorbed": 6.397970902907034E-4
+                    },
+                    {
+                      "step": 27,
+                      "added": "dispatchMonth",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType",
+                        "isHosRegulated",
+                        "dispatchYear",
+                        "isAfterHoursArrival",
+                        "nodePowerStatus",
+                        "dispatchMonth"
+                      ],
+                      "effect": -0.0016350596449546853,
+                      "absorbed": 5.951132517092268E-4
+                    },
+                    {
+                      "step": 28,
+                      "added": "nodeId",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType",
+                        "isHosRegulated",
+                        "dispatchYear",
+                        "isAfterHoursArrival",
+                        "nodePowerStatus",
+                        "dispatchMonth",
+                        "nodeId"
+                      ],
+                      "effect": -0.001024772805244707,
+                      "absorbed": -6.102868397099782E-4
+                    },
+                    {
+                      "step": 29,
+                      "added": "vehicleRefrigModel",
+                      "confounders": [
+                        "preDepartureTempC",
+                        "stopSequence",
+                        "vehicleCargoVolumeM3",
+                        "routeTotalAirMiles",
+                        "vehicleReeferKwRated",
+                        "ambientTempAtDispatchC",
+                        "vehicleMakeModel",
+                        "receivingDelayMin",
+                        "routeTotalStops",
+                        "vehicleRefrigAgeMonths",
+                        "productClass",
+                        "siteUrbanRural",
+                        "productMassAtStopKg",
+                        "dayOfWeek",
+                        "nodeRefrigHealthPct",
+                        "containerAgeMonths",
+                        "routeTotalDriveHours",
+                        "receivingDockTempControlled",
+                        "vehicleInsulationRating",
+                        "loggerMonthsSinceCal",
+                        "palletPosition",
+                        "siteType",
+                        "isHosRegulated",
+                        "dispatchYear",
+                        "isAfterHoursArrival",
+                        "nodePowerStatus",
+                        "dispatchMonth",
+                        "nodeId",
+                        "vehicleRefrigModel"
+                      ],
+                      "effect": -5.558529149098857E-4,
+                      "absorbed": -4.689198903348213E-4
+                    }
+                  ],
+                  "confounder_order": [
+                    "preDepartureTempC",
+                    "stopSequence",
+                    "vehicleCargoVolumeM3",
+                    "routeTotalAirMiles",
+                    "vehicleReeferKwRated",
+                    "ambientTempAtDispatchC",
+                    "vehicleMakeModel",
+                    "receivingDelayMin",
+                    "routeTotalStops",
+                    "vehicleRefrigAgeMonths",
+                    "productClass",
+                    "siteUrbanRural",
+                    "productMassAtStopKg",
+                    "dayOfWeek",
+                    "nodeRefrigHealthPct",
+                    "containerAgeMonths",
+                    "routeTotalDriveHours",
+                    "receivingDockTempControlled",
+                    "vehicleInsulationRating",
+                    "loggerMonthsSinceCal",
+                    "palletPosition",
+                    "siteType",
+                    "isHosRegulated",
+                    "dispatchYear",
+                    "isAfterHoursArrival",
+                    "nodePowerStatus",
+                    "dispatchMonth",
+                    "nodeId",
+                    "vehicleRefrigModel"
+                  ]
+                },
+                "power_analysis": {
+                  "n_observations": 563028,
+                  "n_treatment_levels": 4,
+                  "observed_se": 0.008333285293423611,
+                  "mde_80_power": 0.02334640889637378,
+                  "observed_effect": -0.001228702230455477,
+                  "effect_below_mde": "True",
+                  "n_needed_for_observed_effect": 203271680
+                },
+                "subpopulation_edges": [
+                  {
+                    "variant_id": "binary_pir_vs_vip_nonparam",
+                    "effect": -3.3281686246206324E-4,
+                    "ci": [
+                      -0.03246310958466967,
+                      7.596931355015768E-5
+                    ],
+                    "crosses_zero": true,
+                    "nearest_bound_to_zero": 7.596931355015768E-5,
+                    "z_nearest": 0.009151895107681473,
+                    "se": 0.0083009379649024,
+                    "classification": "barely_insignificant"
+                  },
+                  {
+                    "variant_id": "hot_zone_categorical_linear",
+                    "effect": -0.022062882551127733,
+                    "ci": [
+                      -0.05183029301858205,
+                      -0.005961730211691781
+                    ],
+                    "crosses_zero": false,
+                    "nearest_bound_to_zero": 0.005961730211691781,
+                    "z_nearest": 0.5094895407843466,
+                    "se": 0.011701378996934547,
+                    "classification": "barely_significant"
+                  }
+                ]
+              },
+              "externalization": {
+                "domain_rankings": [
+                  {
+                    "ordering": "(containerInsulationType=VIP_panel) > (containerInsulationType=PIR_foam) > (containerInsulationType=PUR_foam) > (containerInsulationType=XPS_foam)",
+                    "source": "Thermal conductivity values: VIP 3-7 mW/m*K, PIR/PUR ~20-24, XPS 28-35.",
+                    "scope": "Temperate zones only",
+                    "expected_concordance": 0.3,
+                    "source_type": "category_effects",
+                    "effects_used": {
+                      "containerInsulationType=PUR_foam": -0.001228702230455477,
+                      "containerInsulationType=VIP_panel": 0.004883784454722361,
+                      "containerInsulationType=XPS_foam": -0.003183795059409147,
+                      "containerInsulationType=PIR_foam": 0.0
+                    },
+                    "total_pairs": 6,
+                    "cross_tier_pairs": 6,
+                    "within_tier_pairs": 0,
+                    "matched_pairs": 3,
+                    "concordance": 0.5,
+                    "unmatched_elements": [],
+                    "node_mismatches": {
+                      "containerInsulationType=PIR_foam": {
+                        "left_violations": 2,
+                        "right_violations": 0,
+                        "appearances": 3
+                      },
+                      "containerInsulationType=PUR_foam": {
+                        "left_violations": 1,
+                        "right_violations": 1,
+                        "appearances": 3
+                      },
+                      "containerInsulationType=XPS_foam": {
+                        "left_violations": 0,
+                        "right_violations": 2,
+                        "appearances": 3
+                      }
+                    },
+                    "details": {
+                      "cross_tier": [
+                        {
+                          "left": "containerInsulationType=VIP_panel",
+                          "right": "containerInsulationType=PIR_foam",
+                          "relation": ">",
+                          "left_value": 0.004883784454722361,
+                          "right_value": 0.0,
+                          "left_n": 154697,
+                          "right_n": 95587,
+                          "satisfied": true
+                        },
+                        {
+                          "left": "containerInsulationType=VIP_panel",
+                          "right": "containerInsulationType=PUR_foam",
+                          "relation": ">",
+                          "left_value": 0.004883784454722361,
+                          "right_value": -0.001228702230455477,
+                          "left_n": 154697,
+                          "right_n": 149348,
+                          "satisfied": true
+                        },
+                        {
+                          "left": "containerInsulationType=VIP_panel",
+                          "right": "containerInsulationType=XPS_foam",
+                          "relation": ">",
+                          "left_value": 0.004883784454722361,
+                          "right_value": -0.003183795059409147,
+                          "left_n": 154697,
+                          "right_n": 163396,
+                          "satisfied": true
+                        },
+                        {
+                          "left": "containerInsulationType=PIR_foam",
+                          "right": "containerInsulationType=PUR_foam",
+                          "relation": ">",
+                          "left_value": 0.0,
+                          "right_value": -0.001228702230455477,
+                          "left_n": 95587,
+                          "right_n": 149348,
+                          "satisfied": false
+                        },
+                        {
+                          "left": "containerInsulationType=PIR_foam",
+                          "right": "containerInsulationType=XPS_foam",
+                          "relation": ">",
+                          "left_value": 0.0,
+                          "right_value": -0.003183795059409147,
+                          "left_n": 95587,
+                          "right_n": 163396,
+                          "satisfied": false
+                        },
+                        {
+                          "left": "containerInsulationType=PUR_foam",
+                          "right": "containerInsulationType=XPS_foam",
+                          "relation": ">",
+                          "left_value": -0.001228702230455477,
+                          "right_value": -0.003183795059409147,
+                          "left_n": 149348,
+                          "right_n": 163396,
+                          "satisfied": false
+                        }
+                      ],
+                      "within_tier": []
+                    },
+                    "pass": true
+                  }
+                ],
+                "allocation_bias": [
+                  {
+                    "treatment_column": "containerInsulationType",
+                    "grouping_column": "nodeId",
+                    "max_deviation": 0.025677484417624942,
+                    "flagged": false
+                  },
+                  {
+                    "treatment_column": "containerInsulationType",
+                    "grouping_column": "region",
+                    "max_deviation": 0.04359949068259881,
+                    "flagged": false
+                  }
+                ]
+              }
+            },
+            "row_count": 563028,
+            "final_effect": -0.001228702230455477,
+            "ci_crosses_zero": true,
+            "final_ci": [
+              -0.015899259377773433,
+              0.01676661871824172
+            ],
+            "discrepancy_log": [
+              {
+                "field": "wallAM2/doorAM2 as derived features",
+                "generator_value": "Included as DERIVED_FEATURES",
+                "compiler_value": "Included in query but EXCLUDED from W as BUNDLED (stddev=0 within each insulation type)",
+                "resolution": "Variables included in query for residual diagnostics and sensitivity but excluded from primary W."
+              }
+            ]
+          },
+          "error": null,
+          "error_code": null,
+          "metadata": {},
+          "started": false,
+          "success": true,
+          "failed": false
+        }
+        """);
+
+    String SAMPLE_FORENSIC_PATHOLOGIST_OUTPUT = """
+        [thinking] Let me carefully analyze this null hypothesis post-mortem for containerInsulationType → excursionFlag.
+        
+        ## Understanding the Hypothesis
+        
+        The hypothesis is that container insulation type (4 categories: VIP_panel, PIR_foam, PUR_foam, XPS_foam) affects excursion risk (binary flag), with the expectation that VIP_panel → lowest risk and PIR_foam → highest risk, but **scoped to temperate/cool climate zones only**.
+        
+        ## Key Pipeline Results
+        
+        ### Primary estimates (temperate scope, n=299,781):
+        
+        
+        I'm noticing a discrepancy between the two estimation methods—the linear model shows the effect crossing zero with CI [-0.0159, 0.0168], but the nonparametric approach yields a tighter interval [-0.0312, -0.0076] that doesn't cross zero, suggesting statistical significance. The pipeline appears to be defaulting to the linear model's result, marking the effect as -0.00123 with ci_crosses_zero: true, which means it's treating this as a null finding despite the nonparametric evidence pointing the other direction.
+        
+        Looking at the full sample results, the effect shrinks to -0.000456 and clearly crosses zero, but when I isolate the hot zone variant, the effect jumps to -0.02206 with a CI that doesn't cross zero—that's a meaningful signal. The binary comparisons between PIR and VIP show effects near zero with overlapping confidence intervals, so those aren't driving the story. Now I'm moving into the absorption curve analysis to examine the marginal effects.
+        
+        The marginal effect starts at -0.00612, but once I add preDepartureTempC, it collapses to -0.000614—that single variable absorbed about 90% of the signal. Adding stopSequence pushes it even closer to zero at -0.00004, and everything after that just oscillates around nothing. So temperature is doing almost all the work here.
+        
+        On the power side, I'm looking at the sample size of 563,028 observations and the minimum detectable effect at 80% power is 0.0233, but my observed effect is only -0.00123—well below that threshold. To detect an effect this small, I'd need over 200 million observations, which tells me this effect is essentially undetectable with realistic sample sizes.
+        
+        The subpopulation analysis is more interesting though. The hot zone categorical variant shows a significant effect of -0.022 with a confidence interval that excludes zero, which stands out as a real finding. The binary PIR comparison is barely insignificant, sitting right at the edge. When I drop preDepartureTempC from the model, the effect flips to 0.000802 with a 165% deviation—that's the largest sensitivity I'm seeing, confirming temperature is the dominant confounder.
+        
+        Now looking at the heterogeneous treatment effects across regions and time periods. Region and dispatch month are roughly equally important for predicting variation, but the conditional average treatment effects are still tiny across all regions and months. Southeast Georgia shows the largest regional effect at -0.0018, and summer months have slightly elevated CATEs compared to other seasons, though nothing substantial.
+        
+        For the climate-based analysis, ambient temperature is the dominant feature, followed by drive hours and stop sequence, but again all the treatment effect slices cluster near zero with the most variability appearing in the hottest temperature range. The equipment interaction model reveals that vehicle insulation rating drives most of the heterogeneity, with certain refrigeration models like Thermo King and Daikin showing marginally larger effects, and the highest insulation quartile reaching a CATE of 0.0023. The placebo test confirms the main effect is real—the placebo effect is nearly 200 times smaller than the actual treatment effect.
+        
+        Looking at the robustness checks, the random cause and subset refutations both yield tiny effects near noise levels with minimal shifts, and the temporal placebo test shows no evidence of contamination. The E-values tell a concerning story though: the primary estimate is extremely fragile with an E-value of 1.158, meaning even a small confounder could explain away the effect, while the hot zone subset shows more resilience with an E-value of 2.014. The VIF diagnostics look clean with low multicollinearity on the treatment variable and reasonable variation, though a couple of route-related variables are flagged.
+        
+        Checking allocation bias across nodes and regions, the deviations are small and well within acceptable ranges, and the insulation types are balanced across the network. The domain mechanism is theoretically sound—VIP panels have dramatically better thermal properties than alternatives—but here's the tension: the observed effect is marginal at less than 1 percentage point, which seems surprisingly small given the 3-10x difference in thermal conductivity between materials.
+        
+        Looking deeper, the within-node effect is about half the between-node effect, suggesting ecological fallacy is at play. And critically, the relationship flips in Southwest_AZ, which is a red flag. The real story appears to be that the vehicle's active refrigeration system is doing the heavy lifting—the container insulation is almost secondary when the reefer unit is running properly. The pre-departure temperature is capturing most of the signal because it reflects how well the facility managed the product before it even left, and once it's cold enough, the reefer maintains that regardless of what insulation type wraps the container.
+        
+        But I'm noticing something odd in the numbers. The hypothesis claims pre-departure temperature barely correlates with insulation choice (0.016), yet controlling for it drops the effect by 70%. That shouldn't happen if they're truly independent. The absorption curve is telling a different story than the partial correlation analysis, and I need to figure out which mechanism is actually at work here. (no confounders): effect = -0.00612
+        - Step 1 (add preDep): effect = -0.000614
+        
+        This is a 90% reduction. But this is the DML estimate, which already accounts for the treatment model. Let me think about what's happening.
+        
+        With no confounders, the DML estimate of containerInsulationType on excursionFlag is -0.00612. This is the marginal ATE. When we add preDepartureTempC, the estimate drops to -0.000614.
+        
+        In the DML framework, this means that preDepartureTempC explains variation in the outcome that was previously (incorrectly) attributed to the treatment. Since corr(treatment, preDep) is only 0.016, preDep can't be absorbing signal by explaining treatment variation. Instead, preDep is absorbing outcome variance — it's such a powerful predictor that once you control for it, the residual outcome variation attributable to insulation type shrinks dramatically.
+        
+        The DML procedure works by predicting treatment from controls, predicting outcome from controls, then regressing the residual outcome on the residual treatment. Since preDep barely correlates with insulation type, adding it doesn't meaningfully change the treatment residual. But preDep is the dominant predictor of excursionFlag with an outcome R² of 0.877, so it soaks up most of the outcome variance. What remains is outcome variation that has much weaker correlation with the treatment residual, suggesting the original effect was partly spurious — both insulation type and excursion were marginally related to the outcome, but that relationship largely reflected preDep's influence. ally correlated with some unobserved factor that preDep captures.
+        
+        Wait, but if corr(insulation, preDep) = 0.016, how can preDep be confounding? Let me think again...
+        
+        In DML, when you add a variable to W:
+        - If it predicts T and Y, it's a confounder being adjusted for
+        - If it only predicts Y, it reduces noise in the outcome model, potentially tightening CIs but not shifting the point estimate much
+        - If it predicts T and not Y, it improves treatment model but doesn't help
+        """.concat("""
+        But the absorption curve shows a MASSIVE shift in point estimate when adding preDep. This can only happen if preDep is correlated with both T and Y, even if the T correlation is small.
+        
+        With 563K observations, even a correlation of 0.016 between insulation type and preDep could drive a meaningful confounding bias. The key insight is that preDep has an enormous effect on excursionFlag—it's the dominant predictor—so even a tiny correlation with treatment creates substantial confounding. The bias formula shows that when the outcome effect is very large, a small treatment correlation still produces meaningful bias relative to what appears to be a tiny treatment effect.
+        
+        So preDepartureTempC is capturing confounding signal through its massive predictive power for the outcome, not through a strong correlation with treatment. The hypothesis about facility conditions determining both deployment patterns and pre-departure temperature makes sense, though the nearly uniform HHI distribution across insulation types per node suggests the confounding mechanism might be more subtle than initially thought. The container insulation only becomes relevant when the vehicle's refrigeration system fails, the door opens, or ambient heat overwhelms the reefer—edge cases that rarely occur in temperate climates. This is the dominated mechanism story: the vehicle's active cooling is the primary thermal barrier, making container insulation type largely irrelevant as long as the reefer functions properly. The GRF model confirms this with vehicle insulation rating at 0.641 importance while refrigeration health shows near-zero importance, suggesting the reefer's dominance breaks down only in extreme scenarios.
+        
+        But the hot zone variant reveals something unexpected—it shows a significant negative effect of -0.022 with confidence intervals excluding zero, meaning container insulation actually does matter when conditions are more challenging. Looking at the category effects, PIR foam performs worst while VIP panels and other materials show protective benefits, which flips my initial assumption about which materials are superior.
+        
+        There's a puzzle here though: the Southwest_AZ region shows VIP as the worst performer at 17.08%, yet when I aggregate across all hot zones (Southwest_AZ, SouthCentral_TX, and Southeast_GA), VIP becomes protective. The sample sizes confirm this makes sense—hot zones contain 263,247 observations, which is the complement of the temperate scope, so the regional reversal must be getting averaged out across the broader hot climate grouping. This suggests the threshold where insulation type becomes significant is specifically in hot climates, not temperate ones.
+        
+        Now I'm checking the domain ranking against the actual data. The expected hierarchy is VIP > PIR ≈ PUR > XPS, but what I'm seeing is VIP at +0.0049, PIR at 0, PUR at -0.0012, and XPS at -0.0032. These are relative effects, and the positive coefficient for VIP suggests it's associated with higher excursion risk compared to the reference category—which contradicts the domain expectation that VIP should be most protective.
+        
+        But looking at the confidence intervals from the primary model, they span from -0.016 to 0.017, so all these category effects are well within the noise. The apparent ordering doesn't really hold up statistically. The nonparametric model shows similar patterns with PUR at -0.0112 and VIP positive again, reinforcing that these differences are likely just noise rather than meaningful signal.
+        
+        In the hot zone though, the picture shifts dramatically. VIP becomes the most protective at -0.0275, followed by XPS at -0.0176 and PUR at -0.0221, with PIR as the baseline. This actually aligns with what domain knowledge would predict for hot conditions. So the story emerging is that in temperate zones there's no real effect, but in hot zones VIP performs as expected—which points toward a mechanism that's dominated by temperature-dependent behavior with some kind of threshold effect.
+        
+        Looking at the absorption narrative, preDepartureTempC is doing almost all the work here. The flag started at -0.61pp, and just adding that one variable dropped it to -0.06pp—a 90% reduction. The correlation between insulation type and departure temperature is tiny at 0.016, so it's technically a confounder rather than a mediator, but because departure temperature is such a dominant predictor of excursions overall, even that small correlation creates outsized confounding relative to what appears to be a genuinely tiny treatment effect. Once I account for departure temperature and stop sequence, the remaining signal oscillates around zero with nothing else absorbing meaningful variation—that's just noise.
+        
+        The container insulation mechanism itself is physically sound—VIP panels genuinely outperform foam by 3-10x in thermal conductivity. But in this fleet operation, containers are nested inside actively refrigerated vehicles where the reefer unit and vehicle body insulation form the primary thermal barrier. In temperate climates where the reefer rarely gets stressed, the container insulation becomes redundant and adds no marginal protection. The GRF results confirm this: vehicle insulation quality drives most of the heterogeneity in treatment effects, showing that the vehicle's thermal envelope is what actually determines whether container insulation matters at all.
+        
+        The fully adjusted effect shrinks to -0.12pp with confidence intervals crossing zero—roughly 19 times smaller than the marginal effect. But there's a secondary mechanism that activates in hot climates like Arizona, Texas, and Georgia, where the vehicle reefer approaches its capacity limits. In those zones, container insulation type becomes meaningful again, with effects around -2.2pp and VIP panels showing the strongest protection at -2.8pp compared to PIR. This threshold-conditional pattern makes sense: the mechanism only kicks in when the primary thermal barrier is actually stressed.
+        
+        Looking more carefully at the absorption curve, the marginal effect of -0.00612 drops to -0.000614 once pre-departure temperature enters the model—that's 90% of the signal absorbed in a single step. Adding stop sequence information pushes it further toward zero, and then the effect starts oscillating across subsequent steps.
+        
+        The oscillation pattern is telling: sometimes the effect dips negative, sometimes it bounces back toward zero, which is exactly what you'd expect from noise layered on top of a null signal. By the time all confounders are included, the final effect lands at -0.000556—essentially nothing. The primary linear DML estimate is -0.00123, the full sample gives -0.000456, and the binary PIR versus VIP comparison yields either +0.00381 in the linear specification or -0.000333 nonparametrically. All of these are effectively zero.
+        
+        Looking at the sensitivity analysis, dropping preDepartureTempC produces the largest swing, shifting the effect to +0.000802—a 165% deviation from the baseline. Dropping ambientTempAtDispatchC, nodeId, and vehicleRefrigModel each cause 98%, 88%, and 87% deviations respectively. But here's the key: while these percentage shifts look dramatic, the absolute movements are all within ±0.002 percentage points around a base effect of -0.00123. That's how I know the signal is buried in noise. Adding containerWallAM2 as a confounder is interesting because it shifts the effect to +0.000314—a 26% change—which makes sense given that wall area is fixed within each insulation type and has no within-type variation.
+        
+        The refutation tests tell a similar story. The placebo test shows an effect of -0.0000232, which is only 1.9% of the original effect—suggesting there might be some real signal there, but it's so minuscule it doesn't matter. The temporal placebo test shows moderate leakage at 30%, but again, with an effect this tiny, that's essentially noise.
+        
+        Now I'm checking the nonparametric model for the primary variant, which is showing something significant.
+        
+        The nonparametric model gives -0.0112 with a CI that doesn't cross zero, but the linear model shows null. The difference is that the linear model treats insulation type as an ordered categorical variable, while the nonparametric approach uses flexible nuisance functions. This suggests there might be nonlinear interactions the linear model is missing.
+        
+        But here's the tension: the nonparam CI is [-0.031, -0.008], a 1.1 percentage point effect with a fairly wide confidence interval, while the linear model gives -0.12pp with CI [-1.6pp, 1.7pp]. These are quite different estimates. Since the pipeline designates the linear model as primary and calls the result null, the nonparametric disagreement is notable—it points to real model sensitivity, where the effect size depends heavily on how I specify the nuisance functions.
+        """).concat("""
+        Looking at the actual variants reported, the linear effect is -0.0012 while the nonparametric effect is -0.0112—a 9-fold difference. This substantial discrepancy suggests the treatment effect interacts nonlinearly with confounders, and the linear model may be underestimating because it doesn't capture how insulation type interacts with temperature and equipment conditions. This aligns with a threshold conditional interpretation where the effect only manifests under specific conditions like high ambient temperature, which a linear model averaging across all conditions would miss.
+        
+        But I'm noticing something odd: the nonparametric variant for temperate zones shows a significant effect of -0.0112 with confidence interval [-0.031, -0.008], yet the theory predicts the effect should be null in temperate regions. This could mean the nonparametric model is overfitting to noise, or there's a real nonlinear interaction even within temperate zones—perhaps during summer months when ambient temperatures still climb to 25-30°C. Alternatively, the linear model might just be underfitting the true relationship. I need to check the GRF results for the continuous ambient temperature variable to see where the effect actually concentrates.
+        
+        Looking at the temperature bins from the GRF analysis, the effect is slightly negative in the 18-25.7°C range but essentially zero above 25.7°C, which suggests the nonparametric significance might be an artifact of flexible fitting rather than a real signal. I should also note that the GRF model uses the full dataset across all regions, so the top temperature quartile includes observations from hot zones, which could be masking regional heterogeneity. The linear versus nonparametric discrepancy is interesting but probably not the core issue—the main finding is that temperate zones show a null effect.
+        
+        The externalization domain ranking only achieves 50% concordance with predictions, and while the VIP > PIR ordering holds, the other comparisons don't, though everything's within noise anyway. On the allocation side, the deployment checks look clean: node and region deviations are small, and insulation types are roughly evenly distributed, which rules out confounding from systematic deployment patterns.
+        """).concat("""
+        Now I'm working through what the DML absorption curve actually tells me. The absorbed values show how much each variable reduces the treatment effect when sequentially added—preDepartureTempC absorbs about 0.55pp of the signal, dropping the effect from -0.61pp down to -0.06pp. I need to be more careful about interpreting the sign conventions here to understand which variables are genuinely absorbing confounding versus just shifting the estimates. -0.000614 - (-0.00612) = +0.00551? No, absorbed = effect_new - effect_old = -0.000614 - (-0.00612) = +0.00551)
+        
+        Wait, the absorbed value is listed as -0.005509. Let me recalculate: -0.000614 - (-0.00612) = 0.005506. But absorbed is listed as -0.005509. So absorbed = effect_old - effect_new? Or maybe it's the change in absolute effect.
+        
+        Actually, looking at the numbers: step 0 effect = -0.00612, step 1 effect = -0.000614. The absorbed value = -0.005509. This is approximately = effect_step_1 - effect_step_0 = -0.000614 - (-0.00612) = +0.005506. But the listed value is -0.005509, with opposite sign.
+        
+        So the formula must be absorbed = old_effect - new_effect = -0.00612 - (-0.000614) = -0.005506, which matches the listed -0.005509 within rounding. When absorbed is negative like this, it means the new effect is closer to zero—the confounder absorbed part of the original signal. Now I'm checking step 2 where absorbed = -0.000574.
+        
+        In step 3, absorbed flips to positive (+0.000439), meaning the effect got more negative rather than closer to zero—so this variable introduced bias in the opposite direction instead of absorbing the original signal.
+         The pattern shows preDepartureTempC absorbed most of the marginal effect (about 90%), stopSequence absorbed the remainder, and after those two steps the effect is essentially at noise level. Now I need to determine whether preDepartureTempC is a confounder or a competing mechanism by checking the hypothesis spec for correlations and causal edges.
+        
+        The spec shows near-zero correlation (0.016) between containerInsulationType and preDepartureTempC, no direct edge from insulation to pre-departure temp in the DAG, but nodeId influences both variables through facility-level deployment patterns. This makes preDep a confounder—node-level facility conditions create a common cause of both insulation choices and pre-departure temperature, so even a tiny correlation can generate a confounding signal that rivals the actual treatment effect. But there's another angle: preDep also represents a competing mechanism, since pre-departure temperature reflects thermal headroom determined by facility conditions rather than container insulation quality, creating a parallel pathway to excursion risk that operates through facility thermal management instead of container barrier performance.
+        """).concat("""
+        I'm now reconsidering whether CONFOUNDED_AWAY or DOMINATED_MECHANISM better describes what's happening. The marginal effect of -0.61pp looks spurious—it's driven by confounding through node-level deployment patterns and facility conditions rather than a genuine causal effect of insulation type. When I control for preDep, the effect collapses to noise. The mechanism itself (insulation → thermal protection → lower excursion risk) could be real in principle, but the magnitude in this fleet is essentially zero under temperate conditions. Yet here's the puzzle: even after adjusting for confounding, the effect doesn't emerge—it stays at zero. If this were pure confounding bias, I'd expect the adjusted effect to be near zero because there was never a real effect to begin with. But if the mechanism were genuinely dominated by other factors, I'd expect the true effect to exist but be too small to detect. The distinction matters for understanding whether the mechanism is absent or just overwhelmed by domain conditions. The true effect is probably around 0.1pp, too small to distinguish from noise in temperate conditions. The marginal association of 0.61pp was inflated by facility-level confounding, leaving only a tiny residual effect after adjustment. This is a dominated mechanism—the container insulation has real physics behind it, but the vehicle's active refrigeration overwhelms it in normal climates, and the signal only emerges when the reefer is pushed to its limits in extreme heat.
+        
+        The sample size needed to detect a 0.12pp effect would be 203 million observations, and the minimum detectable effect at 80% power is 2.33pp, making the observed effect 19 times too small to reliably detect. Even if the effect exists, it's practically meaningless.
+        
+        Let me finalize the diagnosis by examining the category-level effects more precisely.
+        
+        In the primary linear scope, the coefficients are all within the confidence interval and essentially noise—VIP shows a counterintuitive positive direction when it should be protective, which the sanity check flags as a direction mismatch. But in the hot zone, the pattern flips: all other categories show lower excursion rates than PIR, with VIP being most protective at -2.8pp, which aligns with expectations.
+        
+        This directional flip between temperate and hot conditions suggests the mechanism only engages under thermal stress, which is mechanistically sensible. The sanity check's false flag on the primary estimate makes sense given it's a null result buried in noise.
+        
+        Now I'm pulling together the final diagnosis with the key absorption and power metrics.
+        
+        The observed effect is tiny—about 19 times smaller than what we'd need to detect reliably—and would require over 200 million participants to reach significance. Looking at the subpopulation breakdowns, the hot zone shows a barely significant protective effect while the binary comparison stays just above the insignificance threshold. The feature importance analysis points to vehicle insulation rating and refrigeration model as the main drivers of heterogeneity, with refrigeration health showing essentially no signal.
+        # NULL DIAGNOSIS: containerInsulationType_excursionFlag
+        
+        ## CLASSIFICATION: DOMINATED_MECHANISM (primary) + THRESHOLD_CONDITIONAL (secondary)
+        
+        Container insulation type has a real physical mechanism — VIP panels offer 3–10× lower thermal conductivity than foam alternatives — but in this fleet, the vehicle's active refrigeration system is the dominant thermal barrier. In temperate and cool climate zones, the reefer maintains 2–8°C regardless of container insulation quality, rendering the passive container barrier irrelevant. The adjusted treatment effect is –0.12pp (CI: [–1.6pp, +1.7pp]), nineteen times smaller than the minimum detectable effect. However, in hot climate zones where the reefer approaches capacity limits, the container insulation effect activates: –2.2pp (CI: [–5.2pp, –0.6pp]), with VIP panels most protective (–2.8pp vs. PIR reference), consistent with domain expectations.
+        
+        ---""").concat("""
+        
+        ## ABSORPTION NARRATIVE
+        
+        The marginal treatment effect of container insulation type on excursion risk was –0.61pp with no confounders in the model. Adding preDepartureTempC alone reduced this to –0.06pp — a 90% absorption in a single step. Adding stopSequence brought the estimate to –0.004pp, effectively zero. The remaining 27 confounder additions produced oscillation around zero (ranging from –0.22pp to +0.004pp), with no variable absorbing a consistent directional signal. The final fully-adjusted estimate settled at –0.06pp.
+        
+        The dominance of preDepartureTempC in the absorption curve requires careful interpretation. The hypothesis specification confirms that corr(containerInsulationType, preDepartureTempC) = 0.016 — nearly zero. Pre-departure temperature is not a mediator (container insulation does not determine the temperature at which product leaves the facility). Instead, preDepartureTempC operates as a confounder through node-level facility conditions: facilities with different thermal management quality produce different pre-departure temperatures AND receive slightly different distributions of container types (even though the allocation bias check shows only 2.6% maximum deviation across nodes). Because preDepartureTempC is the dominant predictor of excursion risk (outcome R² = 0.877 with all confounders), even a 1.6% correlation with treatment creates confounding bias comparable to or larger than the true treatment effect. The marginal –0.61pp was therefore approximately 80% confounding artifact and at most 20% real signal — and that real signal (~0.12pp) is indistinguishable from noise.
+        
+        After the preDepartureTempC absorption, no subsequent variable absorbed meaningful directional signal. The oscillation from steps 3–29 reflects multicollinearity-driven instability in a null signal, not genuine confounding. This pattern is characteristic of a treatment whose true effect is effectively zero in the target population.
+        
+        ---
+        
+        ## MECHANISM ASSESSMENT
+        
+        The mechanism is real but operationally irrelevant in this fleet's temperate operations.
+        
+        VIP panels have thermal conductivity of 3–7 mW/m·K versus PUR/PIR at 20–24 mW/m·K and XPS at 28–35 mW/m·K. These are not trivial differences — they represent a 3–10× range in passive thermal resistance. If these containers were the *sole* thermal barrier (e.g., passive shipping boxes without active refrigeration), insulation type would be the primary determinant of excursion risk.
+        
+        But in this fleet, containers sit inside actively refrigerated vehicles. The vehicle's thermal envelope has two layers: the vehicle body insulation (captured by vehicleInsulationRating) and the refrigeration unit (captured by vehicleRefrigModel). The GRF equipment interaction configuration confirms this hierarchy: vehicleInsulationRating has feature importance = 0.641 for heterogeneity in the container insulation treatment effect, and vehicleRefrigModel has importance = 0.359. nodeRefrigHealthPct has importance = 0.0. This means the treatment effect of container insulation varies most as a function of *vehicle-level* thermal protection — confirming that the vehicle is the active system and the container is redundant backup.
+        
+        The physical picture: when a 9 kW refrigeration unit maintains a cargo compartment at 4°C, the difference between a VIP container (conductivity 5 mW/m·K) and an XPS container (conductivity 30 mW/m·K) is irrelevant. Both containers are inside a 4°C environment. The container insulation only matters during transient events — door openings at stops, reefer failure, or when ambient heat overwhelms the reefer capacity. In temperate/cool zones (Northeast, Midwest, PacificNW, Mountain), these transient events are brief and the reefer recovers quickly. The container insulation provides maybe 30–90 seconds of additional thermal buffer per event — not enough to differentiate excursion outcomes at the 4.2% base rate.
+        
+        The hot zone finding confirms this interpretation. In Southwest_AZ (ambient 40°C+), SouthCentral_TX, and Southeast_GA, where reefer units run at sustained high load, the container insulation effect emerges at –2.2pp. Under thermal stress, the redundant barrier becomes the marginal barrier. VIP panels' –2.8pp advantage over PIR (the worst performer) aligns with the thermal conductivity hierarchy predicted by domain knowledge. The mechanism is real; it is simply overwhelmed by the active system in temperate conditions.
+        
+        The containerWallAM2 sensitivity add further illuminates this: adding the physical wall area (which has zero within-type variance — each insulation type has a fixed surface area) shifts the effect by only 26%, confirming that the physical dimension (surface area × conductivity = thermal transmittance) is fully captured by the type classification. There is no "hidden" within-type variation that could rescue the effect.
+        
+        ---
+        
+        ## SUBPOPULATION EDGES
+        
+        ### hot_zone_categorical_linear: barely_significant
+        
+        **Effect**: –0.022 (–2.2pp), CI: [–5.2pp, –0.6pp], n = 263,247
+        **z_nearest**: 0.509 (CI lower bound is 0.51 SE from zero)
+        **Classification**: barely_significant
+        
+        This edge is **causally interpretable and mechanistically expected**. The hot zone includes Southwest_AZ, SouthCentral_TX, and Southeast_GA — regions where ambient temperatures routinely exceed 30°C and reefer units operate near capacity. Under these conditions, the container insulation becomes the marginal thermal barrier rather than a redundant one. The category effects confirm the domain-predicted ordering (VIP: –2.8pp, PUR: –2.2pp, XPS: –1.8pp, PIR: 0.0 reference), with VIP most protective and PIR worst. The E-value for this variant is 2.01 (point) and 2.99 (CI), indicating moderate robustness to unmeasured confounding — substantially stronger than the primary estimate's E-value of 1.16.
+        
+        This is not a multiple-comparisons artifact. The hot zone was pre-specified based on the hypothesis's own scope limitation ("direction REVERSES in extreme heat"), the moderating condition has a clear physical mechanism (reefer capacity saturation), and the effect ordering matches domain predictions. **This edge should be treated as a positive finding for the mechanism under thermal stress conditions, not as a consolation prize for a null hypothesis.**
+        
+        ### binary_pir_vs_vip_nonparam: barely_insignificant
+        
+        **Effect**: –0.033pp, CI: [–3.2pp, +0.008pp], n = 133,862
+        **z_nearest**: 0.009 (CI upper bound is 0.009 SE from zero)
+        **Classification**: barely_insignificant
+        
+        This edge is a technical near-miss driven by the nonparametric model's flexible nuisance estimation in the binary PIR vs. VIP subsample. The CI upper bound (+0.008pp) is essentially zero. The linear model for the same contrast shows +0.38pp with CI spanning zero widely [–2.3pp, +1.2pp]. Given the model disagreement (linear: +0.38pp, nonparam: –0.03pp), this edge reflects model specification sensitivity rather than a real signal near the significance boundary. **Dismiss.**
+        
+        ---
+        
+        ## WHAT WOULD CHANGE THE VERDICT
+        
+        1. **Passive shipping without active refrigeration.** If containers were shipped as standalone passive shippers (common in vaccine distribution to rural clinics, or in air freight segments), the container insulation would become the *primary* thermal barrier. The 3–10× conductivity difference between VIP and XPS would produce a large, detectable effect. The null here is specific to an actively refrigerated last-mile fleet.
+        
+        2. **Extreme heat conditions.** The hot zone subpopulation already shows a significant effect. A fleet operating exclusively in Southwest_AZ or similar extreme climates would likely find container insulation type to be a meaningful lever. The hypothesis was deliberately scoped to temperate zones where the effect is null — the complementary hot zone finding confirms this scope limitation is the explanation.
+        
+        3. **Reefer failure events.** Conditioning on vehicleBreakdown = true (or degraded nodeRefrigHealthPct) would isolate the transient conditions where container insulation becomes the active barrier. However, vehicleBreakdown events are rare and nodeRefrigHealthPct shows zero GRF feature importance, suggesting insufficient variance in failure conditions to power this analysis.
+        
+        4. **Container aging and degradation over time.** The current analysis treats containerInsulationType as a static categorical. VIP panels are known to lose vacuum integrity over time, potentially degrading faster than foam insulations. An analysis using containerAgeMonths × insulationType interaction might reveal that aged VIP containers lose their advantage or reverse to become the worst performer (consistent with the Southwest_AZ reversal, where thermal stress may accelerate vacuum degradation). This would require treatment operationalization as "effective insulation quality" rather than "type at manufacture."
+        
+        5. **Nothing — in temperate zones with functioning reefers, the null is robust.** The effect is 19× below the MDE. Even 203 million observations would not produce a clinically meaningful finding. The mechanism is real but operationally irrelevant in this context.
+        
+        ---
+        
+        ## KEY NUMBERS
+        
+        | Metric | Value |
+        |--------|-------|
+        | marginal_effect | –0.61pp (step 0, no confounders) |
+        | primary_absorber | preDepartureTempC |
+        | absorption_pct | 90.0% (step 0 → step 1) |
+        | residual_effect (fully adjusted) | –0.12pp (primary linear) |
+        | mde_80_power | 2.33pp |
+        | observed_vs_mde_ratio | 0.053 (19× below MDE) |
+        | n_needed_for_observed_effect | 203,271,680 |
+        | subpopulation_edges | 2 (1 barely_significant: hot_zone at –2.2pp; 1 barely_insignificant: binary nonparam, dismissed) |
+        | hot_zone_effect | –2.2pp, CI [–5.2pp, –0.6pp], n = 263,247 |
+        | outcome_R² | 0.877 |
+        | treatment_R² | 0.246 |
+        | placebo_ratio | 0.019 (treatment signal real but tiny) |
+        | e_value_primary | 1.16 (trivially confoundable) |
+        | e_value_hot_zone | 2.01 (moderate robustness) |
+        """);
 }
