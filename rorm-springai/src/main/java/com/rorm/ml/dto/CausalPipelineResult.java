@@ -43,6 +43,7 @@ public record CausalPipelineResult(
     public record Steps(
         @Nullable DsepResult dsep,
         @Nullable IdentificationResult identification,
+        @Nullable PositivityReport positivity,
         @Nullable Map<String, EstimationVariantResult> estimation,
         @Nullable GatesResult gates,
         @Nullable List<MediationEntry> mediation,
@@ -87,6 +88,38 @@ public record CausalPipelineResult(
     public record IdentificationResult(
         List<String> adjustmentSet,
         List<String> mediatorsExcluded
+    ) {}
+
+    // -- Positivity --
+
+    @JsonNaming(SnakeCaseStrategy.class)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record PositivityReport(
+        List<PositivityLevel> attemptedLevels,
+        @Nullable String finalLevel,
+        int originalN,
+        int survivingN,
+        @Nullable List<SparseCell> trimmedCells,
+        @Nullable String failure
+    ) {}
+
+    @JsonNaming(SnakeCaseStrategy.class)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record PositivityLevel(
+        String level,
+        int nCells,
+        int sparseCellsCount,
+        @Nullable List<SparseCell> sparseCells,
+        double coveragePct,
+        String verdict
+    ) {}
+
+    @JsonNaming(SnakeCaseStrategy.class)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record SparseCell(
+        String treatment,
+        String confounder,
+        int count
     ) {}
 
     // -- Estimation --

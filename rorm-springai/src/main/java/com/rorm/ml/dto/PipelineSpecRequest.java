@@ -43,6 +43,8 @@ public record PipelineSpecRequest(
 
     @Nullable List<Map<String, Object>> mediatorsExcluded,
 
+    @Nullable Map<String, Object> positivityCheck,
+
     List<Map<String, Object>> estimationVariants,
 
     Map<String, Object> gates,

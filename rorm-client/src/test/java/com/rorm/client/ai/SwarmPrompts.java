@@ -2681,6 +2681,27 @@ public interface SwarmPrompts {
         variant-specific notes (reference category, threshold value, what
         the variant tests).
         
+        POSITIVITY CHECK (mandatory for categorical treatments with >4 levels):
+        
+        Before configuring estimation variants, verify positivity:
+        1. Compute expected cell size: N / (treatment_levels × confounder_strata)
+           where confounder_strata = levels of highest-cardinality discrete confounder in W
+        2. Minimum cell threshold = expected_cell_size / 3
+        3. For each treatment_level × stratum cell, count observations
+        4. If >50% of cells fall below threshold → treatment is too fine-grained
+           for this confounder structure. Specify treatment_hierarchy in PipelineSpec.
+        
+        treatment_hierarchy: ordered list from finest to coarsest operationalization.
+        Engine trims cells below threshold, checks surviving sample coverage.
+        If coverage <50% of original N, coarsens one level and re-checks.
+        
+        Example:
+          treatment_hierarchy: [
+            "vehicleEquipmentCohort",     # 27 levels (make×model)
+            "vehicleRefrigModel",          # 9 levels
+            "vehicleGeneration"            # 3 levels
+          ]
+        
         ─── GATES ──────────────────────────────────────────────────────────
         
         NUISANCE_R2
@@ -2952,6 +2973,14 @@ public interface SwarmPrompts {
           ]
               CONSTRAINT: direct_effect_variant_id must reference an existing
               estimation variant ID.
+        
+          positivity_check: {
+            confounder_column: string,        — highest-cardinality discrete W variable
+            expected_cell_size: int,
+            min_cell_threshold: int,          — expected / 3
+            treatment_hierarchy: [string],    — finest → coarsest
+            min_coverage_pct: 50
+          }
         
           estimation_variants: [
             { id, treatment_column, treatment_form, model_type,

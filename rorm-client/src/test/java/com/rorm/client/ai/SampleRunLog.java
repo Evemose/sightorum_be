@@ -2107,565 +2107,703 @@ public interface SampleRunLog {
         """;
 
     String SAMPLE_COMPILED_H2 = """
-        ## Pipeline Specification
-        
         ---
         
-        ### hypothesis_id
+        # PIPELINE SPECIFICATION
+        
+        ## hypothesis_id
         
         `vehicleEquipmentCohort_excursionFlag`
         
-        ---
-        
-        ### treatment
+        ## treatment
         
         `vehicleEquipmentCohort`
         
-        ---
+        Derived column: `CONCAT(vehicleMakeModel, ' x ', vehicleRefrigModel)`. 27 observed levels, ranging from 4,150 to 48,012 observations each. No NaN (both source columns are non-null enums).
         
-        ### outcome
+        ## outcome
         
         `excursionFlag`
         
-        ---
+        Binary numeric (0/1), prevalence 6.5% (36,589 / 563,028). No NaN.
         
-        ### treatment_form
+        ## treatment_form
         
         `CATEGORICAL`
         
-        Treatment has 27 observed levels (9 makeModels × 9 refrigModels = 27 combinations). Rates range from 2.59% (Ford_E-Transit\\_\\_Thermo_King_Advancer_A400) to 11.71% (Ford_E-Transit\\_\\_Carrier_Vector_HE_19). Smallest cohort has n=4,150.
+        27 levels of the makeModel × refrigModel interaction. This is the natural form since the generator's hypothesis is specifically about the interaction effect — neither component alone captures the full equipment performance story.
         
-        ---
+        ## query
         
-        ### query
+        Verified: reference traversal `hubId.region` and `hubId.climateZone` works. CONCAT cohort confirmed 27 distinct values. Row count = 563,028. No fan-out (only many-to-one reference traversals).
         
         ```json
         {
           "from": "shipments",
           "fromAlias": "s",
-          "joins": [
-            {
-              "joinType": "LEFT",
-              "joinedRoot": { "alias": "cn", "rootName": "cold_nodes" },
-              "onCondition": {
-                "@type": "binary",
-                "left": { "@type": "path", "path": "s.nodeId" },
-                "operator": "EQUALS",
-                "right": { "@type": "path", "path": "cn.nodeId" }
-              }
-            }
-          ],
           "selector": {
             "@type": "multi",
-            "distinct": false,
             "expressions": [
-              { "alias": "shipmentId", "expression": { "@type": "path", "path": "s.shipmentId" } },
-              { "alias": "vehicleEquipmentCohort", "expression": { "@type": "function", "functionName": "CONCAT", "arguments": [ { "@type": "path", "path": "s.vehicleMakeModel" }, { "@type": "literal", "value": "__" }, { "@type": "path", "path": "s.vehicleRefrigModel" } ] } },
-              { "alias": "vehicleMakeModel", "expression": { "@type": "path", "path": "s.vehicleMakeModel" } },
-              { "alias": "vehicleRefrigModel", "expression": { "@type": "path", "path": "s.vehicleRefrigModel" } },
-              { "alias": "excursionFlag", "expression": { "@type": "path", "path": "s.excursionFlag" } },
-              { "alias": "nodeId", "expression": { "@type": "path", "path": "s.nodeId" } },
-              { "alias": "region", "expression": { "@type": "path", "path": "cn.region" } },
-              { "alias": "ambientTempAtDispatchC", "expression": { "@type": "path", "path": "s.ambientTempAtDispatchC" } },
-              { "alias": "ambientTempAtArrivalC", "expression": { "@type": "path", "path": "s.ambientTempAtArrivalC" } },
-              { "alias": "preDepartureTempC", "expression": { "@type": "path", "path": "s.preDepartureTempC" } },
-              { "alias": "routeTotalStops", "expression": { "@type": "path", "path": "s.routeTotalStops" } },
-              { "alias": "routeTotalDriveHours", "expression": { "@type": "path", "path": "s.routeTotalDriveHours" } },
-              { "alias": "routeTotalAirMiles", "expression": { "@type": "path", "path": "s.routeTotalAirMiles" } },
-              { "alias": "stopSequence", "expression": { "@type": "path", "path": "s.stopSequence" } },
-              { "alias": "receivingDelayMin", "expression": { "@type": "path", "path": "s.receivingDelayMin" } },
-              { "alias": "containerAgeMonths", "expression": { "@type": "path", "path": "s.containerAgeMonths" } },
-              { "alias": "palletPosition", "expression": { "@type": "path", "path": "s.palletPosition" } },
-              { "alias": "productMassAtStopKg", "expression": { "@type": "path", "path": "s.productMassAtStopKg" } },
-              { "alias": "nodeRefrigHealthPct", "expression": { "@type": "path", "path": "s.nodeRefrigHealthPct" } },
-              { "alias": "isAfterHoursArrival", "expression": { "@type": "path", "path": "s.isAfterHoursArrival" } },
-              { "alias": "receivingDockTempControlled", "expression": { "@type": "path", "path": "s.receivingDockTempControlled" } },
-              { "alias": "containerInsulationType", "expression": { "@type": "path", "path": "s.containerInsulationType" } },
-              { "alias": "productClass", "expression": { "@type": "path", "path": "s.productClass" } },
-              { "alias": "siteUrbanRural", "expression": { "@type": "path", "path": "s.siteUrbanRural" } },
-              { "alias": "siteType", "expression": { "@type": "path", "path": "s.siteType" } },
-              { "alias": "dayOfWeek", "expression": { "@type": "path", "path": "s.dayOfWeek" } },
-              { "alias": "vehicleRefrigAgeMonths", "expression": { "@type": "path", "path": "s.vehicleRefrigAgeMonths" } },
-              { "alias": "vehicleInsulationRating", "expression": { "@type": "path", "path": "s.vehicleInsulationRating" } },
-              { "alias": "vehicleReeferKwRated", "expression": { "@type": "path", "path": "s.vehicleReeferKwRated" } },
-              { "alias": "vehicleCargoVolumeM3", "expression": { "@type": "path", "path": "s.vehicleCargoVolumeM3" } },
-              { "alias": "loggerMonthsSinceCal", "expression": { "@type": "path", "path": "s.loggerMonthsSinceCal" } },
-              { "alias": "loggerId", "expression": { "@type": "path", "path": "s.loggerId" } },
-              { "alias": "date", "expression": { "@type": "path", "path": "s.date" } },
-              { "alias": "dispatchYear", "expression": { "@type": "function", "functionName": "EXTRACT", "arguments": [ { "@type": "literal", "value": "YEAR" }, { "@type": "path", "path": "s.date" } ] } },
-              { "alias": "dispatchMonth", "expression": { "@type": "function", "functionName": "EXTRACT", "arguments": [ { "@type": "literal", "value": "MONTH" }, { "@type": "path", "path": "s.date" } ] } }
+              {"alias": "shipmentId", "expression": {"@type": "path", "path": "shipmentId"}},
+              {"alias": "vehicleEquipmentCohort", "expression": {"@type": "function", "functionName": "CONCAT", "arguments": [{"@type": "path", "path": "vehicleMakeModel"}, {"@type": "literal", "value": " x "}, {"@type": "path", "path": "vehicleRefrigModel"}]}},
+              {"alias": "vehicleMakeModel", "expression": {"@type": "path", "path": "vehicleMakeModel"}},
+              {"alias": "vehicleRefrigModel", "expression": {"@type": "path", "path": "vehicleRefrigModel"}},
+              {"alias": "excursionFlag", "expression": {"@type": "path", "path": "excursionFlag"}},
+              {"alias": "nodeId", "expression": {"@type": "path", "path": "nodeId"}},
+              {"alias": "ambientTempAtDispatchC", "expression": {"@type": "path", "path": "ambientTempAtDispatchC"}},
+              {"alias": "ambientTempAtArrivalC", "expression": {"@type": "path", "path": "ambientTempAtArrivalC"}},
+              {"alias": "routeTotalStops", "expression": {"@type": "path", "path": "routeTotalStops"}},
+              {"alias": "routeTotalDriveHours", "expression": {"@type": "path", "path": "routeTotalDriveHours"}},
+              {"alias": "routeTotalAirMiles", "expression": {"@type": "path", "path": "routeTotalAirMiles"}},
+              {"alias": "stopSequence", "expression": {"@type": "path", "path": "stopSequence"}},
+              {"alias": "containerInsulationType", "expression": {"@type": "path", "path": "containerInsulationType"}},
+              {"alias": "containerAgeMonths", "expression": {"@type": "path", "path": "containerAgeMonths"}},
+              {"alias": "receivingDelayMin", "expression": {"@type": "path", "path": "receivingDelayMin"}},
+              {"alias": "isAfterHoursArrival", "expression": {"@type": "path", "path": "isAfterHoursArrival"}},
+              {"alias": "receivingDockTempControlled", "expression": {"@type": "path", "path": "receivingDockTempControlled"}},
+              {"alias": "productClass", "expression": {"@type": "path", "path": "productClass"}},
+              {"alias": "palletPosition", "expression": {"@type": "path", "path": "palletPosition"}},
+              {"alias": "productMassAtStopKg", "expression": {"@type": "path", "path": "productMassAtStopKg"}},
+              {"alias": "dayOfWeek", "expression": {"@type": "path", "path": "dayOfWeek"}},
+              {"alias": "nodeRefrigHealthPct", "expression": {"@type": "path", "path": "nodeRefrigHealthPct"}},
+              {"alias": "vehicleRefrigAgeMonths", "expression": {"@type": "path", "path": "vehicleRefrigAgeMonths"}},
+              {"alias": "vehicleInsulationRating", "expression": {"@type": "path", "path": "vehicleInsulationRating"}},
+              {"alias": "vehicleCargoVolumeM3", "expression": {"@type": "path", "path": "vehicleCargoVolumeM3"}},
+              {"alias": "loggerMonthsSinceCal", "expression": {"@type": "path", "path": "loggerMonthsSinceCal"}},
+              {"alias": "siteType", "expression": {"@type": "path", "path": "siteType"}},
+              {"alias": "siteUrbanRural", "expression": {"@type": "path", "path": "siteUrbanRural"}},
+              {"alias": "preDepartureTempC", "expression": {"@type": "path", "path": "preDepartureTempC"}},
+              {"alias": "date", "expression": {"@type": "path", "path": "date"}},
+              {"alias": "region", "expression": {"@type": "path", "path": "hubId.region"}},
+              {"alias": "climateZone", "expression": {"@type": "path", "path": "hubId.climateZone"}},
+              {"alias": "loggerId", "expression": {"@type": "path", "path": "loggerId"}},
+              {"alias": "isHosRegulated", "expression": {"@type": "path", "path": "isHosRegulated"}},
+              {"alias": "reroutedFlag", "expression": {"@type": "path", "path": "reroutedFlag"}},
+              {"alias": "dispatchMonth", "expression": {"@type": "function", "functionName": "EXTRACT", "arguments": [{"@type": "literal", "value": "MONTH"}, {"@type": "path", "path": "date"}]}},
+              {"alias": "dispatchYear", "expression": {"@type": "function", "functionName": "EXTRACT", "arguments": [{"@type": "literal", "value": "YEAR"}, {"@type": "path", "path": "date"}]}}
             ]
           }
         }
         ```
         
-        ---
+        ## expected_row_count
         
-        ### expected_row_count
+        563,028 — verified by count query. No joins produce fan-out; all enrichment is via reference traversal to hubs (many-to-one).
         
-        563,028 — Verified: query returns 563,028 rows, 27 distinct cohorts, 0 null nodeId, 0 null region. LEFT JOIN on cold_nodes (28 nodes, all matched) produces no fan-out or row loss.
-        
-        ---
-        
-        ### strip_columns
+        ## strip_columns
         
         `["shipmentId"]`
         
-        shipmentId is a unique row identifier with no analytical meaning. No step references it.
+        **shipmentId**: identifier only, no analytical meaning.
         
-        ---
+        All other columns are referenced by at least one downstream step (W, DAG, GRF, structural breaks, sensitivity, metadata correlation, etc.) and therefore NOT stripped.
         
-        ### dag_edges
+        ## dag_edges
         
         ```
-        vehicleEquipmentCohort -> excursionFlag;    # direct equipment thermal performance (insulation, refrig capacity) during transit
-        vehicleEquipmentCohort -> preDepartureTempC; # equipment cooling performance during staging affects departure temp
-        nodeId -> vehicleEquipmentCohort;            # deployment assignment — vehicles assigned non-randomly to nodes
-        nodeId -> ambientTempAtDispatchC;            # node geographic location determines local climate
-        nodeId -> preDepartureTempC;                 # facility staging conditions affect pre-departure temp
-        nodeId -> nodeRefrigHealthPct;               # facility-level refrigeration equipment health
-        nodeId -> excursionFlag;                     # residual facility effects (loading practices, staffing, etc.)
-        ambientTempAtDispatchC -> preDepartureTempC; # ambient heat infiltrates facility, raises staging temp
-        ambientTempAtDispatchC -> excursionFlag;     # transit heat load during delivery
-        preDepartureTempC -> excursionFlag;          # thermal buffer — higher pre-departure temp = less margin
-        nodeRefrigHealthPct -> preDepartureTempC;    # degraded facility refrig = warmer staging area
-        containerInsulationType -> excursionFlag;    # transit thermal insulation quality (NOT through preDep — corr=0.016)
-        routeTotalStops -> stopSequence;             # stop sequence is bounded by total stops on route
-        routeTotalStops -> excursionFlag;            # cumulative door openings = cumulative heat ingress
-        stopSequence -> excursionFlag;               # position-specific cumulative heat exposure
-        receivingDelayMin -> excursionFlag;          # post-delivery uncontrolled exposure
-        dispatchMonth -> ambientTempAtDispatchC;     # seasonality drives local climate
-        dispatchYear -> vehicleEquipmentCohort;      # fleet modernization changes cohort composition over time
-        dispatchYear -> excursionFlag;               # secular trends (protocol improvements, fleet upgrades)
+        vehicleEquipmentCohort -> excursionFlag;           # direct thermal barrier/cooling effect of equipment combo
+        nodeId -> vehicleEquipmentCohort;                    # vehicles non-randomly assigned to nodes
+        nodeId -> excursionFlag;                             # facility conditions, ambient climate drive excursion
+        nodeId -> ambientTempAtDispatchC;                    # node location determines ambient climate
+        ambientTempAtDispatchC -> preDepartureTempC;         # ambient heat warms facility, raises pre-dep temp
+        ambientTempAtDispatchC -> excursionFlag;             # ambient heat during transit drives excursion
+        preDepartureTempC -> excursionFlag;                  # starting thermal buffer determines excursion margin
+        vehicleEquipmentCohort -> preDepartureTempC;         # reefer cooling performance affects pre-departure temp (mediator)
+        routeTotalDriveHours -> excursionFlag;               # longer transit = more heat exposure
+        stopSequence -> excursionFlag;                       # later stops = cumulative door-open heat ingress
+        containerInsulationType -> excursionFlag;            # container thermal barrier affects transit heat gain
+        receivingDelayMin -> excursionFlag;                  # receiving delay = uncontrolled exposure
+        dispatchMonth -> ambientTempAtDispatchC;             # seasonality drives ambient temperature
+        dispatchYear -> vehicleEquipmentCohort;              # fleet transitions change cohort composition over time
+        nodeRefrigHealthPct -> preDepartureTempC;            # facility refrig health affects staging temp
         ```
         
-        DAG has 12 nodes with intermediate structure: nodeId is a fork (confounding treatment and outcome through multiple pathways), preDepartureTempC is a mediator (chain: treatment → preDep → outcome), ambientTempAtDispatchC mediates node → outcome. D-sep has testable implications (e.g., containerInsulationType ⊥ routeTotalStops | ∅).
+        **Mechanism rationale**:
+        - nodeId → vehicleEquipmentCohort: Deployment distribution confirms non-random assignment (HHI up to 0.137 for TK_Advancer_A400, 26.4% concentrated at NOD_001).
+        - vehicleEquipmentCohort → preDepartureTempC: Reefer model cooling capacity directly affects the temperature of product in the vehicle compartment at staging.
+        - The DAG has chain structure (nodeId → ambientTemp → preDep → excursion) and fork structure (nodeId → both treatment and outcome), enabling non-trivial d-sep tests.
         
-        ---
+        ## dsep_threshold
         
-        ### dsep_threshold
+        **0.034**
         
-        **0.035**
+        Calibrated from genuinely independent pairs (unrelated measurement domains, no shared upstream cause):
         
-        Calibration from 5 genuinely independent pairs (unrelated measurement domains, no shared upstream cause):
+        | Pair | Mechanism independence | |r| |
+        |------|----------------------|-----|
+        | loggerMonthsSinceCal ↔ palletPosition | calibration age vs loading position — no shared cause | 0.00019 |
+        | containerAgeMonths ↔ palletPosition | container manufacture vs loading sequence | 0.0138 |
+        | containerAgeMonths ↔ stopSequence | container age vs route position | 0.0169 |
+        | loggerMonthsSinceCal ↔ receivingDelayMin | calibration vs receiving operations | 0.0044 |
         
-        | Pair | Correlation | Reasoning |
-        |------|------------|-----------|
-        | loggerMonthsSinceCal ↔ palletPosition | 0.000193 | Measurement calibration vs. loading position — no causal connection |
-        | loggerMonthsSinceCal ↔ stopSequence | 0.000260 | Calibration timing vs. route assignment — independent |
-        | containerAgeMonths ↔ palletPosition | 0.0138 | Container lifecycle vs. loading position — independent |
-        | containerAgeMonths ↔ stopSequence | 0.0169 | Container lifecycle vs. route assignment — weak spurious through fleet composition |
-        | loggerMonthsSinceCal ↔ containerAgeMonths | 0.0172 | Both temporal ages but unrelated processes |
+        Max noise-level |r| = 0.0169. Threshold = 2.0 × 0.0169 = **0.034**.
         
-        Max noise-floor correlation = 0.0172. Threshold = 2.0 × 0.0172 = 0.034, rounded to **0.035**.
+        ## adjustment_set
         
-        ---
+        The W matrix (full backdoor adjustment set):
         
-        ### adjustment_set
+        | Variable | Classification | Justification |
+        |----------|---------------|---------------|
+        | nodeId | IN W — MANDATORY (ecological fallacy) | Generator: within-node effect ~0.45pp vs marginal ~0.86pp; nodeId absorbs deployment bias. 28 levels, absorbs all node-constant confounders. |
+        | ambientTempAtDispatchC | IN W | Ambient climate confounds everything; corr(ambient, excursion) = 0.342. Node location → ambient → excursion. |
+        | routeTotalStops | IN W | Route complexity confounder; more stops = more heat ingress. |
+        | routeTotalDriveHours | IN W | Transit duration; corr with routeTotalStops = 0.496 (moderate, not VIF-problematic). |
+        | routeTotalAirMiles | IN W | Route distance; corr with routeHours = 0.363. Independent spatial dimension. |
+        | stopSequence | IN W | Position in route; cumulative thermal load. |
+        | containerInsulationType | IN W | Container quality; 4 levels. Independent of vehicle equipment. |
+        | containerAgeMonths | IN W | Container condition. Not the treatment here. |
+        | receivingDelayMin | IN W | Receiving-side exposure time. |
+        | isAfterHoursArrival | IN W | After-hours timing → delayed receiving. |
+        | receivingDockTempControlled | IN W | Receiving infrastructure quality. |
+        | productClass | IN W | Product sensitivity (A vs B); determines excursion threshold. |
+        | palletPosition | IN W | Loading position → airflow pattern. |
+        | productMassAtStopKg | IN W | Thermal mass → heat capacity. |
+        | dayOfWeek | IN W | Operational rhythm; 6 levels (no Sunday). |
+        | nodeRefrigHealthPct | IN W | Facility refrig health; affects staging conditions. |
+        | vehicleRefrigAgeMonths | IN W | Within-cohort age variation; generator confirms sel_freq=0.0 after categoricals but within-model slopes exist, small. |
+        | vehicleInsulationRating | IN W | Within-cohort stddev = 0.036–0.070, NOT zero → not bundled. Continuous vehicle-level quality measure. |
+        | vehicleCargoVolumeM3 | IN W | Within-cohort stddev = 1.0–3.7, NOT zero → not bundled. Volume affects airflow. |
+        | loggerMonthsSinceCal | IN W | Measurement confounder; logger drift may create false excursions. Domain pitfall #2. |
+        | siteType | IN W | Receiving site characteristics (pharmacy/hospital/clinic). |
+        | siteUrbanRural | IN W | Location type (urban/suburban/rural). |
+        | dispatchMonth | IN W | Seasonality (months 1–12). |
+        | dispatchYear | IN W | Secular trends (2015–2024); fleet modernization, protocol changes. |
         
-        22 variables — full backdoor adjustment set for total effect:
+        **EXCLUDED AS MEDIATOR**:
+        - preDepartureTempC: vehicleEquipmentCohort → preDepartureTempC → excursionFlag. Reefer cooling performance determines pre-departure temp. Including in primary W would block the indirect path and bias toward direct-only effect. Direct effect variant V3 includes it.
         
-        1. **nodeId** — MANDATORY IN W. Ecological fallacy dimension: deployment concentration is the primary confounding mechanism. NOD_024 (Southwest_AZ) has 20.8% marginal excursion rate and concentrates 51.7% of the worst-performing cohort (Ford_E-Transit__Carrier_Vector_HE_19). 28 levels — finer than region (7 levels).
-        2. **ambientTempAtDispatchC** — Climate confounder. corr with excursionFlag = 0.342. Hotter nodes get both different vehicles AND higher excursion rates.
-        3. **ambientTempAtArrivalC** — Destination climate. Complementary to dispatch ambient. Potentially high collinearity with dispatch ambient — flagged for VIF check.
-        4. **containerInsulationType** — Container confounder. 4 levels. Not causally connected to treatment (container selection is independent of vehicle assignment).
-        5. **routeTotalStops** — Route complexity. Assigned by hub/node, not vehicle. More stops = more heat ingress.
-        6. **routeTotalDriveHours** — Route duration. corr with airMiles = 0.363 (moderate, VIF acceptable).
-        7. **routeTotalAirMiles** — Route distance.
-        8. **stopSequence** — Stop position within route. corr with excursionFlag = 0.240.
-        9. **receivingDelayMin** — Receiving-side delay. Property of destination site, not vehicle.
-        10. **isAfterHoursArrival** — After-hours delivery. Determines staffing availability at destination.
-        11. **receivingDockTempControlled** — Destination dock facility.
-        12. **containerAgeMonths** — Container property. Confirmed null by generator (no age gradient), but included greedily.
-        13. **productClass** — Product sensitivity (A vs B). Different excursion tolerances.
-        14. **palletPosition** — Loading position. Affects airflow/cooling distribution.
-        15. **productMassAtStopKg** — Thermal mass. Affects heat absorption rate.
-        16. **siteUrbanRural** — Site accessibility proxy.
-        17. **siteType** — Destination type (pharmacy, hospital, clinic).
-        18. **dayOfWeek** — Operational rhythm. 6 levels (no Sunday shipments).
-        19. **nodeRefrigHealthPct** — Facility refrigeration health. mean=99.5%, stddev=5.5.
-        20. **dispatchYear** — Secular temporal confounder. 10 levels (2015-2024). Controls for fleet modernization, protocol changes.
-        21. **dispatchMonth** — Seasonal temporal confounder. 12 levels. Controls for climate seasonality.
-        22. **vehicleRefrigAgeMonths** — Vehicle refrig unit age. Within-cohort variation exists (same model ages over time). Generator shows within-model slopes negligible, but included greedily.
+        **EXCLUDED AS BUNDLED**:
+        - vehicleReeferKwRated: stddev = 0 within ALL 27 cohorts (verified by query; floating point noise ≈ 10⁻¹³). Cooling capacity is deterministically set by refrigModel. Including it would absorb part of the treatment's causal pathway.
         
-        **EXCLUDED AS MEDIATOR:**
-        - **preDepartureTempC** — Pathway: vehicleEquipmentCohort → preDepartureTempC → excursionFlag. Equipment cooling performance during staging determines pre-departure temp, which determines thermal buffer. Including blocks indirect effect. Direct effect variant (direct_effect_linear) includes it in W.
+        **EXCLUDED AS DEGENERATE**:
+        - vehicleBreakdown: 0 true values out of 563,028. Zero variance.
+        - nodePowerStatus: 256/563,028 = 0.045% outage. Near-degenerate and captured by nodeRefrigHealthPct (all outages have health <50%).
         
-        **EXCLUDED AS BUNDLED (co-determined with treatment):**
-        - **vehicleInsulationRating** — Determined by vehicleMakeModel component of treatment. Generator: sel_freq=0.0 after saturating categoricals. Within-model gradients all insignificant. Added as confounder_add sensitivity.
-        - **vehicleReeferKwRated** — Determined by vehicleRefrigModel component. Generator: "Flat SHAP even in long-route subpopulation." Added as confounder_add sensitivity.
-        - **vehicleCargoVolumeM3** — Determined by makeModel chassis specification. Added as confounder_add sensitivity.
+        **EXCLUDED AS POST-OUTCOME**:
+        - maxTempObservedC: direct consequence of thermal excursion.
+        - disposition: determined by excursion outcome.
+        - rejectionReason: determined by excursion outcome.
+        - packagesRemainingAfter: determined by delivery execution.
         
-        **PROXY ABSORPTION:**
-        - **region** (7 levels) — Strictly coarser than nodeId (28 levels). Each region has exactly 4 nodes. Including region instead of nodeId would leave within-region, between-node confounding uncontrolled. region is included in GRF for interpretability but NOT in W.
+        **EXCLUDED — COLLINEAR (VIF concern)**:
+        - ambientTempAtArrivalC: corr = 0.992 with ambientTempAtDispatchC. Extreme collinearity. Kept ambientTempAtDispatchC (measured earlier, more causally proximate to treatment).
         
-        ---
+        **Adjustment set list** (24 variables):
+        `["nodeId", "ambientTempAtDispatchC", "routeTotalStops", "routeTotalDriveHours", "routeTotalAirMiles", "stopSequence", "containerInsulationType", "containerAgeMonths", "receivingDelayMin", "isAfterHoursArrival", "receivingDockTempControlled", "productClass", "palletPosition", "productMassAtStopKg", "dayOfWeek", "nodeRefrigHealthPct", "vehicleRefrigAgeMonths", "vehicleInsulationRating", "vehicleCargoVolumeM3", "loggerMonthsSinceCal", "siteType", "siteUrbanRural", "dispatchMonth", "dispatchYear"]`
         
-        ### mediators_excluded
+        ## mediators_excluded
         
         ```json
         [
           {
             "column": "preDepartureTempC",
-            "pathway": "vehicleEquipmentCohort → preDepartureTempC → excursionFlag",
-            "direct_effect_variant_id": "direct_effect_linear"
+            "pathway": "vehicleEquipmentCohort -> preDepartureTempC -> excursionFlag",
+            "direct_effect_variant_id": "V3"
           }
         ]
         ```
         
-        ---
+        ## positivity_check
         
-        ### estimation_variants
+        ```json
+        {
+          "confounder_column": "nodeId",
+          "expected_cell_size": 745,
+          "min_cell_threshold": 248,
+          "treatment_hierarchy": [
+            "vehicleEquipmentCohort",
+            "vehicleRefrigModel",
+            "vehicleMakeModel"
+          ],
+          "min_coverage_pct": 50
+        }
+        ```
         
-        **Variant 1: primary_cat_linear**
-        - id: `primary_cat_linear`
-        - treatment_column: `vehicleEquipmentCohort`
-        - treatment_form: `CATEGORICAL`
-        - model_type: `LinearDML`
-        - w_columns: [nodeId, ambientTempAtDispatchC, ambientTempAtArrivalC, containerInsulationType, routeTotalStops, routeTotalDriveHours, routeTotalAirMiles, stopSequence, receivingDelayMin, isAfterHoursArrival, receivingDockTempControlled, containerAgeMonths, productClass, palletPosition, productMassAtStopKg, siteUrbanRural, siteType, dayOfWeek, nodeRefrigHealthPct, dispatchYear, dispatchMonth, vehicleRefrigAgeMonths]
-        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"` — lowest marginal excursion rate at 2.59% (n=6,456)
-        - notes: Primary total effect. 27 levels, 26 indicator contrasts. preDepartureTempC excluded (mediator).
+        **Reasoning**: 563,028 / (27 treatment levels × 28 nodeId levels) = 745 expected cell size. Min threshold = 745/3 = 248. Deployment distribution shows many empty or sparse cells (some cohort × node combinations have <100 observations). If coverage drops below 50% at 27 levels, coarsen to vehicleRefrigModel (9 levels) → expected cell = 563,028/(9×28) = 2,234, much more stable.
         
-        **Variant 2: primary_cat_nonparam**
-        - id: `primary_cat_nonparam`
-        - treatment_column: `vehicleEquipmentCohort`
-        - treatment_form: `CATEGORICAL`
-        - model_type: `NonParamDML`
-        - w_columns: [same 22 as variant 1]
-        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"`
-        - notes: Functional form check for primary estimate.
+        ## estimation_variants
         
-        **Variant 3: direct_effect_linear**
-        - id: `direct_effect_linear`
-        - treatment_column: `vehicleEquipmentCohort`
-        - treatment_form: `CATEGORICAL`
-        - model_type: `LinearDML`
-        - w_columns: [same 22 as variant 1 PLUS preDepartureTempC — 23 total]
-        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"`
-        - notes: Direct effect variant. preDepartureTempC included to block mediated pathway. Indirect effect = total (variant 1) - direct (variant 3).
+        ### V1: Primary CATEGORICAL LinearDML (full interaction)
+        - **id**: V1
+        - **treatment_column**: vehicleEquipmentCohort
+        - **treatment_form**: CATEGORICAL
+        - **model_type**: LinearDML
+        - **w_columns**: [nodeId, ambientTempAtDispatchC, routeTotalStops, routeTotalDriveHours, routeTotalAirMiles, stopSequence, containerInsulationType, containerAgeMonths, receivingDelayMin, isAfterHoursArrival, receivingDockTempControlled, productClass, palletPosition, productMassAtStopKg, dayOfWeek, nodeRefrigHealthPct, vehicleRefrigAgeMonths, vehicleInsulationRating, vehicleCargoVolumeM3, loggerMonthsSinceCal, siteType, siteUrbanRural, dispatchMonth, dispatchYear]
+        - **reference_category**: "Ford_E-Transit x Thermo_King_Advancer_A400"
+        - **notes**: Reference = lowest excursion rate (2.587%, n=6,456). All ATEs relative to this best-performing cohort.
         
-        **Variant 4: binary_worst_vs_best**
-        - id: `binary_worst_vs_best`
-        - treatment_column: `vehicleEquipmentCohort`
-        - treatment_form: `CATEGORICAL`
-        - model_type: `LinearDML`
-        - w_columns: [same 22 as variant 1]
-        - reference_category: `"Ford_E-Transit__Thermo_King_Advancer_A400"`
-        - filter: `{ "column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit__Carrier_Vector_HE_19", "Ford_E-Transit__Thermo_King_Advancer_A400"] }`
-        - notes: Binary contrast between worst Gen3 combo (11.71% marginal) and best combo (2.59% marginal). n≈12,298. Tests whether the 9.12pp marginal gap persists after controlling for deployment node confounding.
+        ### V2: NonParamDML functional form check (full interaction)
+        - **id**: V2
+        - **treatment_column**: vehicleEquipmentCohort
+        - **treatment_form**: CATEGORICAL
+        - **model_type**: NonParamDML
+        - **w_columns**: [same as V1]
+        - **reference_category**: "Ford_E-Transit x Thermo_King_Advancer_A400"
+        - **notes**: Tests whether linear outcome model is adequate. If V2 diverges >20% from V1, nonlinear confounding present.
         
-        **Variant 5: binary_gen1_vs_gen3**
-        - id: `binary_gen1_vs_gen3`
-        - treatment_column: `vehicleEquipmentCohort`
-        - treatment_form: `CATEGORICAL`
-        - model_type: `LinearDML`
-        - w_columns: [same 22 as variant 1]
-        - reference_category: `"Ford_E-450__Thermo_King_T-880R"`
-        - filter: `{ "column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit__Carrier_Vector_HE_19", "Ford_E-450__Thermo_King_T-880R"] }`
-        - notes: Cross-generation contrast. Reference is Gen1 good performer (4.05%, n=35,312). Treatment level is Gen3 worst performer (11.71%, n=5,842). Expected positive coefficient if Gen3-bad is truly worse than Gen1-good after confounding adjustment. Directly tests hypothesis that generation label is unreliable.
+        ### V3: Direct effect (mediator preDepartureTempC in W)
+        - **id**: V3
+        - **treatment_column**: vehicleEquipmentCohort
+        - **treatment_form**: CATEGORICAL
+        - **model_type**: LinearDML
+        - **w_columns**: [all V1 w_columns + preDepartureTempC]
+        - **reference_category**: "Ford_E-Transit x Thermo_King_Advancer_A400"
+        - **notes**: Direct effect variant. With preDepartureTempC controlled, measures equipment effect NOT mediated through pre-departure temp. V1 - V3 = indirect effect via thermal buffer.
         
-        ---
+        ### V4: Binary contrast — same chassis, different reefer
+        - **id**: V4
+        - **treatment_column**: vehicleEquipmentCohort
+        - **treatment_form**: CATEGORICAL
+        - **model_type**: LinearDML
+        - **w_columns**: [same as V1]
+        - **reference_category**: "Ford_E-Transit x Daikin_ZeSTIA"
+        - **filter**: {"column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit x Carrier_Vector_HE_19", "Ford_E-Transit x Daikin_ZeSTIA"]}
+        - **notes**: Isolates reefer effect on same Ford_E-Transit chassis. CV_HE_19 = 11.71%, DK_ZeSTIA = 4.65%. n = 5,842 + 27,215 = 33,057. Generator flagged CV_HE_19 as worst despite being "Gen3".
         
-        ### gates
+        ### V5: Binary contrast — worst Gen3 vs best Gen1
+        - **id**: V5
+        - **treatment_column**: vehicleEquipmentCohort
+        - **treatment_form**: CATEGORICAL
+        - **model_type**: LinearDML
+        - **w_columns**: [same as V1]
+        - **reference_category**: "Ford_E-450 x Thermo_King_T-880R"
+        - **filter**: {"column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit x Carrier_Vector_HE_19", "Ford_E-450 x Thermo_King_T-880R"]}
+        - **notes**: Cross-generation contrast. E-Transit × CV_HE_19 (Gen3) = 11.71% vs E-450 × TK_T-880R (Gen1) = 4.05%. Tests generator claim that Gen3 is NOT always better. n = 5,842 + 35,312 = 41,154.
         
-        **nuisance_r2:**
-        - outcome_abort: **0.005** — Binary outcome p=0.065. Achievable R² from W: ambientTempAtDispatchC alone gives r²=0.342²=0.117; with LightGBM nonlinear models and 22 confounders, achievable R²≈0.15-0.25. Abort at 0.005 catches only pipeline failure.
-        - outcome_flag: **0.04** — Roughly 1/3 of single-predictor achievable R².
-        - treatment_abort: **0.02** — Structural max for 27-level categorical: 1 - 1/27 = 0.963. Abort at 0.02 ≈ 2% of structural max. Below this, confounders capture effectively nothing about treatment assignment.
-        - treatment_flag: **0.10** — ~10% of structural max. Low treatment R² indicates near-exogenous assignment (after nodeId conditioning) — which is informative, not bad.
-        - treatment_structural_max_r2: **0.963** — 1 - 1/27 for 27-level categorical.
+        ## gates
         
-        **sanity:**
-        - expected_direction: **+1** — Reference is best performer; all other levels should show higher excursion risk (positive coefficient).
-        - abort_magnitude: **0.20** — 20pp. No single equipment combination could plausibly cause 20pp excursion rate increase after controlling for deployment, climate, and route.
-        - flag_magnitude: **0.10** — 10pp. Marginal max difference is 9.12pp; after confounding adjustment, within-node effects should be substantially smaller. 10pp warrants investigation.
+        ### nuisance_r2
         
-        **placebo:**
-        - flag_ratio: **0.30** — Flag if |placebo ATE| > 30% of |real ATE|. With n=563K, statistical significance of placebo is expected; magnitude comparison is the test.
+        - **outcome_abort**: 0.005
+        - **outcome_flag**: 0.04
+        - **treatment_abort**: 0.005
+        - **treatment_flag**: 0.05
+        - **treatment_structural_max_r2**: 0.96
         
-        ---
+        **Outcome model reasoning**: excursionFlag prevalence p=0.065. Theoretical max R² for binary = 4×0.065×0.935 = 0.243. Strongest single predictor: corr(preDepartureTempC, excursionFlag) = 0.625 → linear R² ≈ 0.39 (but capped by binary bound; LGBM may achieve 0.20-0.30 MSE-R² with multiple predictors). abort = 0.005 is far below any reasonable achievable R², indicating pipeline failure. flag = 0.04 is below half the theoretical max.
         
-        ### mediation
+        **Treatment model reasoning**: 27-level categorical, non-uniform distribution. Structural max R² ≈ 1 - Σ(p_i²). With the largest cohort at 8.5%, Σ(p_i²) ≈ 0.04, so max ≈ 0.96. Confounders (esp. nodeId, dispatchYear) should predict treatment allocation moderately (deployment is node-dependent, fleet transitions shift cohort composition). Treatment R² abort = 0.005 (<0.5% of structural max). Treatment R² flag = 0.05 (<5.2% of structural max). Low R² is expected and indicates moderate exogeneity, not degeneracy.
+        
+        ### sanity
+        
+        - **expected_direction**: +1
+        - **abort_magnitude**: 0.20
+        - **flag_magnitude**: 0.12
+        
+        **Reasoning**: Reference = lowest excursion rate (2.587%). All other cohorts expected to have positive ATE (higher excursion). Largest observed marginal spread = 11.71% - 2.59% = 9.12pp. Domain maximum for single-equipment intervention = ~15pp (accounting for deployment confounding absorption). abort = 20pp (>2× domain max). flag = 12pp (slightly above largest marginal spread; after confounding control the causal ATEs should shrink).
+        
+        ### placebo
+        
+        - **flag_ratio**: 0.15
+        
+        **Reasoning**: Expected ATEs range 1-9pp after confounding control. With n=563K, even small placebo effects may be statistically significant. Flag at 15% of real ATE — if a randomized treatment column produces an effect >15% as large as the real effect, the model's residuals retain structure. For a 5pp real ATE, this flags placebo effects >0.75pp.
+        
+        ## mediation
         
         ```json
         [
           {
             "mediator": "preDepartureTempC",
-            "pathway": "vehicleEquipmentCohort → preDepartureTempC → excursionFlag",
-            "total_variant_id": "primary_cat_linear",
-            "direct_variant_id": "direct_effect_linear"
+            "pathway": "vehicleEquipmentCohort -> preDepartureTempC -> excursionFlag",
+            "total_variant_id": "V1",
+            "direct_variant_id": "V3"
           }
         ]
         ```
         
-        preDepartureTempC correlates with excursionFlag at r=0.625 (strongest predictor in dataset). Equipment cooling performance during facility staging determines how cold product departs. The indirect pathway (equipment → staging temp → thermal buffer → excursion) could carry a substantial portion of the total effect.
+        **Reasoning**: Generator identifies preDepartureTempC as a mediator (reefer performance → pre-departure temp → excursion). corr(preDep, excursion) = 0.625 — very strong. Including preDep in W blocks the indirect pathway. V1 (without preDep) estimates total effect; V3 (with preDep) estimates direct effect. Indirect = V1 - V3.
         
-        ---
+        ## grf_configs
         
-        ### grf_configs
+        ### GRF-1: Deployment heterogeneity (primary)
+        - **id**: GRF-1
+        - **modifier_columns**: [nodeId, climateZone, ambientTempAtDispatchC]
+        - **slicing**: {"nodeId": "unique", "climateZone": "unique", "ambientTempAtDispatchC": "quartile"}
+        - **notes**: Tests generator's core claim: deployment concentration at high-risk nodes is primary source of within-cohort variation. nodeId (28 levels) captures facility-level effects. climateZone (5 levels) and ambient temp capture climate moderation.
         
-        **GRF Config 1: Primary — deployment and climate modifiers**
-        - id: `grf_deployment_climate`
-        - modifier_columns: [nodeId, region, ambientTempAtDispatchC]
-        - slicing:
-          - nodeId: `unique` (28 levels — tests whether equipment effect varies by deployment node)
-          - region: `unique` (7 levels — interpretable regional summary)
-          - ambientTempAtDispatchC: `quartile` (tests whether equipment effect intensifies in heat)
+        ### GRF-2: Treatment component heterogeneity (secondary)
+        - **id**: GRF-2
+        - **modifier_columns**: [vehicleRefrigModel, vehicleMakeModel]
+        - **slicing**: {"vehicleRefrigModel": "unique", "vehicleMakeModel": "unique"}
+        - **notes**: Decomposes the interaction effect. Slicing by reefer model shows average CATE for all make-model pairings of a given reefer; similarly for make-model. Tests whether heterogeneity is dominated by reefer or chassis.
         
-        **GRF Config 2: Secondary — operational modifiers**
-        - id: `grf_operational`
-        - modifier_columns: [containerInsulationType, productClass, routeTotalStops, dispatchMonth, stopSequence]
-        - slicing:
-          - containerInsulationType: `unique` (4 levels — equipment × container interaction)
-          - productClass: `unique` (2 levels — sensitivity class interaction)
-          - routeTotalStops: `unique` (7 levels: 3-9 — route complexity interaction)
-          - dispatchMonth: `unique` (12 levels — seasonal effect modification)
-          - stopSequence: `quartile`
+        ### GRF-3: Operational heterogeneity (tertiary)
+        - **id**: GRF-3
+        - **modifier_columns**: [routeTotalDriveHours, containerInsulationType, stopSequence]
+        - **slicing**: {"containerInsulationType": "unique", "routeTotalDriveHours": "quartile", "stopSequence": "quartile"}
+        - **notes**: Tests whether equipment effect varies by operational context. Domain: longer routes / later stops stress refrigeration more, potentially amplifying equipment differences.
         
-        Note: vehicleMakeModel and vehicleRefrigModel are NOT used as GRF modifiers because they are components of the treatment itself. "How does the treatment effect vary by treatment level?" is a dose-response question, not a heterogeneity question.
-        
-        ---
-        
-        ### refutations
+        ## refutations
         
         ```json
         [
-          { "type": "PLACEBO" },
-          { "type": "RANDOM_CAUSE" },
-          { "type": "SUBSET" },
-          { "type": "TEMPORAL_PLACEBO" }
+          {"type": "PLACEBO"},
+          {"type": "RANDOM_CAUSE"},
+          {"type": "SUBSET"},
+          {"type": "TEMPORAL_PLACEBO"}
         ]
         ```
         
-        TEMPORAL_PLACEBO included because data spans 2015-2024 (10 years). Fleet transitions occurred throughout (191 vehicle replacements 2017-2024). Temporal confounding from fleet modernization is a first-order concern.
+        **TEMPORAL_PLACEBO**: Data spans 10 years (2015-2024) with fleet transitions (191 events). Temporal structure is rich enough that temporal confounding is plausible. Temporal placebo validates that the effect isn't an artifact of secular trends.
         
-        ---
+        ## sensitivity
         
-        ### sensitivity
-        
-        **confounder_drops:**
+        ### confounder_drops
         
         | column | deviation_threshold_pct | reasoning |
         |--------|------------------------|-----------|
-        | nodeId | 15 | Critical deployment confounder — removing should substantially change estimate |
-        | ambientTempAtDispatchC | 15 | Primary climate confounder |
-        | ambientTempAtArrivalC | 25 | Secondary climate; correlated with dispatch ambient |
-        | containerInsulationType | 25 | Container property, independent of vehicle |
-        | routeTotalStops | 25 | Route complexity |
-        | routeTotalDriveHours | 25 | Route duration |
-        | routeTotalAirMiles | 25 | Route distance |
-        | stopSequence | 25 | Stop position |
-        | receivingDelayMin | 25 | Receiving-side variable |
-        | isAfterHoursArrival | 25 | Receiving-side binary |
-        | receivingDockTempControlled | 25 | Destination facility |
-        | containerAgeMonths | 25 | Confirmed null in generator |
-        | productClass | 25 | Product sensitivity |
-        | palletPosition | 25 | Loading position |
-        | productMassAtStopKg | 25 | Thermal mass |
-        | siteUrbanRural | 25 | Site characteristic |
-        | siteType | 25 | Site type |
-        | dayOfWeek | 25 | Operational rhythm |
-        | nodeRefrigHealthPct | 25 | Facility condition |
-        | dispatchYear | 20 | Secular trend — removal exposes time confounding |
-        | dispatchMonth | 20 | Seasonal pattern — removal exposes seasonality |
-        | vehicleRefrigAgeMonths | 25 | Within-model age |
+        | nodeId | 15 | MANDATORY confounder (ecological fallacy). Drop exposes deployment confounding. |
+        | ambientTempAtDispatchC | 15 | Strongest environmental confounder. |
+        | routeTotalStops | 20 | Route complexity. |
+        | routeTotalDriveHours | 20 | Transit duration. |
+        | routeTotalAirMiles | 20 | Route distance. |
+        | stopSequence | 20 | Position in route. |
+        | containerInsulationType | 20 | Container quality. |
+        | containerAgeMonths | 25 | Generator confirmed null for containerAge. Drop should change nothing. |
+        | receivingDelayMin | 20 | Receiving-side exposure. |
+        | isAfterHoursArrival | 25 | After-hours timing. |
+        | receivingDockTempControlled | 25 | Receiving infrastructure. |
+        | productClass | 25 | Product sensitivity. |
+        | palletPosition | 25 | Loading position. |
+        | productMassAtStopKg | 25 | Thermal mass. |
+        | dayOfWeek | 25 | Operational rhythm. |
+        | nodeRefrigHealthPct | 20 | Facility refrigeration health. |
+        | vehicleRefrigAgeMonths | 25 | Within-cohort age (generator: sel_freq=0.0 after categoricals). |
+        | vehicleInsulationRating | 25 | Vehicle insulation quality. |
+        | vehicleCargoVolumeM3 | 25 | Cargo volume. |
+        | loggerMonthsSinceCal | 20 | Measurement confounder. |
+        | siteType | 25 | Site characteristics. |
+        | siteUrbanRural | 25 | Location type. |
+        | dispatchMonth | 15 | Seasonality — key temporal confounder. |
+        | dispatchYear | 15 | Secular trend — key temporal confounder. |
         
-        **confounder_adds:**
+        **Threshold rationale**: 15% for the most critical confounders (nodeId, ambient, temporal); 20% for important operational confounders; 25% for weaker confounders where the generator's evidence suggests limited impact.
         
-        | column | reasoning |
-        |--------|-----------|
-        | vehicleInsulationRating | Excluded as bundled with treatment (absorbed by makeModel). Testing if independent within-model variation matters after controlling for cohort identity. |
-        | vehicleReeferKwRated | Excluded as bundled with treatment (absorbed by refrigModel). Testing residual within-model kW variation. |
-        | vehicleCargoVolumeM3 | Excluded as bundled with treatment (absorbed by makeModel chassis). Testing if cargo volume has independent confounding effect. |
+        ### confounder_adds
         
-        **threshold_variants:** N/A — Treatment is categorical (no continuous thresholding).
+        ```json
+        [
+          {"column": "ambientTempAtArrivalC", "reasoning": "Excluded from primary W due to extreme collinearity with ambientTempAtDispatchC (r=0.992). Test if arrival-side ambient captures transit-end conditions missed by dispatch-side measure."},
+          {"column": "climateZone", "reasoning": "Partially absorbed by nodeId (4 nodes per region × 5 climate zones). Test if climate-level confounding beyond nodeId matters."},
+          {"column": "isHosRegulated", "reasoning": "HOS regulation affects driver rest patterns and route timing. Not obviously a confounder but could interact with transit duration. 2.8% true."},
+          {"column": "reroutedFlag", "reasoning": "Rerouting might indicate unusual conditions. Ambiguous temporality (could be post-treatment if caused by vehicle issues). 0.65% true."}
+        ]
+        ```
         
-        **model_variants:**
+        ### threshold_variants
         
-        | primary_variant_id | alternative_model_type |
-        |-------------------|----------------------|
-        | primary_cat_linear | NonParamDML |
-        | primary_cat_nonparam | LinearDML |
-        | direct_effect_linear | NonParamDML |
+        Not applicable — treatment is categorical (no numeric threshold).
         
-        ---
+        ### model_variants
         
-        ### structural_breaks
+        ```json
+        [
+          {"primary_variant_id": "V1", "alternative_model_type": "NonParamDML"},
+          {"primary_variant_id": "V4", "alternative_model_type": "NonParamDML"},
+          {"primary_variant_id": "V5", "alternative_model_type": "NonParamDML"}
+        ]
+        ```
         
-        **Config 1: Node-level monthly**
-        - id: `breaks_node_monthly`
-        - entity_column: `nodeId`
-        - temporal_column: `date`
-        - temporal_grain: `M`
-        - pelt_penalty: **4.79** (sensitive — log(120) for T=120 months)
-        - min_obs_per_period: **50** (563,028 / (28 × 120) ≈ 168 avg; 50 allows sparse node-months)
-        - known_events_tables: [hub_interventions, fleet_transitions]
-        - entity_count: 28
-        - temporal_points: 120
+        V2 is already NonParamDML for V1. V4 and V5 get NonParamDML counterparts to check functional form sensitivity for the targeted binary contrasts.
         
-        **Config 2: Node-level monthly (conservative)**
-        - id: `breaks_node_monthly_conservative`
-        - entity_column: `nodeId`
-        - temporal_column: `date`
-        - temporal_grain: `M`
-        - pelt_penalty: **14.37** (conservative — 3 × log(120))
-        - min_obs_per_period: **50**
-        - known_events_tables: [hub_interventions, fleet_transitions]
-        - entity_count: 28
-        - temporal_points: 120
+        ## structural_breaks
         
-        ---
+        ### SB-1: Monthly within nodes (primary)
+        - **id**: SB-1
+        - **entity_column**: nodeId
+        - **temporal_column**: date
+        - **temporal_grain**: M
+        - **pelt_penalty**: 4.79
+        - **min_obs_per_period**: 30
+        - **known_events_tables**: ["hub_interventions", "fleet_transitions"]
+        - **entity_count**: 28
+        - **temporal_points**: 120
         
-        ### residual_checks
+        **Penalty derivation**: T = 120 months. Sensitive variant: ln(120) = 4.79. Average obs per entity-period: 563,028 / (28 × 120) = 168.
         
-        **autocorrelation:**
+        ### SB-2: Monthly within nodes (conservative)
+        - **id**: SB-2
+        - **entity_column**: nodeId
+        - **temporal_column**: date
+        - **temporal_grain**: M
+        - **pelt_penalty**: 14.37
+        - **min_obs_per_period**: 30
+        - **known_events_tables**: ["hub_interventions", "fleet_transitions"]
+        - **entity_count**: 28
+        - **temporal_points**: 120
+        
+        **Penalty derivation**: 3 × ln(120) = 14.37.
+        
+        ### SB-3: Yearly within nodes
+        - **id**: SB-3
+        - **entity_column**: nodeId
+        - **temporal_column**: date
+        - **temporal_grain**: Y
+        - **pelt_penalty**: 2.30
+        - **min_obs_per_period**: 100
+        - **known_events_tables**: ["hub_interventions", "fleet_transitions"]
+        - **entity_count**: 28
+        - **temporal_points**: 10
+        
+        **Penalty derivation**: T = 10 years. ln(10) = 2.30. Average obs per entity-year: 563,028 / (28 × 10) = 2,011. Captures secular shifts (fleet modernization, policy changes) that monthly granularity may fragment.
+        
+        ## residual_checks
+        
+        ### autocorrelation
+        
         ```json
         [
           {
             "temporal_column": "date",
             "grain": "M",
-            "lags": [1, 3, 6, 12],
+            "lags": [1, 2, 3, 6, 12],
             "threshold": 0.05
           }
         ]
         ```
-        Monthly grain over 120 months. Lag-1 (month-over-month), lag-3 (quarterly), lag-6 (semi-annual), lag-12 (annual seasonality). All lags < 120 data points.
         
-        **field_correlation:**
-        - threshold: **0.03** — Below d-sep threshold (0.035). At n=563K, correlations as small as 0.003 are statistically significant. 0.03 represents a practically meaningful residual structure.
-        - check_columns: [nodeId, ambientTempAtDispatchC, ambientTempAtArrivalC, containerInsulationType, routeTotalStops, routeTotalDriveHours, routeTotalAirMiles, stopSequence, receivingDelayMin, isAfterHoursArrival, receivingDockTempControlled, containerAgeMonths, productClass, palletPosition, productMassAtStopKg, siteUrbanRural, siteType, dayOfWeek, nodeRefrigHealthPct, dispatchYear, dispatchMonth, vehicleRefrigAgeMonths, preDepartureTempC, region, vehicleInsulationRating, vehicleReeferKwRated, vehicleCargoVolumeM3, loggerMonthsSinceCal]
+        **Reasoning**: Monthly grain with seasonal lags (6=semi-annual, 12=annual). Threshold = 0.05 (conservative given n=563K). Max lag=12 << 563,028 rows.
         
-        **auto_correction:**
-        - max_iterations: **3**
-        - stop_criterion_ci_pct: **5.0** — Stop if CI width changes by <5% between iterations.
+        ### field_correlation
         
-        **metadata_correlation:**
+        ```json
+        {
+          "threshold": 0.03,
+          "check_columns": [
+            "nodeId", "ambientTempAtDispatchC", "ambientTempAtArrivalC",
+            "routeTotalStops", "routeTotalDriveHours", "routeTotalAirMiles",
+            "stopSequence", "containerInsulationType", "containerAgeMonths",
+            "receivingDelayMin", "isAfterHoursArrival", "receivingDockTempControlled",
+            "productClass", "palletPosition", "productMassAtStopKg",
+            "dayOfWeek", "nodeRefrigHealthPct", "vehicleRefrigAgeMonths",
+            "vehicleInsulationRating", "vehicleCargoVolumeM3", "loggerMonthsSinceCal",
+            "siteType", "siteUrbanRural", "dispatchMonth", "dispatchYear",
+            "preDepartureTempC", "region", "climateZone", "loggerId",
+            "vehicleMakeModel", "vehicleRefrigModel",
+            "isHosRegulated", "reroutedFlag"
+          ]
+        }
+        ```
         
-        | column | threshold | alert_type |
-        |--------|----------|------------|
-        | loggerMonthsSinceCal | 0.03 | WARNING — logger drift could create measurement artifact. If residuals correlate with calibration age, DML estimate may reflect logger bias rather than true equipment effect. |
-        | loggerId | 0.03 | WARNING — specific logger devices with systematic bias. High-cardinality categorical (800 loggers). |
+        **Threshold = 0.03**: Just below d-sep threshold (0.034). Any residual correlation above this with non-W variables indicates unmeasured confounding or model misspecification.
         
-        ---
+        ### auto_correction
         
-        ### range_checks
+        ```json
+        {
+          "max_iterations": 3,
+          "stop_criterion_ci_pct": 10
+        }
+        ```
         
-        **vif:**
-        - threshold: **10.0**
-        - drop_pairs:
-          - keep: `ambientTempAtDispatchC`, drop: `ambientTempAtArrivalC`, reasoning: "Both measure ambient temperature at different shipment stages. Dispatch ambient is temporally prior and causally closer to node assignment (confounding mechanism). Arrival ambient is measured after departure — partially post-treatment-timing. Expected corr >0.95, VIF >10."
+        **Reasoning**: 3 iterations max to avoid overfitting to residual structure. Stop when CI width changes <10% between iterations.
         
-        **overlap:**
-        
-        | variant_id | threshold | response_strategy | trim_bounds |
-        |-----------|----------|------------------|-------------|
-        | binary_worst_vs_best | 0.05 | TRIM | [0.05, 0.95] |
-        | binary_gen1_vs_gen3 | 0.05 | TRIM | [0.05, 0.95] |
-        
-        For the primary categorical variant (27 levels), overlap per-level varies. Smallest cohort is 4,150/563,028 = 0.74%. Standard DML with tree-based propensity models handles this adequately at n=563K, but the engine should flag any level with propensity < 1% for >5% of observations.
-        
-        **variance:**
-        
-        | column | structural_note |
-        |--------|----------------|
-        | vehicleEquipmentCohort | 27 categorical levels. Smallest: RAM_ProMaster_3500__TK_Advancer_A400 (n=4,150, 0.74%). Not degenerate — all levels have >4K observations. |
-        | excursionFlag | Binary, p=0.065. Not degenerate but rare event — 36,589 events in 563K observations. |
-        
-        ---
-        
-        ### unmeasured_confounding
-        
-        | variant_id | method | null_hypothesis | notes |
-        |-----------|--------|----------------|-------|
-        | primary_cat_linear | E_VALUE | ATE = 0 | How strong must unmeasured confounder be to explain away average categorical CATE? Key concern: unobserved vehicle maintenance quality varying by cohort. |
-        | primary_cat_linear | ROSENBAUM_BOUNDS | ATE = 0 | How large a departure from random cohort assignment needed to nullify? Deployment bias (nodeId) is controlled, but unobserved within-node assignment mechanisms could remain. |
-        | direct_effect_linear | E_VALUE | ATE = 0 | Direct effect after blocking preDepartureTempC mediation pathway. |
-        | binary_worst_vs_best | E_VALUE | ATE = 0 | Focused contrast — unmeasured confounding between the extreme cohorts. |
-        | binary_worst_vs_best | ROSENBAUM_BOUNDS | ATE = 0 | Binary contrast is most amenable to Rosenbaum analysis. |
-        | binary_gen1_vs_gen3 | E_VALUE | ATE = 0 | Cross-generation contrast — tests if deployment confounding fully explains Gen1 outperforming Gen3. |
-        
-        ---
-        
-        ### externalization
-        
-        **domain_rankings:**
+        ### metadata_correlation
         
         ```json
         [
+          {"column": "loggerMonthsSinceCal", "threshold": 0.03, "alert_type": "FLAG"},
+          {"column": "loggerId", "threshold": 0.03, "alert_type": "FLAG"}
+        ]
+        ```
+        
+        **Reasoning**: Domain pitfall #2 — logger drift creating false excursions. If DML residuals correlate with logger calibration age or logger identity, the measured outcome is contaminated by measurement bias.
+        
+        ## range_checks
+        
+        ### vif
+        
+        - **threshold**: 50
+        - **drop_pairs**:
+        ```json
+        [
           {
-            "ordering": "(vehicleEquipmentCohort=Ford_E-Transit__Carrier_Vector_HE_19, vehicleEquipmentCohort=Ford_E-450__Daikin_RKN) > (vehicleEquipmentCohort=Freightliner_M2_112__Daikin_LXE10, vehicleEquipmentCohort=Hino_195__Thermo_King_T-680Pro) > (vehicleEquipmentCohort=Ford_F-650__Thermo_King_T-680Pro, vehicleEquipmentCohort=Isuzu_NPR_HD__Carrier_Supra_860) > (vehicleEquipmentCohort=Ford_E-Transit__Daikin_ZeSTIA, vehicleEquipmentCohort=Ford_E-450__Thermo_King_T-880R) > (vehicleEquipmentCohort=Ford_E-Transit__Thermo_King_Advancer_A400)",
-            "source": "Marginal excursion rates from data: worst tier 8.6-11.7%, upper-mid 7.3-8.6%, mid 4.9-6.6%, lower-mid 4.0-5.0%, best 2.6-3.9%. Ordering reflects thermal engineering expectations (newer refrig models with higher capacity outperform older units) modulated by deployment confounding.",
-            "scope": "All regions combined — causal ordering may differ from marginal due to deployment concentration (generator documents that Ford_E-Transit__Carrier_Vector_HE_19 has 51.7% deployment at NOD_024, the worst node).",
-            "expected_concordance": 0.5
+            "keep": "ambientTempAtDispatchC",
+            "drop": "ambientTempAtArrivalC",
+            "reasoning": "corr=0.992, VIF>>50. ambientTempAtArrivalC excluded from primary W but present in query for confounder_adds. Keep dispatch-side (measured earlier, more causally proximate to pre-departure conditions)."
           }
         ]
         ```
         
-        Expected concordance at 0.5 (DOCUMENTED level) because the hypothesis explicitly argues that marginal ordering is confounded by deployment — the causal ordering after DML adjustment may substantially differ from the marginal ranking used to construct this domain ordering.
+        **Other VIF-relevant pairs** (all below threshold):
+        - routeTotalStops ↔ routeTotalDriveHours: corr=0.496, VIF ≈ 1/(1-0.246) ≈ 1.33 — acceptable.
+        - routeTotalDriveHours ↔ routeTotalAirMiles: corr=0.363, VIF ≈ 1.15 — acceptable.
         
-        **allocation_bias:**
-        
-        | treatment_column | grouping_column | flag_threshold |
-        |-----------------|----------------|---------------|
-        | vehicleEquipmentCohort | nodeId | 0.10 |
-        
-        This is the core confounding concern. Ford_E-Transit__Carrier_Vector_HE_19 has HHI concentration at NOD_024 (3,020/5,842 = 51.7% at a single node). If HHI > 0.10 for ANY cohort, deployment is non-uniform and the causal estimate is sensitive to nodeId conditioning.
-        
-        ---
-        
-        ### discrepancy_log
-        
-        No discrepancies detected between compiler exploration and generator evidence:
-        - Total row count: 563,028 ✓ (matches base table)
-        - 27 distinct cohorts ✓
-        - Ford_E-Transit × Carrier_Vector_HE_19 at NOD_024: 3,020/5,842 = 51.7% ✓ (matches generator's cited 51.7%)
-        - Outcome base rate: 6.50% ✓ (matches generator's 6.5%)
-        - preDepartureTempC corr with excursionFlag: 0.625 ✓ (consistent with generator's mediator assessment)
+        ### overlap
         
         ```json
-        []
+        [
+          {
+            "variant_id": "V4",
+            "threshold": 0.05,
+            "response_strategy": "TRIM",
+            "trim_bounds": [0.02, 0.98]
+          },
+          {
+            "variant_id": "V5",
+            "threshold": 0.05,
+            "response_strategy": "TRIM",
+            "trim_bounds": [0.02, 0.98]
+          }
+        ]
         ```
+        
+        **Reasoning**: V4 (n=33,057, two cohorts) and V5 (n=41,154, two cohorts) are the binary-like contrasts. V4 has imbalanced sizes (5,842 vs 27,215, ratio ≈ 1:4.7). V5 is more balanced (5,842 vs 35,312, ratio ≈ 1:6). Both are within the 1:50 threshold but worth checking propensity overlap. TRIM strategy with bounds [0.02, 0.98] to handle any edge propensity scores.
+        
+        ### variance
+        
+        ```json
+        [
+          {"column": "vehicleEquipmentCohort", "structural_note": "27 categorical levels. Smallest cohort: RAM_ProMaster_3500 x Thermo_King_Advancer_A400 (n=4,150, 0.74%). Largest: Freightliner_M2_112 x Thermo_King_T-680Pro (n=48,012, 8.5%). No near-degeneracy — all levels have >4000 obs."},
+          {"column": "excursionFlag", "structural_note": "Binary with 6.5% prevalence. Not near-degenerate but rare-event; tree-based nuisance models should handle class imbalance."}
+        ]
+        ```
+        
+        ## unmeasured_confounding
+        
+        ```json
+        [
+          {
+            "variant_id": "V1",
+            "method": "E_VALUE",
+            "null_hypothesis": "ATE = 0",
+            "notes": "Primary full-interaction estimate. E-value tests what unmeasured confounder strength would nullify the worst-vs-best cohort difference."
+          },
+          {
+            "variant_id": "V1",
+            "method": "ROSENBAUM_BOUNDS",
+            "null_hypothesis": "ATE = 0",
+            "notes": "Sensitivity to departures from quasi-random equipment assignment after controlling for nodeId and other confounders."
+          },
+          {
+            "variant_id": "V4",
+            "method": "E_VALUE",
+            "null_hypothesis": "ATE = 0",
+            "notes": "Same-chassis binary contrast (E-Transit). If a single unmeasured confounder (e.g., driver skill assignment correlated with reefer model) explains the 7pp gap, E-value quantifies required strength."
+          },
+          {
+            "variant_id": "V4",
+            "method": "ROSENBAUM_BOUNDS",
+            "null_hypothesis": "ATE = 0",
+            "notes": "Rosenbaum bounds on the targeted same-chassis contrast."
+          },
+          {
+            "variant_id": "V5",
+            "method": "E_VALUE",
+            "null_hypothesis": "ATE = 0",
+            "notes": "Cross-generation contrast. Tests robustness of the 'Gen1 can outperform Gen3' finding."
+          },
+          {
+            "variant_id": "V5",
+            "method": "ROSENBAUM_BOUNDS",
+            "null_hypothesis": "ATE = 0",
+            "notes": "Rosenbaum bounds on the cross-generation contrast."
+          },
+          {
+            "variant_id": "V3",
+            "method": "E_VALUE",
+            "null_hypothesis": "ATE = 0",
+            "notes": "Direct effect variant. E-value for the equipment effect after blocking mediation through preDepartureTempC."
+          }
+        ]
+        ```
+        
+        ## externalization
+        
+        ### domain_rankings
+        
+        ```json
+        [
+          {
+            "ordering": "(vehicleRefrigModel=Daikin_RKN) > (vehicleRefrigModel=Daikin_LXE10, vehicleRefrigModel=Carrier_Vector_8611MT) > (vehicleRefrigModel=Carrier_Supra_860, vehicleRefrigModel=Thermo_King_T-680Pro) > (vehicleRefrigModel=Thermo_King_T-880R) > (vehicleRefrigModel=Daikin_ZeSTIA) > (vehicleRefrigModel=Thermo_King_Advancer_A400)",
+            "source": "Domain knowledge: newer refrigeration models (Advancer_A400=TK flagship, ZeSTIA=Daikin flagship) have better compressor efficiency, refrigerant management, and defrost cycle control. Older models (RKN, LXE10) have known performance limitations. Generator EVIDENCE: TK_Advancer_A400 avg=3.98% (best), Daikin_RKN avg=8.43% (worst).",
+            "scope": "All climate zones, averaged across chassis pairings. Evaluated via GRF-2 vehicleRefrigModel slicing.",
+            "expected_concordance": 0.6
+          }
+        ]
+        ```
+        
+        **Expected concordance = 0.6**: Domain knowledge about reefer model performance hierarchy is DOCUMENTED but deployment bias distorts marginal rates. The generator explicitly warns that Carrier_Vector_HE_19 (a "new" model) performs worst — partially deployment-driven. After confounding control via DML, the ordering should better align with domain knowledge but imperfect concordance is expected.
+        
+        ### allocation_bias
+        
+        ```json
+        [
+          {
+            "treatment_column": "vehicleEquipmentCohort",
+            "grouping_column": "nodeId",
+            "flag_threshold": 0.10
+          },
+          {
+            "treatment_column": "vehicleRefrigModel",
+            "grouping_column": "nodeId",
+            "flag_threshold": 0.10
+          }
+        ]
+        ```
+        
+        **Reasoning**: Deployment distribution analysis confirms severe non-uniformity. TK_Advancer_A400 HHI = 0.137 (26.4% at NOD_001). Even the most dispersed reefer model (TK_T-680Pro) has HHI = 0.056. All reefer models trigger at flag_threshold = 0.10 for at least the concentrated ones. This validates the necessity of nodeId in W.
+        
+        ## discrepancy_log
+        
+        ```json
+        [
+          {
+            "field": "node_count_in_nodeId_profile",
+            "generator_value": "28 nodes",
+            "compiler_value": "28 nodes — nodeId profile shows 20 top values but entity cold_nodes has 28 rows. Full node list confirmed via cold_nodes query: NOD_000 through NOD_027.",
+            "resolution": "No discrepancy. Profile top-values truncated at 20; full set verified."
+          }
+        ]
+        ```
+        
+        No material discrepancies between generator-cited values and data. Verified:
+        - 27 cohort levels ✓
+        - Excursion base rate 6.5% ✓
+        - Ford_E-Transit × CV_HE_19 rate ≈ 11.71% ✓
+        - Ford_E-Transit × TK_Advancer_A400 rate ≈ 2.59% ✓
         
         ---
         
-        ## COMPLETENESS CHECKLIST
+        ## CHECKLIST — All PipelineSpec Fields
         
-        | Field | Status |
-        |-------|--------|
-        | hypothesis_id | ✅ Provided |
-        | treatment | ✅ vehicleEquipmentCohort |
-        | outcome | ✅ excursionFlag |
-        | treatment_form | ✅ CATEGORICAL |
-        | query | ✅ Full QueryDTO with 35 columns, LEFT JOIN, verified 563K rows |
-        | expected_row_count | ✅ 563,028 |
-        | strip_columns | ✅ [shipmentId] |
-        | dag_edges | ✅ 19 edges, 12 nodes, intermediate structure |
-        | dsep_threshold | ✅ 0.035 — calibrated from 5 noise-floor pairs |
-        | adjustment_set | ✅ 22 variables with per-variable classification |
-        | mediators_excluded | ✅ preDepartureTempC with direct_effect_variant_id |
-        | estimation_variants | ✅ 5 variants (2 primary, 1 direct effect, 2 binary contrasts) |
-        | gates (nuisance_r2) | ✅ All 5 sub-fields with grounded derivations |
-        | gates (sanity) | ✅ Direction +1, abort 0.20, flag 0.10 |
-        | gates (placebo) | ✅ flag_ratio 0.30 |
-        | mediation | ✅ 1 mediator (preDepartureTempC) with variant IDs |
-        | grf_configs | ✅ 2 configs (deployment/climate + operational) |
-        | refutations | ✅ 4 types including TEMPORAL_PLACEBO |
-        | sensitivity (confounder_drops) | ✅ All 22 W variables |
-        | sensitivity (confounder_adds) | ✅ 3 bundled variables |
-        | sensitivity (threshold_variants) | ✅ N/A documented |
-        | sensitivity (model_variants) | ✅ 3 cross-model checks |
-        | structural_breaks | ✅ 2 configs (sensitive + conservative) |
-        | residual_checks (autocorrelation) | ✅ Monthly, 4 lags |
-        | residual_checks (field_correlation) | ✅ threshold 0.03, 28 check columns |
-        | residual_checks (auto_correction) | ✅ max_iterations 3, stop 5% |
-        | residual_checks (metadata_correlation) | ✅ 2 metadata columns |
-        | range_checks (vif) | ✅ threshold 10, 1 drop pair documented |
-        | range_checks (overlap) | ✅ 2 binary variants with TRIM strategy |
-        | range_checks (variance) | ✅ treatment + outcome |
-        | unmeasured_confounding | ✅ 6 entries (E_VALUE + ROSENBAUM_BOUNDS for primary + contrasts) |
-        | externalization (domain_rankings) | ✅ 1 ranking with tier notation, concordance 0.5 |
-        | externalization (allocation_bias) | ✅ 1 test on nodeId |
-        | discrepancy_log | ✅ Empty — no contradictions |
+        | Field | Provided | Notes |
+        |-------|----------|-------|
+        | hypothesis_id | ✓ | vehicleEquipmentCohort_excursionFlag |
+        | treatment | ✓ | vehicleEquipmentCohort |
+        | outcome | ✓ | excursionFlag |
+        | treatment_form | ✓ | CATEGORICAL |
+        | query | ✓ | Full QueryDTO with 37 SELECT expressions |
+        | expected_row_count | ✓ | 563,028 |
+        | strip_columns | ✓ | ["shipmentId"] |
+        | dag_edges | ✓ | 14 edges with mechanism notes |
+        | dsep_threshold | ✓ | 0.034, calibrated from 4 independent pairs |
+        | adjustment_set | ✓ | 24 variables with full classification |
+        | mediators_excluded | ✓ | preDepartureTempC with V3 reference |
+        | positivity_check | ✓ | nodeId confounder, hierarchy to vehicleRefrigModel/vehicleMakeModel |
+        | estimation_variants | ✓ | V1-V5 (5 variants) |
+        | gates.nuisance_r2 | ✓ | outcome_abort/flag, treatment_abort/flag, structural_max |
+        | gates.sanity | ✓ | expected_direction=+1, abort=0.20, flag=0.12 |
+        | gates.placebo | ✓ | flag_ratio=0.15 |
+        | mediation | ✓ | preDepartureTempC, V1→V3 |
+        | grf_configs | ✓ | GRF-1, GRF-2, GRF-3 |
+        | refutations | ✓ | PLACEBO, RANDOM_CAUSE, SUBSET, TEMPORAL_PLACEBO |
+        | sensitivity.confounder_drops | ✓ | All 24 W variables |
+        | sensitivity.confounder_adds | ✓ | 4 candidates |
+        | sensitivity.threshold_variants | ✓ | N/A (categorical treatment) |
+        | sensitivity.model_variants | ✓ | 3 variants |
+        | structural_breaks | ✓ | SB-1, SB-2, SB-3 |
+        | residual_checks.autocorrelation | ✓ | Monthly lags [1,2,3,6,12] |
+        | residual_checks.field_correlation | ✓ | threshold=0.03, 34 check columns |
+        | residual_checks.auto_correction | ✓ | max_iterations=3 |
+        | residual_checks.metadata_correlation | ✓ | loggerMonthsSinceCal, loggerId |
+        | range_checks.vif | ✓ | threshold=50, 1 drop pair |
+        | range_checks.overlap | ✓ | V4, V5 with TRIM |
+        | range_checks.variance | ✓ | Treatment + outcome |
+        | unmeasured_confounding | ✓ | 7 entries: E_VALUE + ROSENBAUM for V1/V4/V5, E_VALUE for V3 |
+        | externalization.domain_rankings | ✓ | Reefer model ordering, concordance=0.6 |
+        | externalization.allocation_bias | ✓ | 2 tests (cohort × nodeId, refrigModel × nodeId) |
+        | discrepancy_log | ✓ | No material discrepancies |
         """;
 
     String SAMPLE_COMPILED_H3 = """

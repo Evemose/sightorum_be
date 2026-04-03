@@ -176,6 +176,35 @@ class CausalVerificationService:
         result["steps"]["identification"] = identification_result
 
         # ==================================================================
+        # Step 2b —  Positivity gate (treatment × confounder cell check)
+        # ==================================================================
+        if spec.positivity_check is not None:
+            cp = _cp_load("positivity")
+            if cp is not None:
+                report(0.12, "Positivity gate (cached)")
+                positivity_report = cp["positivity_report"]
+                if cp.get("rewritten_variants") is not None:
+                    spec = self._apply_positivity_rewrite(spec, cp["rewritten_variants"],
+                                                          cp["final_treatment"], cp["surviving_mask"])
+                    data = self._apply_positivity_trim(data, cp["surviving_mask"])
+            else:
+                report(0.12, "Positivity gate")
+                positivity_report, rewritten_variants, final_treatment, surviving_mask = \
+                    self._positivity_gate(data, spec)
+                _cp_save("positivity", {
+                    "positivity_report": positivity_report,
+                    "rewritten_variants": rewritten_variants,
+                    "final_treatment": final_treatment,
+                    "surviving_mask": surviving_mask,
+                })
+                if rewritten_variants is not None:
+                    spec = self._apply_positivity_rewrite(spec, rewritten_variants,
+                                                          final_treatment, surviving_mask)
+                    data = self._apply_positivity_trim(data, surviving_mask)
+            result["steps"]["positivity"] = positivity_report
+            result["row_count"] = len(data)
+
+        # ==================================================================
         # Step 3  —  Estimation variants (per-variant + coarse checkpoints)
         # ==================================================================
         cp = _cp_load("estimation")
@@ -1029,6 +1058,187 @@ class CausalVerificationService:
                 result["sanity"]["warning"] = "Effect direction does not match expected"
 
         return result
+
+    # ------------------------------------------------------------------
+    # Step 2b: Positivity gate
+    # ------------------------------------------------------------------
+
+    def _positivity_gate(self, data, spec):
+        """Check treatment × confounder cell sizes, coarsen if needed.
+
+        Returns (positivity_report, rewritten_variants_or_None,
+                 final_treatment_or_None, surviving_mask_or_None).
+        """
+        pc = spec.positivity_check
+        hierarchy = pc.treatment_hierarchy
+        confounder = pc.confounder_column
+        attempted_levels = []
+
+        for level_idx, treatment_col in enumerate(hierarchy):
+            if treatment_col not in data.columns:
+                attempted_levels.append({
+                    "level": treatment_col,
+                    "error": f"Column '{treatment_col}' not in data",
+                    "verdict": "SKIPPED",
+                })
+                continue
+
+            treatment_vals = data.raw[treatment_col] if treatment_col in data.raw.columns \
+                else data.encoded[treatment_col]
+            confounder_vals = data.raw[confounder] if confounder in data.raw.columns \
+                else data.encoded[confounder]
+
+            ct = pd.crosstab(treatment_vals, confounder_vals)
+            n_cells = ct.size
+            sparse_cells = []
+            sparse_mask = pd.Series(False, index=data.raw.index)
+
+            for t_val in ct.index:
+                for c_val in ct.columns:
+                    count = int(ct.loc[t_val, c_val])
+                    if count < pc.min_cell_threshold:
+                        sparse_cells.append({
+                            "treatment": str(t_val),
+                            "confounder": str(c_val),
+                            "count": count,
+                        })
+                        sparse_mask |= (
+                                (treatment_vals == t_val) & (confounder_vals == c_val)
+                        )
+
+            surviving_mask = ~sparse_mask
+            surviving_n = int(surviving_mask.sum())
+            total_n = len(data)
+            coverage_pct = surviving_n / total_n * 100
+
+            level_report = {
+                "level": treatment_col,
+                "n_cells": n_cells,
+                "sparse_cells_count": len(sparse_cells),
+                "sparse_cells": sparse_cells[:50],
+                "coverage_pct": round(coverage_pct, 2),
+            }
+
+            if coverage_pct >= pc.min_coverage_pct:
+                level_report["verdict"] = "PASSED"
+                attempted_levels.append(level_report)
+
+                if level_idx == 0 and len(sparse_cells) == 0:
+                    # No trimming needed at finest level
+                    report = {
+                        "attempted_levels": attempted_levels,
+                        "final_level": treatment_col,
+                        "original_n": total_n,
+                        "surviving_n": total_n,
+                    }
+                    return report, None, None, None
+
+                # Trim sparse cells and possibly rewrite variants
+                trimmed_cells = sparse_cells
+                rewritten = self._rewrite_variants_for_positivity(
+                    spec, treatment_col, hierarchy[0] if level_idx > 0 else None,
+                    data, surviving_mask)
+                report = {
+                    "attempted_levels": attempted_levels,
+                    "final_level": treatment_col,
+                    "trimmed_cells": trimmed_cells[:100],
+                    "original_n": total_n,
+                    "surviving_n": surviving_n,
+                }
+                return report, rewritten, treatment_col, surviving_mask.tolist()
+            else:
+                level_report["verdict"] = "COARSENED"
+                attempted_levels.append(level_report)
+
+        # Hierarchy exhausted
+        last_level = attempted_levels[-1] if attempted_levels else None
+        report = {
+            "attempted_levels": attempted_levels,
+            "final_level": None,
+            "original_n": len(data),
+            "surviving_n": 0,
+            "failure": (
+                f"Positivity violation at all granularity levels. "
+                f"Finest surviving: {last_level['level'] if last_level else 'none'} "
+                f"at {last_level['coverage_pct'] if last_level else 0}% coverage."
+            ),
+        }
+        return report, None, None, None
+
+    def _rewrite_variants_for_positivity(self, spec, final_treatment, original_treatment,
+                                         data, surviving_mask):
+        """Rewrite estimation variants for coarsened treatment level."""
+        from copy import deepcopy
+        from dataclasses import replace as dc_replace
+        coarsened = original_treatment is not None and final_treatment != original_treatment
+
+        rewritten = []
+        for v in spec.estimation_variants:
+            if not coarsened:
+                # Same treatment level, just trimming sparse cells
+                rewritten.append(v)
+                continue
+
+            # Check if this is a binary filter variant
+            if v.filter is not None:
+                filt = v.filter
+                if hasattr(filt, 'values') and filt.values:
+                    # Map fine-level filter values to coarse level
+                    surviving_data = data.raw[surviving_mask]
+                    fine_to_coarse = {}
+                    if original_treatment in surviving_data.columns and final_treatment in surviving_data.columns:
+                        mapping = surviving_data[[original_treatment, final_treatment]].drop_duplicates()
+                        for _, row in mapping.iterrows():
+                            fine_to_coarse[str(row[original_treatment])] = str(row[final_treatment])
+
+                    coarse_values = set()
+                    for fv in filt.values:
+                        mapped = fine_to_coarse.get(str(fv))
+                        if mapped:
+                            coarse_values.add(mapped)
+
+                    if len(coarse_values) < 2:
+                        # Both levels map to same coarse value or one was trimmed → drop
+                        continue
+
+                    new_v = dc_replace(v,
+                                       treatment_column=final_treatment,
+                                       filter=dc_replace(filt,
+                                                         column=final_treatment,
+                                                         values=sorted(coarse_values)),
+                                       reference_category=sorted(coarse_values)[0])
+                    rewritten.append(new_v)
+                else:
+                    rewritten.append(dc_replace(v, treatment_column=final_treatment))
+            else:
+                # Primary/nonparam/direct variants: just rewrite treatment column
+                rewritten.append(dc_replace(v, treatment_column=final_treatment))
+
+        return rewritten
+
+    @staticmethod
+    def _apply_positivity_trim(data, surviving_mask):
+        """Return trimmed PipelineDataFrame."""
+        mask = pd.Series(surviving_mask, index=data.raw.index) if isinstance(surviving_mask, list) \
+            else surviving_mask
+        return data.filter_mask(mask)
+
+    def _apply_positivity_rewrite(self, spec, rewritten_variants, final_treatment, surviving_mask):
+        """Return spec with rewritten estimation variants and treatment."""
+        from dataclasses import replace as dc_replace
+
+        new_variants = []
+        for v in rewritten_variants:
+            if isinstance(v, dict):
+                from dto.causal_verification_request import EstimationVariant
+                new_variants.append(EstimationVariant.from_dict(v))
+            else:
+                new_variants.append(v)
+
+        new_spec = dc_replace(spec,
+                              treatment=final_treatment if final_treatment else spec.treatment,
+                              estimation_variants=new_variants)
+        return new_spec
 
     # ------------------------------------------------------------------
     # Step 5: Mediation

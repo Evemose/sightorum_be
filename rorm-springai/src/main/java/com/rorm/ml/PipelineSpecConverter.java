@@ -39,6 +39,7 @@ public class PipelineSpecConverter {
             .dsepThreshold(spec.dsepThreshold())
             .adjustmentSet(spec.adjustmentSet())
             .mediatorsExcluded(spec.mediatorsExcluded())
+            .positivityCheck(spec.positivityCheck())
             .estimationVariants(spec.estimationVariants())
             .gates(spec.gates())
             .mediation(spec.mediation())
