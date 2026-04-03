@@ -20,8 +20,7 @@ public record CausalPipelineResult(
     @Nullable String finalCiNote,
     boolean ciCrossesZero,
     @Nullable List<DiscrepancyEntry> discrepancyLog,
-    @Nullable Boolean aborted,
-    @Nullable String abortReason
+    @Nullable String estimationFailure
 ) {
 
     @JsonNaming(SnakeCaseStrategy.class)
@@ -111,8 +110,6 @@ public record CausalPipelineResult(
     @JsonNaming(SnakeCaseStrategy.class)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record GatesResult(
-        boolean abort,
-        @Nullable String abortReason,
         NuisanceR2 nuisanceR2,
         @Nullable SanityCheck sanity
     ) {}
@@ -131,7 +128,6 @@ public record CausalPipelineResult(
     public record SanityCheck(
         boolean directionOk,
         double effectMagnitude,
-        double abortMagnitude,
         double flagMagnitude,
         String status,
         @Nullable String warning
@@ -483,7 +479,8 @@ public record CausalPipelineResult(
         List<Double> ci,
         boolean crossesZero,
         double nearestBoundToZero,
-        double edgeRatio,
+        double zNearest,
+        double se,
         String classification
     ) {}
 }

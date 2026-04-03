@@ -14,6 +14,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.Duration;
+
 @Configuration
 @EnableConfigurationProperties(TokenThrottleProperties.class)
 class AnthropicClientConfiguration {
@@ -22,6 +24,7 @@ class AnthropicClientConfiguration {
     AnthropicClient anthropicClient(@Value("${anthropic.api-key}") String apiKey) {
         return AnthropicOkHttpClient.builder()
             .apiKey(apiKey)
+            .timeout(Duration.ofMinutes(30))
             .build();
     }
 

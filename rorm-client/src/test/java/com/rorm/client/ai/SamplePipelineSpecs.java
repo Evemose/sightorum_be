@@ -596,7 +596,311 @@ final class SamplePipelineSpecs {
         ]
         """;
 
+    // ========================== H2: vehicleEquipmentCohort → excursionFlag ==========================
+
+    private static final List<String> H2_W_COLUMNS = List.of(
+        "nodeId", "ambientTempAtDispatchC", "ambientTempAtArrivalC",
+        "containerInsulationType", "routeTotalStops", "routeTotalDriveHours",
+        "routeTotalAirMiles", "stopSequence", "receivingDelayMin",
+        "isAfterHoursArrival", "receivingDockTempControlled", "containerAgeMonths",
+        "productClass", "palletPosition", "productMassAtStopKg",
+        "siteUrbanRural", "siteType", "dayOfWeek", "nodeRefrigHealthPct",
+        "dispatchYear", "dispatchMonth", "vehicleRefrigAgeMonths"
+    );
+
+    private static final List<String> H2_W_COLUMNS_WITH_MEDIATOR = List.of(
+        "nodeId", "ambientTempAtDispatchC", "ambientTempAtArrivalC",
+        "containerInsulationType", "routeTotalStops", "routeTotalDriveHours",
+        "routeTotalAirMiles", "stopSequence", "receivingDelayMin",
+        "isAfterHoursArrival", "receivingDockTempControlled", "containerAgeMonths",
+        "productClass", "palletPosition", "productMassAtStopKg",
+        "siteUrbanRural", "siteType", "dayOfWeek", "nodeRefrigHealthPct",
+        "dispatchYear", "dispatchMonth", "vehicleRefrigAgeMonths",
+        "preDepartureTempC"
+    );
+
+    private static final String H2_DAG_EDGES = """
+        vehicleEquipmentCohort -> excursionFlag; \
+        vehicleEquipmentCohort -> preDepartureTempC; \
+        nodeId -> vehicleEquipmentCohort; \
+        nodeId -> ambientTempAtDispatchC; \
+        nodeId -> preDepartureTempC; \
+        nodeId -> nodeRefrigHealthPct; \
+        nodeId -> excursionFlag; \
+        ambientTempAtDispatchC -> preDepartureTempC; \
+        ambientTempAtDispatchC -> excursionFlag; \
+        preDepartureTempC -> excursionFlag; \
+        nodeRefrigHealthPct -> preDepartureTempC; \
+        containerInsulationType -> excursionFlag; \
+        routeTotalStops -> stopSequence; \
+        routeTotalStops -> excursionFlag; \
+        stopSequence -> excursionFlag; \
+        receivingDelayMin -> excursionFlag; \
+        dispatchMonth -> ambientTempAtDispatchC; \
+        dispatchYear -> vehicleEquipmentCohort; \
+        dispatchYear -> excursionFlag""";
+
+    private static final String H2_QUERY = """
+        {
+          "from": "shipments",
+          "fromAlias": "s",
+          "joins": [
+            {
+              "joinType": "LEFT",
+              "joinedRoot": {"rootName": "cold_nodes", "alias": "cn"},
+              "onCondition": {
+                "@type": "binary",
+                "left": {"@type": "path", "path": "s.nodeId"},
+                "operator": "EQUALS",
+                "right": {"@type": "path", "path": "cn.nodeId"}
+              }
+            }
+          ],
+          "selector": {
+            "@type": "multi",
+            "distinct": false,
+            "expressions": [
+              {"alias": "shipmentId", "expression": {"@type": "path", "path": "s.shipmentId"}},
+              {"alias": "vehicleEquipmentCohort", "expression": {"@type": "function", "functionName": "CONCAT", "arguments": [{"@type": "path", "path": "s.vehicleMakeModel"}, {"@type": "literal", "value": "__"}, {"@type": "path", "path": "s.vehicleRefrigModel"}]}},
+              {"alias": "vehicleMakeModel", "expression": {"@type": "path", "path": "s.vehicleMakeModel"}},
+              {"alias": "vehicleRefrigModel", "expression": {"@type": "path", "path": "s.vehicleRefrigModel"}},
+              {"alias": "excursionFlag", "expression": {"@type": "path", "path": "s.excursionFlag"}},
+              {"alias": "nodeId", "expression": {"@type": "path", "path": "s.nodeId"}},
+              {"alias": "region", "expression": {"@type": "path", "path": "cn.region"}},
+              {"alias": "ambientTempAtDispatchC", "expression": {"@type": "path", "path": "s.ambientTempAtDispatchC"}},
+              {"alias": "ambientTempAtArrivalC", "expression": {"@type": "path", "path": "s.ambientTempAtArrivalC"}},
+              {"alias": "preDepartureTempC", "expression": {"@type": "path", "path": "s.preDepartureTempC"}},
+              {"alias": "routeTotalStops", "expression": {"@type": "path", "path": "s.routeTotalStops"}},
+              {"alias": "routeTotalDriveHours", "expression": {"@type": "path", "path": "s.routeTotalDriveHours"}},
+              {"alias": "routeTotalAirMiles", "expression": {"@type": "path", "path": "s.routeTotalAirMiles"}},
+              {"alias": "stopSequence", "expression": {"@type": "path", "path": "s.stopSequence"}},
+              {"alias": "receivingDelayMin", "expression": {"@type": "path", "path": "s.receivingDelayMin"}},
+              {"alias": "containerAgeMonths", "expression": {"@type": "path", "path": "s.containerAgeMonths"}},
+              {"alias": "palletPosition", "expression": {"@type": "path", "path": "s.palletPosition"}},
+              {"alias": "productMassAtStopKg", "expression": {"@type": "path", "path": "s.productMassAtStopKg"}},
+              {"alias": "nodeRefrigHealthPct", "expression": {"@type": "path", "path": "s.nodeRefrigHealthPct"}},
+              {"alias": "isAfterHoursArrival", "expression": {"@type": "path", "path": "s.isAfterHoursArrival"}},
+              {"alias": "receivingDockTempControlled", "expression": {"@type": "path", "path": "s.receivingDockTempControlled"}},
+              {"alias": "containerInsulationType", "expression": {"@type": "path", "path": "s.containerInsulationType"}},
+              {"alias": "productClass", "expression": {"@type": "path", "path": "s.productClass"}},
+              {"alias": "siteUrbanRural", "expression": {"@type": "path", "path": "s.siteUrbanRural"}},
+              {"alias": "siteType", "expression": {"@type": "path", "path": "s.siteType"}},
+              {"alias": "dayOfWeek", "expression": {"@type": "path", "path": "s.dayOfWeek"}},
+              {"alias": "vehicleRefrigAgeMonths", "expression": {"@type": "path", "path": "s.vehicleRefrigAgeMonths"}},
+              {"alias": "vehicleInsulationRating", "expression": {"@type": "path", "path": "s.vehicleInsulationRating"}},
+              {"alias": "vehicleReeferKwRated", "expression": {"@type": "path", "path": "s.vehicleReeferKwRated"}},
+              {"alias": "vehicleCargoVolumeM3", "expression": {"@type": "path", "path": "s.vehicleCargoVolumeM3"}},
+              {"alias": "loggerMonthsSinceCal", "expression": {"@type": "path", "path": "s.loggerMonthsSinceCal"}},
+              {"alias": "loggerId", "expression": {"@type": "path", "path": "s.loggerId"}},
+              {"alias": "date", "expression": {"@type": "path", "path": "s.date"}},
+              {"alias": "dispatchYear", "expression": {"@type": "function", "functionName": "EXTRACT", "arguments": [{"@type": "literal", "value": "YEAR"}, {"@type": "path", "path": "s.date"}]}},
+              {"alias": "dispatchMonth", "expression": {"@type": "function", "functionName": "EXTRACT", "arguments": [{"@type": "literal", "value": "MONTH"}, {"@type": "path", "path": "s.date"}]}}
+            ]
+          }
+        }
+        """;
+
+    private static final String H2_MEDIATORS_EXCLUDED = """
+        [{"column": "preDepartureTempC", "pathway": "vehicleEquipmentCohort -> preDepartureTempC -> excursionFlag", "direct_effect_variant_id": "direct_effect_linear"}]
+        """;
+
+    private static final String H2_ESTIMATION_VARIANTS = """
+        [
+          {"id": "primary_cat_linear", "treatment_column": "vehicleEquipmentCohort", "treatment_form": "CATEGORICAL", "model_type": "LinearDML",
+           "w_columns": ["nodeId","ambientTempAtDispatchC","ambientTempAtArrivalC","containerInsulationType","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","containerAgeMonths","productClass","palletPosition","productMassAtStopKg","siteUrbanRural","siteType","dayOfWeek","nodeRefrigHealthPct","dispatchYear","dispatchMonth","vehicleRefrigAgeMonths"],
+           "reference_category": "Ford_E-Transit__Thermo_King_Advancer_A400"},
+          {"id": "primary_cat_nonparam", "treatment_column": "vehicleEquipmentCohort", "treatment_form": "CATEGORICAL", "model_type": "NonParamDML",
+           "w_columns": ["nodeId","ambientTempAtDispatchC","ambientTempAtArrivalC","containerInsulationType","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","containerAgeMonths","productClass","palletPosition","productMassAtStopKg","siteUrbanRural","siteType","dayOfWeek","nodeRefrigHealthPct","dispatchYear","dispatchMonth","vehicleRefrigAgeMonths"],
+           "reference_category": "Ford_E-Transit__Thermo_King_Advancer_A400"},
+          {"id": "direct_effect_linear", "treatment_column": "vehicleEquipmentCohort", "treatment_form": "CATEGORICAL", "model_type": "LinearDML",
+           "w_columns": ["nodeId","ambientTempAtDispatchC","ambientTempAtArrivalC","containerInsulationType","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","containerAgeMonths","productClass","palletPosition","productMassAtStopKg","siteUrbanRural","siteType","dayOfWeek","nodeRefrigHealthPct","dispatchYear","dispatchMonth","vehicleRefrigAgeMonths","preDepartureTempC"],
+           "reference_category": "Ford_E-Transit__Thermo_King_Advancer_A400"},
+          {"id": "binary_worst_vs_best", "treatment_column": "vehicleEquipmentCohort", "treatment_form": "CATEGORICAL", "model_type": "LinearDML",
+           "w_columns": ["nodeId","ambientTempAtDispatchC","ambientTempAtArrivalC","containerInsulationType","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","containerAgeMonths","productClass","palletPosition","productMassAtStopKg","siteUrbanRural","siteType","dayOfWeek","nodeRefrigHealthPct","dispatchYear","dispatchMonth","vehicleRefrigAgeMonths"],
+           "reference_category": "Ford_E-Transit__Thermo_King_Advancer_A400",
+           "filter": {"column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit__Carrier_Vector_HE_19","Ford_E-Transit__Thermo_King_Advancer_A400"]}},
+          {"id": "binary_gen1_vs_gen3", "treatment_column": "vehicleEquipmentCohort", "treatment_form": "CATEGORICAL", "model_type": "LinearDML",
+           "w_columns": ["nodeId","ambientTempAtDispatchC","ambientTempAtArrivalC","containerInsulationType","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","containerAgeMonths","productClass","palletPosition","productMassAtStopKg","siteUrbanRural","siteType","dayOfWeek","nodeRefrigHealthPct","dispatchYear","dispatchMonth","vehicleRefrigAgeMonths"],
+           "reference_category": "Ford_E-450__Thermo_King_T-880R",
+           "filter": {"column": "vehicleEquipmentCohort", "operator": "IN", "values": ["Ford_E-Transit__Carrier_Vector_HE_19","Ford_E-450__Thermo_King_T-880R"]}}
+        ]
+        """;
+
+    private static final String H2_GATES = """
+        {
+          "nuisance_r2": {
+            "outcome_abort": 0.005,
+            "outcome_flag": 0.04,
+            "treatment_abort": 0.02,
+            "treatment_flag": 0.10,
+            "treatment_structural_max_r2": 0.963
+          },
+          "sanity": {
+            "expected_direction": 1,
+            "abort_magnitude": 0.20,
+            "flag_magnitude": 0.10
+          },
+          "placebo": {
+            "flag_ratio": 0.30
+          }
+        }
+        """;
+
+    private static final String H2_MEDIATION = """
+        [{"mediator": "preDepartureTempC", "pathway": "vehicleEquipmentCohort -> preDepartureTempC -> excursionFlag", "total_variant_id": "primary_cat_linear", "direct_variant_id": "direct_effect_linear"}]
+        """;
+
+    private static final String H2_GRF_CONFIGS = """
+        [
+          {"id": "grf_deployment_climate", "modifier_columns": ["nodeId","region","ambientTempAtDispatchC"], "slicing": {"nodeId": "unique", "region": "unique", "ambientTempAtDispatchC": "quartile"}},
+          {"id": "grf_operational", "modifier_columns": ["containerInsulationType","productClass","routeTotalStops","dispatchMonth","stopSequence"], "slicing": {"containerInsulationType": "unique", "productClass": "unique", "routeTotalStops": "unique", "dispatchMonth": "unique", "stopSequence": "quartile"}}
+        ]
+        """;
+
+    private static final String H2_REFUTATIONS = """
+        [{"type": "PLACEBO"}, {"type": "RANDOM_CAUSE"}, {"type": "SUBSET"}, {"type": "TEMPORAL_PLACEBO"}]
+        """;
+
+    private static final String H2_SENSITIVITY = """
+        {
+          "confounder_drops": [
+            {"column": "nodeId", "deviation_threshold_pct": 15},
+            {"column": "ambientTempAtDispatchC", "deviation_threshold_pct": 15},
+            {"column": "ambientTempAtArrivalC", "deviation_threshold_pct": 25},
+            {"column": "containerInsulationType", "deviation_threshold_pct": 25},
+            {"column": "routeTotalStops", "deviation_threshold_pct": 25},
+            {"column": "routeTotalDriveHours", "deviation_threshold_pct": 25},
+            {"column": "routeTotalAirMiles", "deviation_threshold_pct": 25},
+            {"column": "stopSequence", "deviation_threshold_pct": 25},
+            {"column": "receivingDelayMin", "deviation_threshold_pct": 25},
+            {"column": "isAfterHoursArrival", "deviation_threshold_pct": 25},
+            {"column": "receivingDockTempControlled", "deviation_threshold_pct": 25},
+            {"column": "containerAgeMonths", "deviation_threshold_pct": 25},
+            {"column": "productClass", "deviation_threshold_pct": 25},
+            {"column": "palletPosition", "deviation_threshold_pct": 25},
+            {"column": "productMassAtStopKg", "deviation_threshold_pct": 25},
+            {"column": "siteUrbanRural", "deviation_threshold_pct": 25},
+            {"column": "siteType", "deviation_threshold_pct": 25},
+            {"column": "dayOfWeek", "deviation_threshold_pct": 25},
+            {"column": "nodeRefrigHealthPct", "deviation_threshold_pct": 25},
+            {"column": "dispatchYear", "deviation_threshold_pct": 20},
+            {"column": "dispatchMonth", "deviation_threshold_pct": 20},
+            {"column": "vehicleRefrigAgeMonths", "deviation_threshold_pct": 25}
+          ],
+          "confounder_adds": [
+            {"column": "vehicleInsulationRating", "reasoning": "Excluded as bundled with treatment (absorbed by makeModel). Testing if independent within-model variation matters after controlling for cohort identity."},
+            {"column": "vehicleReeferKwRated", "reasoning": "Excluded as bundled with treatment (absorbed by refrigModel). Testing residual within-model kW variation."},
+            {"column": "vehicleCargoVolumeM3", "reasoning": "Excluded as bundled with treatment (absorbed by makeModel chassis). Testing if cargo volume has independent confounding effect."}
+          ],
+          "threshold_variants": [],
+          "model_variants": [
+            {"primary_variant_id": "primary_cat_linear", "alternative_model_type": "NonParamDML"},
+            {"primary_variant_id": "primary_cat_nonparam", "alternative_model_type": "LinearDML"},
+            {"primary_variant_id": "direct_effect_linear", "alternative_model_type": "NonParamDML"}
+          ]
+        }
+        """;
+
+    private static final String H2_STRUCTURAL_BREAKS = """
+        [
+          {"id": "breaks_node_monthly", "entity_column": "nodeId", "temporal_column": "date", "temporal_grain": "MONTH", "pelt_penalty": 4.79, "min_obs_per_period": 50, "known_events_tables": ["hub_interventions","fleet_transitions"], "entity_count": 28, "temporal_points": 120},
+          {"id": "breaks_node_monthly_conservative", "entity_column": "nodeId", "temporal_column": "date", "temporal_grain": "MONTH", "pelt_penalty": 14.37, "min_obs_per_period": 50, "known_events_tables": ["hub_interventions","fleet_transitions"], "entity_count": 28, "temporal_points": 120}
+        ]
+        """;
+
+    private static final String H2_RESIDUAL_CHECKS = """
+        {
+          "autocorrelation": [
+            {"temporal_column": "date", "grain": "MONTH", "lags": [1, 3, 6, 12], "threshold": 0.05}
+          ],
+          "field_correlation": {
+            "threshold": 0.03,
+            "check_columns": ["nodeId","ambientTempAtDispatchC","ambientTempAtArrivalC","containerInsulationType","routeTotalStops","routeTotalDriveHours","routeTotalAirMiles","stopSequence","receivingDelayMin","isAfterHoursArrival","receivingDockTempControlled","containerAgeMonths","productClass","palletPosition","productMassAtStopKg","siteUrbanRural","siteType","dayOfWeek","nodeRefrigHealthPct","dispatchYear","dispatchMonth","vehicleRefrigAgeMonths","preDepartureTempC","region","vehicleInsulationRating","vehicleReeferKwRated","vehicleCargoVolumeM3","loggerMonthsSinceCal"]
+          },
+          "auto_correction": {
+            "max_iterations": 3,
+            "stop_criterion_ci_pct": 5.0
+          },
+          "metadata_correlation": [
+            {"column": "loggerMonthsSinceCal", "threshold": 0.03, "alert_type": "WARNING"},
+            {"column": "loggerId", "threshold": 0.03, "alert_type": "WARNING"}
+          ]
+        }
+        """;
+
+    private static final String H2_RANGE_CHECKS = """
+        {
+          "vif": {
+            "threshold": 10.0,
+            "drop_pairs": [{"keep": "ambientTempAtDispatchC", "drop": "ambientTempAtArrivalC", "reasoning": "Both measure ambient temperature at different shipment stages. Dispatch ambient is temporally prior and causally closer to node assignment. Expected corr >0.95, VIF >10."}]
+          },
+          "overlap": [
+            {"variant_id": "binary_worst_vs_best", "threshold": 0.05, "response_strategy": "TRIM", "trim_bounds": [0.05, 0.95]},
+            {"variant_id": "binary_gen1_vs_gen3", "threshold": 0.05, "response_strategy": "TRIM", "trim_bounds": [0.05, 0.95]}
+          ],
+          "variance": [
+            {"column": "vehicleEquipmentCohort", "structural_note": "27 categorical levels. Smallest: RAM_ProMaster_3500__TK_Advancer_A400 (n=4,150, 0.74%). Not degenerate — all levels have >4K observations."},
+            {"column": "excursionFlag", "structural_note": "Binary, p=0.065. Not degenerate but rare event — 36,589 events in 563K observations."}
+          ]
+        }
+        """;
+
+    private static final String H2_UNMEASURED_CONFOUNDING = """
+        [
+          {"variant_id": "primary_cat_linear", "method": "E_VALUE", "null_hypothesis": "ATE = 0", "notes": "How strong must unmeasured confounder be to explain away average categorical CATE? Key concern: unobserved vehicle maintenance quality varying by cohort."},
+          {"variant_id": "primary_cat_linear", "method": "ROSENBAUM_BOUNDS", "null_hypothesis": "ATE = 0", "notes": "How large a departure from random cohort assignment needed to nullify? Deployment bias (nodeId) is controlled, but unobserved within-node assignment mechanisms could remain."},
+          {"variant_id": "direct_effect_linear", "method": "E_VALUE", "null_hypothesis": "ATE = 0", "notes": "Direct effect after blocking preDepartureTempC mediation pathway."},
+          {"variant_id": "binary_worst_vs_best", "method": "E_VALUE", "null_hypothesis": "ATE = 0", "notes": "Focused contrast — unmeasured confounding between the extreme cohorts."},
+          {"variant_id": "binary_worst_vs_best", "method": "ROSENBAUM_BOUNDS", "null_hypothesis": "ATE = 0", "notes": "Binary contrast is most amenable to Rosenbaum analysis."},
+          {"variant_id": "binary_gen1_vs_gen3", "method": "E_VALUE", "null_hypothesis": "ATE = 0", "notes": "Cross-generation contrast — tests if deployment confounding fully explains Gen1 outperforming Gen3."}
+        ]
+        """;
+
+    private static final String H2_EXTERNALIZATION = """
+        {
+          "domain_rankings": [
+            {"ordering": "(vehicleEquipmentCohort=Ford_E-Transit__Carrier_Vector_HE_19, vehicleEquipmentCohort=Ford_E-450__Daikin_RKN) > (vehicleEquipmentCohort=Freightliner_M2_112__Daikin_LXE10, vehicleEquipmentCohort=Hino_195__Thermo_King_T-680Pro) > (vehicleEquipmentCohort=Ford_F-650__Thermo_King_T-680Pro, vehicleEquipmentCohort=Isuzu_NPR_HD__Carrier_Supra_860) > (vehicleEquipmentCohort=Ford_E-Transit__Daikin_ZeSTIA, vehicleEquipmentCohort=Ford_E-450__Thermo_King_T-880R) > (vehicleEquipmentCohort=Ford_E-Transit__Thermo_King_Advancer_A400)", "source": "Marginal excursion rates from data: worst tier 8.6-11.7%, upper-mid 7.3-8.6%, mid 4.9-6.6%, lower-mid 4.0-5.0%, best 2.6-3.9%. Ordering reflects thermal engineering expectations modulated by deployment confounding.", "scope": "All regions combined — causal ordering may differ from marginal due to deployment concentration.", "expected_concordance": 0.5}
+          ],
+          "allocation_bias": [
+            {"treatment_column": "vehicleEquipmentCohort", "grouping_column": "nodeId", "flag_threshold": 0.10}
+          ]
+        }
+        """;
+
+    private static final String H2_DISCREPANCY_LOG = """
+        []
+        """;
+
     private SamplePipelineSpecs() {
+    }
+
+    @SneakyThrows
+    static PipelineSpecRequest h2(ObjectMapper mapper) {
+        return PipelineSpecRequest.builder()
+            .hypothesisId("vehicleEquipmentCohort_excursionFlag")
+            .treatment("vehicleEquipmentCohort")
+            .outcome("excursionFlag")
+            .treatmentForm("CATEGORICAL")
+            .dataQuery(mapper.readValue(H2_QUERY, DenseQueryDto.class))
+            .expectedRowCount(563_028)
+            .stripColumns(List.of("shipmentId"))
+            .dagEdges(H2_DAG_EDGES)
+            .dsepThreshold(0.035)
+            .adjustmentSet(H2_W_COLUMNS)
+            .mediatorsExcluded(mapper.readValue(H2_MEDIATORS_EXCLUDED, LIST_OF_MAPS))
+            .estimationVariants(mapper.readValue(H2_ESTIMATION_VARIANTS, LIST_OF_MAPS))
+            .gates(mapper.readValue(H2_GATES, MAP_TYPE))
+            .mediation(mapper.readValue(H2_MEDIATION, LIST_OF_MAPS))
+            .grfConfigs(mapper.readValue(H2_GRF_CONFIGS, LIST_OF_MAPS))
+            .refutations(mapper.readValue(H2_REFUTATIONS, LIST_OF_MAPS))
+            .sensitivity(mapper.readValue(H2_SENSITIVITY, MAP_TYPE))
+            .structuralBreaks(mapper.readValue(H2_STRUCTURAL_BREAKS, LIST_OF_MAPS))
+            .residualChecks(mapper.readValue(H2_RESIDUAL_CHECKS, MAP_TYPE))
+            .rangeChecks(mapper.readValue(H2_RANGE_CHECKS, MAP_TYPE))
+            .unmeasuredConfounding(mapper.readValue(H2_UNMEASURED_CONFOUNDING, LIST_OF_MAPS))
+            .externalization(mapper.readValue(H2_EXTERNALIZATION, MAP_TYPE))
+            .discrepancyLog(mapper.readValue(H2_DISCREPANCY_LOG, LIST_OF_MAPS))
+            .build();
     }
 
     @SneakyThrows

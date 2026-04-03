@@ -108,7 +108,6 @@ class CausalVerificationService:
             })
 
         result: dict[str, Any] = {"hypothesis_id": spec.hypothesis_id, "steps": {}}
-        aborted = False
 
         def report(pct: float, msg: str = ""):
             if progress_callback:
@@ -216,23 +215,10 @@ class CausalVerificationService:
         if primary_effect is None:
             failed_variants = [vid for vid, r in estimation_results.items()
                                if r.get("effect") is None]
-            result["aborted"] = True
-            result["abort_reason"] = (
+            result["estimation_failure"] = (
                 f"Primary variant '{spec.estimation_variants[0].id}' produced no "
                 f"effect estimate. Failed variants: {failed_variants}"
             )
-            result["final_effect"] = None
-            result["final_ci"] = None
-            if checkpoint:
-                from datetime import datetime
-                checkpoint.save_run_meta({
-                    "spec": spec.to_dict(), "status": "completed",
-                    "completed_at": datetime.utcnow().isoformat(),
-                    "_score": datetime.utcnow().timestamp(),
-                    "result": result,
-                })
-            report(1.0, "Pipeline aborted — primary estimation failed")
-            return result
 
         # ==================================================================
         # Step 4  —  Quality gates
@@ -241,21 +227,13 @@ class CausalVerificationService:
         if cp is not None:
             report(0.35, "Quality gates (cached)")
             gates_result = cp["gates_result"]
-            aborted = cp["aborted"]
         else:
             report(0.35, "Quality gates")
             gates_result = self._quality_gates(
                 data, spec, confounders, primary_effect, primary_ci
             )
-            aborted = bool(gates_result.get("abort"))
-            _cp_save("gates", {
-                "gates_result": gates_result,
-                "aborted": aborted,
-            })
+            _cp_save("gates", {"gates_result": gates_result})
         result["steps"]["gates"] = gates_result
-        if aborted:
-            result["aborted"] = True
-            result["abort_reason"] = gates_result.get("abort_reason")
 
         # ==================================================================
         # Steps 5-12  —  Parallel execution (independent post-gate steps)
@@ -266,171 +244,170 @@ class CausalVerificationService:
         # work inside each step goes through _pool_submit so the
         # WorkerPool governs memory and concurrency.
         # ==================================================================
-        if not aborted:
-            step_outputs: dict[str, Any] = {}
+        step_outputs: dict[str, Any] = {}
 
-            def _run_cached_step(
-                    name: str, cp_key: str, cp_extract: Callable,
-                    compute: Callable, cp_pack: Callable,
-            ) -> tuple[str, Any]:
-                """Run a step with checkpoint load/save, return (key, value)."""
-                cp = _cp_load(cp_key)
-                if cp is not None:
-                    report(0, f"{name} (cached)")
-                    return cp_key, cp_extract(cp)
-                report(0, name)
-                val = compute()
-                _cp_save(cp_key, cp_pack(val))
-                return cp_key, val
+        def _run_cached_step(
+                name: str, cp_key: str, cp_extract: Callable,
+                compute: Callable, cp_pack: Callable,
+        ) -> tuple[str, Any]:
+            """Run a step with checkpoint load/save, return (key, value)."""
+            cp = _cp_load(cp_key)
+            if cp is not None:
+                report(0, f"{name} (cached)")
+                return cp_key, cp_extract(cp)
+            report(0, name)
+            val = compute()
+            _cp_save(cp_key, cp_pack(val))
+            return cp_key, val
 
-            # All independent work is submitted to the WorkerPool at the
-            # granularity of individual DML fits.  Steps that internally
-            # submit multiple pool tasks (GRF, sensitivity, refutations)
-            # do so directly — no outer wrapper needed.
+        # All independent work is submitted to the WorkerPool at the
+        # granularity of individual DML fits.  Steps that internally
+        # submit multiple pool tasks (GRF, sensitivity, refutations)
+        # do so directly — no outer wrapper needed.
 
-            mem = self._mem_estimate(data)
-            mem_light = mem // 4
+        mem = self._mem_estimate(data)
+        mem_light = mem // 4
 
-            # Step 5 — Mediation (1 DML fit)
-            if spec.mediation:
-                step_outputs["mediation"] = _run_cached_step(
-                    "Mediation", "mediation",
-                    lambda cp: cp["mediation_result"],
-                    lambda: self._mediation(
-                        data, spec, confounders, estimation_results, refined_edges),
-                    lambda v: {"mediation_result": v})[1]
+        # Step 5 — Mediation (1 DML fit)
+        if spec.mediation:
+            step_outputs["mediation"] = _run_cached_step(
+                "Mediation", "mediation",
+                lambda cp: cp["mediation_result"],
+                lambda: self._mediation(
+                    data, spec, confounders, estimation_results, refined_edges),
+                lambda v: {"mediation_result": v})[1]
 
-            # Steps 6-12: submit all independent work to pool, collect at end
-            pending: dict[str, Future] = {}
+        # Steps 6-12: submit all independent work to pool, collect at end
+        pending: dict[str, Future] = {}
 
-            # Step 6 — GRF (coarse + per-config checkpoints)
-            if spec.grf_configs:
-                cp = _cp_load("grf")
-                if cp is not None:
-                    step_outputs["grf"] = cp["grf_result"]
-                else:
-                    def _run_grf():
-                        r = self._grf_heterogeneity(data, spec, confounders, checkpoint)
-                        _cp_save("grf", {"grf_result": r})
-                        return "grf", r
+        # Step 6 — GRF (coarse + per-config checkpoints)
+        if spec.grf_configs:
+            cp = _cp_load("grf")
+            if cp is not None:
+                step_outputs["grf"] = cp["grf_result"]
+            else:
+                def _run_grf():
+                    r = self._grf_heterogeneity(data, spec, confounders, checkpoint)
+                    _cp_save("grf", {"grf_result": r})
+                    return "grf", r
 
-                    pending["grf"] = self._pool_submit(mem, _run_grf)
+                pending["grf"] = self._pool_submit(mem, _run_grf)
 
-            # Step 7 — Refutations (coarse + per-type checkpoints)
-            if spec.refutations:
-                cp = _cp_load("refutations")
-                if cp is not None:
-                    step_outputs["refutations"] = cp["refutations_result"]
-                else:
-                    report(0, "Refutations")
-                    refute_futures = self._refutations_parallel(
-                        data, spec, dag_nx, primary_effect, mem, checkpoint)
-                    pending["_refute"] = refute_futures
+        # Step 7 — Refutations (coarse + per-type checkpoints)
+        if spec.refutations:
+            cp = _cp_load("refutations")
+            if cp is not None:
+                step_outputs["refutations"] = cp["refutations_result"]
+            else:
+                report(0, "Refutations")
+                refute_futures = self._refutations_parallel(
+                    data, spec, dag_nx, primary_effect, mem, checkpoint)
+                pending["_refute"] = refute_futures
 
-            # Step 8 — Unmeasured confounding (analytical, no model fitting)
-            if spec.unmeasured_confounding:
-                pending["unmeasured_confounding"] = self._pool_submit(
-                    mem_light, lambda: _run_cached_step(
-                        "Unmeasured confounding", "unmeasured_confounding",
-                        lambda cp: cp["uc_result"],
-                        lambda: self._unmeasured_confounding(data, spec, estimation_results),
-                        lambda v: {"uc_result": v}))
-
-            # Step 9 — Sensitivity (internally submits 33+ DML fits to pool)
-            pending["sensitivity"] = self._pool_submit(mem_light, lambda: _run_cached_step(
-                "Sensitivity", "sensitivity",
-                lambda cp: cp["sensitivity_result"],
-                lambda: self._sensitivity(
-                    data, spec, refined_edges, primary_effect, estimation_results),
-                lambda v: {"sensitivity_result": v}))
-
-            # Step 10 — Structural breaks (ruptures PELT, no DML)
-            if spec.structural_breaks:
-                pending["structural_breaks"] = self._pool_submit(
-                    mem_light, lambda: _run_cached_step(
-                        "Structural breaks", "structural_breaks",
-                        lambda cp: cp["breaks_result"],
-                        lambda: self._structural_breaks(data, spec, primary_effect, primary_ci),
-                        lambda v: {"breaks_result": v}))
-
-            # Step 11 — Residual diagnostics (5-fold CV + field correlation)
-            pending["residual_diagnostics"] = self._pool_submit(mem, lambda: _run_cached_step(
-                "Residual diagnostics", "residual_diagnostics",
-                lambda cp: cp["residual_result"],
-                lambda: self._residual_diagnostics(
-                    data, spec, confounders, refined_edges, primary_effect),
-                lambda v: {
-                    "residual_result": v,
-                    "corrected_effect": v.get("corrected_effect"),
-                }))
-
-            # Step 12 — Range checks (VIF + logistic regression)
-            pending["range_checks"] = self._pool_submit(
+        # Step 8 — Unmeasured confounding (analytical, no model fitting)
+        if spec.unmeasured_confounding:
+            pending["unmeasured_confounding"] = self._pool_submit(
                 mem_light, lambda: _run_cached_step(
-                    "Range checks", "range_checks",
-                    lambda cp: cp["range_result"],
-                    lambda: self._range_checks(data, spec, confounders, estimation_results),
-                    lambda v: {"range_result": v}))
+                    "Unmeasured confounding", "unmeasured_confounding",
+                    lambda cp: cp["uc_result"],
+                    lambda: self._unmeasured_confounding(data, spec, estimation_results),
+                    lambda v: {"uc_result": v}))
 
-            # Collect results
-            for key, f in pending.items():
-                if key == "_refute":
-                    continue  # handled below
-                _, val = f.result()
-                step_outputs[key] = val
+        # Step 9 — Sensitivity (internally submits 33+ DML fits to pool)
+        pending["sensitivity"] = self._pool_submit(mem_light, lambda: _run_cached_step(
+            "Sensitivity", "sensitivity",
+            lambda cp: cp["sensitivity_result"],
+            lambda: self._sensitivity(
+                data, spec, refined_edges, primary_effect, estimation_results),
+            lambda v: {"sensitivity_result": v}))
 
-            # Collect refutation sub-tasks
-            if "_refute" in pending:
-                refute_result = self._collect_refutations(
-                    pending["_refute"], spec, primary_effect, checkpoint)
-                _cp_save("refutations", {"refutations_result": refute_result})
-                step_outputs["refutations"] = refute_result
+        # Step 10 — Structural breaks (ruptures PELT, no DML)
+        if spec.structural_breaks:
+            pending["structural_breaks"] = self._pool_submit(
+                mem_light, lambda: _run_cached_step(
+                    "Structural breaks", "structural_breaks",
+                    lambda cp: cp["breaks_result"],
+                    lambda: self._structural_breaks(data, spec, primary_effect, primary_ci),
+                    lambda v: {"breaks_result": v}))
 
-            # Collect results
-            result["steps"]["mediation"] = step_outputs.get("mediation")
-            result["steps"]["grf"] = step_outputs.get("grf")
-            if "refutations" in step_outputs:
-                result["steps"]["refutations"] = step_outputs["refutations"]
-            if "unmeasured_confounding" in step_outputs:
-                result["steps"]["unmeasured_confounding"] = step_outputs["unmeasured_confounding"]
-            result["steps"]["sensitivity"] = step_outputs.get("sensitivity")
-            if "structural_breaks" in step_outputs:
-                result["steps"]["structural_breaks"] = step_outputs["structural_breaks"]
-            if "range_checks" in step_outputs:
-                result["steps"]["range_checks"] = step_outputs["range_checks"]
+        # Step 11 — Residual diagnostics (5-fold CV + field correlation)
+        pending["residual_diagnostics"] = self._pool_submit(mem, lambda: _run_cached_step(
+            "Residual diagnostics", "residual_diagnostics",
+            lambda cp: cp["residual_result"],
+            lambda: self._residual_diagnostics(
+                data, spec, confounders, refined_edges, primary_effect),
+            lambda v: {
+                "residual_result": v,
+                "corrected_effect": v.get("corrected_effect"),
+            }))
 
-            # Residual diagnostics: extract corrected_effect
-            rd = step_outputs.get("residual_diagnostics")
-            if rd is not None:
-                result["steps"]["residual_diagnostics"] = rd
-                corrected = rd.get("corrected_effect") if isinstance(rd, dict) else None
-                if corrected is not None:
-                    primary_effect = corrected
+        # Step 12 — Range checks (VIF + logistic regression)
+        pending["range_checks"] = self._pool_submit(
+            mem_light, lambda: _run_cached_step(
+                "Range checks", "range_checks",
+                lambda cp: cp["range_result"],
+                lambda: self._range_checks(data, spec, confounders, estimation_results),
+                lambda v: {"range_result": v}))
 
-            # ==============================================================
-            # Null-finding diagnostics (when primary CI crosses zero)
-            # ==============================================================
-            ci_crosses_zero = (
-                    primary_ci is not None and primary_ci[0] * primary_ci[1] <= 0
-            )
-            if ci_crosses_zero:
-                cp = _cp_load("null_diagnostics")
-                if cp is not None:
-                    report(0.92, "Null diagnostics (cached)")
-                    result["steps"]["null_diagnostics"] = cp["nd_result"]
-                else:
-                    report(0.92, "Null-finding diagnostics")
-                    nd_result = self._null_diagnostics(
-                        data, spec, confounders,
-                        primary_effect, primary_ci, estimation_results,
-                        step_outputs.get("sensitivity", {}))
-                    _cp_save("null_diagnostics", {"nd_result": nd_result})
-                    result["steps"]["null_diagnostics"] = nd_result
+        # Collect results
+        for key, f in pending.items():
+            if key == "_refute":
+                continue  # handled below
+            _, val = f.result()
+            step_outputs[key] = val
+
+        # Collect refutation sub-tasks
+        if "_refute" in pending:
+            refute_result = self._collect_refutations(
+                pending["_refute"], spec, primary_effect, checkpoint)
+            _cp_save("refutations", {"refutations_result": refute_result})
+            step_outputs["refutations"] = refute_result
+
+        # Collect results
+        result["steps"]["mediation"] = step_outputs.get("mediation")
+        result["steps"]["grf"] = step_outputs.get("grf")
+        if "refutations" in step_outputs:
+            result["steps"]["refutations"] = step_outputs["refutations"]
+        if "unmeasured_confounding" in step_outputs:
+            result["steps"]["unmeasured_confounding"] = step_outputs["unmeasured_confounding"]
+        result["steps"]["sensitivity"] = step_outputs.get("sensitivity")
+        if "structural_breaks" in step_outputs:
+            result["steps"]["structural_breaks"] = step_outputs["structural_breaks"]
+        if "range_checks" in step_outputs:
+            result["steps"]["range_checks"] = step_outputs["range_checks"]
+
+        # Residual diagnostics: extract corrected_effect
+        rd = step_outputs.get("residual_diagnostics")
+        if rd is not None:
+            result["steps"]["residual_diagnostics"] = rd
+            corrected = rd.get("corrected_effect") if isinstance(rd, dict) else None
+            if corrected is not None:
+                primary_effect = corrected
+
+        # ==============================================================
+        # Null-finding diagnostics (when primary CI crosses zero)
+        # ==============================================================
+        ci_crosses_zero = (
+                primary_ci is not None and primary_ci[0] * primary_ci[1] <= 0
+        )
+        if ci_crosses_zero:
+            cp = _cp_load("null_diagnostics")
+            if cp is not None:
+                report(0.92, "Null diagnostics (cached)")
+                result["steps"]["null_diagnostics"] = cp["nd_result"]
+            else:
+                report(0.92, "Null-finding diagnostics")
+                nd_result = self._null_diagnostics(
+                    data, spec, confounders,
+                    primary_effect, primary_ci, estimation_results,
+                    step_outputs.get("sensitivity", {}))
+                _cp_save("null_diagnostics", {"nd_result": nd_result})
+                result["steps"]["null_diagnostics"] = nd_result
 
         # ==================================================================
         # Step 13  —  Externalization (depends on GRF from step 6)
         # ==================================================================
-        if spec.externalization and not aborted:
+        if spec.externalization:
             cp = _cp_load("externalization")
             if cp is not None:
                 report(0.95, "Externalization (cached)")
@@ -1016,7 +993,7 @@ class CausalVerificationService:
             self, data, spec, confounders, effect, ci
     ) -> dict[str, Any]:
         gates = spec.gates
-        result: dict[str, Any] = {"abort": False}
+        result: dict[str, Any] = {}
         enc = data.encoded
 
         # Nuisance R2
@@ -1030,19 +1007,12 @@ class CausalVerificationService:
         result["nuisance_r2"] = {
             "outcome_r2": outcome_r2,
             "treatment_r2": treatment_r2,
-            "outcome_status": "abort" if outcome_r2 < gates.nuisance_r2.outcome_abort
-            else "flag" if outcome_r2 < gates.nuisance_r2.outcome_flag
+            "outcome_status": "flag" if outcome_r2 < gates.nuisance_r2.outcome_flag
             else "pass",
             "treatment_status": "flag" if treatment_r2 < gates.nuisance_r2.treatment_flag
             else "structural" if treatment_r2 > gates.nuisance_r2.treatment_structural_max_r2
             else "pass",
         }
-
-        if outcome_r2 < gates.nuisance_r2.outcome_abort:
-            result["abort"] = True
-            result[
-                "abort_reason"] = f"Outcome R2 {outcome_r2:.3f} below abort threshold {gates.nuisance_r2.outcome_abort}"
-            return result
 
         # Sanity
         if effect is not None:
@@ -1051,16 +1021,10 @@ class CausalVerificationService:
             result["sanity"] = {
                 "direction_ok": direction_ok,
                 "effect_magnitude": magnitude,
-                "abort_magnitude": gates.sanity.abort_magnitude,
                 "flag_magnitude": gates.sanity.flag_magnitude,
-                "status": "abort" if magnitude > gates.sanity.abort_magnitude
-                else "flag" if magnitude > gates.sanity.flag_magnitude
+                "status": "flag" if magnitude > gates.sanity.flag_magnitude
                 else "pass",
             }
-            if magnitude > gates.sanity.abort_magnitude:
-                result["abort"] = True
-                result["abort_reason"] = f"Effect magnitude {magnitude:.4f} exceeds abort threshold"
-                return result
             if not direction_ok:
                 result["sanity"]["warning"] = "Effect direction does not match expected"
 
@@ -1637,7 +1601,7 @@ class CausalVerificationService:
             m_t = LGBMRegressor(**LGBM_DEFAULTS).fit(X_c[tr], T_v[tr])
             y_res[te] = Y_v[te] - m_y.predict(X_c[te])
             t_res[te] = T_v[te] - m_t.predict(X_c[te])
-        final_res = y_res - effect * t_res
+        final_res = y_res - (effect or 0) * t_res
 
         # Autocorrelation
         ac_results = []
@@ -1703,7 +1667,7 @@ class CausalVerificationService:
             corrected = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_aug)
             if corrected is not None:
                 delta_frac = (abs(corrected - corrected_value) / abs(corrected_value)
-                              if corrected_value != 0 else 0)
+                              if corrected_value else 0)
                 corrections.append({
                     "field": c["column"],
                     "is_metadata": c.get("is_metadata", False),
