@@ -45,11 +45,12 @@ class WorkerPool:
     _instance: 'WorkerPool | None' = None
     _init_lock = threading.Lock()
 
-    SAFETY_FACTOR = 0.75  # reserve 25% headroom for internal copies, GC lag
+    BUDGET_FACTOR = 0.75  # use 75% of raw budget as effective ceiling
+    PADDING_FACTOR = 1.25  # inflate each reservation 25% for unmeasured overhead
 
     def __init__(self, max_workers: int, memory_budget_bytes: int):
         self._max_workers = max_workers
-        self._memory_budget_bytes = int(memory_budget_bytes * self.SAFETY_FACTOR)
+        self._memory_budget_bytes = int(memory_budget_bytes * self.BUDGET_FACTOR)
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers,
             thread_name_prefix="pool-",
@@ -59,8 +60,9 @@ class WorkerPool:
         self._cond = threading.Condition()
         logger.info(
             f"WorkerPool: {max_workers} workers, "
-            f"{self._memory_budget_bytes / (1024 ** 3):.1f} GB effective memory budget "
-            f"({memory_budget_bytes / (1024 ** 3):.1f} GB raw, {self.SAFETY_FACTOR:.0%} safety factor)"
+            f"{self._memory_budget_bytes / (1024 ** 3):.1f} GB effective budget "
+            f"({memory_budget_bytes / (1024 ** 3):.1f} GB raw × {self.BUDGET_FACTOR}, "
+            f"reservations padded ×{self.PADDING_FACTOR})"
         )
 
     @classmethod
@@ -90,14 +92,18 @@ class WorkerPool:
         Submit work with a memory reservation.
 
         Blocks the caller until the memory budget can accommodate the request.
+        Each reservation is padded by PADDING_FACTOR to account for
+        allocator fragmentation, GC lag, and transient copies that
+        callers cannot predict.
         A single task is always admitted when no other reservations are held,
         even if it exceeds the total budget.
         """
+        padded = int(memory_estimate_bytes * self.PADDING_FACTOR)
         with self._cond:
-            while (self._reserved_memory_bytes + memory_estimate_bytes > self._memory_budget_bytes
+            while (self._reserved_memory_bytes + padded > self._memory_budget_bytes
                    and self._reserved_memory_bytes > 0):
                 self._cond.wait()
-            self._reserved_memory_bytes += memory_estimate_bytes
+            self._reserved_memory_bytes += padded
 
         def wrapper():
             with self._cond:
@@ -106,7 +112,7 @@ class WorkerPool:
                 return fn()
             finally:
                 with self._cond:
-                    self._reserved_memory_bytes -= memory_estimate_bytes
+                    self._reserved_memory_bytes -= padded
                     self._active_workers -= 1
                     self._cond.notify_all()
 
