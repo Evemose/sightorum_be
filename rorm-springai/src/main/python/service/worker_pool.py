@@ -45,8 +45,8 @@ class WorkerPool:
     _instance: 'WorkerPool | None' = None
     _init_lock = threading.Lock()
 
-    BUDGET_FACTOR = 0.75  # use 75% of raw budget as effective ceiling
-    PADDING_FACTOR = 1.25  # inflate each reservation 25% for unmeasured overhead
+    BUDGET_FACTOR = 0.60  # use 60% of raw budget — leaves 40% for non-pooled work
+    PADDING_FACTOR = 1.50  # inflate each reservation 50% for fragmentation, GC lag
 
     def __init__(self, max_workers: int, memory_budget_bytes: int):
         self._max_workers = max_workers
