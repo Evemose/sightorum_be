@@ -75,11 +75,12 @@ class CausalVerificationService:
         return f
 
     @staticmethod
-    def _mem_estimate(data, factor: int = 5) -> int:
+    def _mem_estimate(data, factor: int = 6) -> int:
         """Memory estimate for one DML fit over data.
 
-        factor=5 accounts for: encoded arrays (1x), cross-val train/test
-        splits (2x), LGBM model internals + prediction buffers (2x).
+        factor=6 accounts for: encoded arrays (1x), 5-fold CV
+        train/test copies (2x), LGBM histogram bins + tree
+        structures (2x), prediction/residual buffers (1x).
         """
         return int(data.memory_usage(deep=True).sum()) * factor
 
@@ -1342,7 +1343,7 @@ class CausalVerificationService:
             except Exception as e:
                 return {"config_id": cfg.id, "error": str(e)}
 
-        mem = self._mem_estimate(data, factor=7)
+        mem = self._mem_estimate(data, factor=8)
         results = []
         futures: dict[str, Future] = {}
         for cfg in spec.grf_configs:
