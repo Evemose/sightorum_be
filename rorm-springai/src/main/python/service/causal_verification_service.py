@@ -75,14 +75,21 @@ class CausalVerificationService:
         return f
 
     @staticmethod
-    def _mem_estimate(data, factor: int = 6) -> int:
+    def _mem_estimate(data, factor: int = 30) -> int:
         """Memory estimate for one DML fit over data.
 
-        factor=6 accounts for: encoded arrays (1x), 5-fold CV
-        train/test copies (2x), LGBM histogram bins + tree
-        structures (2x), prediction/residual buffers (1x).
+        Base = n_rows × n_cols × 8 (float64 dense representation).
+
+        factor=30 accounts for the full lifecycle of a bootstrapped
+        DML fit: DataFrame.copy() (1x), Y/T/W numpy extraction (1x),
+        20 bootstrap resamples each holding a train-split copy +
+        LGBM histogram bins (~256 bins × n_features × n_leaf_nodes)
+        + tree structures + predictions (≈25x), residual buffers (3x).
         """
-        return int(data.memory_usage(deep=True).sum()) * factor
+        n_rows = len(data)
+        n_cols = data.encoded.shape[1] if hasattr(data, 'encoded') else data.shape[1]
+        base = n_rows * n_cols * 8
+        return base * factor
 
     def run_pipeline(
             self,
@@ -1343,7 +1350,7 @@ class CausalVerificationService:
             except Exception as e:
                 return {"config_id": cfg.id, "error": str(e)}
 
-        mem = self._mem_estimate(data, factor=8)
+        mem = self._mem_estimate(data, factor=40)
         results = []
         futures: dict[str, Future] = {}
         for cfg in spec.grf_configs:
