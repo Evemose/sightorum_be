@@ -21,11 +21,17 @@ import java.time.Duration;
 class AnthropicClientConfiguration {
 
     @Bean
-    AnthropicClient anthropicClient(@Value("${anthropic.api-key}") String apiKey) {
-        return AnthropicOkHttpClient.builder()
+    AnthropicClient anthropicClient(
+        @Value("${anthropic.api-key}") String apiKey,
+        @Value("${anthropic.base-url:}") String baseUrl
+    ) {
+        var builder = AnthropicOkHttpClient.builder()
             .apiKey(apiKey)
-            .timeout(Duration.ofMinutes(30))
-            .build();
+            .timeout(Duration.ofMinutes(30));
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            builder.baseUrl(baseUrl);
+        }
+        return builder.build();
     }
 
     @Bean

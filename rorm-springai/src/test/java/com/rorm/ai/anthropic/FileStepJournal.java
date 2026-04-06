@@ -10,6 +10,8 @@ import lombok.SneakyThrows;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -26,9 +28,21 @@ class FileStepJournal implements StepJournal {
         this.mapper = ObjectMappers.jsonMapper();
     }
 
-    @Override
     public <T> T run(String stepName, TypeReference<T> typeRef, Supplier<T> action) {
         return null;
+    }
+
+    @SneakyThrows
+    @Override
+    public <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
+        var idx = stepIndex++;
+        var file = dir.resolve(idx + ".json");
+        if (Files.exists(file)) {
+            return mapper.readValue(file.toFile(), resultType);
+        }
+        var result = action.get();
+        mapper.writeValue(file.toFile(), result);
+        return result;
     }
 
     @SneakyThrows
@@ -45,6 +59,22 @@ class FileStepJournal implements StepJournal {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public <T> List<T> fanout(String stepPrefix, Class<T> resultType, List<Supplier<T>> actions) {
+        if (actions.isEmpty()) {
+            return List.of();
+        }
+        var futures = new DurableFuture[actions.size()];
+        for (int i = 0; i < actions.size(); i++) {
+            futures[i] = runAsync(stepPrefix + ":" + i, resultType, actions.get(i));
+        }
+        DurableFuture.all(futures).await();
+        var results = new ArrayList<T>(actions.size());
+        for (var f : futures) results.add(((DurableFuture<T>) f).await());
+        return results;
+    }
+
+    @Override
     public <T> DurableFuture<T> runAsync(String stepName, Supplier<T> action) {
         return CompletableDurableFuture.by(CompletableFuture.supplyAsync(action));
     }
@@ -57,6 +87,11 @@ class FileStepJournal implements StepJournal {
     @Override
     public UUID randomUUID() {
         return UUID.randomUUID();
+    }
+
+    @Override
+    public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
+        return CompletableDurableFuture.by(CompletableFuture.supplyAsync(action));
     }
 
     @SneakyThrows

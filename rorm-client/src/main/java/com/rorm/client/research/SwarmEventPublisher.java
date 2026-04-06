@@ -63,6 +63,7 @@ public class SwarmEventPublisher {
             case AnalysisVersionCritiqueFinished _ -> "analysis-version-critique-finished";
             case StepJobAwaitStarted _ -> "step-job-await-started";
             case StepJobCompleted _ -> "step-job-completed";
+            default -> event.getClass().getSimpleName();
         };
     }
 }

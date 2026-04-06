@@ -11,12 +11,14 @@ import dev.restate.client.Client;
 import dev.restate.sdk.endpoint.definition.InvocationRetryPolicy;
 import dev.restate.sdk.springboot.EnableRestate;
 import dev.restate.sdk.springboot.RestateServiceConfigurator;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.web.client.RestClient;
@@ -73,9 +75,21 @@ public class RestateConfiguration {
 
     @Bean
     public DurableRendezvous durableRendezvous(
-        RedisTemplate<String, Object> redisTemplate,
+        RedisConnectionFactory connectionFactory,
+        ObjectMapper objectMapper,
+        ObjectProvider<RedisTemplate<String, Object>> defaultRedisTemplateProvider,
         @Qualifier("jobEventRedisTemplate") RedisTemplate<String, JobEvent> jobEventRedisTemplate
     ) {
+        var redisTemplate = defaultRedisTemplateProvider.getIfAvailable(() -> {
+            var template = new RedisTemplate<String, Object>();
+            template.setConnectionFactory(connectionFactory);
+            template.setKeySerializer(new StringRedisSerializer());
+            template.setValueSerializer(new GenericJackson2JsonRedisSerializer(objectMapper));
+            template.setHashKeySerializer(new StringRedisSerializer());
+            template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer(objectMapper));
+            template.afterPropertiesSet();
+            return template;
+        });
         return new DurableRendezvous(redisTemplate, jobEventRedisTemplate);
     }
 

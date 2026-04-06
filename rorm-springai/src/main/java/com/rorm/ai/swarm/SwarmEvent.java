@@ -21,7 +21,14 @@ public sealed interface SwarmEvent permits StartEvent, EndEvent {
         PlanVersionCritiqueStarted,
         ScoutStarted,
         StepExecutionStarted,
-        StepJobAwaitStarted {
+        StepJobAwaitStarted,
+        DurableScoutStarted,
+        DomainResearcherStarted,
+        GeneratorStarted,
+        ScepticStarted,
+        RebuttalStarted,
+        CompilerStarted,
+        ForensicPathologistStarted {
         Flux<String> tokenStream();
     }
 
@@ -35,7 +42,14 @@ public sealed interface SwarmEvent permits StartEvent, EndEvent {
         PlanVersionCritiqueFinished,
         ScoutFinished,
         StepExecutionFinished,
-        StepJobCompleted {
+        StepJobCompleted,
+        DurableScoutFinished,
+        DomainResearcherFinished,
+        GeneratorFinished,
+        ScepticFinished,
+        RebuttalFinished,
+        CompilerFinished,
+        ForensicPathologistFinished {
         T findings();
 
         String rawResponse();
@@ -153,5 +167,42 @@ public sealed interface SwarmEvent permits StartEvent, EndEvent {
             return result;
         }
     }
+
+    // ── DurableSwarm events ──────────────────────────────────────────────
+
+    record DurableScoutStarted(String id, Flux<String> tokenStream) implements StartEvent {}
+
+    record DurableScoutFinished(String id, ScoutAnalysisDTO findings, String rawResponse)
+        implements EndEvent<ScoutAnalysisDTO> {}
+
+    record DomainResearcherStarted(String id, Flux<String> tokenStream) implements StartEvent {}
+
+    record DomainResearcherFinished(String id, DomainResearchDTO findings, String rawResponse)
+        implements EndEvent<DomainResearchDTO> {}
+
+    record GeneratorStarted(String id, Flux<String> tokenStream) implements StartEvent {}
+
+    record GeneratorFinished(String id, HypothesisGenerationDTO findings, String rawResponse)
+        implements EndEvent<HypothesisGenerationDTO> {}
+
+    record ScepticStarted(String id, Flux<String> tokenStream) implements StartEvent {}
+
+    record ScepticFinished(String id, ScepticReviewDTO findings, String rawResponse)
+        implements EndEvent<ScepticReviewDTO> {}
+
+    record RebuttalStarted(String id, Flux<String> tokenStream) implements StartEvent {}
+
+    record RebuttalFinished(String id, HypothesisGenerationDTO findings, String rawResponse)
+        implements EndEvent<HypothesisGenerationDTO> {}
+
+    record CompilerStarted(String id, Flux<String> tokenStream) implements StartEvent {}
+
+    record CompilerFinished(String id, PipelineCompilationDTO findings, String rawResponse)
+        implements EndEvent<PipelineCompilationDTO> {}
+
+    record ForensicPathologistStarted(String id, Flux<String> tokenStream) implements StartEvent {}
+
+    record ForensicPathologistFinished(String id, ForensicDiagnosisDTO findings, String rawResponse)
+        implements EndEvent<ForensicDiagnosisDTO> {}
 
 }
