@@ -1,0 +1,43 @@
+package com.rorm.ai.swarm;
+
+import com.rorm.ai.swarm.dto.*;
+import com.rorm.ml.stream.JobEvent;
+import org.jspecify.annotations.Nullable;
+
+import java.util.List;
+
+/**
+ * Complete result of a durable swarm run. Each agent output is structured
+ * via {@link com.rorm.ai.swarm.agents.SecondarySwarmAgent} into a typed DTO.
+ */
+public record SwarmResult(
+    ScoutAnalysisDTO scoutOutput,
+    DomainResearchDTO domainResearch,
+    List<AnchorResult> anchorResults
+) {
+
+    /**
+     * Result for a single anchor perspective (one generator).
+     */
+    public record AnchorResult(
+        String anchor,
+        String generatorChatId,
+        HypothesisGenerationDTO generatorOutput,
+        ScepticReviewDTO scepticOutput,
+        HypothesisGenerationDTO revisedOutput,
+        List<HypothesisResult> hypothesisResults
+    ) {
+    }
+
+    /**
+     * Result for a single hypothesis from an anchor's generator.
+     */
+    public record HypothesisResult(
+        String hypothesisId,
+        String hypothesisSpec,
+        PipelineCompilationDTO compilerOutput,
+        @Nullable JobEvent pipelineResult,
+        @Nullable ForensicDiagnosisDTO diagnosis
+    ) {
+    }
+}

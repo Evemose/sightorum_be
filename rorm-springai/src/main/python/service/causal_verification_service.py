@@ -75,16 +75,16 @@ class CausalVerificationService:
         return f
 
     @staticmethod
-    def _mem_estimate(data, factor: int = 30) -> int:
+    def _mem_estimate(data, factor: int = 10) -> int:
         """Memory estimate for one DML fit over data.
 
         Base = n_rows × n_cols × 8 (float64 dense representation).
 
-        factor=30 accounts for the full lifecycle of a bootstrapped
-        DML fit: DataFrame.copy() (1x), Y/T/W numpy extraction (1x),
-        20 bootstrap resamples each holding a train-split copy +
-        LGBM histogram bins (~256 bins × n_features × n_leaf_nodes)
-        + tree structures + predictions (≈25x), residual buffers (3x).
+        factor=10 accounts for: DataFrame copy + numpy extraction (2x),
+        bootstrap train-split + LGBM histograms/trees for the active
+        resample (4x), prediction/residual buffers (2x), peak GC lag (2x).
+        Bootstrap resamples run sequentially (n_jobs=1) so only one
+        is live at a time.
         """
         n_rows = len(data)
         n_cols = data.encoded.shape[1] if hasattr(data, 'encoded') else data.shape[1]
@@ -203,9 +203,11 @@ class CausalVerificationService:
                 report(0.12, "Positivity gate")
                 positivity_report, rewritten_variants, final_treatment, surviving_mask = \
                     self._positivity_gate(data, spec)
+                from dataclasses import asdict
                 _cp_save("positivity", {
                     "positivity_report": positivity_report,
-                    "rewritten_variants": rewritten_variants,
+                    "rewritten_variants": [asdict(v) for v in rewritten_variants]
+                    if rewritten_variants is not None else None,
                     "final_treatment": final_treatment,
                     "surviving_mask": surviving_mask,
                 })
@@ -301,13 +303,21 @@ class CausalVerificationService:
             _cp_save(cp_key, cp_pack(val))
             return cp_key, val
 
-        # All independent work is submitted to the WorkerPool at the
-        # granularity of individual DML fits.  Steps that internally
-        # submit multiple pool tasks (GRF, sensitivity, refutations)
-        # do so directly — no outer wrapper needed.
+        # Heavy steps (DML/GRF) run sequentially to bound peak RSS.
+        # Each heavy step gets full pool concurrency for its sub-tasks.
+        # Between heavy steps we force GC + malloc_trim to return pages
+        # to the OS (glibc doesn't do this automatically).
+        # Light analytical steps run together in parallel.
 
-        mem = self._mem_estimate(data)
-        mem_light = mem // 4
+        def _reclaim():
+            """Force Python GC and return freed pages to OS."""
+            import gc
+            import ctypes
+            gc.collect()
+            try:
+                ctypes.CDLL("libc.so.6").malloc_trim(0)
+            except (OSError, AttributeError):
+                pass  # non-Linux
 
         # Step 5 — Mediation (1 DML fit)
         if spec.mediation:
@@ -317,24 +327,62 @@ class CausalVerificationService:
                 lambda: self._mediation(
                     data, spec, confounders, estimation_results, refined_edges),
                 lambda v: {"mediation_result": v})[1]
+            result["steps"]["mediation"] = step_outputs.get("mediation")
+            _reclaim()
 
-        # Steps 6-12: submit all independent work to pool, collect at end
-        pending: dict[str, Future] = {}
+        # --- Light steps: run together (no DML, cheap) ---
+        light_pending: dict[str, Future] = {}
+        mem = self._mem_estimate(data)
+        mem_light = mem // 4
 
-        # Step 6 — GRF (coarse + per-config checkpoints)
-        if spec.grf_configs:
-            cp = _cp_load("grf")
-            if cp is not None:
-                step_outputs["grf"] = cp["grf_result"]
-            else:
-                def _run_grf():
-                    r = self._grf_heterogeneity(data, spec, confounders, checkpoint)
-                    _cp_save("grf", {"grf_result": r})
-                    return "grf", r
+        if spec.unmeasured_confounding:
+            light_pending["unmeasured_confounding"] = self._pool_submit(
+                mem_light, lambda: _run_cached_step(
+                    "Unmeasured confounding", "unmeasured_confounding",
+                    lambda cp: cp["uc_result"],
+                    lambda: self._unmeasured_confounding(data, spec, estimation_results),
+                    lambda v: {"uc_result": v}))
 
-                pending["grf"] = self._pool_submit(mem, _run_grf)
+        if spec.structural_breaks:
+            light_pending["structural_breaks"] = self._pool_submit(
+                mem_light, lambda: _run_cached_step(
+                    "Structural breaks", "structural_breaks",
+                    lambda cp: cp["breaks_result"],
+                    lambda: self._structural_breaks(data, spec, primary_effect, primary_ci),
+                    lambda v: {"breaks_result": v}))
 
-        # Step 7 — Refutations (coarse + per-type checkpoints)
+        light_pending["range_checks"] = self._pool_submit(
+            mem_light, lambda: _run_cached_step(
+                "Range checks", "range_checks",
+                lambda cp: cp["range_result"],
+                lambda: self._range_checks(data, spec, confounders, estimation_results),
+                lambda v: {"range_result": v}))
+
+        for key, f in light_pending.items():
+            _, val = f.result()
+            step_outputs[key] = val
+        del light_pending
+
+        if "unmeasured_confounding" in step_outputs:
+            result["steps"]["unmeasured_confounding"] = step_outputs["unmeasured_confounding"]
+        if "structural_breaks" in step_outputs:
+            result["steps"]["structural_breaks"] = step_outputs["structural_breaks"]
+        if "range_checks" in step_outputs:
+            result["steps"]["range_checks"] = step_outputs["range_checks"]
+        _reclaim()
+
+        # --- Heavy step: Sensitivity (24+ DML fits, full pool concurrency) ---
+        _, sensitivity_val = _run_cached_step(
+            "Sensitivity", "sensitivity",
+            lambda cp: cp["sensitivity_result"],
+            lambda: self._sensitivity(
+                data, spec, refined_edges, primary_effect, estimation_results),
+            lambda v: {"sensitivity_result": v})
+        step_outputs["sensitivity"] = sensitivity_val
+        result["steps"]["sensitivity"] = sensitivity_val
+        _reclaim()
+
+        # --- Heavy step: Refutations (9+ DML fits, full pool concurrency) ---
         if spec.refutations:
             cp = _cp_load("refutations")
             if cp is not None:
@@ -343,36 +391,16 @@ class CausalVerificationService:
                 report(0, "Refutations")
                 refute_futures = self._refutations_parallel(
                     data, spec, dag_nx, primary_effect, mem, checkpoint)
-                pending["_refute"] = refute_futures
+                refute_result = self._collect_refutations(
+                    refute_futures, spec, primary_effect, checkpoint)
+                _cp_save("refutations", {"refutations_result": refute_result})
+                step_outputs["refutations"] = refute_result
+            if "refutations" in step_outputs:
+                result["steps"]["refutations"] = step_outputs["refutations"]
+            _reclaim()
 
-        # Step 8 — Unmeasured confounding (analytical, no model fitting)
-        if spec.unmeasured_confounding:
-            pending["unmeasured_confounding"] = self._pool_submit(
-                mem_light, lambda: _run_cached_step(
-                    "Unmeasured confounding", "unmeasured_confounding",
-                    lambda cp: cp["uc_result"],
-                    lambda: self._unmeasured_confounding(data, spec, estimation_results),
-                    lambda v: {"uc_result": v}))
-
-        # Step 9 — Sensitivity (internally submits 33+ DML fits to pool)
-        pending["sensitivity"] = self._pool_submit(mem_light, lambda: _run_cached_step(
-            "Sensitivity", "sensitivity",
-            lambda cp: cp["sensitivity_result"],
-            lambda: self._sensitivity(
-                data, spec, refined_edges, primary_effect, estimation_results),
-            lambda v: {"sensitivity_result": v}))
-
-        # Step 10 — Structural breaks (ruptures PELT, no DML)
-        if spec.structural_breaks:
-            pending["structural_breaks"] = self._pool_submit(
-                mem_light, lambda: _run_cached_step(
-                    "Structural breaks", "structural_breaks",
-                    lambda cp: cp["breaks_result"],
-                    lambda: self._structural_breaks(data, spec, primary_effect, primary_ci),
-                    lambda v: {"breaks_result": v}))
-
-        # Step 11 — Residual diagnostics (5-fold CV + field correlation)
-        pending["residual_diagnostics"] = self._pool_submit(mem, lambda: _run_cached_step(
+        # --- Heavy step: Residual diagnostics (5-fold CV) ---
+        _, rd_val = _run_cached_step(
             "Residual diagnostics", "residual_diagnostics",
             lambda cp: cp["residual_result"],
             lambda: self._residual_diagnostics(
@@ -380,50 +408,26 @@ class CausalVerificationService:
             lambda v: {
                 "residual_result": v,
                 "corrected_effect": v.get("corrected_effect"),
-            }))
+            })
+        step_outputs["residual_diagnostics"] = rd_val
+        result["steps"]["residual_diagnostics"] = rd_val
+        corrected = rd_val.get("corrected_effect") if isinstance(rd_val, dict) else None
+        if corrected is not None:
+            primary_effect = corrected
+        _reclaim()
 
-        # Step 12 — Range checks (VIF + logistic regression)
-        pending["range_checks"] = self._pool_submit(
-            mem_light, lambda: _run_cached_step(
-                "Range checks", "range_checks",
-                lambda cp: cp["range_result"],
-                lambda: self._range_checks(data, spec, confounders, estimation_results),
-                lambda v: {"range_result": v}))
-
-        # Collect results
-        for key, f in pending.items():
-            if key == "_refute":
-                continue  # handled below
-            _, val = f.result()
-            step_outputs[key] = val
-
-        # Collect refutation sub-tasks
-        if "_refute" in pending:
-            refute_result = self._collect_refutations(
-                pending["_refute"], spec, primary_effect, checkpoint)
-            _cp_save("refutations", {"refutations_result": refute_result})
-            step_outputs["refutations"] = refute_result
-
-        # Collect results
-        result["steps"]["mediation"] = step_outputs.get("mediation")
-        result["steps"]["grf"] = step_outputs.get("grf")
-        if "refutations" in step_outputs:
-            result["steps"]["refutations"] = step_outputs["refutations"]
-        if "unmeasured_confounding" in step_outputs:
-            result["steps"]["unmeasured_confounding"] = step_outputs["unmeasured_confounding"]
-        result["steps"]["sensitivity"] = step_outputs.get("sensitivity")
-        if "structural_breaks" in step_outputs:
-            result["steps"]["structural_breaks"] = step_outputs["structural_breaks"]
-        if "range_checks" in step_outputs:
-            result["steps"]["range_checks"] = step_outputs["range_checks"]
-
-        # Residual diagnostics: extract corrected_effect
-        rd = step_outputs.get("residual_diagnostics")
-        if rd is not None:
-            result["steps"]["residual_diagnostics"] = rd
-            corrected = rd.get("corrected_effect") if isinstance(rd, dict) else None
-            if corrected is not None:
-                primary_effect = corrected
+        # --- Heavy step: GRF (3 CausalForestDML, full pool concurrency) ---
+        if spec.grf_configs:
+            cp = _cp_load("grf")
+            if cp is not None:
+                step_outputs["grf"] = cp["grf_result"]
+            else:
+                report(0, "GRF heterogeneity")
+                grf_result = self._grf_heterogeneity(data, spec, confounders, checkpoint)
+                _cp_save("grf", {"grf_result": grf_result})
+                step_outputs["grf"] = grf_result
+            result["steps"]["grf"] = step_outputs.get("grf")
+            _reclaim()
 
         # ==============================================================
         # Null-finding diagnostics (when primary CI crosses zero)
@@ -1350,7 +1354,7 @@ class CausalVerificationService:
             except Exception as e:
                 return {"config_id": cfg.id, "error": str(e)}
 
-        mem = self._mem_estimate(data, factor=40)
+        mem = self._mem_estimate(data, factor=15)
         results = []
         futures: dict[str, Future] = {}
         for cfg in spec.grf_configs:

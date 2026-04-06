@@ -55,8 +55,8 @@ export class MlInfraStack extends cdk.Stack {
         const cluster = new ecs.Cluster(this, 'MlCluster', {vpc});
 
         const taskDef = new ecs.FargateTaskDefinition(this, 'MlTask', {
-            cpu: 8192,
-            memoryLimitMiB: 16384,
+            cpu: 16384,
+            memoryLimitMiB: 32768,
         });
 
         taskDef.addContainer('ml', {

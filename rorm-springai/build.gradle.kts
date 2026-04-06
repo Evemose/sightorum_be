@@ -70,6 +70,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.wiremock.integrations.testcontainers:wiremock-testcontainers-module:1.0-alpha-14")
+    testImplementation("org.wiremock:wiremock-standalone:3.12.1")
     testImplementation(testFixtures(project(":rorm-core")))
     testRuntimeOnly("org.springframework.boot:spring-boot-docker-compose")
     testRuntimeOnly("org.postgresql:postgresql")

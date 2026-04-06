@@ -37,7 +37,7 @@ public class ScriptedAnthropicClient {
     }
 
     @SuppressWarnings("unchecked")
-    static <T> T proxy(Class<T> iface, BiFunction<String, Object[], Object> handler) {
+    public static <T> T proxy(Class<T> iface, BiFunction<String, Object[], Object> handler) {
         return (T) Proxy.newProxyInstance(iface.getClassLoader(), new Class[]{iface},
             (proxy, method, args) -> {
                 if (method.getDeclaringClass() == Object.class) {

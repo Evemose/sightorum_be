@@ -1,7 +1,6 @@
 package com.rorm.ai.swarm;
 
 import com.rorm.ai.chat.AiChatService;
-import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.agents.*;
 import com.rorm.metamodel.ModelSpace;
@@ -33,18 +32,18 @@ public class Swarm {
         MLJobMetadataStore jobMetadataStore,
         PromptPlaceholders promptPlaceholders
     ) {
-        var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, schema, modelSpace, ThinkingLevel.NONE, promptPlaceholders);
+        var summarizer = new SecondarySwarmAgent(config.summarizer(), chatService, schema, modelSpace, promptPlaceholders);
         var swarmMind = new SwarmMind(UUID.randomUUID().toString(), vectorStore);
 
         this.scout = new ScoutSwarmAgent(
-            new FirstLevelSwarmAgent(config.scout(), chatService, schema, modelSpace, ThinkingLevel.HIGH, promptPlaceholders),
+            new FirstLevelSwarmAgent(config.scout(), chatService, schema, modelSpace, promptPlaceholders),
             summarizer
         );
 
-        var critic = new FirstLevelSwarmAgent(config.critic(), chatService, schema, modelSpace, ThinkingLevel.HIGH, promptPlaceholders);
+        var critic = new FirstLevelSwarmAgent(config.critic(), chatService, schema, modelSpace, promptPlaceholders);
 
         this.planner = new PlannerSwarmAgent(
-            new FirstLevelSwarmAgent(config.planner(), chatService, schema, modelSpace, ThinkingLevel.HIGH, promptPlaceholders),
+            new FirstLevelSwarmAgent(config.planner(), chatService, schema, modelSpace, promptPlaceholders),
             critic,
             summarizer,
             new PlanValidator()
@@ -52,7 +51,7 @@ public class Swarm {
 
         this.executor = new ExecutorSwarmAgent(
             swarmMind,
-            new FirstLevelSwarmAgent(config.executor(), chatService, schema, modelSpace, ThinkingLevel.MEDIUM, promptPlaceholders),
+            new FirstLevelSwarmAgent(config.executor(), chatService, schema, modelSpace, promptPlaceholders),
             summarizer,
             new DependencyCoordinator(),
             jobFutureRegistry,
@@ -61,7 +60,7 @@ public class Swarm {
 
         this.analyzer = new AnalyzerSwarmAgent(
             swarmMind,
-            new FirstLevelSwarmAgent(config.analyzer(), chatService, schema, modelSpace, ThinkingLevel.HIGH, promptPlaceholders),
+            new FirstLevelSwarmAgent(config.analyzer(), chatService, schema, modelSpace, promptPlaceholders),
             critic,
             summarizer
         );

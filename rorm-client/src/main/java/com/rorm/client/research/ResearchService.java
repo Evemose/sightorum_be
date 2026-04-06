@@ -126,6 +126,9 @@ public class ResearchService {
 
     private void handleStartEvent(UUID researchId, SwarmEvent.StartEvent event) {
         var descriptor = describeStartEvent(event);
+        if (descriptor == null) {
+            return;
+        }
 
         eventPublisher.publishNodeStart(researchId, descriptor.progressNodeId(), descriptor.nodeType().name());
         eventPublisher.subscribeTokenStream(researchId, descriptor.progressNodeId(), event.tokenStream());
@@ -135,14 +138,36 @@ public class ResearchService {
         }
     }
 
-    private void handleEndEvent(UUID researchId, SwarmEvent.EndEvent<?> event) {
-        var descriptor = describeEndEvent(event);
-
-        eventPublisher.publishNodeEnd(researchId, descriptor.progressNodeId(), descriptor.nodeType().name(), event.findings());
-
-        if (descriptor.persistNode()) {
-            transactionTemplate.executeWithoutResult(_ -> persistCompletedNode(researchId, descriptor, event));
-        }
+    private NodeDescriptor describeStartEvent(SwarmEvent.StartEvent event) {
+        return switch (event) {
+            case SwarmEvent.ScoutStarted scout ->
+                new NodeDescriptor(scout.scoutId(), ResearchNodeType.SCOUT, scout.scoutId(), null, null, null, List.of(), true);
+            case SwarmEvent.PlanNegotiationStarted plan ->
+                new NodeDescriptor(plan.planningId(), ResearchNodeType.PLAN, plan.planningId(), null, null, null, List.of(), true);
+            case SwarmEvent.PlanVersionCreationStarted planVersion ->
+                new NodeDescriptor(planVersion.planningId() + ":v" + planVersion.versionNumber() + ":create", ResearchNodeType.PLAN,
+                    planVersion.planningId(), null, null, null, List.of(), false);
+            case SwarmEvent.PlanVersionCritiqueStarted planCritique ->
+                new NodeDescriptor(planCritique.planningId() + ":v" + planCritique.versionNumber() + ":critique", ResearchNodeType.PLAN,
+                    planCritique.planningId(), null, null, null, List.of(), false);
+            case SwarmEvent.BranchExecutionStarted branch ->
+                new NodeDescriptor(branch.branchId(), ResearchNodeType.BRANCH, branch.branchId(), branch.branchId(), null, null, List.of(), true);
+            case SwarmEvent.StepExecutionStarted step ->
+                new NodeDescriptor(step.branchId() + ":" + step.stepId(), ResearchNodeType.STEP,
+                    step.branchId() + ":" + step.stepId(), step.branchId(), step.stepId(), step.previousStepId(), step.dependencies(), true);
+            case SwarmEvent.AnalysisNegotiationStarted analysis ->
+                new NodeDescriptor(analysis.analysisId(), ResearchNodeType.ANALYSIS, analysis.analysisId(), null, null, null, List.of(), true);
+            case SwarmEvent.AnalysisVersionCreationStarted analysisVersion ->
+                new NodeDescriptor(analysisVersion.analysisId() + ":v" + analysisVersion.versionNumber() + ":create", ResearchNodeType.ANALYSIS,
+                    analysisVersion.analysisId(), null, null, null, List.of(), false);
+            case SwarmEvent.AnalysisVersionCritiqueStarted analysisCritique ->
+                new NodeDescriptor(analysisCritique.analysisId() + ":v" + analysisCritique.versionNumber() + ":critique", ResearchNodeType.ANALYSIS,
+                    analysisCritique.analysisId(), null, null, null, List.of(), false);
+            case SwarmEvent.StepJobAwaitStarted await ->
+                new NodeDescriptor(await.branchId() + ":" + await.stepId() + ":training:" + await.jobId(), ResearchNodeType.STEP,
+                    await.branchId() + ":" + await.stepId(), await.branchId(), await.stepId(), null, List.of(), false);
+            default -> null; // DurableSwarm events are handled separately
+        };
     }
 
     private void persistFailedNodes(Research research, String message) {
@@ -201,35 +226,17 @@ public class ResearchService {
         throw new IllegalStateException("Unsupported research node type: " + node.getClass().getName());
     }
 
-    private NodeDescriptor describeStartEvent(SwarmEvent.StartEvent event) {
-        return switch (event) {
-            case SwarmEvent.ScoutStarted scout ->
-                new NodeDescriptor(scout.scoutId(), ResearchNodeType.SCOUT, scout.scoutId(), null, null, null, List.of(), true);
-            case SwarmEvent.PlanNegotiationStarted plan ->
-                new NodeDescriptor(plan.planningId(), ResearchNodeType.PLAN, plan.planningId(), null, null, null, List.of(), true);
-            case SwarmEvent.PlanVersionCreationStarted planVersion ->
-                new NodeDescriptor(planVersion.planningId() + ":v" + planVersion.versionNumber() + ":create", ResearchNodeType.PLAN,
-                    planVersion.planningId(), null, null, null, List.of(), false);
-            case SwarmEvent.PlanVersionCritiqueStarted planCritique ->
-                new NodeDescriptor(planCritique.planningId() + ":v" + planCritique.versionNumber() + ":critique", ResearchNodeType.PLAN,
-                    planCritique.planningId(), null, null, null, List.of(), false);
-            case SwarmEvent.BranchExecutionStarted branch ->
-                new NodeDescriptor(branch.branchId(), ResearchNodeType.BRANCH, branch.branchId(), branch.branchId(), null, null, List.of(), true);
-            case SwarmEvent.StepExecutionStarted step ->
-                new NodeDescriptor(step.branchId() + ":" + step.stepId(), ResearchNodeType.STEP,
-                    step.branchId() + ":" + step.stepId(), step.branchId(), step.stepId(), step.previousStepId(), step.dependencies(), true);
-            case SwarmEvent.AnalysisNegotiationStarted analysis ->
-                new NodeDescriptor(analysis.analysisId(), ResearchNodeType.ANALYSIS, analysis.analysisId(), null, null, null, List.of(), true);
-            case SwarmEvent.AnalysisVersionCreationStarted analysisVersion ->
-                new NodeDescriptor(analysisVersion.analysisId() + ":v" + analysisVersion.versionNumber() + ":create", ResearchNodeType.ANALYSIS,
-                    analysisVersion.analysisId(), null, null, null, List.of(), false);
-            case SwarmEvent.AnalysisVersionCritiqueStarted analysisCritique ->
-                new NodeDescriptor(analysisCritique.analysisId() + ":v" + analysisCritique.versionNumber() + ":critique", ResearchNodeType.ANALYSIS,
-                    analysisCritique.analysisId(), null, null, null, List.of(), false);
-            case SwarmEvent.StepJobAwaitStarted await ->
-                new NodeDescriptor(await.branchId() + ":" + await.stepId() + ":training:" + await.jobId(), ResearchNodeType.STEP,
-                    await.branchId() + ":" + await.stepId(), await.branchId(), await.stepId(), null, List.of(), false);
-        };
+    private void handleEndEvent(UUID researchId, SwarmEvent.EndEvent<?> event) {
+        var descriptor = describeEndEvent(event);
+        if (descriptor == null) {
+            return;
+        }
+
+        eventPublisher.publishNodeEnd(researchId, descriptor.progressNodeId(), descriptor.nodeType().name(), event.findings());
+
+        if (descriptor.persistNode()) {
+            transactionTemplate.executeWithoutResult(_ -> persistCompletedNode(researchId, descriptor, event));
+        }
     }
 
     private void savePendingNode(UUID researchId, NodeDescriptor descriptor) {
@@ -276,6 +283,7 @@ public class ResearchService {
             case SwarmEvent.StepJobCompleted completed ->
                 new NodeDescriptor(completed.branchId() + ":" + completed.stepId() + ":training:" + completed.jobId(), ResearchNodeType.STEP,
                     completed.branchId() + ":" + completed.stepId(), completed.branchId(), completed.stepId(), null, List.of(), false);
+            default -> null; // DurableSwarm events are handled separately
         };
     }
 

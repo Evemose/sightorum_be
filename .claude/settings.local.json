@@ -112,7 +112,11 @@
       "WebFetch(domain:www.pywhy.org)",
       "WebFetch(domain:docs.scipy.org)",
       "WebFetch(domain:networkx.org)",
-      "WebFetch(domain:econml.azurewebsites.net)"
+      "WebFetch(domain:econml.azurewebsites.net)",
+      "WebFetch(domain:restatedev.github.io)",
+      "WebFetch(domain:build.betterup.com)",
+      "WebFetch(domain:bugs.python.org)",
+      "WebFetch(domain:www.softwareatscale.dev)"
     ]
   },
   "hooks": {
