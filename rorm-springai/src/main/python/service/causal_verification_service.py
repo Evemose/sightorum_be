@@ -11,6 +11,7 @@ import logging
 import math
 import networkx as nx
 import numpy as np
+import os
 import pandas as pd
 import ruptures
 import warnings
@@ -48,13 +49,122 @@ logger = logging.getLogger(__name__)
 logger.info("dowhy=%s  networkx=%s  econml=%s", dowhy.__version__, nx.__version__,
             __import__("econml").__version__)
 
-LGBM_DEFAULTS = dict(n_estimators=300, max_depth=6, learning_rate=0.05, verbose=-1)
-BOOTSTRAP_SAMPLES = 20
-REFUTATION_SIMULATIONS = 10
-GRF_ESTIMATORS = 200
-GRF_MIN_LEAF = 50
 RANDOM_STATE = 42
 CI_ALPHA = 0.05
+
+# -- Adaptive memory parameters --
+# Each tunable parameter is defined as (max_val, min_val, threshold_mb).
+# Below threshold_mb of DataFrame memory, the parameter stays at max_val.
+# Above threshold_mb, it decays asymptotically toward min_val:
+#   param = min_val + (max_val - min_val) * threshold / max(threshold, data_mb)
+
+_PARAM_SPECS = {
+    "lgbm_n_estimators": (300, 100, 200),
+    "bootstrap_samples": (20, 5, 200),
+    "refutation_simulations": (10, 3, 200),
+    "grf_estimators": (200, 50, 200),
+    "grf_min_leaf": (50, 50, 200),  # no reduction
+}
+
+
+def _adaptive_param(name: str, data_mb: float) -> int:
+    """Compute a memory-pressure-adapted parameter value."""
+    max_val, min_val, threshold = _PARAM_SPECS[name]
+    if data_mb <= threshold:
+        return max_val
+    return int(min_val + (max_val - min_val) * threshold / data_mb)
+
+
+def _data_mb(data) -> float:
+    """Dense float64 footprint of the data in MB."""
+    n_rows = len(data)
+    n_cols = data.encoded.shape[1] if hasattr(data, 'encoded') else data.shape[1]
+    return n_rows * n_cols * 8 / (1024 * 1024)
+
+
+def _rss_mb() -> float:
+    """Current process RSS in MB via /proc/self/statm (kernel, no deps)."""
+    try:
+        with open("/proc/self/statm") as f:
+            # fields: size resident shared text lib data dt (in pages)
+            resident_pages = int(f.read().split()[1])
+            return resident_pages * os.sysconf("SC_PAGE_SIZE") / (1024 * 1024)
+    except (FileNotFoundError, ValueError, OSError):
+        try:
+            return psutil.Process().memory_info().rss / (1024 * 1024)
+        except Exception:
+            return 0.0
+
+
+def _container_limit_mb() -> float:
+    """Container memory limit in MB. Reads MemTotal from /proc/meminfo
+    which reflects the container's cgroup limit on Linux."""
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) / 1024  # kB → MB
+    except (FileNotFoundError, ValueError):
+        pass
+    try:
+        return psutil.virtual_memory().total / (1024 * 1024)
+    except Exception:
+        return 32_000.0
+
+
+def _reclaim():
+    """Force Python GC and return freed pages to OS."""
+    import gc
+    import ctypes
+    gc.collect()
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
+
+
+class _MemoryBudget:
+    """Resolves adaptive parameters and monitors RSS pressure."""
+
+    def __init__(self, data):
+        self.data_mb = _data_mb(data)
+        self.container_mb = _container_limit_mb()
+        self.pressure_ceiling = self.container_mb * 0.75
+        logger.info(
+            "MemoryBudget: data=%.0f MB, container=%.0f MB, "
+            "pressure_ceiling=%.0f MB",
+            self.data_mb, self.container_mb, self.pressure_ceiling,
+        )
+
+    def param(self, name: str) -> int:
+        """Get adaptive parameter, further reduced if RSS is high."""
+        base = _adaptive_param(name, self.data_mb)
+        rss = _rss_mb()
+        if rss > self.pressure_ceiling:
+            # Under pressure — halve the parameter (clamped to min)
+            min_val = _PARAM_SPECS[name][1]
+            reduced = max(min_val, base // 2)
+            logger.warning(
+                "Memory pressure: RSS=%.0f MB > ceiling=%.0f MB, "
+                "reducing %s from %d to %d",
+                rss, self.pressure_ceiling, name, base, reduced,
+            )
+            return reduced
+        return base
+
+    def lgbm_defaults(self) -> dict:
+        return dict(
+            n_estimators=self.param("lgbm_n_estimators"),
+            max_depth=6, learning_rate=0.05, verbose=-1,
+        )
+
+    def check_and_reclaim(self):
+        """If RSS is above 60% of container, force reclaim."""
+        rss = _rss_mb()
+        if rss > self.container_mb * 0.60:
+            logger.info("Pre-submit reclaim: RSS=%.0f MB (%.0f%% of %.0f MB)",
+                        rss, rss / self.container_mb * 100, self.container_mb)
+            _reclaim()
 
 
 class CausalVerificationService:
@@ -63,43 +173,16 @@ class CausalVerificationService:
         self._db_storage = db_storage
         self._worker_pool = worker_pool
 
-    def _pool_submit(self, mem_bytes: int, fn: Callable[[], Any]) -> "Future[Any]":
-        """Run fn immediately and return a resolved Future.
-
-        Heavy DML/GRF fits run serially so each gets the full machine
-        (all cores via LGBM n_jobs=-1, all memory). Between fits,
-        gc + malloc_trim reclaims RSS from glibc's retained pages.
-        """
-        import gc
-        import ctypes
+    def _pool_submit(self, budget: "_MemoryBudget", fn: Callable[[], Any]) -> "Future[Any]":
+        """Run fn serially. Check RSS before, reclaim after."""
+        budget.check_and_reclaim()
         f: Future = Future()
         try:
             f.set_result(fn())
         except Exception as e:
             f.set_exception(e)
-        gc.collect()
-        try:
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
-        except (OSError, AttributeError):
-            pass
+        _reclaim()
         return f
-
-    @staticmethod
-    def _mem_estimate(data, factor: int = 10) -> int:
-        """Memory estimate for one DML fit over data.
-
-        Base = n_rows × n_cols × 8 (float64 dense representation).
-
-        factor=10 accounts for: DataFrame copy + numpy extraction (2x),
-        bootstrap train-split + LGBM histograms/trees for the active
-        resample (4x), prediction/residual buffers (2x), peak GC lag (2x).
-        Bootstrap resamples run sequentially (n_jobs=1) so only one
-        is live at a time.
-        """
-        n_rows = len(data)
-        n_cols = data.encoded.shape[1] if hasattr(data, 'encoded') else data.shape[1]
-        base = n_rows * n_cols * 8
-        return base * factor
 
     def run_pipeline(
             self,
@@ -155,6 +238,7 @@ class CausalVerificationService:
             }
 
         self._validate_spec(spec, data)
+        budget = _MemoryBudget(data)
 
         # ==================================================================
         # Step 1  —  D-sep refinement
@@ -240,7 +324,6 @@ class CausalVerificationService:
         else:
             report(0.15, "Running estimation variants")
             estimation_results = {}
-            mem = self._mem_estimate(data)
             variant_futures: dict[str, Future] = {}
             for v in spec.estimation_variants:
                 vcp = _cp_load(f"estimation:{v.id}")
@@ -248,8 +331,8 @@ class CausalVerificationService:
                     estimation_results[v.id] = vcp
                 else:
                     variant_futures[v.id] = self._pool_submit(
-                        mem, lambda v=v: self._run_estimation_variant(
-                            data, v, refined_edges, dag_nx, spec.outcome
+                        budget, lambda v=v: self._run_estimation_variant(
+                            data, v, refined_edges, dag_nx, spec.outcome, budget
                         )
                     )
             for vid, future in variant_futures.items():
@@ -342,12 +425,10 @@ class CausalVerificationService:
 
         # --- Light steps: run together (no DML, cheap) ---
         light_pending: dict[str, Future] = {}
-        mem = self._mem_estimate(data)
-        mem_light = mem // 4
 
         if spec.unmeasured_confounding:
             light_pending["unmeasured_confounding"] = self._pool_submit(
-                mem_light, lambda: _run_cached_step(
+                budget, lambda: _run_cached_step(
                     "Unmeasured confounding", "unmeasured_confounding",
                     lambda cp: cp["uc_result"],
                     lambda: self._unmeasured_confounding(data, spec, estimation_results),
@@ -355,17 +436,17 @@ class CausalVerificationService:
 
         if spec.structural_breaks:
             light_pending["structural_breaks"] = self._pool_submit(
-                mem_light, lambda: _run_cached_step(
+                budget, lambda: _run_cached_step(
                     "Structural breaks", "structural_breaks",
                     lambda cp: cp["breaks_result"],
                     lambda: self._structural_breaks(data, spec, primary_effect, primary_ci),
                     lambda v: {"breaks_result": v}))
 
         light_pending["range_checks"] = self._pool_submit(
-            mem_light, lambda: _run_cached_step(
+            budget, lambda: _run_cached_step(
                 "Range checks", "range_checks",
                 lambda cp: cp["range_result"],
-                lambda: self._range_checks(data, spec, confounders, estimation_results),
+                lambda: self._range_checks(data, spec, confounders, estimation_results, budget),
                 lambda v: {"range_result": v}))
 
         for key, f in light_pending.items():
@@ -386,7 +467,7 @@ class CausalVerificationService:
             "Sensitivity", "sensitivity",
             lambda cp: cp["sensitivity_result"],
             lambda: self._sensitivity(
-                data, spec, refined_edges, primary_effect, estimation_results),
+                data, spec, refined_edges, primary_effect, estimation_results, budget),
             lambda v: {"sensitivity_result": v})
         step_outputs["sensitivity"] = sensitivity_val
         result["steps"]["sensitivity"] = sensitivity_val
@@ -400,7 +481,7 @@ class CausalVerificationService:
             else:
                 report(0, "Refutations")
                 refute_futures = self._refutations_parallel(
-                    data, spec, dag_nx, primary_effect, mem, checkpoint)
+                    data, spec, dag_nx, primary_effect, budget, checkpoint)
                 refute_result = self._collect_refutations(
                     refute_futures, spec, primary_effect, checkpoint)
                 _cp_save("refutations", {"refutations_result": refute_result})
@@ -414,7 +495,7 @@ class CausalVerificationService:
             "Residual diagnostics", "residual_diagnostics",
             lambda cp: cp["residual_result"],
             lambda: self._residual_diagnostics(
-                data, spec, confounders, refined_edges, primary_effect),
+                data, spec, confounders, refined_edges, primary_effect, budget),
             lambda v: {
                 "residual_result": v,
                 "corrected_effect": v.get("corrected_effect"),
@@ -433,7 +514,7 @@ class CausalVerificationService:
                 step_outputs["grf"] = cp["grf_result"]
             else:
                 report(0, "GRF heterogeneity")
-                grf_result = self._grf_heterogeneity(data, spec, confounders, checkpoint)
+                grf_result = self._grf_heterogeneity(data, spec, confounders, budget, checkpoint)
                 _cp_save("grf", {"grf_result": grf_result})
                 step_outputs["grf"] = grf_result
             result["steps"]["grf"] = step_outputs.get("grf")
@@ -455,7 +536,7 @@ class CausalVerificationService:
                 nd_result = self._null_diagnostics(
                     data, spec, confounders,
                     primary_effect, primary_ci, estimation_results,
-                    step_outputs.get("sensitivity", {}))
+                    step_outputs.get("sensitivity", {}), budget)
                 _cp_save("null_diagnostics", {"nd_result": nd_result})
                 result["steps"]["null_diagnostics"] = nd_result
 
@@ -938,6 +1019,7 @@ class CausalVerificationService:
             refined_edges: list[tuple[str, str]],
             dag_nx: str,
             outcome_col: str,
+            budget: "_MemoryBudget" = None,
     ) -> dict[str, Any]:
         filtered = self._apply_variant_filter(data, variant)
         df = filtered.encoded.copy()
@@ -968,7 +1050,7 @@ class CausalVerificationService:
 
         return self._estimate_dml(
             df, variant, W_cols, treatment_col, discrete, refined_edges, outcome_col,
-            code_to_label,
+            code_to_label, budget,
         )
 
     def _estimate_dml(
@@ -981,6 +1063,7 @@ class CausalVerificationService:
             refined_edges: list[tuple[str, str]],
             outcome_col: str,
             code_to_label: dict[int, str] | None = None,
+            budget: "_MemoryBudget" = None,
     ) -> dict[str, Any]:
         """Run DML estimation directly via econml (bypasses DoWhy graph layer)."""
         try:
@@ -988,15 +1071,18 @@ class CausalVerificationService:
             T = df[treatment_col].values
             W = df[w_cols].values
 
-            model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
+            lgbm_kw = budget.lgbm_defaults() if budget else dict(
+                n_estimators=300, max_depth=6, learning_rate=0.05, verbose=-1)
+            n_bootstrap = budget.param("bootstrap_samples") if budget else 20
+            model_t = LGBMClassifier(**lgbm_kw) if discrete else LGBMRegressor(**lgbm_kw)
             dml = LinearDML(
-                model_y=LGBMRegressor(**LGBM_DEFAULTS),
+                model_y=LGBMRegressor(**lgbm_kw),
                 model_t=model_t,
                 discrete_treatment=discrete,
             )
             dml.fit(Y, T, W=W,
                     inference=BootstrapInference(
-                        n_bootstrap_samples=BOOTSTRAP_SAMPLES, n_jobs=1))
+                        n_bootstrap_samples=n_bootstrap, n_jobs=1))
 
             raw_effect = dml.effect()
             effect = float(raw_effect.mean())
