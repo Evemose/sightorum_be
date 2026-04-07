@@ -64,14 +64,24 @@ class CausalVerificationService:
         self._worker_pool = worker_pool
 
     def _pool_submit(self, mem_bytes: int, fn: Callable[[], Any]) -> "Future[Any]":
-        """Submit to pool if available, else resolve immediately."""
-        if self._worker_pool:
-            return self._worker_pool.submit(mem_bytes, fn)
+        """Run fn immediately and return a resolved Future.
+
+        Heavy DML/GRF fits run serially so each gets the full machine
+        (all cores via LGBM n_jobs=-1, all memory). Between fits,
+        gc + malloc_trim reclaims RSS from glibc's retained pages.
+        """
+        import gc
+        import ctypes
         f: Future = Future()
         try:
             f.set_result(fn())
         except Exception as e:
             f.set_exception(e)
+        gc.collect()
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except (OSError, AttributeError):
+            pass
         return f
 
     @staticmethod
@@ -1433,7 +1443,15 @@ class CausalVerificationService:
                 f.set_result(("_cached", cached))
                 futures[key] = f
             elif ref_cfg.type in dispatch:
-                futures[key] = self._pool_submit(mem, dispatch[ref_cfg.type])
+                # Run inline — no pool wrapper. Temporal placebo submits
+                # sub-tasks to the pool internally; wrapping it in another
+                # pool task would double-count memory and risk deadlock.
+                f: Future = Future()
+                try:
+                    f.set_result(dispatch[ref_cfg.type]())
+                except Exception as e:
+                    f.set_exception(e)
+                futures[key] = f
         return futures
 
     def _collect_refutations(self, futures: dict[str, Future],
