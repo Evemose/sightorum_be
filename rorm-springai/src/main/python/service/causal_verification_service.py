@@ -52,6 +52,14 @@ logger.info("dowhy=%s  networkx=%s  econml=%s", dowhy.__version__, nx.__version_
 RANDOM_STATE = 42
 CI_ALPHA = 0.05
 
+# Fallback defaults — used by call sites that don't have a MemoryBudget.
+# Budget-aware sites use budget.lgbm_defaults() / budget.param() instead.
+LGBM_DEFAULTS = dict(n_estimators=300, max_depth=6, learning_rate=0.05, verbose=-1)
+BOOTSTRAP_SAMPLES = 20
+REFUTATION_SIMULATIONS = 10
+GRF_ESTIMATORS = 200
+GRF_MIN_LEAF = 50
+
 # -- Adaptive memory parameters --
 # Each tunable parameter is defined as (max_val, min_val, threshold_mb).
 # Below threshold_mb of DataFrame memory, the parameter stays at max_val.
@@ -1400,6 +1408,9 @@ class CausalVerificationService:
                            budget=None, checkpoint=None) -> list[dict]:
         enc = data.encoded
 
+        lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
+        grf_n_est = budget.param("grf_estimators") if budget else GRF_ESTIMATORS
+
         def _fit_one_grf(cfg: GrfConfig) -> dict:
             try:
                 X_grf = enc[cfg.modifier_columns].values
@@ -1408,9 +1419,9 @@ class CausalVerificationService:
                 W = enc[confounders].values
 
                 grf = CausalForestDML(
-                    model_y=LGBMRegressor(**LGBM_DEFAULTS),
-                    model_t=LGBMRegressor(**LGBM_DEFAULTS),
-                    n_estimators=GRF_ESTIMATORS,
+                    model_y=LGBMRegressor(**lgbm_kw),
+                    model_t=LGBMRegressor(**lgbm_kw),
+                    n_estimators=grf_n_est,
                     min_samples_leaf=GRF_MIN_LEAF,
                     random_state=RANDOM_STATE,
                 )
@@ -1450,7 +1461,6 @@ class CausalVerificationService:
             except Exception as e:
                 return {"config_id": cfg.id, "error": str(e)}
 
-        mem = self._mem_estimate(data, factor=15)
         results = []
         futures: dict[str, Future] = {}
         for cfg in spec.grf_configs:
@@ -1458,7 +1468,7 @@ class CausalVerificationService:
             if cached is not None:
                 results.append(cached)
             else:
-                futures[cfg.id] = self._pool_submit(mem, lambda c=cfg: _fit_one_grf(c))
+                futures[cfg.id] = self._pool_submit(budget, lambda c=cfg: _fit_one_grf(c))
         for cid, f in futures.items():
             r = f.result()
             results.append(r)
@@ -1478,12 +1488,14 @@ class CausalVerificationService:
         are wrapped in already-resolved futures.
         """
         discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
+        lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
+        n_sims = budget.param("refutation_simulations") if budget else REFUTATION_SIMULATIONS
 
         def _build_model():
-            model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
+            model_t = LGBMClassifier(**lgbm_kw) if discrete else LGBMRegressor(**lgbm_kw)
             params = {
                 "init_params": {
-                    "model_y": LGBMRegressor(**LGBM_DEFAULTS),
+                    "model_y": LGBMRegressor(**lgbm_kw),
                     "model_t": model_t,
                     "model_final": LinearRegression(),
                     "discrete_treatment": discrete,
@@ -1505,7 +1517,7 @@ class CausalVerificationService:
         def _run_refutation(ref_type, method_name, **kwargs):
             model, ident, est = _build_model()
             r = model.refute_estimate(ident, est, method_name=method_name,
-                                      num_simulations=REFUTATION_SIMULATIONS, **kwargs)
+                                      num_simulations=n_sims, **kwargs)
             return ref_type, r
 
         dispatch = {
@@ -1517,7 +1529,7 @@ class CausalVerificationService:
                 "subset", "data_subset_refuter", subset_fraction=0.8),
             RefutationType.TEMPORAL_PLACEBO: lambda: (
                 "temporal_placebo",
-                self._temporal_placebo(data, spec, dag_nx, primary_effect)),
+                self._temporal_placebo(data, spec, dag_nx, primary_effect, budget)),
         }
 
         futures: dict[str, Future] = {}
@@ -1576,7 +1588,7 @@ class CausalVerificationService:
 
     def _temporal_placebo(
             self, data: pd.DataFrame, spec: CausalVerificationRequest,
-            dag_nx: str, primary_effect: float,
+            dag_nx: str, primary_effect: float, budget=None,
     ) -> dict[str, Any]:
         """Temporal placebo: shift treatment in both time directions at
         multiple lag magnitudes and re-estimate.
@@ -1618,8 +1630,6 @@ class CausalVerificationService:
         )
         placebo_col = f"_tp_{spec.treatment}"
 
-        mem = self._mem_estimate(data)
-
         def _run_probe(label, lag):
             df = sorted_enc.copy()
             df[placebo_col] = df[spec.treatment].shift(lag)
@@ -1642,7 +1652,7 @@ class CausalVerificationService:
             }
 
         probe_futures = [
-            self._pool_submit(mem, lambda l=label, g=lag: _run_probe(l, g))
+            self._pool_submit(budget, lambda l=label, g=lag: _run_probe(l, g))
             for label, lag in shifts
         ]
         probes = [f.result() for f in probe_futures]
@@ -1735,8 +1745,6 @@ class CausalVerificationService:
         result: dict[str, Any] = {}
 
         # Confounder drops — each is an independent DML fit
-        mem = self._mem_estimate(data)
-
         def _run_drop(drop):
             dag_v = self._edges_to_nx(
                 [(s, d) for s, d in refined_edges
@@ -1754,7 +1762,7 @@ class CausalVerificationService:
             }
 
         drop_futures = [
-            (drop, self._pool_submit(mem, lambda d=drop: _run_drop(d)))
+            (drop, self._pool_submit(budget, lambda d=drop: _run_drop(d)))
             for drop in spec.sensitivity.confounder_drops
         ]
         result["confounder_drops"] = [f.result() for _, f in drop_futures]
@@ -1775,7 +1783,7 @@ class CausalVerificationService:
             }
 
         add_futures = [
-            (add, self._pool_submit(mem, lambda a=add: _run_add(a)))
+            (add, self._pool_submit(budget, lambda a=add: _run_add(a)))
             for add in spec.sensitivity.confounder_adds
         ]
         result["confounder_adds"] = [f.result() for _, f in add_futures]
@@ -1925,10 +1933,11 @@ class CausalVerificationService:
         T_v = data.encoded[spec.treatment].values
         y_res = np.zeros(len(data))
         t_res = np.zeros(len(data))
+        lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
         kf = KFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
         for tr, te in kf.split(X_c):
-            m_y = LGBMRegressor(**LGBM_DEFAULTS).fit(X_c[tr], Y_v[tr])
-            m_t = LGBMRegressor(**LGBM_DEFAULTS).fit(X_c[tr], T_v[tr])
+            m_y = LGBMRegressor(**lgbm_kw).fit(X_c[tr], Y_v[tr])
+            m_t = LGBMRegressor(**lgbm_kw).fit(X_c[tr], T_v[tr])
             y_res[te] = Y_v[te] - m_y.predict(X_c[te])
             t_res[te] = T_v[te] - m_t.predict(X_c[te])
         final_res = y_res - (effect or 0) * t_res
@@ -2136,14 +2145,14 @@ class CausalVerificationService:
         """Extra diagnostics for null findings: absorption curve, power, edge scan."""
         result: dict[str, Any] = {}
         result["absorption_curve"] = self._absorption_curve(
-            data, spec, confounders, sensitivity_result)
+            data, spec, confounders, sensitivity_result, budget)
         result["power_analysis"] = self._power_analysis(
             data, spec, primary_effect, primary_ci)
         result["subpopulation_edges"] = self._subpopulation_edge_scan(
             estimation_results)
         return result
 
-    def _absorption_curve(self, data, spec, confounders, sensitivity_result) -> dict:
+    def _absorption_curve(self, data, spec, confounders, sensitivity_result, budget=None) -> dict:
         """Cumulative confounding absorption: DML with incrementally added W."""
         drops = sensitivity_result.get("confounder_drops", [])
         drop_map = {d["column"]: abs(d.get("deviation_pct") or 0) for d in drops}
@@ -2154,14 +2163,14 @@ class CausalVerificationService:
         Y = enc[spec.outcome].values
         T = enc[spec.treatment].values
         model_t_cls = LGBMClassifier if discrete else LGBMRegressor
-        mem = self._mem_estimate(data)
+        lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
 
         def _fit(w_cols: list[str]) -> float | None:
             try:
                 W = enc[w_cols].values if w_cols else None
                 dml = LinearDML(
-                    model_y=LGBMRegressor(**LGBM_DEFAULTS),
-                    model_t=model_t_cls(**LGBM_DEFAULTS),
+                    model_y=LGBMRegressor(**lgbm_kw),
+                    model_t=model_t_cls(**lgbm_kw),
                     discrete_treatment=discrete,
                 )
                 dml.fit(Y, T, W=W)
@@ -2172,11 +2181,11 @@ class CausalVerificationService:
 
         valid_cols = [c for c in ordered if c in enc.columns]
         futures: list[tuple[str | None, Future]] = [
-            (None, self._pool_submit(mem, lambda: _fit([])))
+            (None, self._pool_submit(budget, lambda: _fit([])))
         ]
         for i, col in enumerate(valid_cols):
             w_up_to = list(valid_cols[:i + 1])
-            futures.append((col, self._pool_submit(mem, lambda w=w_up_to: _fit(w))))
+            futures.append((col, self._pool_submit(budget, lambda w=w_up_to: _fit(w))))
 
         curve = []
         w_so_far: list[str] = []
