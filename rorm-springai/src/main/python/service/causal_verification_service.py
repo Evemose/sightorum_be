@@ -1210,17 +1210,25 @@ class CausalVerificationService:
 
             ct = pd.crosstab(treatment_vals, confounder_vals)
             n_cells = ct.size
+            n_treatment_levels = len(ct.index)
             sparse_cells = []
             sparse_mask = pd.Series(False, index=data.raw.index)
 
-            for t_val in ct.index:
-                for c_val in ct.columns:
+            for c_val in ct.columns:
+                stratum_total = int(ct[c_val].sum())
+                stratum_expected = stratum_total / n_treatment_levels if n_treatment_levels > 0 else 0
+                relative_floor = stratum_expected * pc.relative_threshold
+
+                for t_val in ct.index:
                     count = int(ct.loc[t_val, c_val])
-                    if count < pc.min_cell_threshold:
+                    threshold = max(pc.min_cell_threshold, relative_floor)
+                    if count < threshold:
                         sparse_cells.append({
                             "treatment": str(t_val),
                             "confounder": str(c_val),
                             "count": count,
+                            "threshold": int(threshold),
+                            "stratum_total": stratum_total,
                         })
                         sparse_mask |= (
                                 (treatment_vals == t_val) & (confounder_vals == c_val)
@@ -1229,14 +1237,19 @@ class CausalVerificationService:
             surviving_mask = ~sparse_mask
             surviving_n = int(surviving_mask.sum())
             total_n = len(data)
-            coverage_pct = surviving_n / total_n * 100
+            n_nonempty_cells = int((ct > 0).sum().sum())
+            n_surviving_cells = n_nonempty_cells - len([s for s in sparse_cells if s["count"] > 0])
+            coverage_pct = n_surviving_cells / n_nonempty_cells * 100 if n_nonempty_cells > 0 else 0
 
             level_report = {
                 "level": treatment_col,
                 "n_cells": n_cells,
+                "n_nonempty_cells": n_nonempty_cells,
+                "n_surviving_cells": n_surviving_cells,
                 "sparse_cells_count": len(sparse_cells),
                 "sparse_cells": sparse_cells[:50],
                 "coverage_pct": round(coverage_pct, 2),
+                "row_coverage_pct": round(surviving_n / total_n * 100, 2),
             }
 
             if coverage_pct >= pc.min_coverage_pct:

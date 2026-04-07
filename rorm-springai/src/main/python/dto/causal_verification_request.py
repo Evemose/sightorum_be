@@ -504,14 +504,20 @@ class ExternalizationConfig:
 @dataclass
 class PositivityCheck:
     confounder_column: str
-    expected_cell_size: int
-    min_cell_threshold: int
     treatment_hierarchy: list[str]
     min_coverage_pct: float
+    min_cell_threshold: int = 50
+    relative_threshold: float = 0.3
 
     @classmethod
     def from_dict(cls, d: dict) -> "PositivityCheck":
-        return cls(**d)
+        return cls(
+            confounder_column=d["confounder_column"],
+            treatment_hierarchy=d["treatment_hierarchy"],
+            min_coverage_pct=d["min_coverage_pct"],
+            min_cell_threshold=d.get("min_cell_threshold", 50),
+            relative_threshold=d.get("relative_threshold", 0.3),
+        )
 
 
 @dataclass
