@@ -1397,7 +1397,7 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _grf_heterogeneity(self, data, spec, confounders,
-                           checkpoint=None) -> list[dict]:
+                           budget=None, checkpoint=None) -> list[dict]:
         enc = data.encoded
 
         def _fit_one_grf(cfg: GrfConfig) -> dict:
@@ -1471,7 +1471,7 @@ class CausalVerificationService:
     # ------------------------------------------------------------------
 
     def _refutations_parallel(self, data, spec, dag_nx, primary_effect,
-                              mem: int, checkpoint=None) -> dict[str, Future]:
+                              budget, checkpoint=None) -> dict[str, Future]:
         """Submit each refutation type as an independent pool task.
 
         Per-type checkpoints: ``refutation:{type}`` keys.  Cached types
@@ -1731,7 +1731,7 @@ class CausalVerificationService:
     # Step 9: Sensitivity
     # ------------------------------------------------------------------
 
-    def _sensitivity(self, data, spec, refined_edges, primary_effect, estimation_results) -> dict:
+    def _sensitivity(self, data, spec, refined_edges, primary_effect, estimation_results, budget=None) -> dict:
         result: dict[str, Any] = {}
 
         # Confounder drops — each is an independent DML fit
@@ -1916,7 +1916,7 @@ class CausalVerificationService:
     # Step 11: Residual diagnostics
     # ------------------------------------------------------------------
 
-    def _residual_diagnostics(self, data, spec, confounders, refined_edges, effect) -> dict:
+    def _residual_diagnostics(self, data, spec, confounders, refined_edges, effect, budget=None) -> dict:
         result: dict[str, Any] = {}
 
         # Compute residuals
@@ -2036,7 +2036,7 @@ class CausalVerificationService:
     # Step 12: Range checks
     # ------------------------------------------------------------------
 
-    def _range_checks(self, data, spec, confounders, estimation_results) -> dict:
+    def _range_checks(self, data, spec, confounders, estimation_results, budget=None) -> dict:
         result: dict[str, Any] = {}
 
         # VIF (add intercept column — variance_inflation_factor requires it)
@@ -2132,7 +2132,7 @@ class CausalVerificationService:
 
     def _null_diagnostics(self, data, spec, confounders,
                           primary_effect, primary_ci, estimation_results,
-                          sensitivity_result) -> dict:
+                          sensitivity_result, budget=None) -> dict:
         """Extra diagnostics for null findings: absorption curve, power, edge scan."""
         result: dict[str, Any] = {}
         result["absorption_curve"] = self._absorption_curve(
