@@ -45,7 +45,7 @@ class AiChatRunner {
     void simpleChat() throws Exception {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            durableRuntime.submit("runner-pipeline-h2-not3_5", new JobSpec(
+            durableRuntime.submit("runner-pipeline-h2-not3_7", new JobSpec(
                 "agentJp",
                 "runH2Pipeline"
             ));
