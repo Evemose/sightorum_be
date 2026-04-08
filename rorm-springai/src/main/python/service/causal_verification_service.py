@@ -108,31 +108,45 @@ def _rss_mb() -> float:
 def _container_limit_mb() -> float:
     """Container memory limit in MB.
 
-    Tries cgroup v2 then v1, then falls back to /proc/meminfo.
-    On ECS EC2 launch type, /proc/meminfo shows host memory,
-    not the task limit — cgroup is the only reliable source.
+    Tries ECS task metadata, cgroup v2/v1, then /proc/meminfo.
+    /proc/meminfo shows host memory on both ECS EC2 and Fargate,
+    so cgroup or ECS metadata is the only reliable source.
     """
-    # cgroup v2 (Fargate, modern Docker)
-    for path in ("/sys/fs/cgroup/memory.max",):
+    # ECS task metadata (works on both EC2 and Fargate)
+    ecs_meta_uri = os.environ.get("ECS_CONTAINER_METADATA_URI_V4") \
+                   or os.environ.get("ECS_CONTAINER_METADATA_URI")
+    if ecs_meta_uri:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(f"{ecs_meta_uri}/task", timeout=2) as resp:
+                import json
+                meta = json.loads(resp.read())
+                limit_str = meta.get("Limits", {}).get("Memory")
+                if limit_str:
+                    return int(limit_str)  # already in MiB
+        except Exception:
+            pass
+    # cgroup v2
+    for path in ("/sys/fs/cgroup/memory.max",
+                 "/sys/fs/cgroup/memory.limit_in_bytes"):
         try:
             with open(path) as f:
                 val = f.read().strip()
-                if val != "max":
+                if val not in ("max", "9223372036854771712"):
                     limit = int(val) / (1024 * 1024)
-                    if limit < 500_000:  # sanity: <500 GB
+                    if limit < 500_000:
                         return limit
         except (FileNotFoundError, ValueError, PermissionError):
             pass
-    # cgroup v1 (ECS EC2, older Docker)
-    for path in ("/sys/fs/cgroup/memory/memory.limit_in_bytes",):
-        try:
-            with open(path) as f:
-                limit = int(f.read().strip()) / (1024 * 1024)
-                if limit < 500_000:
-                    return limit
-        except (FileNotFoundError, ValueError, PermissionError):
-            pass
-    # Fallback — /proc/meminfo (may be host memory on EC2)
+    # cgroup v1
+    try:
+        with open("/sys/fs/cgroup/memory/memory.limit_in_bytes") as f:
+            val = int(f.read().strip())
+            if val < 500_000 * 1024 * 1024:
+                return val / (1024 * 1024)
+    except (FileNotFoundError, ValueError, PermissionError):
+        pass
+    # Fallback — /proc/meminfo (unreliable on containers)
     try:
         with open("/proc/meminfo") as f:
             for line in f:
