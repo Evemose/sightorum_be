@@ -50,6 +50,7 @@ dependencies {
     api("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
     api("org.springframework.ai:spring-ai-advisors-vector-store")
     implementation("com.anthropic:anthropic-java:2.15.0")
+    implementation("com.anthropic:anthropic-java-bedrock:2.15.0")
     implementation("com.bucket4j:bucket4j-core:8.10.1")
 
     // Restate durable execution (conditional via rorm.ml.durable-execution=true)

@@ -126,6 +126,32 @@ class PipelineDataFrame:
         """Return a single encoded column as a Series."""
         return self._encoded[col]
 
+    # -- subsampling -------------------------------------------------------
+
+    def stratified_subsample(self, strat_col: str, frac: float,
+                             random_state: int = 42) -> PipelineDataFrame:
+        """Stratified subsample preserving distribution of strat_col.
+
+        Groups by raw values of strat_col (handles both string and numeric),
+        samples frac of each group, and returns a new PipelineDataFrame
+        with both views consistent.
+        """
+        if frac >= 1.0:
+            return self
+        sampled = self._raw.groupby(strat_col, group_keys=False).apply(
+            lambda g: g.sample(
+                n=max(1, int(len(g) * frac)),
+                random_state=random_state,
+            ),
+        )
+        idx = sampled.index
+        return PipelineDataFrame(
+            self._raw.loc[idx].reset_index(drop=True),
+            self._encoded.loc[idx].reset_index(drop=True),
+            self._cat_columns,
+            self._encoders,
+        )
+
     # -- delegation for common pandas operations --------------------------
 
     def memory_usage(self, **kwargs) -> pd.Series:
