@@ -17,7 +17,7 @@ public class JournaledChatDoubleStreamRunner {
         try {
             var filePath = System.getProperty("blackbox.file.path");
             var client = ScriptedAnthropicClient.withStreamingCallCounter(llmCallCount);
-            var model = new JournaledAnthropicChatModel(client, new AnthropicParamsBuilder(new ObjectMapper()), null, null);
+            var model = new JournaledAnthropicChatModel(client, client, new AnthropicParamsBuilder(new ObjectMapper()), null, null);
             var journal = new FileStepJournal(Path.of(journalDir));
 
             var options = AnthropicChatOptions.builder()

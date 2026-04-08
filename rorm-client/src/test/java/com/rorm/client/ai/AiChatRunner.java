@@ -45,7 +45,7 @@ class AiChatRunner {
     void simpleChat() throws Exception {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            durableRuntime.submit("runner-pipeline-h2-not3_8", new JobSpec(
+            durableRuntime.submit("runner-pipeline-h2-not3_14", new JobSpec(
                 "agentJp",
                 "runH2Pipeline"
             ));
@@ -87,7 +87,7 @@ class AiChatRunner {
             );
             chatService.stream(
                     ChatRequest.usingData(SCHEMA, modelSpace)
-                        .withToolGroups(ToolGroup.WEB_ACCESS, ToolGroup.QUERY, ToolGroup.DATA_RELATIONS)
+                        .withToolGroups(ToolGroup.QUERY, ToolGroup.DATA_RELATIONS)
                         .withThinkingLevel(ThinkingLevel.HIGH)
                         .withSystemPrompt(SwarmPrompts.GENERATOR_SYSTEM)
                         .withModelName("claude-opus-4-6")
@@ -110,7 +110,7 @@ class AiChatRunner {
             );
             chatService.stream(
                     ChatRequest.usingData(SCHEMA, modelSpace)
-                        .withToolGroups(ToolGroup.WEB_ACCESS, ToolGroup.QUERY)
+                        .withToolGroups(ToolGroup.QUERY)
                         .withThinkingLevel(ThinkingLevel.HIGH)
                         .withSystemPrompt(SwarmPrompts.SURVEY_SCOUT_SYSTEM)
                         .withModelName("claude-sonnet-4-6")
@@ -190,7 +190,7 @@ class AiChatRunner {
             chatService.stream(
                     ChatRequest.usingData(SCHEMA, modelSpace)
                         .withThinkingLevel(ThinkingLevel.HIGH)
-                        .withToolGroups(ToolGroup.WEB_ACCESS, ToolGroup.QUERY)
+                        .withToolGroups(ToolGroup.QUERY)
                         .withSystemPrompt(EXECUTOR_COMPILER_SYSTEM)
                         .withModelName("claude-opus-4-6")
                         .withCachingStrategyFunction(EXECUTOR_COMPILER_CACHE_STRATEGY)

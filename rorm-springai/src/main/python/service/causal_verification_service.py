@@ -157,19 +157,6 @@ def _container_limit_mb() -> float:
     return 32_000.0
 
 
-def _stratified_subsample(df: pd.DataFrame, strat_col: str,
-                          frac: float) -> pd.DataFrame:
-    """Stratified subsample preserving distribution of strat_col."""
-    if frac >= 1.0:
-        return df
-    return df.groupby(strat_col, group_keys=False).apply(
-        lambda g: g.sample(
-            n=max(1, int(len(g) * frac)),
-            random_state=RANDOM_STATE,
-        ),
-    ).reset_index(drop=True)
-
-
 def _reclaim():
     """Force Python GC and return freed pages to OS."""
     import gc
@@ -1301,7 +1288,7 @@ class CausalVerificationService:
             total_n = len(data)
             n_nonempty_cells = int((ct > 0).sum().sum())
             n_surviving_cells = n_nonempty_cells - len([s for s in sparse_cells if s["count"] > 0])
-            coverage_pct = n_surviving_cells / n_nonempty_cells * 100 if n_nonempty_cells > 0 else 0
+            coverage_pct = n_surviving_cells / n_cells * 100 if n_cells > 0 else 0
 
             level_report = {
                 "level": treatment_col,
@@ -1314,7 +1301,13 @@ class CausalVerificationService:
                 "row_coverage_pct": round(surviving_n / total_n * 100, 2),
             }
 
-            if coverage_pct >= pc.min_coverage_pct:
+            # Adaptive threshold: more treatment levels → more empty cells
+            # expected from combinatorial sparsity. Base 70% scaled down
+            # by 3 * sqrt(n_levels), floored at 30%.
+            effective_threshold = max(30, 70 - 3 * math.sqrt(n_treatment_levels))
+            level_report["effective_threshold"] = round(effective_threshold, 1)
+
+            if coverage_pct >= effective_threshold:
                 # Memory feasibility: can GRF fit this granularity?
                 # GRF peak ≈ n_rows × n_cols × 8 × 200.
                 # If projected peak exceeds 80% of container, coarsen.
@@ -1509,50 +1502,38 @@ class CausalVerificationService:
 
     def _grf_heterogeneity(self, data, spec, confounders,
                            budget=None, checkpoint=None) -> list[dict]:
-        enc = data.encoded
 
         def _fit_one_grf(cfg: GrfConfig) -> dict:
             try:
                 lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
                 grf_n_est = budget.param("grf_estimators") if budget else GRF_ESTIMATORS
 
-                # Subsample if RSS is above 40% of container to keep GRF
-                # from pushing past the limit.  CausalForestDML memory
-                # scales roughly O(n * n_estimators).
-                fit_enc = enc
-                subsample_frac = 1.0
-                if budget and len(enc) > 100_000:
-                    # CausalForestDML memory is ~200x the data footprint
-                    # (n_estimators trees × per-row leaf assignments ×
-                    # nuisance LGBM models × bootstrap resamples).
-                    # Cap fit size so projected GRF peak stays under 80%
-                    # of container.
+                fit_data = data
+                if budget and len(data) > 100_000:
                     rss = _rss_mb()
-                    grf_data_mb = len(enc) * enc.shape[1] * 8 / (1024 * 1024)
-                    projected_peak = rss + grf_data_mb * 200
+                    data_mb = _data_mb(data)
+                    projected = rss + data_mb * 200
                     target = budget.container_mb * 0.80
-                    if projected_peak > target:
-                        safe_data_mb = max(0, target - rss) / 200
-                        subsample_frac = min(1.0, safe_data_mb / grf_data_mb)
-                        # Floor: 500 obs per treatment level
-                        n_levels = enc[spec.treatment].nunique()
-                        min_frac = (500 * n_levels) / len(enc) if len(enc) > 0 else 1.0
-                        subsample_frac = max(min_frac, subsample_frac)
-                        if subsample_frac < 1.0:
-                            fit_enc = _stratified_subsample(
-                                enc, spec.treatment, subsample_frac)
+                    if projected > target:
+                        safe_mb = max(0, target - rss) / 200
+                        frac = min(1.0, safe_mb / data_mb) if data_mb > 0 else 1.0
+                        n_levels = data.raw[spec.treatment].nunique()
+                        min_frac = (500 * n_levels) / len(data) if len(data) > 0 else 1.0
+                        frac = max(min_frac, frac)
+                        if frac < 1.0:
+                            fit_data = data.stratified_subsample(spec.treatment, frac)
                             logger.warning(
                                 "GRF %s: subsampling %.0f%% (%d→%d rows), "
                                 "RSS=%.0f MB (%.0f%% of %.0f MB)",
-                                cfg.id, subsample_frac * 100, len(enc),
-                                len(fit_enc), rss,
-                                        rss / budget.container_mb * 100, budget.container_mb,
+                                cfg.id, frac * 100, len(data), len(fit_data),
+                                rss, rss / budget.container_mb * 100, budget.container_mb,
                             )
 
-                X_grf = fit_enc[cfg.modifier_columns].values
-                Y = fit_enc[spec.outcome].values
-                T = fit_enc[spec.treatment].values
-                W = fit_enc[confounders].values
+                enc = fit_data.encoded
+                X_grf = enc[cfg.modifier_columns].values
+                Y = enc[spec.outcome].values
+                T = enc[spec.treatment].values
+                W = enc[confounders].values
 
                 grf = CausalForestDML(
                     model_y=LGBMRegressor(**lgbm_kw),
@@ -1564,13 +1545,11 @@ class CausalVerificationService:
                 grf.fit(Y=Y, T=T, X=X_grf, W=W)
                 cates = grf.effect(X=X_grf)
 
-                # Slice data used for fitting (may be subsampled)
-                slice_data = fit_enc if subsample_frac < 1.0 else data
                 slices = {}
                 for col, method in cfg.slicing.items():
-                    if col not in slice_data.columns:
+                    if col not in fit_data.columns:
                         continue
-                    col_vals = slice_data[col]
+                    col_vals = fit_data[col]
                     if method == "unique":
                         for val in sorted(col_vals.unique()):
                             mask = (col_vals == val).values
@@ -1581,9 +1560,9 @@ class CausalVerificationService:
                                 "n": int(len(subset)),
                             }
                     elif method == "quartile":
-                        q_col = pd.qcut(col_vals, 4, duplicates="drop")
-                        for q, grp_idx in slice_data.groupby(q_col).groups.items():
-                            positions = slice_data.index.get_indexer(grp_idx)
+                        q_col = pd.qcut(fit_data.raw[col], 4, duplicates="drop")
+                        for q, grp_idx in fit_data.raw.groupby(q_col).groups.items():
+                            positions = fit_data.raw.index.get_indexer(grp_idx)
                             slices[f"{col}={q}"] = {
                                 "mean_cate": float(cates[positions].mean()),
                                 "std_cate": float(cates[positions].std()),
@@ -1636,31 +1615,28 @@ class CausalVerificationService:
 
         # Subsample for refutations: dowhy copies the full DataFrame
         # per simulation, so memory scales as n_rows × n_sims.
-        refute_data = data.encoded
-        if budget and len(data.encoded) > 100_000:
+        # dowhy needs raw data (string treatment values for graph matching).
+        refute_data = data
+        if budget and len(data) > 100_000:
             rss = _rss_mb()
-            data_mb = len(data.encoded) * data.encoded.shape[1] * 8 / (1024 * 1024)
-            n_levels = data.encoded[spec.treatment].nunique()
-            # dowhy estimate_effect + refute_estimate: full DML internally
-            # (bootstrap × LGBM models), then n_sims permuted re-estimations.
-            # Memory scales ~200x data for high-cardinality categoricals.
+            data_mb_val = _data_mb(data)
+            n_levels = data.raw[spec.treatment].nunique()
             refute_multiplier = 200 * n_levels / 27
-            projected = rss + data_mb * refute_multiplier
+            projected = rss + data_mb_val * refute_multiplier
             target = budget.container_mb * 0.80
             if projected > target:
                 safe_mb = max(0, target - rss) / refute_multiplier
-                frac = min(1.0, safe_mb / data_mb)
-                # Floor: 500 obs per treatment level
-                min_frac = (500 * n_levels) / len(data.encoded) if len(data.encoded) > 0 else 1.0
+                frac = min(1.0, safe_mb / data_mb_val) if data_mb_val > 0 else 1.0
+                min_frac = (500 * n_levels) / len(data) if len(data) > 0 else 1.0
                 frac = max(min_frac, frac)
-                refute_data = _stratified_subsample(
-                    data.encoded, spec.treatment, frac)
-                logger.warning(
-                    "Refutations: subsampling %.0f%% (%d→%d rows), "
-                    "RSS=%.0f MB, projected=%.0f MB, target=%.0f MB",
-                    frac * 100, len(data.encoded), len(refute_data),
-                    rss, projected, target,
-                )
+                if frac < 1.0:
+                    refute_data = data.stratified_subsample(spec.treatment, frac)
+                    logger.warning(
+                        "Refutations: subsampling %.0f%% (%d→%d rows), "
+                        "RSS=%.0f MB, projected=%.0f MB, target=%.0f MB",
+                        frac * 100, len(data), len(refute_data),
+                        rss, projected, target,
+                    )
 
         def _build_model():
             model_t = LGBMClassifier(**lgbm_kw) if discrete else LGBMRegressor(**lgbm_kw)
@@ -1674,7 +1650,7 @@ class CausalVerificationService:
                 "fit_params": {},
             }
             model = dowhy.CausalModel(
-                data=refute_data, treatment=spec.treatment,
+                data=refute_data.raw, treatment=spec.treatment,
                 outcome=spec.outcome, graph=dag_nx,
                 effect_modifiers=[],
             )

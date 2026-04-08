@@ -505,7 +505,6 @@ class ExternalizationConfig:
 class PositivityCheck:
     confounder_column: str
     treatment_hierarchy: list[str]
-    min_coverage_pct: float
     min_cell_threshold: int = 50
     relative_threshold: float = 0.3
 
@@ -514,7 +513,6 @@ class PositivityCheck:
         return cls(
             confounder_column=d["confounder_column"],
             treatment_hierarchy=d["treatment_hierarchy"],
-            min_coverage_pct=d["min_coverage_pct"],
             min_cell_threshold=d.get("min_cell_threshold", 50),
             relative_threshold=d.get("relative_threshold", 0.3),
         )

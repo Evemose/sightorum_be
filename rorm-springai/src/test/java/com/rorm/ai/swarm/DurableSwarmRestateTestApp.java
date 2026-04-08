@@ -2,6 +2,7 @@ package com.rorm.ai.swarm;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.rorm.ai.anthropic.DirectApi;
 import com.rorm.ai.anthropic.ScriptedAnthropicClient;
 import com.rorm.dataimport.pipeline.profile.SchemaProfile;
 import com.rorm.dataimport.pipeline.profile.SchemaProfileStore;
@@ -69,6 +70,7 @@ public class DurableSwarmRestateTestApp {
 
     @Bean
     @Primary
+    @DirectApi
     AnthropicClient testAnthropicClient(@Value("${wiremock.base-url:}") String baseUrl) {
         if (baseUrl == null || baseUrl.isBlank()) {
             return ScriptedAnthropicClient.withCallCounter(LLM_CALL_COUNT);

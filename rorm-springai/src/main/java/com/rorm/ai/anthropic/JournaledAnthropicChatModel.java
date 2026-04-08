@@ -55,7 +55,8 @@ public class JournaledAnthropicChatModel implements ChatModel {
     private static final ChatModelObservationConvention DEFAULT_OBSERVATION_CONVENTION =
         new DefaultChatModelObservationConvention();
 
-    private final AnthropicClient client;
+    private final AnthropicClient directClient;
+    private final AnthropicClient bedrockClient;
     private final AnthropicParamsBuilder paramsBuilder;
     private final TokenThrottle throttle;
     private final ObservationRegistry observationRegistry;
@@ -132,6 +133,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
             var toolCtx = resolveToolContext(prompt.getOptions());
             var journal = resolveJournal(prompt.getOptions());
             var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
+            var client = resolveClient(prompt.getOptions());
             var rounds = new ArrayList<ToolRound>();
 
             for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
@@ -161,6 +163,13 @@ public class JournaledAnthropicChatModel implements ChatModel {
             return ao.getJournal();
         }
         return StepJournal.DEFAULT;
+    }
+
+    private AnthropicClient resolveClient(@Nullable ChatOptions options) {
+        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
+            return directClient;
+        }
+        return bedrockClient;
     }
 
     private static UsageConsuming estimateUsage(MessageCreateParams params) {
@@ -565,6 +574,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
         var toolCtx = resolveToolContext(prompt.getOptions());
         var journal = resolveJournal(prompt.getOptions());
         var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
+        var client = resolveClient(prompt.getOptions());
         var rounds = new ArrayList<ToolRound>();
 
         for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
@@ -577,7 +587,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
                 executed[0] = true;
                 return throttle.execute(
                     estimateUsage(params),
-                    () -> fixMissingToolInputs(streamRound(params, sink)),
+                    () -> fixMissingToolInputs(streamRound(params, sink, client)),
                     TokenUsage::from);
             });
             if (!executed[0]) {
@@ -630,7 +640,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
     }
 
     @SneakyThrows
-    private Message streamRound(MessageCreateParams params, FluxSink<ChatResponse> sink) {
+    private Message streamRound(MessageCreateParams params, FluxSink<ChatResponse> sink, AnthropicClient client) {
         var accumulator = MessageAccumulator.create();
         var thinkingStarted = new boolean[]{false};
         try (var stream = client.messages().createStreaming(params)) {

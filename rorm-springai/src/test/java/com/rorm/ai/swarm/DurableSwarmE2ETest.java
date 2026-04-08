@@ -121,7 +121,7 @@ class DurableSwarmE2ETest {
 
         @Bean
         ChatModel chatModel(AnthropicClient c, AnthropicParamsBuilder p, TokenThrottle t) {
-            return new JournaledAnthropicChatModel(c, p, t, ObservationRegistry.NOOP);
+            return new JournaledAnthropicChatModel(c, c, p, t, ObservationRegistry.NOOP);
         }
 
         @Bean

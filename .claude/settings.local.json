@@ -116,7 +116,10 @@
       "WebFetch(domain:restatedev.github.io)",
       "WebFetch(domain:build.betterup.com)",
       "WebFetch(domain:bugs.python.org)",
-      "WebFetch(domain:www.softwareatscale.dev)"
+      "WebFetch(domain:www.softwareatscale.dev)",
+      "WebFetch(domain:repost.aws)",
+      "WebFetch(domain:central.sonatype.com)",
+      "WebFetch(domain:aws.amazon.com)"
     ]
   },
   "hooks": {
