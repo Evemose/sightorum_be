@@ -1232,15 +1232,49 @@ class CausalVerificationService:
     # Step 2b: Positivity gate
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _select_positivity_confounders(data, adjustment_set, treatment_col):
+        """Auto-select high-cardinality confounders for positivity checks.
+
+        Picks top-N categorical confounders by cardinality, where N adapts
+        to the distribution shape: uniform → 1 (any is representative),
+        skewed → up to 5 (need to find the outliers).
+        """
+        cardinalities = {}
+        for col in adjustment_set:
+            if col == treatment_col or col not in data.columns:
+                continue
+            vals = data.raw[col] if col in data.raw.columns else data.encoded[col]
+            card = int(vals.nunique())
+            if card > 1:
+                cardinalities[col] = card
+
+        if not cardinalities:
+            return []
+
+        cards = np.array(list(cardinalities.values()), dtype=float)
+        cv = float(cards.std() / cards.mean()) if cards.mean() > 0 else 0
+        n_checks = max(1, min(5, math.ceil(cv * 3)))
+
+        sorted_cols = sorted(cardinalities, key=cardinalities.get, reverse=True)
+        selected = sorted_cols[:n_checks]
+        logger.info("Positivity confounders: cv=%.2f, n_checks=%d, selected=%s "
+                    "(cardinalities: %s)",
+                    cv, n_checks, selected,
+                    {c: cardinalities[c] for c in selected})
+        return selected
+
     def _positivity_gate(self, data, spec, budget=None):
         """Check treatment × confounder cell sizes and memory feasibility.
+
+        Auto-selects high-cardinality confounders from the adjustment set.
+        Checks each independently; a row flagged by ANY confounder is trimmed.
 
         Returns (positivity_report, rewritten_variants_or_None,
                  final_treatment_or_None, surviving_mask_or_None).
         """
         pc = spec.positivity_check
         hierarchy = pc.treatment_hierarchy
-        confounder = pc.confounder_column
         attempted_levels = []
 
         for level_idx, treatment_col in enumerate(hierarchy):
@@ -1252,78 +1286,101 @@ class CausalVerificationService:
                 })
                 continue
 
+            confounders_to_check = self._select_positivity_confounders(
+                data, spec.adjustment_set, treatment_col)
+
+            if not confounders_to_check:
+                attempted_levels.append({
+                    "level": treatment_col,
+                    "error": "No categorical confounders to check",
+                    "verdict": "SKIPPED",
+                })
+                continue
+
             treatment_vals = data.raw[treatment_col] if treatment_col in data.raw.columns \
                 else data.encoded[treatment_col]
-            confounder_vals = data.raw[confounder] if confounder in data.raw.columns \
-                else data.encoded[confounder]
+            n_treatment_levels = int(treatment_vals.nunique())
 
-            ct = pd.crosstab(treatment_vals, confounder_vals)
-            n_cells = ct.size
-            n_treatment_levels = len(ct.index)
-            sparse_cells = []
+            total_n = len(data)
             sparse_mask = pd.Series(False, index=data.raw.index)
+            all_sparse_cells = []
+            total_possible_cells = 0
+            total_surviving_cells = 0
+            confounder_reports = []
 
-            for c_val in ct.columns:
-                stratum_total = int(ct[c_val].sum())
-                stratum_expected = stratum_total / n_treatment_levels if n_treatment_levels > 0 else 0
-                relative_floor = stratum_expected * pc.relative_threshold
+            for confounder in confounders_to_check:
+                confounder_vals = data.raw[confounder] if confounder in data.raw.columns \
+                    else data.encoded[confounder]
 
-                for t_val in ct.index:
-                    count = int(ct.loc[t_val, c_val])
-                    threshold = max(pc.min_cell_threshold, relative_floor)
-                    if count < threshold:
-                        sparse_cells.append({
-                            "treatment": str(t_val),
-                            "confounder": str(c_val),
-                            "count": count,
-                            "threshold": int(threshold),
-                            "stratum_total": stratum_total,
-                        })
-                        sparse_mask |= (
+                ct = pd.crosstab(treatment_vals, confounder_vals)
+                n_cells = ct.size
+                n_confounder_levels = len(ct.columns)
+                abs_floor = max(5, 500 // n_confounder_levels) if n_confounder_levels > 0 else 5
+                n_nonempty = int((ct > 0).sum().sum())
+                sparse_cells = []
+
+                for c_val in ct.columns:
+                    stratum_total = int(ct[c_val].sum())
+                    stratum_expected = stratum_total / n_treatment_levels if n_treatment_levels > 0 else 0
+                    relative_floor = stratum_expected * pc.relative_threshold
+
+                    for t_val in ct.index:
+                        count = int(ct.loc[t_val, c_val])
+                        threshold = max(abs_floor, relative_floor)
+                        if count < threshold:
+                            sparse_cells.append({
+                                "treatment": str(t_val),
+                                "confounder": str(c_val),
+                                "count": count,
+                                "threshold": int(threshold),
+                            })
+                            sparse_mask |= (
                                 (treatment_vals == t_val) & (confounder_vals == c_val)
-                        )
+                            )
+
+                n_surviving = n_nonempty - len([s for s in sparse_cells if s["count"] > 0])
+                total_possible_cells += n_cells
+                total_surviving_cells += n_surviving
+                all_sparse_cells.extend(sparse_cells)
+                confounder_reports.append({
+                    "confounder": confounder,
+                    "n_cells": n_cells,
+                    "n_nonempty": n_nonempty,
+                    "n_surviving": n_surviving,
+                    "sparse_count": len(sparse_cells),
+                    "coverage_pct": round(n_surviving / n_cells * 100, 2) if n_cells > 0 else 0,
+                })
 
             surviving_mask = ~sparse_mask
             surviving_n = int(surviving_mask.sum())
-            total_n = len(data)
-            n_nonempty_cells = int((ct > 0).sum().sum())
-            n_surviving_cells = n_nonempty_cells - len([s for s in sparse_cells if s["count"] > 0])
-            coverage_pct = n_surviving_cells / n_cells * 100 if n_cells > 0 else 0
+            coverage_pct = total_surviving_cells / total_possible_cells * 100 \
+                if total_possible_cells > 0 else 0
+
+            effective_threshold = max(30, 70 - 3 * math.sqrt(n_treatment_levels))
 
             level_report = {
                 "level": treatment_col,
-                "n_cells": n_cells,
-                "n_nonempty_cells": n_nonempty_cells,
-                "n_surviving_cells": n_surviving_cells,
-                "sparse_cells_count": len(sparse_cells),
-                "sparse_cells": sparse_cells[:50],
+                "confounders_checked": confounder_reports,
+                "total_possible_cells": total_possible_cells,
+                "total_surviving_cells": total_surviving_cells,
+                "sparse_cells_count": len(all_sparse_cells),
+                "sparse_cells": all_sparse_cells[:50],
                 "coverage_pct": round(coverage_pct, 2),
+                "effective_threshold": round(effective_threshold, 1),
                 "row_coverage_pct": round(surviving_n / total_n * 100, 2),
             }
 
-            # Adaptive threshold: more treatment levels → more empty cells
-            # expected from combinatorial sparsity. Base 70% scaled down
-            # by 3 * sqrt(n_levels), floored at 30%.
-            effective_threshold = max(30, 70 - 3 * math.sqrt(n_treatment_levels))
-            level_report["effective_threshold"] = round(effective_threshold, 1)
-
             if coverage_pct >= effective_threshold:
-                # Memory feasibility: can GRF fit this granularity?
-                # GRF peak ≈ n_rows × n_cols × 8 × 200.
-                # If projected peak exceeds 80% of container, coarsen.
+                # Memory feasibility check
                 if budget and budget.container_mb > 0:
                     data_mb = surviving_n * data.encoded.shape[1] * 8 / (1024 * 1024)
                     rss = _rss_mb()
-                    # GRF memory scales with treatment cardinality:
-                    # CATE array is n_rows × (n_levels - 1), forest splits
-                    # grow with log(n_levels). Base multiplier 200 at 27 levels.
                     grf_multiplier = 200 * n_treatment_levels / 27
                     projected_grf = rss + data_mb * grf_multiplier
                     mem_target = budget.container_mb * 0.80
                     if projected_grf > mem_target:
-                        subsample_needed = max(0, mem_target - rss) / (data_mb * grf_multiplier) if data_mb > 0 else 1
-                        # Coarsen if subsampling would leave <500 obs
-                        # per treatment level (DML reliability floor)
+                        subsample_needed = max(0, mem_target - rss) / (data_mb * grf_multiplier) \
+                            if data_mb > 0 else 1
                         min_per_level = int(surviving_n * subsample_needed / n_treatment_levels) \
                             if n_treatment_levels > 0 else 0
                         if min_per_level < 500:
@@ -1339,8 +1396,7 @@ class CausalVerificationService:
                 level_report["verdict"] = "PASSED"
                 attempted_levels.append(level_report)
 
-                if level_idx == 0 and len(sparse_cells) == 0:
-                    # No trimming needed at finest level
+                if level_idx == 0 and len(all_sparse_cells) == 0:
                     report = {
                         "attempted_levels": attempted_levels,
                         "final_level": treatment_col,
@@ -1349,15 +1405,13 @@ class CausalVerificationService:
                     }
                     return report, None, None, None
 
-                # Trim sparse cells and possibly rewrite variants
-                trimmed_cells = sparse_cells
                 rewritten = self._rewrite_variants_for_positivity(
                     spec, treatment_col, hierarchy[0] if level_idx > 0 else None,
                     data, surviving_mask)
                 report = {
                     "attempted_levels": attempted_levels,
                     "final_level": treatment_col,
-                    "trimmed_cells": trimmed_cells[:100],
+                    "trimmed_cells": all_sparse_cells[:100],
                     "original_n": total_n,
                     "surviving_n": surviving_n,
                 }
@@ -1366,7 +1420,6 @@ class CausalVerificationService:
                 level_report["verdict"] = "COARSENED"
                 attempted_levels.append(level_report)
 
-        # Hierarchy exhausted
         last_level = attempted_levels[-1] if attempted_levels else None
         report = {
             "attempted_levels": attempted_levels,
