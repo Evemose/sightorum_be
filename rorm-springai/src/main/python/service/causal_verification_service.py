@@ -106,19 +106,41 @@ def _rss_mb() -> float:
 
 
 def _container_limit_mb() -> float:
-    """Container memory limit in MB. Reads MemTotal from /proc/meminfo
-    which reflects the container's cgroup limit on Linux."""
+    """Container memory limit in MB.
+
+    Tries cgroup v2 then v1, then falls back to /proc/meminfo.
+    On ECS EC2 launch type, /proc/meminfo shows host memory,
+    not the task limit — cgroup is the only reliable source.
+    """
+    # cgroup v2 (Fargate, modern Docker)
+    for path in ("/sys/fs/cgroup/memory.max",):
+        try:
+            with open(path) as f:
+                val = f.read().strip()
+                if val != "max":
+                    limit = int(val) / (1024 * 1024)
+                    if limit < 500_000:  # sanity: <500 GB
+                        return limit
+        except (FileNotFoundError, ValueError, PermissionError):
+            pass
+    # cgroup v1 (ECS EC2, older Docker)
+    for path in ("/sys/fs/cgroup/memory/memory.limit_in_bytes",):
+        try:
+            with open(path) as f:
+                limit = int(f.read().strip()) / (1024 * 1024)
+                if limit < 500_000:
+                    return limit
+        except (FileNotFoundError, ValueError, PermissionError):
+            pass
+    # Fallback — /proc/meminfo (may be host memory on EC2)
     try:
         with open("/proc/meminfo") as f:
             for line in f:
                 if line.startswith("MemTotal:"):
-                    return int(line.split()[1]) / 1024  # kB → MB
+                    return int(line.split()[1]) / 1024
     except (FileNotFoundError, ValueError):
         pass
-    try:
-        return psutil.virtual_memory().total / (1024 * 1024)
-    except Exception:
-        return 32_000.0
+    return 32_000.0
 
 
 def _stratified_subsample(df: pd.DataFrame, strat_col: str,
