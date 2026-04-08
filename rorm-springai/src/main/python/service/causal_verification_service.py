@@ -121,6 +121,19 @@ def _container_limit_mb() -> float:
         return 32_000.0
 
 
+def _stratified_subsample(df: pd.DataFrame, strat_col: str,
+                          frac: float) -> pd.DataFrame:
+    """Stratified subsample preserving distribution of strat_col."""
+    if frac >= 1.0:
+        return df
+    return df.groupby(strat_col, group_keys=False).apply(
+        lambda g: g.sample(
+            n=max(1, int(len(g) * frac)),
+            random_state=RANDOM_STATE,
+        ),
+    ).reset_index(drop=True)
+
+
 def _reclaim():
     """Force Python GC and return freed pages to OS."""
     import gc
@@ -1459,14 +1472,14 @@ class CausalVerificationService:
                         subsample_frac = min(1.0, safe_data_mb / grf_data_mb)
                         subsample_frac = max(0.05, subsample_frac)
                         if subsample_frac < 1.0:
-                            n_sample = max(10_000, int(len(enc) * subsample_frac))
-                            idx = enc.sample(n=n_sample, random_state=RANDOM_STATE).index
-                            fit_enc = enc.loc[idx]
+                            fit_enc = _stratified_subsample(
+                                enc, spec.treatment, subsample_frac)
                             logger.warning(
                                 "GRF %s: subsampling %.0f%% (%d→%d rows), "
                                 "RSS=%.0f MB (%.0f%% of %.0f MB)",
-                                cfg.id, subsample_frac * 100, len(enc), n_sample,
-                                rss, usage * 100, budget.container_mb,
+                                cfg.id, subsample_frac * 100, len(enc),
+                                len(fit_enc), rss,
+                                        rss / budget.container_mb * 100, budget.container_mb,
                             )
 
                 X_grf = fit_enc[cfg.modifier_columns].values
@@ -1554,6 +1567,27 @@ class CausalVerificationService:
         lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
         n_sims = budget.param("refutation_simulations") if budget else REFUTATION_SIMULATIONS
 
+        # Subsample for refutations: dowhy copies the full DataFrame
+        # per simulation, so memory scales as n_rows × n_sims.
+        refute_data = data.encoded
+        if budget and len(data.encoded) > 100_000:
+            rss = _rss_mb()
+            data_mb = len(data.encoded) * data.encoded.shape[1] * 8 / (1024 * 1024)
+            # Each refutation: estimate (20 bootstrap × data) + n_sims permuted copies
+            projected = rss + data_mb * (20 + n_sims) * 3
+            target = budget.container_mb * 0.80
+            if projected > target:
+                safe_mb = max(0, target - rss) / ((20 + n_sims) * 3)
+                frac = max(0.10, min(1.0, safe_mb / data_mb))
+                refute_data = _stratified_subsample(
+                    data.encoded, spec.treatment, frac)
+                logger.warning(
+                    "Refutations: subsampling %.0f%% (%d→%d rows), "
+                    "RSS=%.0f MB, projected=%.0f MB, target=%.0f MB",
+                    frac * 100, len(data.encoded), len(refute_data),
+                    rss, projected, target,
+                )
+
         def _build_model():
             model_t = LGBMClassifier(**lgbm_kw) if discrete else LGBMRegressor(**lgbm_kw)
             params = {
@@ -1566,7 +1600,7 @@ class CausalVerificationService:
                 "fit_params": {},
             }
             model = dowhy.CausalModel(
-                data=data.encoded, treatment=spec.treatment,
+                data=refute_data, treatment=spec.treatment,
                 outcome=spec.outcome, graph=dag_nx,
                 effect_modifiers=[],
             )
@@ -1613,6 +1647,7 @@ class CausalVerificationService:
                 except Exception as e:
                     f.set_exception(e)
                 futures[key] = f
+                _reclaim()
         return futures
 
     def _collect_refutations(self, futures: dict[str, Future],
