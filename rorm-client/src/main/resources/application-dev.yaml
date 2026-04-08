@@ -28,3 +28,8 @@ rorm:
     valkeyUrl: redis://:***REMOVED-VALKEY-PASSWORD***@***REMOVED-HOST***:6379
     durable-execution: true
     serviceBaseUrl: http://MlInfr-MlAlb-fsf84yGJ69Ex-1790046904.eu-central-1.elb.amazonaws.com
+
+anthropic:
+  bedrock:
+    region: eu-central-1
+    api-key: hgk

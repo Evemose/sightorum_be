@@ -693,10 +693,7 @@ final class SamplePipelineSpecs {
 
     private static final String H2_POSITIVITY_CHECK = """
         {
-          "confounder_column": "nodeId",
-          "treatment_hierarchy": ["vehicleEquipmentCohort", "vehicleRefrigModel", "vehicleMakeModel"],
-          "min_cell_threshold": 50,
-          "relative_threshold": 0.3
+          "treatment_hierarchy": ["vehicleEquipmentCohort", "vehicleRefrigModel", "vehicleMakeModel"]
         }
         """;
 
