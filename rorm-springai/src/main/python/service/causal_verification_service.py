@@ -67,11 +67,12 @@ GRF_MIN_LEAF = 50
 #   param = min_val + (max_val - min_val) * threshold / max(threshold, data_mb)
 
 _PARAM_SPECS = {
-    "lgbm_n_estimators": (300, 100, 200),
-    "bootstrap_samples": (20, 5, 200),
-    "refutation_simulations": (10, 3, 200),
-    "grf_estimators": (200, 50, 200),
-    "grf_min_leaf": (50, 50, 200),  # no reduction
+    #                        (max, min, threshold_mb)
+    "lgbm_n_estimators": (300, 100, 100),
+    "bootstrap_samples": (20, 5, 100),
+    "refutation_simulations": (10, 3, 100),
+    "grf_estimators": (200, 20, 50),
+    "grf_min_leaf": (50, 50, 200),
 }
 
 
@@ -145,20 +146,32 @@ class _MemoryBudget:
         )
 
     def param(self, name: str) -> int:
-        """Get adaptive parameter, further reduced if RSS is high."""
+        """Get adaptive parameter, scaled down proportionally to RSS pressure.
+
+        Below 50% RSS: full parameter value.
+        50-100% RSS: linearly interpolate from max down to min.
+        Above container limit: clamp to min.
+        """
         base = _adaptive_param(name, self.data_mb)
+        min_val = _PARAM_SPECS[name][1]
         rss = _rss_mb()
-        if rss > self.pressure_ceiling:
-            # Under pressure — halve the parameter (clamped to min)
-            min_val = _PARAM_SPECS[name][1]
-            reduced = max(min_val, base // 2)
+        usage_frac = rss / self.container_mb if self.container_mb > 0 else 0
+
+        if usage_frac <= 0.50:
+            return base
+
+        # Linear scale: at 50% → base, at 100% → min_val
+        scale = max(0.0, 1.0 - (usage_frac - 0.50) / 0.50)
+        reduced = int(min_val + (base - min_val) * scale)
+        reduced = max(min_val, reduced)
+
+        if reduced < base:
             logger.warning(
-                "Memory pressure: RSS=%.0f MB > ceiling=%.0f MB, "
+                "Memory pressure: RSS=%.0f MB (%.0f%% of %.0f MB), "
                 "reducing %s from %d to %d",
-                rss, self.pressure_ceiling, name, base, reduced,
+                rss, usage_frac * 100, self.container_mb, name, base, reduced,
             )
-            return reduced
-        return base
+        return reduced
 
     def lgbm_defaults(self) -> dict:
         return dict(
@@ -1421,15 +1434,45 @@ class CausalVerificationService:
                            budget=None, checkpoint=None) -> list[dict]:
         enc = data.encoded
 
-        lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
-        grf_n_est = budget.param("grf_estimators") if budget else GRF_ESTIMATORS
-
         def _fit_one_grf(cfg: GrfConfig) -> dict:
             try:
-                X_grf = enc[cfg.modifier_columns].values
-                Y = enc[spec.outcome].values
-                T = enc[spec.treatment].values
-                W = enc[confounders].values
+                lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
+                grf_n_est = budget.param("grf_estimators") if budget else GRF_ESTIMATORS
+
+                # Subsample if RSS is above 40% of container to keep GRF
+                # from pushing past the limit.  CausalForestDML memory
+                # scales roughly O(n * n_estimators).
+                fit_enc = enc
+                subsample_frac = 1.0
+                if budget and len(enc) > 100_000:
+                    # CausalForestDML memory is ~200x the data footprint
+                    # (n_estimators trees × per-row leaf assignments ×
+                    # nuisance LGBM models × bootstrap resamples).
+                    # Cap fit size so projected GRF peak stays under 80%
+                    # of container.
+                    rss = _rss_mb()
+                    grf_data_mb = len(enc) * enc.shape[1] * 8 / (1024 * 1024)
+                    projected_peak = rss + grf_data_mb * 200
+                    target = budget.container_mb * 0.80
+                    if projected_peak > target:
+                        safe_data_mb = max(0, target - rss) / 200
+                        subsample_frac = min(1.0, safe_data_mb / grf_data_mb)
+                        subsample_frac = max(0.05, subsample_frac)
+                        if subsample_frac < 1.0:
+                            n_sample = max(10_000, int(len(enc) * subsample_frac))
+                            idx = enc.sample(n=n_sample, random_state=RANDOM_STATE).index
+                            fit_enc = enc.loc[idx]
+                            logger.warning(
+                                "GRF %s: subsampling %.0f%% (%d→%d rows), "
+                                "RSS=%.0f MB (%.0f%% of %.0f MB)",
+                                cfg.id, subsample_frac * 100, len(enc), n_sample,
+                                rss, usage * 100, budget.container_mb,
+                            )
+
+                X_grf = fit_enc[cfg.modifier_columns].values
+                Y = fit_enc[spec.outcome].values
+                T = fit_enc[spec.treatment].values
+                W = fit_enc[confounders].values
 
                 grf = CausalForestDML(
                     model_y=LGBMRegressor(**lgbm_kw),
@@ -1441,23 +1484,30 @@ class CausalVerificationService:
                 grf.fit(Y=Y, T=T, X=X_grf, W=W)
                 cates = grf.effect(X=X_grf)
 
+                # Slice data used for fitting (may be subsampled)
+                slice_data = fit_enc if subsample_frac < 1.0 else data
                 slices = {}
                 for col, method in cfg.slicing.items():
+                    if col not in slice_data.columns:
+                        continue
+                    col_vals = slice_data[col]
                     if method == "unique":
-                        for val in sorted(data[col].unique()):
-                            subset = cates[data[col] == val]
+                        for val in sorted(col_vals.unique()):
+                            mask = (col_vals == val).values
+                            subset = cates[mask]
                             slices[f"{col}={val}"] = {
                                 "mean_cate": float(subset.mean()),
                                 "std_cate": float(subset.std()),
                                 "n": int(len(subset)),
                             }
                     elif method == "quartile":
-                        q_col = pd.qcut(data[col], 4, duplicates="drop")
-                        for q, idx in data.groupby(q_col).groups.items():
+                        q_col = pd.qcut(col_vals, 4, duplicates="drop")
+                        for q, grp_idx in slice_data.groupby(q_col).groups.items():
+                            positions = slice_data.index.get_indexer(grp_idx)
                             slices[f"{col}={q}"] = {
-                                "mean_cate": float(cates[idx].mean()),
-                                "std_cate": float(cates[idx].std()),
-                                "n": int(len(idx)),
+                                "mean_cate": float(cates[positions].mean()),
+                                "std_cate": float(cates[positions].std()),
+                                "n": int(len(positions)),
                             }
 
                 importances = {
