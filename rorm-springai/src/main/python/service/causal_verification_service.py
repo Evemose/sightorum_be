@@ -1640,12 +1640,19 @@ class CausalVerificationService:
         if budget and len(data.encoded) > 100_000:
             rss = _rss_mb()
             data_mb = len(data.encoded) * data.encoded.shape[1] * 8 / (1024 * 1024)
-            # Each refutation: estimate (20 bootstrap × data) + n_sims permuted copies
-            projected = rss + data_mb * (20 + n_sims) * 3
+            n_levels = data.encoded[spec.treatment].nunique()
+            # dowhy estimate_effect + refute_estimate: full DML internally
+            # (bootstrap × LGBM models), then n_sims permuted re-estimations.
+            # Memory scales ~200x data for high-cardinality categoricals.
+            refute_multiplier = 200 * n_levels / 27
+            projected = rss + data_mb * refute_multiplier
             target = budget.container_mb * 0.80
             if projected > target:
-                safe_mb = max(0, target - rss) / ((20 + n_sims) * 3)
-                frac = max(0.20, min(1.0, safe_mb / data_mb))
+                safe_mb = max(0, target - rss) / refute_multiplier
+                frac = min(1.0, safe_mb / data_mb)
+                # Floor: 500 obs per treatment level
+                min_frac = (500 * n_levels) / len(data.encoded) if len(data.encoded) > 0 else 1.0
+                frac = max(min_frac, frac)
                 refute_data = _stratified_subsample(
                     data.encoded, spec.treatment, frac)
                 logger.warning(
