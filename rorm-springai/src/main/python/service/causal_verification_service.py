@@ -330,7 +330,7 @@ class CausalVerificationService:
             else:
                 report(0.12, "Positivity gate")
                 positivity_report, rewritten_variants, final_treatment, surviving_mask = \
-                    self._positivity_gate(data, spec)
+                    self._positivity_gate(data, spec, budget)
                 from dataclasses import asdict
                 _cp_save("positivity", {
                     "positivity_report": positivity_report,
@@ -1209,8 +1209,8 @@ class CausalVerificationService:
     # Step 2b: Positivity gate
     # ------------------------------------------------------------------
 
-    def _positivity_gate(self, data, spec):
-        """Check treatment × confounder cell sizes, coarsen if needed.
+    def _positivity_gate(self, data, spec, budget=None):
+        """Check treatment × confounder cell sizes and memory feasibility.
 
         Returns (positivity_report, rewritten_variants_or_None,
                  final_treatment_or_None, surviving_mask_or_None).
@@ -1279,6 +1279,34 @@ class CausalVerificationService:
             }
 
             if coverage_pct >= pc.min_coverage_pct:
+                # Memory feasibility: can GRF fit this granularity?
+                # GRF peak ≈ n_rows × n_cols × 8 × 200.
+                # If projected peak exceeds 80% of container, coarsen.
+                if budget and budget.container_mb > 0:
+                    data_mb = surviving_n * data.encoded.shape[1] * 8 / (1024 * 1024)
+                    rss = _rss_mb()
+                    # GRF memory scales with treatment cardinality:
+                    # CATE array is n_rows × (n_levels - 1), forest splits
+                    # grow with log(n_levels). Base multiplier 200 at 27 levels.
+                    grf_multiplier = 200 * n_treatment_levels / 27
+                    projected_grf = rss + data_mb * grf_multiplier
+                    mem_target = budget.container_mb * 0.80
+                    if projected_grf > mem_target:
+                        subsample_needed = max(0, mem_target - rss) / (data_mb * grf_multiplier) if data_mb > 0 else 1
+                        # Coarsen if subsampling would leave <500 obs
+                        # per treatment level (DML reliability floor)
+                        min_per_level = int(surviving_n * subsample_needed / n_treatment_levels) \
+                            if n_treatment_levels > 0 else 0
+                        if min_per_level < 500:
+                            level_report["verdict"] = "COARSENED"
+                            level_report["coarsen_reason"] = (
+                                f"Memory: GRF projected {projected_grf:.0f} MB > "
+                                f"target {mem_target:.0f} MB, subsample would "
+                                f"leave ~{min_per_level} obs/level (min 500)"
+                            )
+                            attempted_levels.append(level_report)
+                            continue
+
                 level_report["verdict"] = "PASSED"
                 attempted_levels.append(level_report)
 
@@ -1470,7 +1498,10 @@ class CausalVerificationService:
                     if projected_peak > target:
                         safe_data_mb = max(0, target - rss) / 200
                         subsample_frac = min(1.0, safe_data_mb / grf_data_mb)
-                        subsample_frac = max(0.05, subsample_frac)
+                        # Floor: 500 obs per treatment level
+                        n_levels = enc[spec.treatment].nunique()
+                        min_frac = (500 * n_levels) / len(enc) if len(enc) > 0 else 1.0
+                        subsample_frac = max(min_frac, subsample_frac)
                         if subsample_frac < 1.0:
                             fit_enc = _stratified_subsample(
                                 enc, spec.treatment, subsample_frac)
@@ -1578,7 +1609,7 @@ class CausalVerificationService:
             target = budget.container_mb * 0.80
             if projected > target:
                 safe_mb = max(0, target - rss) / ((20 + n_sims) * 3)
-                frac = max(0.10, min(1.0, safe_mb / data_mb))
+                frac = max(0.20, min(1.0, safe_mb / data_mb))
                 refute_data = _stratified_subsample(
                     data.encoded, spec.treatment, frac)
                 logger.warning(
