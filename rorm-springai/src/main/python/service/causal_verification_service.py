@@ -230,6 +230,10 @@ class CausalVerificationService:
         self._db_storage = db_storage
         self._worker_pool = worker_pool
 
+    @staticmethod
+    def _trace(msg, *args):
+        logger.info("[TRACE] " + msg, *args)
+
     def _pool_submit(self, budget: "_MemoryBudget", fn: Callable[[], Any]) -> "Future[Any]":
         """Run fn serially. Check RSS before, reclaim after."""
         budget.check_and_reclaim()
@@ -370,13 +374,26 @@ class CausalVerificationService:
                     "surviving_mask": surviving_mask,
                 })
                 if rewritten_variants is not None:
+                    old_treatment = spec.treatment
                     logger.info("Positivity: coarsened treatment %s → %s, "
                                 "rewriting %d variants, trimming to %d rows",
-                                spec.treatment, final_treatment,
+                                old_treatment, final_treatment,
                                 len(rewritten_variants), sum(surviving_mask) if surviving_mask else len(data))
                     spec = self._apply_positivity_rewrite(spec, rewritten_variants,
                                                           final_treatment, surviving_mask)
                     data = self._apply_positivity_trim(data, surviving_mask)
+
+                    # Update DAG: replace old treatment node with coarsened one
+                    old_edges = refined_edges[:]
+                    refined_edges = [
+                        (final_treatment if s == old_treatment else s,
+                         final_treatment if d == old_treatment else d)
+                        for s, d in refined_edges
+                    ]
+                    dag_nx = self._edges_to_nx(refined_edges)
+                    self._trace("DAG updated: %s → %s in %d edges",
+                                old_treatment, final_treatment,
+                                sum(1 for o, n in zip(old_edges, refined_edges) if o != n))
                 elif positivity_report.get("final_level"):
                     logger.info("Positivity: passed at level %s, no coarsening needed",
                                 positivity_report["final_level"])
@@ -1520,24 +1537,26 @@ class CausalVerificationService:
         from dataclasses import replace as dc_replace
         coarsened = original_treatment is not None and final_treatment != original_treatment
 
+        # Build fine→coarse mapping once
+        fine_to_coarse = {}
+        if coarsened and original_treatment in data.raw.columns and final_treatment in data.raw.columns:
+            surviving_data = data.raw[surviving_mask] if surviving_mask is not None else data.raw
+            mapping = surviving_data[[original_treatment, final_treatment]].drop_duplicates()
+            for _, row in mapping.iterrows():
+                fine_to_coarse[str(row[original_treatment])] = str(row[final_treatment])
+            self._trace("Fine→coarse mapping (%d entries): %s",
+                        len(fine_to_coarse),
+                        dict(list(fine_to_coarse.items())[:5]))
+
         rewritten = []
         for v in spec.estimation_variants:
             if not coarsened:
-                # Same treatment level, just trimming sparse cells
                 rewritten.append(v)
                 continue
 
-            # Check if this is a binary filter variant
             if v.filter is not None:
                 filt = v.filter
                 if hasattr(filt, 'values') and filt.values:
-                    # Map fine-level filter values to coarse level
-                    surviving_data = data.raw[surviving_mask]
-                    fine_to_coarse = {}
-                    if original_treatment in surviving_data.columns and final_treatment in surviving_data.columns:
-                        mapping = surviving_data[[original_treatment, final_treatment]].drop_duplicates()
-                        for _, row in mapping.iterrows():
-                            fine_to_coarse[str(row[original_treatment])] = str(row[final_treatment])
 
                     coarse_values = set()
                     for fv in filt.values:
@@ -1549,18 +1568,32 @@ class CausalVerificationService:
                         # Both levels map to same coarse value or one was trimmed → drop
                         continue
 
+                    # Map original reference category to coarse level
+                    mapped_ref = fine_to_coarse.get(str(v.reference_category)) \
+                        if v.reference_category else None
+                    if mapped_ref not in coarse_values:
+                        mapped_ref = sorted(coarse_values)[0]
+                    self._trace("Variant %s filter rewrite: %s → %s, ref %s → %s",
+                                v.id, filt.values, sorted(coarse_values),
+                                v.reference_category, mapped_ref)
                     new_v = dc_replace(v,
                                        treatment_column=final_treatment,
                                        filter=dc_replace(filt,
                                                          column=final_treatment,
                                                          values=sorted(coarse_values)),
-                                       reference_category=sorted(coarse_values)[0])
+                                       reference_category=mapped_ref)
                     rewritten.append(new_v)
                 else:
                     rewritten.append(dc_replace(v, treatment_column=final_treatment))
             else:
-                # Primary/nonparam/direct variants: just rewrite treatment column
-                rewritten.append(dc_replace(v, treatment_column=final_treatment))
+                # Primary/nonparam/direct variants: rewrite treatment + reference
+                mapped_ref = fine_to_coarse.get(str(v.reference_category)) \
+                    if v.reference_category and coarsened else v.reference_category
+                self._trace("Variant %s rewrite: treatment=%s, ref %s → %s",
+                            v.id, final_treatment, v.reference_category, mapped_ref)
+                rewritten.append(dc_replace(v,
+                                            treatment_column=final_treatment,
+                                            reference_category=mapped_ref))
 
         return rewritten
 
@@ -1583,9 +1616,53 @@ class CausalVerificationService:
             else:
                 new_variants.append(v)
 
+        new_treatment = final_treatment if final_treatment else spec.treatment
+
+        # Filter treatment column from GRF modifier_columns to avoid
+        # including the treatment variable as an effect modifier.
+        new_grf_configs = []
+        for cfg in spec.grf_configs:
+            filtered_mods = [m for m in cfg.modifier_columns if m != new_treatment]
+            if filtered_mods != cfg.modifier_columns:
+                self._trace("GRF %s: removed treatment '%s' from modifier_columns: %s → %s",
+                            cfg.id, new_treatment, cfg.modifier_columns, filtered_mods)
+            if filtered_mods:
+                from dto.causal_verification_request import GrfConfig
+                new_grf_configs.append(GrfConfig(
+                    id=cfg.id,
+                    modifier_columns=filtered_mods,
+                    slicing={k: v for k, v in cfg.slicing.items() if k != new_treatment},
+                ))
+            else:
+                self._trace("GRF %s: dropped entirely (no modifier_columns left after removing treatment)",
+                            cfg.id)
+
+        # Update allocation_bias treatment_column references
+        new_ext = spec.externalization
+        if new_ext and spec.treatment != new_treatment:
+            from dto.causal_verification_request import AllocationBias, ExternalizationConfig
+            new_alloc = []
+            for ab in new_ext.allocation_bias:
+                if ab.treatment_column == spec.treatment:
+                    self._trace("Allocation bias: treatment_column %s → %s",
+                                ab.treatment_column, new_treatment)
+                    new_alloc.append(AllocationBias(
+                        treatment_column=new_treatment,
+                        grouping_column=ab.grouping_column,
+                        flag_threshold=ab.flag_threshold,
+                    ))
+                else:
+                    new_alloc.append(ab)
+            new_ext = ExternalizationConfig(
+                domain_rankings=new_ext.domain_rankings,
+                allocation_bias=new_alloc,
+            )
+
         new_spec = dc_replace(spec,
-                              treatment=final_treatment if final_treatment else spec.treatment,
-                              estimation_variants=new_variants)
+                              treatment=new_treatment,
+                              estimation_variants=new_variants,
+                              grf_configs=new_grf_configs,
+                              externalization=new_ext)
         return new_spec
 
     # ------------------------------------------------------------------
