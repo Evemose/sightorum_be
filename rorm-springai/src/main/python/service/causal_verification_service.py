@@ -1860,12 +1860,20 @@ class CausalVerificationService:
                 },
                 "fit_params": {},
             }
+            raw = refute_data.raw
+            self._trace("Refutation _build_model: treatment=%s, outcome=%s, "
+                        "data shape=%s, columns=%s, dag_nodes=%s",
+                        spec.treatment, spec.outcome, raw.shape,
+                        sorted(raw.columns.tolist()),
+                        sorted(set(n for e in refined_edges for n in e) if refined_edges else []))
             model = dowhy.CausalModel(
-                data=refute_data.raw, treatment=spec.treatment,
+                data=raw, treatment=spec.treatment,
                 outcome=spec.outcome, graph=dag_nx,
                 effect_modifiers=[],
             )
             ident = model.identify_effect(proceed_when_unidentifiable=False)
+            self._trace("Refutation identified: backdoor=%s",
+                        ident.get_backdoor_variables() if hasattr(ident, 'get_backdoor_variables') else 'N/A')
             est = model.estimate_effect(
                 ident, method_name="backdoor.econml.dml.DML",
                 method_params=params,
