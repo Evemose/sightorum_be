@@ -1870,13 +1870,16 @@ class CausalVerificationService:
                 },
                 "fit_params": {},
             }
-            raw = refute_data.raw
+            # Use encoded data (integer codes) to avoid dowhy's internal
+            # one-hot encoding of string categoricals, which crashes when
+            # it tries to index the encoded DataFrame with original column names.
+            encoded = refute_data.encoded
             self._trace("Refutation _build_model: treatment=%s (in_data=%s), outcome=%s, "
                         "data shape=%s, dag_nx type=%s",
-                        spec.treatment, spec.treatment in raw.columns,
-                        spec.outcome, raw.shape, type(dag_nx).__name__)
+                        spec.treatment, spec.treatment in encoded.columns,
+                        spec.outcome, encoded.shape, type(dag_nx).__name__)
             model = dowhy.CausalModel(
-                data=raw, treatment=spec.treatment,
+                data=encoded, treatment=spec.treatment,
                 outcome=spec.outcome, graph=dag_nx,
                 effect_modifiers=[],
             )
@@ -1886,6 +1889,7 @@ class CausalVerificationService:
             est = model.estimate_effect(
                 ident, method_name="backdoor.econml.dml.DML",
                 method_params=params,
+                effect_modifiers=[],
             )
             return model, ident, est
 
