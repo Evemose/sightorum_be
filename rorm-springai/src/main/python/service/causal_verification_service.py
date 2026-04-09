@@ -288,11 +288,18 @@ class CausalVerificationService:
         report(0.02, "Loading data")
         data = self._load_data(spec, datasource)
         result["row_count"] = len(data)
+        logger.info("Pipeline %s: loaded %d rows × %d cols, treatment=%s (%d levels), "
+                    "outcome=%s, adjustment_set=%d vars",
+                    spec.hypothesis_id, len(data), data.encoded.shape[1],
+                    spec.treatment, data.raw[spec.treatment].nunique() if spec.treatment in data.columns else 0,
+                    spec.outcome, len(spec.adjustment_set))
         if spec.expected_row_count and len(data) != spec.expected_row_count:
             result["row_count_mismatch"] = {
                 "expected": spec.expected_row_count,
                 "actual": len(data),
             }
+            logger.warning("Row count mismatch: expected %d, got %d",
+                           spec.expected_row_count, len(data))
 
         self._validate_spec(spec, data)
         budget = _MemoryBudget(data)
@@ -363,9 +370,19 @@ class CausalVerificationService:
                     "surviving_mask": surviving_mask,
                 })
                 if rewritten_variants is not None:
+                    logger.info("Positivity: coarsened treatment %s → %s, "
+                                "rewriting %d variants, trimming to %d rows",
+                                spec.treatment, final_treatment,
+                                len(rewritten_variants), sum(surviving_mask) if surviving_mask else len(data))
                     spec = self._apply_positivity_rewrite(spec, rewritten_variants,
                                                           final_treatment, surviving_mask)
                     data = self._apply_positivity_trim(data, surviving_mask)
+                elif positivity_report.get("final_level"):
+                    logger.info("Positivity: passed at level %s, no coarsening needed",
+                                positivity_report["final_level"])
+                else:
+                    logger.warning("Positivity: FAILED at all hierarchy levels — %s",
+                                   positivity_report.get("failure", "unknown"))
             result["steps"]["positivity"] = positivity_report
             result["row_count"] = len(data)
 
@@ -380,6 +397,8 @@ class CausalVerificationService:
             primary_ci = cp.get("primary_ci")
         else:
             report(0.15, "Running estimation variants")
+            logger.info("Estimation: %d variants, treatment=%s, n=%d",
+                        len(spec.estimation_variants), spec.treatment, len(data))
             estimation_results = {}
             variant_futures: dict[str, Future] = {}
             for v in spec.estimation_variants:
@@ -404,6 +423,16 @@ class CausalVerificationService:
                 "primary_ci": primary_ci,
             })
         result["steps"]["estimation"] = estimation_results
+        for vid, r in estimation_results.items():
+            eff = r.get("effect")
+            ci = r.get("ci")
+            err = r.get("error")
+            if err:
+                logger.warning("Estimation %s: FAILED — %s", vid, err)
+            else:
+                logger.info("Estimation %s: effect=%.6g, CI=%s, n=%s",
+                            vid, eff if eff is not None else float('nan'),
+                            ci, r.get("n_obs"))
 
         if primary_effect is None:
             failed_variants = [vid for vid, r in estimation_results.items()
@@ -427,6 +456,14 @@ class CausalVerificationService:
             )
             _cp_save("gates", {"gates_result": gates_result})
         result["steps"]["gates"] = gates_result
+        nr2 = gates_result.get("nuisance_r2", {})
+        san = gates_result.get("sanity", {})
+        logger.info("Gates: outcome_r2=%.3f (%s), treatment_r2=%.3f (%s), "
+                    "sanity=%s (magnitude=%.4g, direction=%s)",
+                    nr2.get("outcome_r2", 0), nr2.get("outcome_status"),
+                    nr2.get("treatment_r2", 0), nr2.get("treatment_status"),
+                    san.get("status"), san.get("effect_magnitude", 0),
+                    san.get("direction_ok"))
 
         # ==================================================================
         # Steps 5-12  —  Parallel execution (independent post-gate steps)
@@ -449,7 +486,9 @@ class CausalVerificationService:
                 report(0, f"{name} (cached)")
                 return cp_key, cp_extract(cp)
             report(0, name)
+            logger.info("Step '%s': starting (RSS=%.0f MB)", name, _rss_mb())
             val = compute()
+            logger.info("Step '%s': completed (RSS=%.0f MB)", name, _rss_mb())
             _cp_save(cp_key, cp_pack(val))
             return cp_key, val
 
@@ -561,6 +600,10 @@ class CausalVerificationService:
         result["steps"]["residual_diagnostics"] = rd_val
         corrected = rd_val.get("corrected_effect") if isinstance(rd_val, dict) else None
         if corrected is not None:
+            logger.info("Residual auto-correction: effect %.6g → %.6g",
+                        result["steps"]["estimation"].get(
+                            spec.estimation_variants[0].id, {}).get("effect", 0),
+                        corrected)
             primary_effect = corrected
         _reclaim()
 
@@ -644,6 +687,12 @@ class CausalVerificationService:
                 "result": result,
             })
 
+        logger.info("Pipeline %s COMPLETE: treatment=%s, final_effect=%.6g, "
+                    "ci_crosses_zero=%s, RSS=%.0f MB",
+                    spec.hypothesis_id, spec.treatment,
+                    result.get("final_effect") or 0,
+                    result.get("ci_crosses_zero"),
+                    _rss_mb())
         report(1.0, "Pipeline complete")
         return result
 
@@ -1244,8 +1293,11 @@ class CausalVerificationService:
         for col in adjustment_set:
             if col == treatment_col or col not in data.columns:
                 continue
-            vals = data.raw[col] if col in data.raw.columns else data.encoded[col]
-            card = int(vals.nunique())
+            # Only categorical confounders — continuous columns create
+            # meaningless crosstabs with near-unique values per row.
+            if col not in data.cat_columns:
+                continue
+            card = int(data.raw[col].nunique())
             if card > 1:
                 cardinalities[col] = card
 
@@ -1358,6 +1410,19 @@ class CausalVerificationService:
 
             effective_threshold = max(30, 70 - 3 * math.sqrt(n_treatment_levels))
 
+            logger.info(
+                "Positivity level '%s': %d treatment levels, "
+                "checked %d confounders [%s], "
+                "cells: %d possible / %d surviving (%.1f%%), "
+                "threshold=%.1f%%, rows trimmed: %d (%.1f%%)",
+                treatment_col, n_treatment_levels,
+                len(confounders_to_check),
+                ", ".join(f"{c['confounder']}({c['n_cells']})" for c in confounder_reports),
+                total_possible_cells, total_surviving_cells, coverage_pct,
+                effective_threshold,
+                total_n - surviving_n, (total_n - surviving_n) / total_n * 100,
+            )
+
             level_report = {
                 "level": treatment_col,
                 "confounders_checked": confounder_reports,
@@ -1390,10 +1455,21 @@ class CausalVerificationService:
                                 f"target {mem_target:.0f} MB, subsample would "
                                 f"leave ~{min_per_level} obs/level (min 500)"
                             )
+                            logger.info("Positivity '%s': COARSENED (memory) — "
+                                        "GRF projected %.0f MB > %.0f MB target, "
+                                        "subsample would leave %d obs/level",
+                                        treatment_col, projected_grf, mem_target, min_per_level)
                             attempted_levels.append(level_report)
                             continue
+                        else:
+                            logger.info("Positivity '%s': memory OK — "
+                                        "GRF projected %.0f MB > %.0f MB target but "
+                                        "subsample keeps %d obs/level (>500)",
+                                        treatment_col, projected_grf, mem_target, min_per_level)
 
                 level_report["verdict"] = "PASSED"
+                logger.info("Positivity '%s': PASSED — coverage %.1f%% >= threshold %.1f%%",
+                            treatment_col, coverage_pct, effective_threshold)
                 attempted_levels.append(level_report)
 
                 if level_idx == 0 and len(all_sparse_cells) == 0:
@@ -1418,6 +1494,9 @@ class CausalVerificationService:
                 return report, rewritten, treatment_col, surviving_mask.tolist()
             else:
                 level_report["verdict"] = "COARSENED"
+                logger.info("Positivity '%s': COARSENED (coverage) — "
+                            "%.1f%% < threshold %.1f%%",
+                            treatment_col, coverage_pct, effective_threshold)
                 attempted_levels.append(level_report)
 
         last_level = attempted_levels[-1] if attempted_levels else None
@@ -1560,6 +1639,8 @@ class CausalVerificationService:
             try:
                 lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
                 grf_n_est = budget.param("grf_estimators") if budget else GRF_ESTIMATORS
+                # CausalForestDML requires n_estimators divisible by subforest_size (default 4)
+                grf_n_est = max(4, (grf_n_est // 4) * 4)
 
                 fit_data = data
                 if budget and len(data) > 100_000:

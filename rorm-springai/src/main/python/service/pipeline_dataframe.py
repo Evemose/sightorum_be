@@ -138,16 +138,16 @@ class PipelineDataFrame:
         """
         if frac >= 1.0:
             return self
-        sampled = self._raw.groupby(strat_col, group_keys=False).apply(
-            lambda g: g.sample(
-                n=max(1, int(len(g) * frac)),
-                random_state=random_state,
-            ),
-        )
-        idx = sampled.index
+        rng = np.random.default_rng(random_state)
+        positions = []
+        for _, group_idx in self._raw.groupby(strat_col).groups.items():
+            n_take = max(1, int(len(group_idx) * frac))
+            chosen = rng.choice(group_idx.values, size=n_take, replace=False)
+            positions.extend(chosen.tolist())
+        positions.sort()
         return PipelineDataFrame(
-            self._raw.loc[idx].reset_index(drop=True),
-            self._encoded.loc[idx].reset_index(drop=True),
+            self._raw.iloc[positions].reset_index(drop=True),
+            self._encoded.iloc[positions].reset_index(drop=True),
             self._cat_columns,
             self._encoders,
         )
