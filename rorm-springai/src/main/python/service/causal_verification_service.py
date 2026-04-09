@@ -358,9 +358,19 @@ class CausalVerificationService:
                 report(0.12, "Positivity gate (cached)")
                 positivity_report = cp["positivity_report"]
                 if cp.get("rewritten_variants") is not None:
+                    old_treatment = spec.treatment
                     spec = self._apply_positivity_rewrite(spec, cp["rewritten_variants"],
                                                           cp["final_treatment"], cp["surviving_mask"])
                     data = self._apply_positivity_trim(data, cp["surviving_mask"])
+                    if cp["final_treatment"] and cp["final_treatment"] != old_treatment:
+                        refined_edges = [
+                            (cp["final_treatment"] if s == old_treatment else s,
+                             cp["final_treatment"] if d == old_treatment else d)
+                            for s, d in refined_edges
+                        ]
+                        dag_nx = self._edges_to_nx(refined_edges)
+                        self._trace("DAG updated (cached): %s → %s",
+                                    old_treatment, cp["final_treatment"])
             else:
                 report(0.12, "Positivity gate")
                 positivity_report, rewritten_variants, final_treatment, surviving_mask = \
