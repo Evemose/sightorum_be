@@ -1861,11 +1861,10 @@ class CausalVerificationService:
                 "fit_params": {},
             }
             raw = refute_data.raw
-            self._trace("Refutation _build_model: treatment=%s, outcome=%s, "
-                        "data shape=%s, columns=%s, dag_nodes=%s",
-                        spec.treatment, spec.outcome, raw.shape,
-                        sorted(raw.columns.tolist()),
-                        sorted(set(n for e in refined_edges for n in e) if refined_edges else []))
+            self._trace("Refutation _build_model: treatment=%s (in_data=%s), outcome=%s, "
+                        "data shape=%s, dag_nx type=%s",
+                        spec.treatment, spec.treatment in raw.columns,
+                        spec.outcome, raw.shape, type(dag_nx).__name__)
             model = dowhy.CausalModel(
                 data=raw, treatment=spec.treatment,
                 outcome=spec.outcome, graph=dag_nx,
