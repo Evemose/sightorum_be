@@ -4,17 +4,21 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.dto.dense.DenseQueryDto;
 import com.rorm.ml.dto.PipelineSpecRequest;
+import com.rorm.ml.dto.pipelinespec.*;
 import lombok.SneakyThrows;
 
 import java.util.List;
-import java.util.Map;
 
 final class SamplePipelineSpecs {
 
-    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
-
-    // ========================== H1: containerInsulationType → excursionFlag ==========================
-    private static final TypeReference<List<Map<String, Object>>> LIST_OF_MAPS = new TypeReference<>() {};
+    private static final TypeReference<List<MediatorExclusion>> MEDIATORS_EXCLUDED_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<EstimationVariant>> ESTIMATION_VARIANTS_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<MediationConfig>> MEDIATION_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<GrfConfig>> GRF_CONFIGS_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<RefutationConfig>> REFUTATIONS_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<StructuralBreakConfig>> STRUCTURAL_BREAKS_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<UnmeasuredConfoundingConfig>> UNMEASURED_CONFOUNDING_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<DiscrepancyEntry>> DISCREPANCY_LOG_TYPE = new TypeReference<>() {};
 
     // ========================== H3: nodeRefrigHealthPct → excursionFlag ==========================
     private static final List<String> H1_W_COLUMNS = List.of(
@@ -885,27 +889,27 @@ final class SamplePipelineSpecs {
             .hypothesisId("vehicleEquipmentCohort_excursionFlag")
             .treatment("vehicleEquipmentCohort")
             .outcome("excursionFlag")
-            .treatmentForm("CATEGORICAL")
+            .treatmentForm(TreatmentForm.CATEGORICAL)
             .dataQuery(mapper.readValue(H2_QUERY, DenseQueryDto.class))
             .expectedRowCount(563_028)
             .stripColumns(List.of("shipmentId"))
             .dagEdges(H2_DAG_EDGES)
             .dsepThreshold(0.034)
             .adjustmentSet(H2_W_COLUMNS)
-            .mediatorsExcluded(mapper.readValue(H2_MEDIATORS_EXCLUDED, LIST_OF_MAPS))
-            .positivityCheck(mapper.readValue(H2_POSITIVITY_CHECK, MAP_TYPE))
-            .estimationVariants(mapper.readValue(H2_ESTIMATION_VARIANTS, LIST_OF_MAPS))
-            .gates(mapper.readValue(H2_GATES, MAP_TYPE))
-            .mediation(mapper.readValue(H2_MEDIATION, LIST_OF_MAPS))
-            .grfConfigs(mapper.readValue(H2_GRF_CONFIGS, LIST_OF_MAPS))
-            .refutations(mapper.readValue(H2_REFUTATIONS, LIST_OF_MAPS))
-            .sensitivity(mapper.readValue(H2_SENSITIVITY, MAP_TYPE))
-            .structuralBreaks(mapper.readValue(H2_STRUCTURAL_BREAKS, LIST_OF_MAPS))
-            .residualChecks(mapper.readValue(H2_RESIDUAL_CHECKS, MAP_TYPE))
-            .rangeChecks(mapper.readValue(H2_RANGE_CHECKS, MAP_TYPE))
-            .unmeasuredConfounding(mapper.readValue(H2_UNMEASURED_CONFOUNDING, LIST_OF_MAPS))
-            .externalization(mapper.readValue(H2_EXTERNALIZATION, MAP_TYPE))
-            .discrepancyLog(mapper.readValue(H2_DISCREPANCY_LOG, LIST_OF_MAPS))
+            .mediatorsExcluded(mapper.readValue(H2_MEDIATORS_EXCLUDED, MEDIATORS_EXCLUDED_TYPE))
+            .positivityCheck(mapper.readValue(H2_POSITIVITY_CHECK, PositivityCheck.class))
+            .estimationVariants(mapper.readValue(H2_ESTIMATION_VARIANTS, ESTIMATION_VARIANTS_TYPE))
+            .gates(mapper.readValue(H2_GATES, QualityGates.class))
+            .mediation(mapper.readValue(H2_MEDIATION, MEDIATION_TYPE))
+            .grfConfigs(mapper.readValue(H2_GRF_CONFIGS, GRF_CONFIGS_TYPE))
+            .refutations(mapper.readValue(H2_REFUTATIONS, REFUTATIONS_TYPE))
+            .sensitivity(mapper.readValue(H2_SENSITIVITY, SensitivityConfig.class))
+            .structuralBreaks(mapper.readValue(H2_STRUCTURAL_BREAKS, STRUCTURAL_BREAKS_TYPE))
+            .residualChecks(mapper.readValue(H2_RESIDUAL_CHECKS, ResidualChecks.class))
+            .rangeChecks(mapper.readValue(H2_RANGE_CHECKS, RangeChecks.class))
+            .unmeasuredConfounding(mapper.readValue(H2_UNMEASURED_CONFOUNDING, UNMEASURED_CONFOUNDING_TYPE))
+            .externalization(mapper.readValue(H2_EXTERNALIZATION, ExternalizationConfig.class))
+            .discrepancyLog(mapper.readValue(H2_DISCREPANCY_LOG, DISCREPANCY_LOG_TYPE))
             .build();
     }
 
@@ -915,7 +919,7 @@ final class SamplePipelineSpecs {
             .hypothesisId("containerInsulationType_excursionFlag")
             .treatment("containerInsulationType")
             .outcome("excursionFlag")
-            .treatmentForm("CATEGORICAL")
+            .treatmentForm(TreatmentForm.CATEGORICAL)
             .dataQuery(mapper.readValue(H1_QUERY, DenseQueryDto.class))
             .expectedRowCount(563_028)
             .stripColumns(List.of("shipmentId"))
@@ -923,18 +927,18 @@ final class SamplePipelineSpecs {
             .dsepThreshold(0.034)
             .adjustmentSet(H1_W_COLUMNS)
             .mediatorsExcluded(null)
-            .estimationVariants(mapper.readValue(H1_ESTIMATION_VARIANTS, LIST_OF_MAPS))
-            .gates(mapper.readValue(H1_GATES, MAP_TYPE))
+            .estimationVariants(mapper.readValue(H1_ESTIMATION_VARIANTS, ESTIMATION_VARIANTS_TYPE))
+            .gates(mapper.readValue(H1_GATES, QualityGates.class))
             .mediation(null)
-            .grfConfigs(mapper.readValue(H1_GRF_CONFIGS, LIST_OF_MAPS))
-            .refutations(mapper.readValue(H1_REFUTATIONS, LIST_OF_MAPS))
-            .sensitivity(mapper.readValue(H1_SENSITIVITY, MAP_TYPE))
-            .structuralBreaks(mapper.readValue(H1_STRUCTURAL_BREAKS, LIST_OF_MAPS))
-            .residualChecks(mapper.readValue(H1_RESIDUAL_CHECKS, MAP_TYPE))
-            .rangeChecks(mapper.readValue(H1_RANGE_CHECKS, MAP_TYPE))
-            .unmeasuredConfounding(mapper.readValue(H1_UNMEASURED_CONFOUNDING, LIST_OF_MAPS))
-            .externalization(mapper.readValue(H1_EXTERNALIZATION, MAP_TYPE))
-            .discrepancyLog(mapper.readValue(H1_DISCREPANCY_LOG, LIST_OF_MAPS))
+            .grfConfigs(mapper.readValue(H1_GRF_CONFIGS, GRF_CONFIGS_TYPE))
+            .refutations(mapper.readValue(H1_REFUTATIONS, REFUTATIONS_TYPE))
+            .sensitivity(mapper.readValue(H1_SENSITIVITY, SensitivityConfig.class))
+            .structuralBreaks(mapper.readValue(H1_STRUCTURAL_BREAKS, STRUCTURAL_BREAKS_TYPE))
+            .residualChecks(mapper.readValue(H1_RESIDUAL_CHECKS, ResidualChecks.class))
+            .rangeChecks(mapper.readValue(H1_RANGE_CHECKS, RangeChecks.class))
+            .unmeasuredConfounding(mapper.readValue(H1_UNMEASURED_CONFOUNDING, UNMEASURED_CONFOUNDING_TYPE))
+            .externalization(mapper.readValue(H1_EXTERNALIZATION, ExternalizationConfig.class))
+            .discrepancyLog(mapper.readValue(H1_DISCREPANCY_LOG, DISCREPANCY_LOG_TYPE))
             .build();
     }
 
@@ -944,26 +948,26 @@ final class SamplePipelineSpecs {
             .hypothesisId("nodeRefrigHealthPct_excursionFlag")
             .treatment("nodeRefrigHealthPct")
             .outcome("excursionFlag")
-            .treatmentForm("CONTINUOUS")
+            .treatmentForm(TreatmentForm.CONTINUOUS)
             .dataQuery(mapper.readValue(H3_QUERY, DenseQueryDto.class))
             .expectedRowCount(563_028)
             .stripColumns(List.of("shipmentId", "dispatchTimestamp"))
             .dagEdges(H3_DAG_EDGES)
             .dsepThreshold(0.044)
             .adjustmentSet(H3_W_COLUMNS)
-            .mediatorsExcluded(mapper.readValue(H3_MEDIATORS_EXCLUDED, LIST_OF_MAPS))
-            .estimationVariants(mapper.readValue(H3_ESTIMATION_VARIANTS, LIST_OF_MAPS))
-            .gates(mapper.readValue(H3_GATES, MAP_TYPE))
-            .mediation(mapper.readValue(H3_MEDIATION, LIST_OF_MAPS))
-            .grfConfigs(mapper.readValue(H3_GRF_CONFIGS, LIST_OF_MAPS))
-            .refutations(mapper.readValue(H3_REFUTATIONS, LIST_OF_MAPS))
-            .sensitivity(mapper.readValue(H3_SENSITIVITY, MAP_TYPE))
-            .structuralBreaks(mapper.readValue(H3_STRUCTURAL_BREAKS, LIST_OF_MAPS))
-            .residualChecks(mapper.readValue(H3_RESIDUAL_CHECKS, MAP_TYPE))
-            .rangeChecks(mapper.readValue(H3_RANGE_CHECKS, MAP_TYPE))
-            .unmeasuredConfounding(mapper.readValue(H3_UNMEASURED_CONFOUNDING, LIST_OF_MAPS))
-            .externalization(mapper.readValue(H3_EXTERNALIZATION, MAP_TYPE))
-            .discrepancyLog(mapper.readValue(H3_DISCREPANCY_LOG, LIST_OF_MAPS))
+            .mediatorsExcluded(mapper.readValue(H3_MEDIATORS_EXCLUDED, MEDIATORS_EXCLUDED_TYPE))
+            .estimationVariants(mapper.readValue(H3_ESTIMATION_VARIANTS, ESTIMATION_VARIANTS_TYPE))
+            .gates(mapper.readValue(H3_GATES, QualityGates.class))
+            .mediation(mapper.readValue(H3_MEDIATION, MEDIATION_TYPE))
+            .grfConfigs(mapper.readValue(H3_GRF_CONFIGS, GRF_CONFIGS_TYPE))
+            .refutations(mapper.readValue(H3_REFUTATIONS, REFUTATIONS_TYPE))
+            .sensitivity(mapper.readValue(H3_SENSITIVITY, SensitivityConfig.class))
+            .structuralBreaks(mapper.readValue(H3_STRUCTURAL_BREAKS, STRUCTURAL_BREAKS_TYPE))
+            .residualChecks(mapper.readValue(H3_RESIDUAL_CHECKS, ResidualChecks.class))
+            .rangeChecks(mapper.readValue(H3_RANGE_CHECKS, RangeChecks.class))
+            .unmeasuredConfounding(mapper.readValue(H3_UNMEASURED_CONFOUNDING, UNMEASURED_CONFOUNDING_TYPE))
+            .externalization(mapper.readValue(H3_EXTERNALIZATION, ExternalizationConfig.class))
+            .discrepancyLog(mapper.readValue(H3_DISCREPANCY_LOG, DISCREPANCY_LOG_TYPE))
             .build();
     }
 }

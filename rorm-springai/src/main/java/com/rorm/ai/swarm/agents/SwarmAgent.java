@@ -1,6 +1,8 @@
 package com.rorm.ai.swarm.agents;
 
 import com.rorm.ai.chat.ChatRequest;
+import com.rorm.ai.chat.StreamToken;
+import com.rorm.ai.swarm.EventId;
 import com.rorm.ai.swarm.SwarmEvent;
 import com.rorm.ai.swarm.SwarmEvent.EndEvent;
 import com.rorm.ai.swarm.SwarmEvent.StartEvent;
@@ -11,14 +13,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.Many;
 
-import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
-/**
- * Base class for swarm agent operations with shared streaming/structuring logic
- */
 abstract class SwarmAgent {
     protected final SecondarySwarmAgent summarizer;
 
@@ -33,9 +31,9 @@ abstract class SwarmAgent {
         if (params.tokenConsumer() != null) {
             params.tokenConsumer().accept(tokenSink.asFlux());
         }
-        var id = params.eventId() != null ? params.eventId() : UUID.randomUUID().toString();
+        var id = params.eventId();
 
-        var response = params.agent.stream(params.userPrompt(), params.requestBuilderCustomizer())
+        var response = params.agent.streamTokens(params.userPrompt(), params.requestBuilderCustomizer())
             .doOnSubscribe(_ -> eventSink.tryEmitNext(params.startEventFactory.apply(id, tokenSink.asFlux())))
             .doOnNext(tokenSink::tryEmitNext)
             .doOnError(tokenSink::tryEmitError)
@@ -44,7 +42,7 @@ abstract class SwarmAgent {
                     tokenSink.tryEmitComplete();
                 }
             })
-            .reduce(new StringBuilder(), StringBuilder::append)
+            .reduce(new StringBuilder(), (sb, token) -> sb.append(token.toText()))
             .map(StringBuilder::toString)
             .block();
 
@@ -53,7 +51,7 @@ abstract class SwarmAgent {
         return callResult;
     }
 
-    protected Many<String> createTokenSink() {
+    protected Many<StreamToken> createTokenSink() {
         return Sinks.many().replay().all();
     }
 
@@ -71,11 +69,11 @@ abstract class SwarmAgent {
         @NonNull FirstLevelSwarmAgent agent,
         @NonNull String userPrompt,
         @NonNull Class<T> responseType,
-        @NonNull BiFunction<String, Flux<String>, StartEvent> startEventFactory,
-        @NonNull TriFunction<String, T, String, EndEvent<T>> endEventFactory,
-        @Nullable Consumer<Flux<String>> tokenConsumer,
-        @Nullable Many<String> tokenSink,
-        @Nullable String eventId,
+        @NonNull EventId eventId,
+        @NonNull BiFunction<EventId, Flux<StreamToken>, StartEvent> startEventFactory,
+        @NonNull TriFunction<EventId, T, String, EndEvent<T>> endEventFactory,
+        @Nullable Consumer<Flux<StreamToken>> tokenConsumer,
+        @Nullable Many<StreamToken> tokenSink,
         @Nullable UnaryOperator<ChatRequest.Builder> requestBuilderCustomizer
     ) {
 

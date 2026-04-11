@@ -72,7 +72,8 @@ public final class TestHandlerRegistry {
                 new BoolAndAggregation(),
                 new BoolOrAggregation(),
                 new CorrAggregation(),
-                new RegrSlopeAggregation()
+                new RegrSlopeAggregation(),
+                new PercentileContAggregation()
             ))
             // Functions
             .functions(List.of(

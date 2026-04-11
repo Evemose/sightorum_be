@@ -24,7 +24,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -118,9 +117,27 @@ public class DurableSwarmRestateTestApp {
                     .hypothesisId(spec.hypothesisId()).treatment(spec.treatment())
                     .outcome(spec.outcome()).treatmentForm(spec.treatmentForm())
                     .dagEdges("T -> Y").dsepThreshold(0.03).adjustmentSet(List.of("W1"))
-                    .estimationVariants(List.of(Map.of("id", "primary")))
-                    .gates(Map.of("nuisance_r2", Map.of("outcome_abort", 0.01)))
-                    .sensitivity(Map.of()).residualChecks(Map.of()).rangeChecks(Map.of()).build();
+                    .estimationVariants(List.of(new com.rorm.ml.dto.pipelinespec.EstimationVariant(
+                        "primary", "T",
+                        com.rorm.ml.dto.pipelinespec.TreatmentForm.CATEGORICAL,
+                        "LinearDML", List.of("W1"), null, null, null, null)))
+                    .gates(new com.rorm.ml.dto.pipelinespec.QualityGates(
+                        new com.rorm.ml.dto.pipelinespec.QualityGates.NuisanceR2Gates(
+                            0.01, 0.05, 0.01, 0.05, 0.5),
+                        new com.rorm.ml.dto.pipelinespec.QualityGates.SanityGates(1, 0.5, 0.1),
+                        new com.rorm.ml.dto.pipelinespec.QualityGates.PlaceboGates(0.3)))
+                    .sensitivity(new com.rorm.ml.dto.pipelinespec.SensitivityConfig(
+                        List.of(), List.of(), null, List.of()))
+                    .residualChecks(new com.rorm.ml.dto.pipelinespec.ResidualChecks(
+                        List.of(),
+                        new com.rorm.ml.dto.pipelinespec.ResidualChecks.FieldCorrelationCheck(0.05, List.of()),
+                        new com.rorm.ml.dto.pipelinespec.ResidualChecks.AutoCorrectionConfig(1, 0.05),
+                        List.of()))
+                    .rangeChecks(new com.rorm.ml.dto.pipelinespec.RangeChecks(
+                        new com.rorm.ml.dto.pipelinespec.RangeChecks.VifConfig(10.0, List.of()),
+                        List.of(),
+                        List.of()))
+                    .build();
             }
         };
     }

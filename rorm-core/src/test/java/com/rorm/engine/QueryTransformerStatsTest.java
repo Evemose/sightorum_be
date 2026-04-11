@@ -2,10 +2,7 @@ package com.rorm.engine;
 
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.ReferenceAttribute.JoinTableMapping;
-import com.rorm.query.Expression.BinaryExpression;
-import com.rorm.query.Expression.FunctionCall;
-import com.rorm.query.Expression.Literal;
-import com.rorm.query.Expression.WindowFunction;
+import com.rorm.query.Expression.*;
 import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
@@ -118,8 +115,49 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
             windowFunctionRankWithOrderBy(),
             windowFunctionWithPartitionAndOrder(),
             expressionWithAlias(),
-            multipleExpressionsWithAliases()
+            multipleExpressionsWithAliases(),
+            percentileContMedianOrderTotal(),
+            percentileCont99OrderTotal(),
+            percentileContMedianGroupedByUser(),
+            percentileCont0MinOrderTotal(),
+            percentileCont100MaxOrderTotal()
         );
+    }
+
+    private static Arguments percentileContMedianOrderTotal() {
+        var percentileExpr = new Aggregation(
+            "PERCENTILE_CONT",
+            List.of(new Literal(0.5), new Path(orderTotal, null)),
+            false
+        );
+        var query = Query.builder()
+            .from(AliasedRoot.of(orderRoot))
+            .selector(new SingleExprSelector(percentileExpr, false, "median_total"))
+            .build();
+        return Arguments.of("PERCENTILE_CONT median of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("median_total", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("150.00")));
+    }
+
+    private static Arguments percentileCont99OrderTotal() {
+        var percentileExpr = new Aggregation(
+            "PERCENTILE_CONT",
+            List.of(new Literal(0.99), new Path(orderTotal, null)),
+            false
+        );
+        var query = Query.builder()
+            .from(AliasedRoot.of(orderRoot))
+            .selector(new SingleExprSelector(percentileExpr, false, "p99_total"))
+            .build();
+        return Arguments.of("PERCENTILE_CONT 99th percentile of order totals", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("p99_total", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("199.00")));
     }
 
     private static Arguments countAllOrders() {
@@ -459,6 +497,68 @@ class QueryTransformerStatsTest extends AbstractPostgresTest {
                 tuple(2L, new BigDecimal("300.00")),
                 tuple(1L, new BigDecimal("150.00"))
             ));
+    }
+
+    private static Arguments percentileContMedianGroupedByUser() {
+        var userIdPath = new Path(userId, new Path(orderUser, null));
+        var percentileExpr = new Aggregation(
+            "PERCENTILE_CONT",
+            List.of(new Literal(0.5), new Path(orderTotal, null)),
+            false
+        );
+        var query = Query.builder()
+            .from(AliasedRoot.of(orderRoot))
+            .selector(new MultiExprSelector(Set.of(
+                new SelectedExpression(userIdPath, "user_id"),
+                new SelectedExpression(percentileExpr, "median_total")
+            ), false))
+            .groupBy(new GroupBy(userIdPath))
+            .orderBy(new OrderBy(userIdPath, true))
+            .build();
+        return Arguments.of("PERCENTILE_CONT median grouped by user", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(2)
+            .extracting(r -> r.get("median_total", BigDecimal.class))
+            .allSatisfy(v -> assertThat(v).isInstanceOf(BigDecimal.class))
+            .satisfies(vals -> {
+                assertThat(vals.get(0)).isEqualByComparingTo(new BigDecimal("150.00"));
+                assertThat(vals.get(1)).isEqualByComparingTo(new BigDecimal("150.00"));
+            }));
+    }
+
+    private static Arguments percentileCont0MinOrderTotal() {
+        var percentileExpr = new Aggregation(
+            "PERCENTILE_CONT",
+            List.of(new Literal(0.0), new Path(orderTotal, null)),
+            false
+        );
+        var query = Query.builder()
+            .from(AliasedRoot.of(orderRoot))
+            .selector(new SingleExprSelector(percentileExpr, false, "p0_total"))
+            .build();
+        return Arguments.of("PERCENTILE_CONT 0.0 returns minimum", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("p0_total", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("100.00")));
+    }
+
+    private static Arguments percentileCont100MaxOrderTotal() {
+        var percentileExpr = new Aggregation(
+            "PERCENTILE_CONT",
+            List.of(new Literal(1.0), new Path(orderTotal, null)),
+            false
+        );
+        var query = Query.builder()
+            .from(AliasedRoot.of(orderRoot))
+            .selector(new SingleExprSelector(percentileExpr, false, "p100_total"))
+            .build();
+        return Arguments.of("PERCENTILE_CONT 1.0 returns maximum", query, (Consumer<Result<Record>>) result -> assertThat(result)
+            .hasSize(1)
+            .first()
+            .extracting(r -> r.get("p100_total", BigDecimal.class))
+            .asInstanceOf(InstanceOfAssertFactories.BIG_DECIMAL)
+            .isEqualByComparingTo(new BigDecimal("200.00")));
     }
 
     @BeforeEach

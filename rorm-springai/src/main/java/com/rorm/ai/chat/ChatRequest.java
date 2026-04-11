@@ -21,6 +21,7 @@ public record ChatRequest<T>(
     @Nullable String modelName,
     @NonNull ThinkingLevel thinkingLevel,
     @NonNull Set<ToolGroup> toolGroups,
+    @NonNull Set<MemoryInclude> memoryIncludes,
     @NonNull List<Object> additionalTools,
     @NonNull List<Advisor> additionalAdvisors,
     @NonNull Map<String, Object> toolContextEntries,
@@ -48,6 +49,7 @@ public record ChatRequest<T>(
         private String systemPrompt;
         private String modelName;
         private Set<ToolGroup> toolGroups;
+        private Set<MemoryInclude> memoryIncludes;
         private List<Object> additionalTools;
         private List<Advisor> additionalAdvisors;
         private Map<String, Object> toolContextEntries;
@@ -69,6 +71,7 @@ public record ChatRequest<T>(
                 modelName,
                 thinkingLevel,
                 toolGroups != null ? toolGroups : Set.of(),
+                memoryIncludes != null ? memoryIncludes : Set.of(),
                 additionalTools != null ? additionalTools : List.of(),
                 additionalAdvisors != null ? additionalAdvisors : List.of(),
                 toolContextEntries != null ? toolContextEntries : Map.of(),
@@ -78,6 +81,11 @@ public record ChatRequest<T>(
 
         public Builder withToolGroups(ToolGroup... groups) {
             this.toolGroups = EnumSet.copyOf(List.of(groups));
+            return this;
+        }
+
+        public Builder withMemoryIncludes(MemoryInclude... includes) {
+            this.memoryIncludes = EnumSet.copyOf(List.of(includes));
             return this;
         }
 

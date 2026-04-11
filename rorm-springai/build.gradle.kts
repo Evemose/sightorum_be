@@ -66,6 +66,7 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
+    testImplementation("io.projectreactor:reactor-test")
     testImplementation("dev.restate:sdk-testing:$restateVersion")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

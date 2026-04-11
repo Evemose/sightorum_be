@@ -24,7 +24,8 @@ public enum StandardAggregation {
     BOOL_AND(BoolAndAggregation.NAME),
     BOOL_OR(BoolOrAggregation.NAME),
     CORR(CorrAggregation.NAME),
-    REGR_SLOPE(RegrSlopeAggregation.NAME);
+    REGR_SLOPE(RegrSlopeAggregation.NAME),
+    PERCENTILE_CONT(PercentileContAggregation.NAME);
 
     private final String identifier;
 

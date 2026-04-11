@@ -7,10 +7,10 @@ spring:
         schema-name: public
         schema-validation: true
     openai:
-      api-key: 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
+      api-key: ${OPENAI_API_KEY}
       embedding:
         options:
           model: text-embedding-3-large
 anthropic:
-  api-key: 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
+  api-key: ${ANTHROPIC_API_KEY}
 

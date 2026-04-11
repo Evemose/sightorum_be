@@ -37,7 +37,7 @@ public record DenseExpressionDto(
         Date/Time — NOW, CURRENT_DATE, CURRENT_TIME, DATE_TRUNC, EXTRACT; \
         Conditional — COALESCE, NULLIF, GREATEST, LEAST, CASE; \
         Special — CAST.
-        For @type=aggregation: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP, STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR, CORR, REGR_SLOPE.
+        For @type=aggregation: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP, STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR, CORR, REGR_SLOPE, PERCENTILE_CONT (args: [fraction literal 0..1, order expression]).
         For @type=window: ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, NTH_VALUE, NTILE (or any aggregate used as window).""")
     String functionName,
 

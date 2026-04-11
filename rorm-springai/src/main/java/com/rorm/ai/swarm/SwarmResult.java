@@ -1,6 +1,7 @@
 package com.rorm.ai.swarm;
 
 import com.rorm.ai.swarm.dto.*;
+import com.rorm.ml.dto.PipelineSpecRequest;
 import com.rorm.ml.stream.JobEvent;
 import org.jspecify.annotations.Nullable;
 
@@ -35,7 +36,7 @@ public record SwarmResult(
     public record HypothesisResult(
         String hypothesisId,
         String hypothesisSpec,
-        PipelineCompilationDTO compilerOutput,
+        PipelineSpecRequest compilerOutput,
         @Nullable JobEvent pipelineResult,
         @Nullable ForensicDiagnosisDTO diagnosis
     ) {

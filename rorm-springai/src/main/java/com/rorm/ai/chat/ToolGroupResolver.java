@@ -24,6 +24,10 @@ public class ToolGroupResolver {
     private final FeatureEngineeringTool featureEngineeringTool;
     private final HypothesisVerificationTool hypothesisVerificationTool;
     private final DataExplorationTool explorationTool;
+    private final SummaryStatTool summaryStatTool;
+    private final RankingTool rankingTool;
+    private final TrendTool trendTool;
+    private final ComparisonTool comparisonTool;
 
     public Set<Object> resolve(Set<ToolGroup> groups) {
         var tools = new HashSet<>();
@@ -34,6 +38,10 @@ public class ToolGroupResolver {
                     tools.add(dataOverviewTool);
                     tools.add(featureEngineeringTool);
                     tools.add(explorationTool);
+                    tools.add(summaryStatTool);
+                    tools.add(rankingTool);
+                    tools.add(trendTool);
+                    tools.add(comparisonTool);
                 }
                 case VERIFICATION -> tools.add(hypothesisVerificationTool);
                 case ML -> tools.add(mlTrainingTool);

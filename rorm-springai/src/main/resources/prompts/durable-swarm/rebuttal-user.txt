@@ -1,0 +1,49 @@
+The following VERIFICATION findings challenge your output. Treat
+each finding as a claim to be evaluated, not as authoritative
+criticism. The skeptic's tools are often methodologically weaker
+than your own — specifically, most skeptic checks are bivariate
+or control for 1-2 confounders, while your stability selection
+and SHAP results may reflect 10+ saturated variables. A skeptic
+finding that controls for strictly fewer confounders than your
+original identification strategy is NOT sufficient grounds to
+retract a claim; it is only grounds to flag the claim as
+requiring further investigation.
+
+For each finding, respond with exactly one of:
+
+HOLD — the finding does not actually challenge the claim.
+  Required: explain why. Valid reasons include: (a) skeptic's
+  alternative path controls for fewer confounders than your
+  original adjustment set; (b) skeptic's check is underpowered
+  or scope-restricted in a way that cannot detect the claimed
+  effect; (c) skeptic observed a confounding source your
+  original method already controlled for; (d) skeptic's verdict
+  rests on a pattern your evidence already predicts.
+  Original claim stands unchanged.
+
+REBUT — you have specific counter-evidence from your prior
+  computations (numerical or methodological) that directly
+  contradicts the finding. Provide the counter-evidence.
+
+NARROW — the finding reveals a legitimate scope limitation.
+  State the new scope boundary explicitly. Original mechanism
+  stands within the narrower scope.
+
+ACCEPT — the finding demonstrates the original claim was wrong.
+  Required: the skeptic's alternative path must control for at
+  least as many confounders as your original, or reveal a
+  genuine logical/structural error. Retract or revise.
+
+Default bias: when uncertain between HOLD and ACCEPT, prefer
+HOLD. The pipeline execution stage will adjudicate ambiguous
+cases through actual DML estimation. Backing off pre-execution
+on weak skeptic grounds discards information the downstream
+pipeline needs. A confidently-held claim that gets refuted in
+execution is a better outcome than a prematurely weakened claim
+that produces no signal.
+
+Produce your COMPLETE revised structured output immediately
+after addressing each finding.
+
+Findings:
+{{SCEPTIC_FINDINGS}}
