@@ -110,6 +110,7 @@ def create_app() -> FastAPI:
     _add_unsupervised_routes(app)
     _add_analysis_routes(app)
     _add_causal_verification_routes(app)
+    _add_descriptive_routes(app)
     _add_info_routes(app)
 
     return app
@@ -717,6 +718,48 @@ def _add_causal_verification_routes(app: FastAPI):
                 for name, defn in PIPELINE_DAG.items()
             },
         }
+
+
+# ========== Descriptive Statistics Routes ==========
+
+
+def _add_descriptive_routes(app: FastAPI):
+    """Lightweight sync stats endpoints backing the Java descriptive analytics tools."""
+    from dto.descriptive_stats_dto import (
+        DistributionShapeRequest,
+        DistributionShapeResponse,
+        SeriesAnalysisRequest,
+        SeriesAnalysisResponse,
+    )
+    from service.descriptive_stats_service import distribution_shape, series_analysis
+
+    @app.post(
+        "/descriptive/distribution-shape",
+        response_model=DistributionShapeResponse,
+        tags=["Descriptive"],
+    )
+    async def descriptive_distribution_shape(request: DistributionShapeRequest):
+        """Moments + multimodality on a numeric sample (scipy + KDE)."""
+        return distribution_shape(
+            values=request.values,
+            run_dip_test=request.run_dip_test,
+        )
+
+    @app.post(
+        "/descriptive/series-analysis",
+        response_model=SeriesAnalysisResponse,
+        tags=["Descriptive"],
+    )
+    async def descriptive_series_analysis(request: SeriesAnalysisRequest):
+        """STL decomposition, autocorr peak, PELT change points."""
+        return series_analysis(
+            values=request.values,
+            period=request.period,
+            run_stl=request.run_stl,
+            run_autocorr=request.run_autocorr,
+            run_changepoint=request.run_changepoint,
+            pelt_penalty=request.pelt_penalty,
+        )
 
 
 # ========== Info Routes ==========

@@ -34,7 +34,7 @@ import java.util.Optional;
 public class AnthropicParamsBuilder {
 
     private static final long DEFAULT_MAX_TOKENS = 64_000L;
-    private static final String DEFAULT_MODEL = "claude-sonnet-4-6";
+    static final String DEFAULT_MODEL = "claude-sonnet-4-6";
 
     private final ObjectMapper objectMapper;
 
@@ -130,18 +130,13 @@ public class AnthropicParamsBuilder {
         var instructions = prompt.getInstructions();
         var cc = cacheControl(cacheTTL);
         var firstUserMessageSeen = false;
-        for (var i = 0; i < instructions.size(); i++) {
-            var message = instructions.get(i);
+        for (var message : instructions) {
             switch (message) {
                 case UserMessage user -> {
                     var textBuilder = TextBlockParam.builder().text(user.getText());
-                    if (cc != null) {
-                        if (!firstUserMessageSeen) {
-                            firstUserMessageSeen = true;
-                            textBuilder.cacheControl(cc);
-                        } else if (i == instructions.size() - 1) {
-                            textBuilder.cacheControl(cc);
-                        }
+                    if (cc != null && !firstUserMessageSeen) {
+                        firstUserMessageSeen = true;
+                        textBuilder.cacheControl(cc);
                     }
                     builder.addUserMessageOfBlockParams(List.of(
                         ContentBlockParam.ofText(textBuilder.build())

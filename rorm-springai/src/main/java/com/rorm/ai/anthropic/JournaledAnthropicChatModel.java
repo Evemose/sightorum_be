@@ -14,13 +14,14 @@ import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
 import com.rorm.ai.anthropic.AnthropicChatOptions.RoundContext;
 import com.rorm.ai.anthropic.AnthropicChatOptions.ToolRoundInfo;
 import com.rorm.ai.chat.CacheStrategy;
+import com.rorm.ai.chat.ServerToolMessage;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
@@ -43,7 +44,6 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -71,16 +71,13 @@ public class JournaledAnthropicChatModel implements ChatModel {
     }
 
     @SuppressWarnings("unchecked")
-    private static String formatServerToolStart(ServerToolUseBlock serverTool) {
-        var name = serverTool.name().toString();
+    private static String extractServerToolQuery(ServerToolUseBlock serverTool) {
         var map = (Map<String, JsonValue>) serverTool._input().asObject().orElse(null);
         if (map != null && map.containsKey("query")) {
             var query = map.get("query").asString().orElse(null);
-            if (query != null) {
-                return "[" + name + "] " + query;
-            }
+            return query != null ? query.toString() : null;
         }
-        return "[" + name + "]";
+        return null;
     }
 
     private static void emitWebSearchResult(
@@ -98,6 +95,21 @@ public class JournaledAnthropicChatModel implements ChatModel {
 
     private static ChatResponse textChunk(String text) {
         return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+    }
+
+    private static ChatResponse thinkingChunk(String text) {
+        return new ChatResponse(List.of(new ThinkingGeneration(text)));
+    }
+
+    private static ChatResponse toolCallChunk(String name) {
+        return new ChatResponse(List.of(new StreamToolCallGeneration(name)));
+    }
+
+    private static ChatResponse serverToolChunk(ServerToolUseBlock serverTool) {
+        var name = serverTool.name().toString();
+        var query = extractServerToolQuery(serverTool);
+        return new ChatResponse(List.of(
+            new ServerToolGeneration(new ServerToolMessage(name, query, null))));
     }
 
     @SuppressWarnings("unchecked")
@@ -140,6 +152,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
                 var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
                 var builder = paramsBuilder.toBuilder(prompt, strategy);
                 addToolRounds(builder, rounds, strategy);
+                resolveModelForClient(builder, client, prompt.getOptions());
                 var params = builder.build();
                 var response = journal.run("llm-" + round, Message.class,
                     () -> throttle.execute(
@@ -147,7 +160,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
                         () -> client.messages().create(params),
                         TokenUsage::from));
                 if (!hasToolCalls(response, callbackMap)) {
-                    var result = toChatResponse(response);
+                    var result = toChatResponse(response, rounds);
                     observationCtx.setResponse(result);
                     return result;
                 }
@@ -158,49 +171,14 @@ public class JournaledAnthropicChatModel implements ChatModel {
         });
     }
 
-    private StepJournal resolveJournal(@Nullable ChatOptions options) {
-        if (options instanceof AnthropicChatOptions ao) {
-            return ao.getJournal();
-        }
-        return StepJournal.DEFAULT;
-    }
-
-    private AnthropicClient resolveClient(@Nullable ChatOptions options) {
-        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
-            return directClient;
-        }
-        return bedrockClient;
-    }
-
-    private static UsageConsuming estimateUsage(MessageCreateParams params) {
-        long chars = 0;
-        for (var msg : params.messages()) {
-            chars += msg.toString().length();
-        }
-        if (params.system().isPresent()) {
-            chars += params.system().get().toString().length();
-        }
-        return TokenUsage.estimate(chars / 4, params.model().toString());
-    }
-
-    private static IllegalStateException toolLoopExceeded() {
-        return new IllegalStateException("Tool call loop exceeded " + MAX_TOOL_ROUNDS + " rounds");
-    }
-
-    private CacheStrategy resolveCachingStrategyFunction(
-        @Nullable ChatOptions options
-    ) {
-        if (options instanceof AnthropicChatOptions ao) {
-            return ao.getCachingStrategyFunction();
-        }
-        return _ -> CacheTTL.NONE;
-    }
-
     private CacheTTL computeCachingStrategy(
         List<ToolRound> rounds,
         int currentRound,
         CacheStrategy strategyFn
     ) {
+        if (strategyFn == null) {
+            return CacheTTL.NONE;
+        }
         var previousRounds = new ArrayList<ToolRoundInfo>();
 
         for (var round : rounds) {
@@ -255,6 +233,132 @@ public class JournaledAnthropicChatModel implements ChatModel {
 
         var context = new RoundContext(currentRound, List.copyOf(previousRounds));
         return strategyFn.strategy(context);
+    }
+
+    private void resolveModelForClient(MessageCreateParams.Builder builder,
+                                       AnthropicClient client, @Nullable ChatOptions options) {
+        if (client == directClient) {
+            return;
+        }
+        var map = Map.of(
+            "claude-sonnet-4-6", "us.anthropic.claude-sonnet-4-6",
+            "claude-opus-4-6", "us.anthropic.claude-opus-4-6-v1",
+            "claude-haiku-4-5", "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        );
+
+        var model = options != null && options.getModel() != null
+            ? options.getModel() : AnthropicParamsBuilder.DEFAULT_MODEL;
+        if (model.contains(".") || model.contains(":")) {
+            if (!map.containsValue(model)) {
+                throw new IllegalArgumentException(
+                    "Full model name " + model + " for bedrock client is unknown. Supported models: " + map.keySet()
+                );
+            }
+            return;
+        }
+        var modelName = map.get(model);
+        if (modelName == null) {
+            throw new IllegalArgumentException(
+                "Model " + model + " is not supported on bedrock client. Supported models: " + map.keySet()
+            );
+        }
+        builder.model(modelName);
+    }
+
+    private StepJournal resolveJournal(@Nullable ChatOptions options) {
+        if (options instanceof AnthropicChatOptions ao) {
+            return ao.getJournal();
+        }
+        return StepJournal.DEFAULT;
+    }
+
+    private AnthropicClient resolveClient(@Nullable ChatOptions options) {
+        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
+            return directClient;
+        }
+        return bedrockClient;
+    }
+
+    private static UsageConsuming estimateUsage(MessageCreateParams params) {
+        long chars = 0;
+        for (var msg : params.messages()) {
+            chars += msg.toString().length();
+        }
+        if (params.system().isPresent()) {
+            chars += params.system().get().toString().length();
+        }
+        return TokenUsage.estimate(chars / 4, params.model().toString());
+    }
+
+    private CacheStrategy resolveCachingStrategyFunction(
+        @Nullable ChatOptions options
+    ) {
+        if (options instanceof AnthropicChatOptions ao) {
+            return ao.getCachingStrategyFunction();
+        }
+        return _ -> CacheTTL.NONE;
+    }
+
+    private ChatResponse toChatResponse(Message message, List<ToolRound> rounds) {
+        var text = message.content().stream()
+            .filter(ContentBlock::isText)
+            .map(b -> b.asText().text())
+            .collect(Collectors.joining());
+
+        var toolCalls = message.content().stream()
+            .filter(ContentBlock::isToolUse)
+            .map(b -> {
+                var tu = b.asToolUse();
+                return new AssistantMessage.ToolCall(tu.id(), "function", tu.name(), toJson(fixObjectStrings(
+                    tu._input()
+                )));
+            })
+            .toList();
+
+        var metadata = new HashMap<String, Object>();
+
+        var thinking = message.content().stream()
+            .filter(ContentBlock::isThinking)
+            .map(b -> b.asThinking().thinking())
+            .collect(Collectors.joining("\n"));
+        if (!thinking.isEmpty()) {
+            metadata.put("thinking", thinking);
+        }
+
+        var serverToolCalls = extractServerToolCalls(message);
+        if (!serverToolCalls.isEmpty()) {
+            metadata.put("serverToolCalls", serverToolCalls);
+        }
+
+        var assistantMessage = AssistantMessage.builder()
+            .content(text).toolCalls(toolCalls).properties(metadata).build();
+
+        var sdkUsage = message.usage();
+        var usage = new Usage() {
+            @Override
+            public Integer getPromptTokens() {
+                return (int) sdkUsage.inputTokens();
+            }
+
+            @Override
+            public Integer getCompletionTokens() {
+                return (int) sdkUsage.outputTokens();
+            }
+
+            @Override
+            public Object getNativeUsage() {
+                return sdkUsage;
+            }
+        };
+
+        var generations = new ArrayList<Generation>();
+        generations.add(new Generation(assistantMessage, ChatGenerationMetadata.NULL));
+        addCustomGenerations(generations, thinking, rounds, serverToolCalls);
+
+        return new ChatResponse(
+            generations,
+            ChatResponseMetadata.builder().model(message.model().toString()).usage(usage).build()
+        );
     }
 
     private void addToolRounds(
@@ -325,61 +429,48 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return new ToolRound(fullBlocks, leanBlocks, toolResults, calledTools);
     }
 
-    private ChatResponse toChatResponse(Message message) {
-        var text = message.content().stream()
-            .filter(ContentBlock::isText)
-            .map(b -> b.asText().text())
-            .collect(Collectors.joining());
+    private static IllegalStateException toolLoopExceeded() {
+        return new IllegalStateException("Tool call loop exceeded " + MAX_TOOL_ROUNDS + " rounds");
+    }
 
-        var toolCalls = message.content().stream()
-            .filter(ContentBlock::isToolUse)
-            .map(b -> {
-                var tu = b.asToolUse();
-                return new AssistantMessage.ToolCall(tu.id(), "function", tu.name(), toJson(fixObjectStrings(
-                    tu._input()
-                )));
-            })
-            .toList();
-
-        var metadata = new HashMap<String, Object>();
-
-        var thinking = message.content().stream()
-            .filter(ContentBlock::isThinking)
-            .map(b -> b.asThinking().thinking())
-            .collect(Collectors.joining("\n"));
+    private void addCustomGenerations(
+        List<Generation> generations, String thinking,
+        List<ToolRound> rounds, List<Map<String, Object>> serverToolCalls
+    ) {
         if (!thinking.isEmpty()) {
-            metadata.put("thinking", thinking);
+            generations.add(new ThinkingGeneration(thinking));
         }
-
-        var serverToolCalls = extractServerToolCalls(message);
-        if (!serverToolCalls.isEmpty()) {
-            metadata.put("serverToolCalls", serverToolCalls);
+        for (var round : rounds) {
+            var roundToolCalls = round.fullAssistantBlocks().stream()
+                .filter(ContentBlockParam::isToolUse)
+                .map(b -> {
+                    var tu = b.asToolUse();
+                    return new AssistantMessage.ToolCall(tu.id(), "function", tu.name(), safeToolInput(tu));
+                })
+                .toList();
+            var roundText = round.fullAssistantBlocks().stream()
+                .filter(ContentBlockParam::isText)
+                .map(b -> b.asText().text())
+                .collect(Collectors.joining("\n"));
+            var roundAssistant = AssistantMessage.builder()
+                .content(roundText).toolCalls(roundToolCalls).build();
+            var toolResponses = round.toolResults().stream()
+                .map(tr -> new ToolResponseMessage.ToolResponse(
+                    tr.toolUseId(),
+                    extractToolName(tr.toolUseId(), round),
+                    tr.content()
+                ))
+                .toList();
+            var toolResponseMsg = ToolResponseMessage.builder().responses(toolResponses).build();
+            generations.add(new ToolRoundGeneration(roundAssistant, toolResponseMsg));
         }
-
-        var assistantMessage = AssistantMessage.builder()
-            .content(text).toolCalls(toolCalls).properties(metadata).build();
-
-        var sdkUsage = message.usage();
-        var usage = new Usage() {
-            @Override
-            public Integer getPromptTokens() {
-                return (int) sdkUsage.inputTokens();
-            }
-
-            @Override
-            public Integer getCompletionTokens() {
-                return (int) sdkUsage.outputTokens();
-            }
-
-            @Override
-            public Object getNativeUsage() {
-                return sdkUsage;
-            }
-        };
-        return new ChatResponse(
-            List.of(new Generation(assistantMessage, ChatGenerationMetadata.NULL)),
-            ChatResponseMetadata.builder().model(message.model().toString()).usage(usage).build()
-        );
+        for (var stc : serverToolCalls) {
+            generations.add(new ServerToolGeneration(new com.rorm.ai.chat.ServerToolMessage(
+                (String) stc.get("toolName"),
+                (String) stc.get("inputJson"),
+                (String) stc.get("outputJson")
+            )));
+        }
     }
 
     private String toJson(Object value) {
@@ -438,15 +529,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
     public Flux<ChatResponse> stream(Prompt prompt) {
         return Flux.<ChatResponse>create(sink -> doStream(prompt, sink))
             .subscribeOn(Schedulers.boundedElastic())
-            .windowUntil(batchingBoundary())
-            .flatMap(f -> f.reduce((a, b) -> new ChatResponse(
-                List.of(new Generation(
-                    new AssistantMessage(
-                        a.getResult().getOutput().getText() + b.getResult().getOutput().getText()
-                    )
-                )),
-                b.getMetadata()
-            ))).onBackpressureBuffer();
+            .onBackpressureBuffer();
     }
 
     private boolean hasToolCalls(Message response, Map<String, ToolCallback> callbackMap) {
@@ -581,7 +664,9 @@ public class JournaledAnthropicChatModel implements ChatModel {
             var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
             var builder = paramsBuilder.toBuilder(prompt, strategy);
             addToolRounds(builder, rounds, strategy);
+            resolveModelForClient(builder, client, prompt.getOptions());
             var params = builder.build();
+            log.info("Calling {} with model={}", client == bedrockClient ? "bedrock" : "direct", params.model());
             var executed = new boolean[]{false};
             var message = journal.run("llm-stream-" + round, Message.class, () -> {
                 executed[0] = true;
@@ -594,6 +679,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
                 emitCachedRound(message, sink);
             }
             if (!hasToolCalls(message, callbackMap)) {
+                emitCustomGenerations(message, rounds, sink);
                 sink.complete();
                 return;
             }
@@ -603,46 +689,25 @@ public class JournaledAnthropicChatModel implements ChatModel {
         sink.error(toolLoopExceeded());
     }
 
-    // this is necessary to account for spring AI bug stalling downstream subscribers due to publishOn with default buffer (256),
-    // that never re-requests, so after 256 elements downstream just stops receiving updates
-    private static @NonNull Predicate<ChatResponse> batchingBoundary() {
-        return new Predicate<>() {
-            private static final int MIN_CHARS = 100;
-            private static final int MAX_CHARS = 5000;
-            private static final int BUDGET = 256;
-            // midpoint: where the ramp is steepest (% of budget used)
-            private static final double MIDPOINT = 0.6;
-            // steepness: higher = sharper transition
-            private static final double STEEPNESS = 12.0;
-            private int chars = 0;
-            private int windowsEmitted = 0;
+    private void emitCustomGenerations(Message message, List<ToolRound> rounds, FluxSink<ChatResponse> sink) {
+        var thinking = message.content().stream()
+            .filter(ContentBlock::isThinking)
+            .map(b -> b.asThinking().thinking())
+            .collect(Collectors.joining("\n"));
+        var serverToolCalls = extractServerToolCalls(message);
 
-            @Override
-            public boolean test(ChatResponse cr) {
-                var text = Objects.requireNonNullElse(
-                    cr.getResult().getOutput().getText(), "");
-                chars += text.length();
+        var generations = new ArrayList<Generation>();
+        generations.add(new Generation(new AssistantMessage("")));
+        addCustomGenerations(generations, thinking, rounds, serverToolCalls);
 
-                if (chars >= charThreshold()) {
-                    chars = 0;
-                    windowsEmitted++;
-                    return true;
-                }
-                return false;
-            }
-
-            private int charThreshold() {
-                double x = (double) windowsEmitted / BUDGET;
-                double sigmoid = 1.0 / (1.0 + Math.exp(-STEEPNESS * (x - MIDPOINT)));
-                return (int) (MIN_CHARS + (MAX_CHARS - MIN_CHARS) * sigmoid);
-            }
-        };
+        if (generations.size() > 1) {
+            sink.next(new ChatResponse(generations));
+        }
     }
 
     @SneakyThrows
     private Message streamRound(MessageCreateParams params, FluxSink<ChatResponse> sink, AnthropicClient client) {
         var accumulator = MessageAccumulator.create();
-        var thinkingStarted = new boolean[]{false};
         try (var stream = client.messages().createStreaming(params)) {
             stream.stream().peek(event -> {
                 try {
@@ -651,11 +716,10 @@ public class JournaledAnthropicChatModel implements ChatModel {
                     log.debug("Accumulator skipped: {}", e.getMessage());
                 }
             }).forEach(event -> {
-                event.contentBlockDelta().ifPresent(d -> emitDelta(d.delta(), sink, thinkingStarted));
-                event.contentBlockStart().ifPresent(s -> emitBlockStart(s.contentBlock(), sink, thinkingStarted));
+                event.contentBlockDelta().ifPresent(d -> emitDelta(d.delta(), sink));
+                event.contentBlockStart().ifPresent(s -> emitBlockStart(s.contentBlock(), sink));
             });
         }
-        log.info("{}", ObjectMappers.jsonMapper().writeValueAsString(accumulator.message()));
         return accumulator.message();
     }
 
@@ -682,28 +746,23 @@ public class JournaledAnthropicChatModel implements ChatModel {
             if (block.isText()) {
                 sink.next(textChunk(block.asText().text()));
             } else if (block.isThinking()) {
-                sink.next(textChunk("[thinking] " + block.asThinking().thinking()));
+                sink.next(thinkingChunk(block.asThinking().thinking()));
             } else if (block.isToolUse()) {
-                sink.next(textChunk("[tool_call] " + block.asToolUse().name() + "\n"));
+                sink.next(toolCallChunk(block.asToolUse().name()));
+                sink.next(textChunk("\n"));
             } else if (block.isServerToolUse()) {
-                sink.next(textChunk(formatServerToolStart(block.asServerToolUse())));
+                sink.next(serverToolChunk(block.asServerToolUse()));
             } else if (block.isWebSearchToolResult()) {
                 emitWebSearchResult(block.asWebSearchToolResult().content(), sink);
             }
         }
     }
 
-    private void emitDelta(RawContentBlockDelta delta, FluxSink<ChatResponse> sink, boolean[] thinkingStarted) {
+    private void emitDelta(RawContentBlockDelta delta, FluxSink<ChatResponse> sink) {
         if (delta.isText()) {
-            thinkingStarted[0] = false;
             sink.next(textChunk(delta.asText().text()));
         } else if (delta.isThinking()) {
-            var text = delta.asThinking().thinking();
-            if (!thinkingStarted[0]) {
-                thinkingStarted[0] = true;
-                text = "[thinking] " + text;
-            }
-            sink.next(textChunk(text));
+            sink.next(thinkingChunk(delta.asThinking().thinking()));
         } else if (delta.isCitations()) {
             delta.asCitations().citation().webSearchResultLocation().ifPresent(loc ->
                 sink.next(textChunk("[citation] " + loc.url()
@@ -712,15 +771,13 @@ public class JournaledAnthropicChatModel implements ChatModel {
     }
 
     private void emitBlockStart(
-        RawContentBlockStartEvent.ContentBlock block, FluxSink<ChatResponse> sink, boolean[] thinkingStarted
+        RawContentBlockStartEvent.ContentBlock block, FluxSink<ChatResponse> sink
     ) {
         sink.next(textChunk("\n"));
         if (block.isToolUse()) {
-            thinkingStarted[0] = false;
-            sink.next(textChunk("[tool_call] " + block.asToolUse().name()));
+            sink.next(toolCallChunk(block.asToolUse().name()));
         } else if (block.isServerToolUse()) {
-            thinkingStarted[0] = false;
-            sink.next(textChunk(formatServerToolStart(block.asServerToolUse())));
+            sink.next(serverToolChunk(block.asServerToolUse()));
         } else if (block.isWebSearchToolResult()) {
             emitWebSearchResult(block.asWebSearchToolResult().content(), sink);
         }

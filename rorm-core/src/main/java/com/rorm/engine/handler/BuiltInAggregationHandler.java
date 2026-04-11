@@ -23,5 +23,6 @@ public sealed interface BuiltInAggregationHandler extends AggregationHandler per
     BoolAndAggregation,
     BoolOrAggregation,
     CorrAggregation,
-    RegrSlopeAggregation {
+    RegrSlopeAggregation,
+    PercentileContAggregation {
 }

@@ -1,0 +1,11 @@
+<hypothesis_spec>
+{{HYPOTHESIS_SPEC}}
+</hypothesis_spec>
+
+<metamodel>
+{{METAMODEL}}
+</metamodel>
+
+<domain_knowledge>
+{{DOMAIN_KNOWLEDGE}}
+</domain_knowledge>

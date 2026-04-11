@@ -1,12 +1,14 @@
 package com.rorm.ai.chat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.rorm.StepJournal;
 import com.rorm.ai.anthropic.AnthropicChatOptions;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.chat.memory.ChatMemoryRepository;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -20,11 +22,12 @@ public class AgentChatService implements AiChatService {
     static final String BEAN_NAME = "defaultAiChatService";
 
     private final ChatClient chatClient;
-    private final ChatMemoryRepository chatMemoryRepository;
+    private final ChatMemoryManager memoryManager;
     private final ChatRequestPreprocessor preprocessor;
 
     @Override
     @SuppressWarnings("unchecked")
+    @Retryable(retryFor = {JsonProcessingException.class}, backoff = @Backoff(delay = 1))
     public <T> T call(ChatRequest<T> request) {
         var response = buildSpec(request).call();
         if (request.responseType() == String.class) {
@@ -56,23 +59,35 @@ public class AgentChatService implements AiChatService {
     }
 
     private List<Advisor> buildAdvisors(ChatRequest<?> request) {
-        var baseAdvisors = new ArrayList<>(request.additionalAdvisors());
-        if (baseAdvisors.stream().noneMatch(MessageChatMemoryAdvisor.class::isInstance)) {
-            baseAdvisors.add(
-                MessageChatMemoryAdvisor.builder(new AgentChatMemory(chatMemoryRepository, StepJournal.current()))
+        var advisors = new ArrayList<>(request.additionalAdvisors());
+        if (advisors.stream().noneMatch(TypedChatMemoryAdvisor.class::isInstance)) {
+            advisors.add(
+                TypedChatMemoryAdvisor.builder()
+                    .memoryManager(memoryManager)
                     .conversationId(request.chatId() != null ?
                         request.chatId() :
                         StepJournal.current().randomUUID().toString())
+                    .includes(request.memoryIncludes())
                     .build()
             );
         }
-        return baseAdvisors;
+        return advisors;
     }
 
     @Override
     public Flux<String> stream(ChatRequest<?> request) {
-        return buildSpec(request).stream().chatResponse()
-            .mapNotNull(r -> r.getResult().getOutput().getText())
-            .filter(t -> t != null && !t.isEmpty());
+        return streamTokens(request)
+            .map(StreamToken::toText)
+            .filter(t -> !t.isEmpty());
+    }
+
+    @Override
+    public Flux<StreamToken> streamTokens(ChatRequest<?> request) {
+        return streamChatResponses(request).mapNotNull(StreamToken::from);
+    }
+
+    @Override
+    public Flux<ChatResponse> streamChatResponses(ChatRequest<?> request) {
+        return buildSpec(request).stream().chatResponse();
     }
 }

@@ -31,5 +31,4 @@ rorm:
 
 anthropic:
   bedrock:
-    region: eu-central-1
-    api-key: hgk
+    region: us-east-1

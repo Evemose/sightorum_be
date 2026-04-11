@@ -35,8 +35,10 @@ public interface StepJournal {
         return (T) run(stepName, Object.class, (Supplier<Object>) action);
     }
 
+    /// Runs and caches result of computation
     <T> T run(String stepName, Class<T> resultType, Supplier<T> action);
 
+    /// Runs and caches a result of computation asynchronously
     <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action);
 
     /**

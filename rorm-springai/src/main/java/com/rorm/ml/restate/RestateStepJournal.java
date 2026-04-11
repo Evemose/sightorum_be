@@ -8,23 +8,24 @@ import dev.restate.sdk.common.StateKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 public class RestateStepJournal implements StepJournal {
 
     private final ObjectContext ctx;
     private String keyPrefix;
-    private int callOrdinal;
+    private final AtomicInteger callOrdinal;
 
     public RestateStepJournal(ObjectContext ctx) {
         this.ctx = ctx;
         this.keyPrefix = "";
-        this.callOrdinal = 0;
+        this.callOrdinal = new AtomicInteger(0);
     }
 
     @Override
     public <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
-        var qualifiedName = keyPrefix + callOrdinal++ + ":" + stepName;
+        var qualifiedName = keyPrefix + callOrdinal.getAndIncrement() + ":" + stepName;
         var stateKey = StateKey.of(qualifiedName, resultType);
         var cached = ctx.get(stateKey);
         if (cached.isPresent()) {
@@ -37,7 +38,7 @@ public class RestateStepJournal implements StepJournal {
 
     @Override
     public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
-        var qualifiedName = keyPrefix + callOrdinal++ + ":" + stepName;
+        var qualifiedName = keyPrefix + callOrdinal.getAndIncrement() + ":" + stepName;
         var cached = ctx.get(StateKey.of(qualifiedName, resultType));
         if (cached.isPresent()) {
             return new RestateDurableFuture.Resolved<>(resultType.cast(cached.get()), UUID.randomUUID().toString());

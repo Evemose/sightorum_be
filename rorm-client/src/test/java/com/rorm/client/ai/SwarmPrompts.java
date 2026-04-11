@@ -1320,6 +1320,20 @@ public interface SwarmPrompts {
               prescriptive_implication: <what operational intervention this suggests>
               downstream_action: DIRECT_PRESCRIPTIVE | VERIFY_AND_PRESCRIBE | MONITOR_ONLY
             ```
+        
+            ```
+            Per suspected interaction:
+        
+            INTERACTION_CANDIDATE:
+              components: [<column_1>, <column_2>, ...]
+              component_hypotheses: [<hypothesis_id_1>, <hypothesis_id_2>, ...]
+              joint_signal_evidence: <what in the iteration chain suggests interaction —
+                effect modifier in SHAP, sign flip across strata, mechanism requiring
+                co-presence, etc.>
+              expected_interaction_form: synergistic | antagonistic | regime_change |
+                co_presence_required
+              reasoning: <mechanism for why components interact rather than add>
+            ```
             </output_structure>
         
             <critical_rules>
@@ -1431,6 +1445,18 @@ public interface SwarmPrompts {
                 bias: each result anchors the next decision, narrowing exploration to whatever
                 the first branch happened to show. Parallel execution gives you complementary
                 views of the causal structure without sequential lock-in — see Step 6d.
+        
+            19. TREATMENTS MUST BE SINGLE SOURCE COLUMNS. Do not construct treatment
+                variables via CONCAT, interaction, or any composition of multiple source
+                columns. If iteration surfaces evidence that two or more anchor-internal
+                variables matter JOINTLY in a way that neither captures alone, produce
+                ONE hypothesis per component and flag the suspected interaction in an
+                INTERACTION_CANDIDATE block. Interactions are discovered and estimated
+                downstream in a dedicated stage. The pipeline cannot currently identify
+                joint effects of composed treatments without severe positivity violations,
+                and coarsening to a component changes the causal question being asked.
+                Your job is to surface components; interaction estimation is not your
+                responsibility.
             </critical_rules>
         
             <counter_examples>
@@ -1555,6 +1581,13 @@ public interface SwarmPrompts {
             outcome. All three return independently and give complementary views. Sequential
             execution anchors attention on whatever Run 2 happens to show, creating blind spots
             in unexplored branches.
+        
+            **Bad: Composed interaction treatment**
+            "HYPOTHESIS: treatment: CONCAT(columnA, columnB)"
+            → Multi-column composed treatments cannot be identified under typical
+            confounder concentration — too many empty cells in the treatment ×
+            confounder grid. Produce one hypothesis per component and document the
+            suspected joint effect in an INTERACTION_CANDIDATE block.
             </counter_examples>
         
             <pre_response_checklist>
@@ -1584,6 +1617,9 @@ public interface SwarmPrompts {
             ☐ Seed attributes below detection threshold forwarded with recommended GRF modifiers
             ☐ No effect size claims or conclusions
             ☐ All tool failures documented as gaps
+            ☐ No treatment uses CONCAT or composition of source columns
+            ☐ Suspected interactions surfaced as INTERACTION_CANDIDATE blocks, not as
+              composed treatments
             </pre_response_checklist>
         
             <query_structure>
@@ -1755,6 +1791,7 @@ public interface SwarmPrompts {
           marginal (unstratified) rates
         - ONE confounder completeness (#12) scan per HYPOTHESIS
         - ONE sample size check (#11) per RARE_EVENT_FINDING
+        - ONE composed treatment check (#14) per HYPOTHESIS
         
         Skip only with explicit justification. If a tool failure forces manual
         fallback, prefer exclusion-validating and DAG-validating checks over
@@ -2057,6 +2094,30 @@ public interface SwarmPrompts {
           - Undocumented association found → MISSING EDGE, report both
             correlations, the implied direction, and which hypothesis estimates
             are affected
+        
+        ## 14. COMPOSED TREATMENT DETECTION
+        Claim: Any HYPOTHESIS block with a treatment variable
+        Check:
+          - Is the treatment a single source column from the schema?
+          - Or is it constructed via CONCAT, string composition, arithmetic
+            combination, or any multi-column derivation?
+        Verdict:
+          - Single source column → COMPLIANT
+          - Composed from multiple source columns → COMPOSED_TREATMENT_VIOLATION.
+            Flag for retraction. The hypothesis should be split into per-component
+            hypotheses with the interaction documented as an INTERACTION_CANDIDATE.
+        
+        SUBTLETY — DERIVED FEATURES ARE ALLOWED: A derived feature computed from a
+        SINGLE source column (time-since, age-bucket, log-transform, ratio against
+        a constant) is compliant. The prohibition targets treatments that COMPOSE
+        multiple distinct source columns into a joint variable.
+        
+        SUBTLETY — INTERACTION_CANDIDATE VERIFICATION: If the generator produced
+        INTERACTION_CANDIDATE blocks alongside component hypotheses, verify the
+        joint_signal_evidence empirically via stratified outcome rates: do the
+        components actually exhibit non-additive behavior? A claimed interaction
+        with no empirical joint-signal evidence is SPECULATIVE and should be
+        flagged for downstream attention rather than treated as established.
         
         </verification_patterns>
         
@@ -3266,17 +3327,17 @@ public interface SwarmPrompts {
         """;
 
     String EXECUTOR_COMPILER_USER = """
-            <hypothesis_spec>
-            {{HYPOTHESIS_SPEC}}
-            </hypothesis_spec>
+        <hypothesis_spec>
+        {{HYPOTHESIS_SPEC}}
+        </hypothesis_spec>
         
-            <metamodel>
-            {{METAMODEL}}
-            </metamodel>
+        <metamodel>
+        {{METAMODEL}}
+        </metamodel>
         
-            <domain_knowledge>
-            {{DOMAIN_KNOWLEDGE}}
-            </domain_knowledge>
+        <domain_knowledge>
+        {{DOMAIN_KNOWLEDGE}}
+        </domain_knowledge>
         """;
 
     CacheStrategy EXECUTOR_COMPILER_CACHE_STRATEGY = _ -> CacheTTL.SHORT;

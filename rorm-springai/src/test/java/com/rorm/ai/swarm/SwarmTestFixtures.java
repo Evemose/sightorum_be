@@ -221,6 +221,7 @@ public final class SwarmTestFixtures {
                 "You are a causal hypothesis generator.",
                 "<query>{{USER_QUERY}}</query>\n<anchor>{{ANCHOR_ENTITY}}</anchor>\n<survey>{{CLUSTER_CONTEXT}}</survey>\n<domain>{{DOMAIN_RESEARCH}}</domain>",
                 ThinkingLevel.NONE, Set.of(), null),
+            "{{SCEPTIC_FINDINGS}}",
             new AgentModelConfig("claude-opus-4-6",
                 "You verify causal hypothesis claims by computing alternative evidence.",
                 "Generator output:\n{{GENERATOR_OUTPUT}}",
@@ -233,7 +234,8 @@ public final class SwarmTestFixtures {
                 "You are a null hypothesis post-mortem analyst.",
                 "<hypothesis>{{HYPOTHESIS_SPEC}}</hypothesis>\n<domain>{{DOMAIN_KNOWLEDGE}}</domain>\n<pipeline>{{PIPELINE_OUTPUT}}</pipeline>",
                 ThinkingLevel.NONE, Set.of(), null),
-            new AgentModelConfig("claude-haiku-4-5-20251001", SwarmDefaultPrompts.SUMMARIZER,
+            new AgentModelConfig("claude-haiku-4-5-20251001",
+                "You are a summarizer. Extract a structured {{DTO_TYPE}} from: {{RAW_OUTPUT}}",
                 "", ThinkingLevel.NONE, Set.of(), null)
         );
     }
