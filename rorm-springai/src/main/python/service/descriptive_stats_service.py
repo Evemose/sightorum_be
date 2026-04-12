@@ -195,27 +195,30 @@ def _interp_nan(arr: np.ndarray, mask: np.ndarray) -> np.ndarray:
     return out
 
 
-def _compute_stl(
-        arr: np.ndarray, period: Optional[int], notes: List[str]
-) -> Optional[StlResult]:
-    try:
-        from statsmodels.tsa.seasonal import STL
-    except Exception as exc:
-        notes.append(f"statsmodels STL unavailable: {exc}")
-        return None
-
+def _compute_stl(arr, period, notes):
+    ...
     if period is None or period < 2:
-        notes.append("STL skipped — no valid period hint (period >= 2 required)")
+        notes.append("STL skipped — no valid period hint")
         return None
     if arr.size < 2 * period:
-        notes.append(
-            f"STL skipped — series length {arr.size} < 2 * period {period}"
-        )
+        notes.append(f"STL skipped — series length {arr.size} < 2 * period {period}")
         return None
-
     try:
-        robust_period = period if period % 2 == 1 else period + 1
-        result = STL(arr, period=robust_period, robust=True).fit()
+        # Seasonal smoother window: odd, >= 7, independent of period
+        seasonal_window = 7
+        # Trend smoother: Cleveland's rule, next odd >= 1.5*period/(1 - 1.5/seasonal)
+        trend_window = int(np.ceil(1.5 * period / (1 - 1.5 / seasonal_window)))
+        if trend_window % 2 == 0:
+            trend_window += 1
+        trend_window = max(trend_window, seasonal_window + 2)
+
+        result = STL(
+            arr,
+            period=period,  # pass through, do NOT mutate
+            seasonal=seasonal_window,
+            trend=trend_window,
+            robust=False,
+        ).fit()
         trend = np.asarray(result.trend)
         seasonal = np.asarray(result.seasonal)
         remainder = np.asarray(result.resid)
