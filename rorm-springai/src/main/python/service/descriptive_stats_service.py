@@ -196,7 +196,11 @@ def _interp_nan(arr: np.ndarray, mask: np.ndarray) -> np.ndarray:
 
 
 def _compute_stl(arr, period, notes):
-    ...
+    try:
+        from statsmodels.tsa.seasonal import STL
+    except Exception as exc:
+        notes.append(f"statsmodels STL unavailable: {exc}")
+        return None
     if period is None or period < 2:
         notes.append("STL skipped — no valid period hint")
         return None
