@@ -656,16 +656,20 @@ def _add_causal_verification_routes(app: FastAPI):
         Both the base run and the new run are frozen on completion.
         """
         import asyncio
+        from fastapi.responses import JSONResponse
 
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None,
-            lambda: reexecution_engine.reexecute(
-                base_run_id=run_id,
-                spec_patch=spec_patch,
-                datasource=datasource,
-            ),
-        )
+        try:
+            return await loop.run_in_executor(
+                None,
+                lambda: reexecution_engine.reexecute(
+                    base_run_id=run_id,
+                    spec_patch=spec_patch,
+                    datasource=datasource,
+                ),
+            )
+        except ValueError as e:
+            return JSONResponse(status_code=400, content={"detail": str(e)})
 
     @app.get(
         "/analysis/causal-verification/runs",
