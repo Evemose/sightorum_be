@@ -20,7 +20,7 @@ public record Join(
         if (aliasedRoot == null) {
             throw new IllegalArgumentException("JoinedRoot cannot be null");
         }
-        if (joinType != JoinType.CROSS && onCondition == null) {
+        if (joinType.requiresOnCondition() && onCondition == null) {
             throw new IllegalArgumentException("ON condition is required for " + joinType + " joins");
         }
     }
@@ -29,7 +29,19 @@ public record Join(
         INNER,
         LEFT,
         RIGHT,
-        CROSS
+        CROSS,
+        /**
+         * CROSS JOIN LATERAL — no ON condition needed
+         */
+        CROSS_LATERAL,
+        /**
+         * LEFT JOIN LATERAL — ON condition required
+         */
+        LEFT_LATERAL;
+
+        boolean requiresOnCondition() {
+            return this != CROSS && this != CROSS_LATERAL;
+        }
     }
 
 }

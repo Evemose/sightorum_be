@@ -31,13 +31,13 @@ public final class LagWindow extends AbstractWindowFunction {
         var argFields = ctx.transformAll(args);
 
         if (argFields.length == 1) {
-            return applyWindowSpec(DSL.lag(argFields[0]), partition, order);
+            return applyWindowSpec(DSL.lag(argFields[0]), partition, order, windowSpec.frame());
         } else if (argFields.length == 2) {
             int offset = ctx.extractInt(args.get(1));
-            return applyWindowSpec(DSL.lag(argFields[0], offset), partition, order);
+            return applyWindowSpec(DSL.lag(argFields[0], offset), partition, order, windowSpec.frame());
         } else if (argFields.length == 3) {
             int offset = ctx.extractInt(args.get(1));
-            return applyWindowSpec(DSL.lag(argFields[0], offset, (Field) argFields[2]), partition, order);
+            return applyWindowSpec(DSL.lag(argFields[0], offset, (Field) argFields[2]), partition, order, windowSpec.frame());
         }
         throw new IllegalArgumentException("LAG requires 1-3 arguments");
     }

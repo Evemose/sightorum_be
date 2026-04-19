@@ -203,6 +203,7 @@ public record ImportRequest(
                     value instanceof java.time.ZoneOffset || value instanceof java.time.ZoneId;
                 case DataType.DayOfWeekType _ -> value instanceof java.time.DayOfWeek;
                 case DataType.CategorcialType _ -> value instanceof String;
+                case DataType.IntervalType _ -> value instanceof String;
                 case DataType.ListType _ -> false;
             };
         }

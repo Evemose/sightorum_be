@@ -1,12 +1,14 @@
 package com.rorm.ai.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.StepJournal;
 import com.rorm.ai.anthropic.AnthropicChatOptions;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -24,6 +26,7 @@ public class AgentChatService implements AiChatService {
     private final ChatClient chatClient;
     private final ChatMemoryManager memoryManager;
     private final ChatRequestPreprocessor preprocessor;
+    private final ObjectMapper objectMapper;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -33,7 +36,7 @@ public class AgentChatService implements AiChatService {
         if (request.responseType() == String.class) {
             return (T) response.content();
         }
-        return response.entity(request.responseType());
+        return response.entity(new BeanOutputConverter<>(request.responseType(), objectMapper));
     }
 
     private ChatClient.ChatClientRequestSpec buildSpec(ChatRequest<?> request) {
@@ -48,6 +51,7 @@ public class AgentChatService implements AiChatService {
             .toolContext(toolContext.getContext())
             .journal(StepJournal.current())
             .cachingStrategyFunction(request.cachingStrategyFunction())
+            .responseSchema(request.responseSchema())
             .build();
 
         var advisors = buildAdvisors(request);

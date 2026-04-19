@@ -1,5 +1,6 @@
 package com.rorm.engine.handler.function;
 
+import com.rorm.engine.handler.BooleanFieldUtils;
 import com.rorm.engine.handler.BuiltInFunctionHandler;
 import com.rorm.engine.handler.TransformContext;
 import com.rorm.engine.handler.TypeResolutionContext;
@@ -37,11 +38,11 @@ public final class CaseFunction implements BuiltInFunctionHandler {
             throw new IllegalArgumentException("CASE requires at least 2 arguments");
         }
 
-        var caseStep = DSL.<Object>when(DSL.condition((Field<Boolean>) fields[0]), fields[1]);
+        var caseStep = DSL.<Object>when(BooleanFieldUtils.asBooleanField(fields[0]), fields[1]);
 
         int i = 2;
         while (i + 1 < fields.length) {
-            caseStep = caseStep.when(DSL.condition((Field<Boolean>) fields[i]), fields[i + 1]);
+            caseStep = caseStep.when(BooleanFieldUtils.asBooleanField(fields[i]), fields[i + 1]);
             i += 2;
         }
 

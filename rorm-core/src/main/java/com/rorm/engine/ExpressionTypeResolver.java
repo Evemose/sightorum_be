@@ -85,10 +85,11 @@ public class ExpressionTypeResolver implements TypeResolutionContext {
             case Aggregation agg -> resolveAggregationType(agg, fromRoot);
             case WindowFunction wf -> resolveWindowFunctionType(wf, fromRoot);
             case BinaryExpression bin -> resolveBinaryType(bin, fromRoot);
+            case QuantifiedComparison _ -> new ResolvedType.BasicType(new DataType.BooleanType());
             case UnaryExpression un -> resolveUnaryType(un, fromRoot);
             case TernaryExpression ter -> resolveTernaryType(ter, fromRoot);
+            case CaseExpression caseExpr -> resolveCaseType(caseExpr, fromRoot);
             case Subquery sub -> resolveSubqueryType(sub);
-            case OuterRef(_, var path) -> resolvePathType(path);
         };
     }
 
@@ -201,6 +202,11 @@ public class ExpressionTypeResolver implements TypeResolutionContext {
         var handler = handlerRegistry.getUnaryOperator(un.operator());
         var dataType = handler.resolveType(un.operand(), this);
         return new ResolvedType.BasicType(dataType);
+    }
+
+    private ResolvedType resolveCaseType(CaseExpression caseExpr, Root fromRoot) {
+        // Type of CASE is the type of the first THEN result
+        return resolveType(caseExpr.whens().getFirst().result(), fromRoot);
     }
 
     private ResolvedType resolveTernaryType(TernaryExpression ter, Root fromRoot) {

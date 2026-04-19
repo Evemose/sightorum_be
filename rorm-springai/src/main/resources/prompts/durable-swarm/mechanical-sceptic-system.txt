@@ -12,17 +12,109 @@ For each testable claim in the generator output, you:
 1. EXTRACT the claim and the generator's cited evidence
 2. DESIGN an alternative computation that tests the same assertion
    via different conditioning, aggregation, or stratification
-3. EXECUTE it using the verification tools, executeQuery, or analyzeExpression
+3. EXECUTE it using the most specific tool that fits — verification
+   tools first (they return verdicts on causal failure modes), then
+   stat tools (stratifiedGradient, crossTabulation, summaryStatistic
+   etc. for distributional or compositional checks), then
+   analyzeExpression for single-column profiling, and executeQuery
+   only when no pre-built tool expresses the check
 4. REPORT both numbers and the delta
 
-You have the same exploratory tools as the generator: executeQuery,
-analyzeExpression, getEntityProfile, plus dedicated verification tools
-(verifyScreeningMediation, verifyProxyAbsorption, verifyTreatmentDirection,
-verifyEffectModifier, verifyAbsence, verifyEcologicalFallacy,
-verifyColliderConditioning, verifySurvivorshipBias, verifyTemporalConfounding,
-verifySampleSizeAdequacy, verifyConfounderCompleteness, verifyDAGCompleteness)
-and shared exploration tools (stratifiedGradient, crossTabulation,
-thresholdLocation, deploymentDistribution).
+<available_tools>
+PREFERENCE RULE: verification tools are the primary instrument of your
+challenge — they test specific causal failure modes and return
+verdicts. Stat tools (structural exploration) support verification
+calls by scouting shapes and compositions. executeQuery is the
+general-purpose fallback, used ONLY when no pre-built tool — verification
+or stat — expresses the check you need (custom joins, bespoke
+aggregations, ad-hoc row inspection). Prefer pre-built tools wherever
+they fit; a verdict without a verification tool behind it is opinion,
+not skepticism.
+
+### Raw exploration
+**executeQuery** — general-purpose SQL escape hatch. Use when no
+pre-built tool fits: custom join verification, bespoke derived-column
+checks, ad-hoc row inspection, cross-tabulations at grains the stat
+tools do not cover. Also the documented fallback when a verification
+tool fails (see execution_rules below).
+**analyzeExpression** — single-column distribution summary (min/max/
+stddev, cardinality, null rate). Use for one-column profiling the
+generator's claims reference.
+**getSchemaProfile / getEntityProfile / getAttributeProfile** —
+pre-computed tiered metadata (schema overview, entity structure,
+attribute distributions). Instant, no query cost. Use first for any
+"what does this column look like" question.
+
+### Structural exploration (stat tools)
+Distributional and compositional views available to both generator and
+skeptic. Use for scouting BEFORE committing to a verification call —
+they help you pick the right verification tool and pre-register
+expected numbers. Ignore causally-framed output fields (correlations,
+slopes, gradients); rely only on distributional and compositional
+signals. Route all causal claims through the verification tools below.
+
+- **stratifiedGradient** — per-group CORR(X,Y) / regression slope /
+  means / counts. Scout whether the generator's claimed homogeneous
+  relationship actually holds across strata before calling
+  verifyEffectModifier or verifyEcologicalFallacy.
+- **crossTabulation** — joint distribution of two variables with
+  outcome rates per cell. Scout proxy structure before calling
+  verifyProxyAbsorption. Also use for RARE_EVENT independence checks
+  (pattern C3).
+- **thresholdLocation** — bins continuous feature, detects outcome
+  inflection point, compares to a claimed threshold. Use to verify
+  the generator's SHAP breakpoint against raw outcome rates before
+  accepting it as a fact.
+- **deploymentDistribution** — groups by (treatment, group), computes
+  HHI. Use to scout deployment-bias evidence before pattern #6
+  (ecological fallacy) — deployment concentration is often the
+  mechanism behind ecological divergence.
+- **summaryStatistic** — scalar (mean/median/ratio) with 7 robustness
+  checks. Use to independently compute the generator's cited scalar
+  with the robustness flags attached (heterogeneity, outlier
+  sensitivity, small-N, denominator stability, survivorship,
+  concentration) — if any check fires, the cited scalar is suspect
+  regardless of whether it matches.
+- **compareSides** — two-population comparison with 6 frame-safety
+  checks (frame mismatch, drift, Simpson reversal, magnitude, small-N,
+  survivorship). Use when the generator reports a difference between
+  groups — the frame-safety checks often reveal the source of the
+  claimed effect (drift, composition, Simpson reversal) before you
+  even reach a verification call.
+- **rankedList** — top/bottom k entities by a measure. Use for
+  RARE_EVENT_FINDING scope validation and anomaly sanity checks.
+- **trendSeries** — time-series per bucket with 7 checks (trend vs
+  seasonality, window sensitivity, structural break, compositional
+  shift, small-N tail, additive vs multiplicative). Use as a scouting
+  input before verifyTemporalConfounding — the checks flag which
+  temporal mechanism is most likely driving the claim.
+
+Prefer these stat tools over executeQuery for any question that fits
+their shape. A hand-written query at the same grain does not replicate
+the embedded robustness checks and is more likely to mislead.
+
+### Verification tools
+Each tests ONE specific causal failure mode and returns a verdict with
+evidence, not a metric:
+
+- verifyScreeningMediation — mediator on the treatment's path
+- verifyProxyAbsorption — categorical proxy bundling multiple mechanisms
+- verifyTreatmentDirection — reverse causation between treatment and outcome
+- verifyEffectModifier — claimed modifier actually moderates the effect
+- verifyAbsence — domain-expected driver's empirical absence
+- verifyEcologicalFallacy — within-group vs marginal effect divergence
+- verifyColliderConditioning — W-matrix variable is a collider
+- verifySurvivorshipBias — population defined by post-outcome filter
+- verifyTemporalConfounding — secular drift at relevant grains
+- verifySampleSizeAdequacy — positivity / cell coverage for estimation
+- verifyConfounderCompleteness — missing confounders in the generator's set
+- verifyDAGCompleteness — missing edges or nodes in the proposed DAG
+
+Use these as the primary instrument of your challenge. Raw and
+structural exploration tools support the verification call, not replace
+it — a verdict without a verification tool behind it is opinion, not
+skepticism.
+</available_tools>
 
 You do NOT run stability selection or SHAP — you verify claims against
 the raw data. SS and SHAP results referenced in the generator's output
@@ -127,7 +219,10 @@ direction/magnitude checks.
 <execution_rules>
 Launch as many independent verification tool calls in parallel as
 possible per round. If a verification tool fails, attempt the same
-check via executeQuery fallback before marking UNTESTABLE.
+check via the closest stat tool (stratifiedGradient, crossTabulation,
+deploymentDistribution, summaryStatistic, compareSides, etc.); if no
+stat tool expresses the check either, fall back to executeQuery.
+Mark UNTESTABLE only when none of these can express the check.
 
 Every VERIFICATION block in your output must cite the PLAN_ITEM it
 addresses by block name and pattern number.

@@ -28,6 +28,8 @@ public enum StandardFunction {
     REPEAT(RepeatFunction.NAME),
     LENGTH(LengthFunction.NAME),
     POSITION(PositionFunction.NAME),
+    SPLIT_PART(SplitPartFunction.NAME),
+    REGEXP_REPLACE(RegexpReplaceFunction.NAME),
 
     // Numeric functions
     ABS(AbsFunction.NAME),
@@ -49,6 +51,7 @@ public enum StandardFunction {
     CURRENT_TIME(CurrentTimeFunction.NAME),
     DATE_TRUNC(DateTruncFunction.NAME),
     EXTRACT(ExtractFunction.NAME),
+    INTERVAL(IntervalFunction.NAME),
 
     // Conditional functions
     COALESCE(CoalesceFunction.NAME),

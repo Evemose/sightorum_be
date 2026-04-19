@@ -8,9 +8,12 @@ import com.rorm.ml.exception.MlServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
+
+import com.rorm.ml.dto.PipelineSpecPatch;
 
 import java.util.Map;
 
@@ -45,51 +48,55 @@ public class CausalReexecutionTool {
             - residual_checks → residual_diagnostics
             - externalization → externalization
             
-            USE THIS when you want to test "what if we changed X?" without re-running the
-            entire 14-step pipeline from scratch.
-            
             The new run is frozen and can itself be used as a base for further re-executions.
             """
     )
     public String reexecuteCausalPipeline(
 
         @ToolParam(description = """
-            The run_id of a completed causal verification run to use as the base.
-            Use listCompletedCausalRuns to discover available runs.""")
-        String runId,
+            Run ID of the base run to re-execute against. Optional — when
+            omitted, the current pipeline run from context is used (this is
+            the normal mode inside compiler-sceptic review). Provide
+            explicitly only when re-executing a different or older run.""")
+        @Nullable String runId,
 
         @ToolParam(description = """
-            Partial spec patch — only include the fields you want to change.
-            Uses the same field names as the PipelineSpec (snake_case):
-            adjustment_set, estimation_variants, gates, sensitivity,
-            grf_configs, refutations, mediation, range_checks,
-            residual_checks, unmeasured_confounding, externalization,
-            dag_edges, dsep_threshold, structural_breaks, strip_columns.
-            
-            Nested fields are deep-merged: e.g. {"gates": {"sanity": {"abort_magnitude": 0.5}}}
-            only changes that one threshold while keeping all other gate settings.
-            
-            Lists are replaced wholesale: e.g. {"adjustment_set": ["age", "income"]}
-            replaces the entire adjustment set.""")
-        Map<String, Object> specPatch
+            Partial spec patch — include ONLY the fields you want to change.
+            Omitted fields keep the base run's values. Nested objects are
+            deep-merged (e.g. providing only gates.sanity changes sanity
+            while keeping nuisance_r2 and placebo). Lists are replaced
+            wholesale.""")
+        PipelineSpecPatch specPatch,
+
+        ToolContext toolContext
 
     ) {
+        var resolvedRunId = resolveRunId(runId, toolContext);
         try {
-            log.info("Re-executing causal pipeline run '{}' with patch on fields: {}",
-                runId, specPatch.keySet());
+            log.info("Re-executing causal pipeline run '{}'", resolvedRunId);
 
-            var result = mlService.reexecutePipeline(runId, specPatch);
+            var result = mlService.reexecutePipeline(resolvedRunId, specPatch);
 
-            var reexecutedSteps = result.get("reexecuted_steps");
-            var skippedSteps = result.get("skipped_steps");
             log.info("Re-execution complete: new_run={}, reexecuted={}, skipped={}",
-                result.get("run_id"), reexecutedSteps, skippedSteps);
+                result.runId(), result.reexecutedSteps(), result.skippedSteps());
 
             return writeJson(result);
         } catch (MlServiceException e) {
-            log.error("Pipeline re-execution failed for run '{}'", runId, e);
+            log.error("Pipeline re-execution failed for run '{}'", resolvedRunId, e);
             return errorResponse("Re-execution failed: " + e.getMessage());
         }
+    }
+
+    private static String resolveRunId(@Nullable String explicit, ToolContext toolContext) {
+        if (explicit != null && !explicit.isBlank()) {
+            return explicit;
+        }
+        var fromContext = toolContext.getContext().get("pipelineRunId");
+        if (fromContext instanceof String s && !s.isBlank()) {
+            return s;
+        }
+        throw new IllegalArgumentException(
+            "runId is required — provide it explicitly or ensure pipelineRunId is in the tool context");
     }
 
     private String writeJson(Object value) {

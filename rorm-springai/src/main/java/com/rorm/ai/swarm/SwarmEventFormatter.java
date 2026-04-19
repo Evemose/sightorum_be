@@ -2,7 +2,7 @@ package com.rorm.ai.swarm;
 
 import com.rorm.ai.chat.StreamToken;
 import reactor.core.Disposable;
-import reactor.core.publisher.Sinks;
+import reactor.core.publisher.Flux;
 
 import java.io.PrintStream;
 import java.util.LinkedHashMap;
@@ -11,20 +11,15 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Dual-mode formatter:
+ * Dual-mode formatter for {@link SwarmStreamEvent}s from a
+ * {@link SwarmEventBus}:
  * <ul>
  *   <li><b>Live mode</b> (exactly one active agent): tokens write to stdout as
- *       they arrive, no buffering, no role captions. The single agent's
- *       output streams like a normal chat.</li>
+ *       they arrive, no buffering, no role captions.</li>
  *   <li><b>Buffered mode</b> (two or more active agents): each agent's tokens
  *       accumulate per mode and flush as complete blocks on mode change, with
- *       agent role captions inserted only when the active emitter changes.
- *       This prevents unreadable per-token interleaving.</li>
+ *       agent role captions inserted only when the active emitter changes.</li>
  * </ul>
- * Mode switches on agent start/end: the first agent of a concurrent group
- * terminates its live stream and starts buffering; when a concurrent group
- * collapses back to one agent, the remaining agent flushes its pending
- * buffered block and resumes live streaming.
  */
 public class SwarmEventFormatter implements AutoCloseable {
 
@@ -39,24 +34,18 @@ public class SwarmEventFormatter implements AutoCloseable {
     private static final String BLUE = "\033[34m";
 
     private final PrintStream out;
-    private final Sinks.Many<SwarmEvent> events;
     private final Object lock = new Object();
     private final Map<UUID, AgentState> active = new LinkedHashMap<>();
     private final CopyOnWriteArrayList<Disposable> subscriptions = new CopyOnWriteArrayList<>();
     private UUID lastBufferedEmitter;
 
-    public SwarmEventFormatter() {
-        this(Sinks.many().replay().all());
-    }
-
-    public SwarmEventFormatter(Sinks.Many<SwarmEvent> events) {
+    public SwarmEventFormatter(Flux<SwarmStreamEvent> events) {
         this(events, System.out);
     }
 
-    public SwarmEventFormatter(Sinks.Many<SwarmEvent> events, PrintStream out) {
-        this.events = events;
+    public SwarmEventFormatter(Flux<SwarmStreamEvent> events, PrintStream out) {
         this.out = out;
-        subscriptions.add(events.asFlux().subscribe(this::onEvent, this::onError));
+        subscriptions.add(events.subscribe(this::onEvent, this::onError));
     }
 
     private static boolean endsWithSentenceBoundary(CharSequence cs) {
@@ -107,10 +96,6 @@ public class SwarmEventFormatter implements AutoCloseable {
         return sb.toString();
     }
 
-    public Sinks.Many<SwarmEvent> events() {
-        return events;
-    }
-
     @Override
     public void close() {
         synchronized (lock) {
@@ -128,32 +113,44 @@ public class SwarmEventFormatter implements AutoCloseable {
 
     private void flushBlock(AgentState state) {
         if (state.pendingMode == Mode.NONE || state.pendingContent.length() == 0) {
-            state.pendingMode = Mode.NONE;
-            state.pendingContent.setLength(0);
+            state.resetPending();
             return;
         }
+        printEmitterCaptionIfSwitched(state);
+        printModeLabelIfChanged(state);
+        printPendingLines(state);
+        out.flush();
+        state.resetPending();
+    }
+
+    private void printEmitterCaptionIfSwitched(AgentState state) {
         var token = state.id.token();
         if (active.size() > 1 && !token.equals(lastBufferedEmitter)) {
             out.println(DIM + CYAN + "[" + state.id.kind() + ":" + state.id.shortToken() + "]" + RESET);
             lastBufferedEmitter = token;
         }
-        if (state.lastPrintedMode != state.pendingMode) {
-            var label = modeLabel(state.pendingMode);
-            if (label != null) {
-                out.println("  " + label);
-            }
-            state.lastPrintedMode = state.pendingMode;
+    }
+
+    private void printModeLabelIfChanged(AgentState state) {
+        if (state.lastPrintedMode == state.pendingMode) {
+            return;
+        }
+        var label = modeLabel(state.pendingMode);
+        if (label != null) {
+            out.println("  " + label);
+        }
+        state.lastPrintedMode = state.pendingMode;
+    }
+
+    private void printPendingLines(AgentState state) {
+        var content = state.pendingContent.toString().strip();
+        if (content.isEmpty()) {
+            return;
         }
         var color = colorFor(state.pendingMode);
-        var content = state.pendingContent.toString().strip();
-        if (!content.isEmpty()) {
-            for (var line : content.split("\n", -1)) {
-                out.println("  " + color + line + RESET);
-            }
+        for (var line : content.split("\n", -1)) {
+            out.println("  " + color + line + RESET);
         }
-        out.flush();
-        state.pendingMode = Mode.NONE;
-        state.pendingContent.setLength(0);
     }
 
     private void printFooter(AgentState state) {
@@ -185,29 +182,26 @@ public class SwarmEventFormatter implements AutoCloseable {
         };
     }
 
-    private void onEvent(SwarmEvent event) {
+    private void onEvent(SwarmStreamEvent event) {
         switch (event) {
-            case SwarmEvent.StartEvent start -> onStart(start);
-            case SwarmEvent.EndEvent<?> end -> onEnd(end);
+            case SwarmStreamEvent.AgentStarted start -> onStart(start);
+            case SwarmStreamEvent.AgentToken tok -> onToken(tok);
+            case SwarmStreamEvent.AgentFinished end -> onEnd(end);
+            case SwarmStreamEvent.RunCompleted _ -> { /* terminal; Flux should complete */ }
         }
     }
 
-    private void onStart(SwarmEvent.StartEvent start) {
-        var state = new AgentState(start.id());
+    private void onStart(SwarmStreamEvent.AgentStarted start) {
+        var state = new AgentState(start.eventId());
         synchronized (lock) {
-            active.put(start.id().token(), state);
+            active.put(start.eventId().token(), state);
             printHeader(state);
         }
-        var sub = start.tokenStream().subscribe(
-            token -> onToken(state, token),
-            this::onError
-        );
-        subscriptions.add(sub);
     }
 
-    private void onEnd(SwarmEvent.EndEvent<?> end) {
+    private void onEnd(SwarmStreamEvent.AgentFinished end) {
         synchronized (lock) {
-            var state = active.remove(end.id().token());
+            var state = active.remove(end.eventId().token());
             if (state == null) {
                 return;
             }
@@ -216,18 +210,25 @@ public class SwarmEventFormatter implements AutoCloseable {
         }
     }
 
-    private void onToken(AgentState state, StreamToken token) {
+    private void onToken(SwarmStreamEvent.AgentToken evt) {
         synchronized (lock) {
-            var mode = modeOf(token);
-            if (state.pendingMode != Mode.NONE && state.pendingMode != mode) {
-                flushBlock(state);
+            var state = active.get(evt.eventId().token());
+            if (state != null) {
+                appendToken(state, evt.token());
             }
+        }
+    }
+
+    private void appendToken(AgentState state, StreamToken token) {
+        var mode = modeOf(token);
+        if (state.pendingMode != Mode.NONE && state.pendingMode != mode) {
+            flushBlock(state);
+        }
+        state.pendingMode = mode;
+        state.pendingContent.append(textOf(token));
+        if (active.size() == 1 && endsWithSentenceBoundary(state.pendingContent)) {
+            flushBlock(state);
             state.pendingMode = mode;
-            state.pendingContent.append(textOf(token));
-            if (active.size() == 1 && endsWithSentenceBoundary(state.pendingContent)) {
-                flushBlock(state);
-                state.pendingMode = mode;
-            }
         }
     }
 
@@ -288,6 +289,11 @@ public class SwarmEventFormatter implements AutoCloseable {
 
         AgentState(EventId id) {
             this.id = id;
+        }
+
+        void resetPending() {
+            pendingMode = Mode.NONE;
+            pendingContent.setLength(0);
         }
     }
 }

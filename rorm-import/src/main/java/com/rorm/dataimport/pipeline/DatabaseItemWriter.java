@@ -271,7 +271,8 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
             case DataType.TimeType _ -> value instanceof LocalTime;
             case DataType.DateTimeType _ -> value instanceof Temporal;
             case DataType.ListType _ -> value instanceof List || value.getClass().isArray();
-            case DataType.DayOfWeekType _, DataType.TimezoneType _, DataType.CategorcialType _ ->
+            case DataType.DayOfWeekType _, DataType.TimezoneType _, DataType.CategorcialType _,
+                 DataType.IntervalType _ ->
                 value instanceof String;
         };
     }

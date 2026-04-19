@@ -31,6 +31,6 @@ public final class NthValueWindow extends AbstractWindowFunction {
         var partition = transformPartitionFields(windowSpec, ctx);
         var order = transformOrderFields(windowSpec, ctx);
         int n = ctx.extractInt(args.get(1));
-        return applyWindowSpec(DSL.nthValue(ctx.transform(args.getFirst()), n), partition, order);
+        return applyWindowSpec(DSL.nthValue(ctx.transform(args.getFirst()), n), partition, order, windowSpec.frame());
     }
 }

@@ -13,6 +13,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
+
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,7 +37,7 @@ class PercentileContValidationTest {
 
         var registry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(registry);
-        transformer = new QueryTransformer(null, expressionTransformer, new JoinCollector(expressionTransformer));
+        transformer = new QueryTransformer(DSL.using(SQLDialect.POSTGRES), expressionTransformer);
     }
 
     private static Query buildQueryWithPercentile(Aggregation percentile) {

@@ -44,12 +44,14 @@ public class MetamodelDTO {
         @JsonSubTypes.Type(value = DateTimeTypeDTO.class, name = "datetime"),
         @JsonSubTypes.Type(value = DayOfWeekTypeDTO.class, name = "dayOfWeek"),
         @JsonSubTypes.Type(value = EnumTypeDTO.class, name = "enum"),
-        @JsonSubTypes.Type(value = ListTypeDTO.class, name = "list")
+        @JsonSubTypes.Type(value = ListTypeDTO.class, name = "list"),
+        @JsonSubTypes.Type(value = IntervalTypeDTO.class, name = "interval")
     })
     @JsonClassDescription("Base interface for all data types")
     public sealed interface DataTypeDTO permits
         NumericTypeDTO, StringTypeDTO, BooleanTypeDTO, DateTypeDTO, TimeTypeDTO,
-        TimezoneTypeDTO, DateTimeTypeDTO, DayOfWeekTypeDTO, EnumTypeDTO, ListTypeDTO {}
+        TimezoneTypeDTO, DateTimeTypeDTO, DayOfWeekTypeDTO, EnumTypeDTO, ListTypeDTO,
+        IntervalTypeDTO {}
 
     @JsonIdentityInfo(generator = ObjectIdGenerators.StringIdGenerator.class)
     @JsonClassDescription("Container for all root entities in the metamodel, representing the complete data model")
@@ -188,6 +190,9 @@ public class MetamodelDTO {
         @JsonProperty(required = true)
         String[] values
     ) implements DataTypeDTO {}
+
+    @JsonClassDescription("Interval data type for time duration values (used in date arithmetic)")
+    public record IntervalTypeDTO() implements DataTypeDTO {}
 
     @JsonClassDescription("List data type for array/list of values")
     public record ListTypeDTO(

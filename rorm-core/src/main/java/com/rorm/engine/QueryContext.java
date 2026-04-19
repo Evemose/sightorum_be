@@ -13,8 +13,10 @@ import org.jooq.Table;
 import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.jooq.impl.DSL.*;
 
@@ -26,6 +28,7 @@ final class QueryContext {
     private final Root root;
     private final @Nullable QueryContext parent;
     private final @Nullable String schema;
+    private final Set<String> cteNames;
     private final int depth;
     private int aliasCounter = 0;
 
@@ -34,10 +37,10 @@ final class QueryContext {
     }
 
     QueryContext(AliasedRoot from) {
-        this(from, null, null, 0);
+        this(from, null, Set.of(), null, 0);
     }
 
-    QueryContext(AliasedRoot from, @Nullable String schema, @Nullable QueryContext parent, int depth) {
+    QueryContext(AliasedRoot from, @Nullable String schema, Set<String> cteNames, @Nullable QueryContext parent, int depth) {
         if (depth < 0) {
             throw new IllegalArgumentException("Depth cannot be negative");
         }
@@ -45,6 +48,7 @@ final class QueryContext {
         this.depth = depth;
         this.parent = parent;
         this.schema = schema;
+        this.cteNames = Set.copyOf(cteNames);
         this.rootTable = tableWithSchema(from.root().primaryTableName()).as(generateAlias());
 
         // Register the from alias
@@ -53,11 +57,18 @@ final class QueryContext {
     }
 
     private Table<?> tableWithSchema(String tableName) {
+        if (cteNames.contains(tableName)) {
+            return table(name(tableName));
+        }
         return schema != null ? table(name(schema, tableName)) : table(name(tableName));
     }
 
     QueryContext(AliasedRoot from, @Nullable String schema) {
-        this(from, schema, null, 0);
+        this(from, schema, Set.of(), null, 0);
+    }
+
+    QueryContext(AliasedRoot from, @Nullable String schema, Set<String> cteNames) {
+        this(from, schema, cteNames, null, 0);
     }
 
     private String generateAlias() {
@@ -65,25 +76,44 @@ final class QueryContext {
     }
 
     QueryContext nested(AliasedRoot root) {
-        return new QueryContext(root, schema, this, depth + 1);
+        return new QueryContext(root, schema, cteNames, this, depth + 1);
     }
 
     QueryContext nested(Root root) {
-        return new QueryContext(AliasedRoot.of(root), schema, this, depth + 1);
+        return new QueryContext(AliasedRoot.of(root), schema, cteNames, this, depth + 1);
     }
 
-    QueryContext ancestor(int levels) {
-        if (levels == 0) {
+    QueryContext findOwner(Path path) {
+        if (ownsPath(path)) {
             return this;
         }
-        if (parent == null) {
-            throw new IllegalStateException("Cannot access outer scope at depth " + levels + " - no parent context");
+        if (parent != null) {
+            return parent.findOwner(path);
         }
-        return parent.ancestor(levels - 1);
+        return this;
+    }
+
+    private boolean ownsPath(Path path) {
+        var base = path;
+        while (base.parent() != null) {
+            base = base.parent();
+        }
+        if (base.target() instanceof AliasedRoot ar) {
+            return aliasRegistry.containsKey(ar.alias());
+        }
+        return root.attributes().contains(base.target());
     }
 
     Table<?> rootTable() {
         return rootTable;
+    }
+
+    @Nullable String schema() {
+        return schema;
+    }
+
+    Set<String> cteNames() {
+        return new LinkedHashSet<>(cteNames);
     }
 
     JoinInfo resolveJoin(Path path) {

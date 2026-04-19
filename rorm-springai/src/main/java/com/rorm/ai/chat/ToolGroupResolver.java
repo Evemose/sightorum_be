@@ -37,11 +37,13 @@ public class ToolGroupResolver {
                     tools.add(queryExecutionTool);
                     tools.add(dataOverviewTool);
                     tools.add(featureEngineeringTool);
-                    tools.add(explorationTool);
+                }
+                case STATS -> {
                     tools.add(summaryStatTool);
                     tools.add(rankingTool);
                     tools.add(trendTool);
                     tools.add(comparisonTool);
+                    tools.add(explorationTool);
                 }
                 case VERIFICATION -> tools.add(hypothesisVerificationTool);
                 case ML -> tools.add(mlTrainingTool);

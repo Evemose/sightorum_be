@@ -1,6 +1,8 @@
 package com.rorm.ml.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import org.jspecify.annotations.Nullable;
@@ -274,10 +276,10 @@ public record CausalPipelineResult(
     public record ThresholdVariant(
         double threshold,
         @Nullable Double effect,
-        int nTreated,
-        int nControl,
-        @Nullable Integer expectedNTreated,
-        @Nullable Integer expectedNControl
+        @JsonProperty("n_treated") @JsonAlias("ntreated") int nTreated,
+        @JsonProperty("n_control") @JsonAlias("ncontrol") int nControl,
+        @JsonProperty("expected_n_treated") @JsonAlias("expected_ntreated") @Nullable Integer expectedNTreated,
+        @JsonProperty("expected_n_control") @JsonAlias("expected_ncontrol") @Nullable Integer expectedNControl
     ) {}
 
     @JsonNaming(SnakeCaseStrategy.class)

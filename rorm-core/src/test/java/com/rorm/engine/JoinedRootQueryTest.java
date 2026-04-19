@@ -72,7 +72,7 @@ class JoinedRootQueryTest extends AbstractPostgresTest {
         dsl = DSL.using(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
         var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
-        transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
+        transformer = new QueryTransformer(dsl, expressionTransformer);
 
         dsl.execute("create schema " + schemaName);
         dsl.execute("set search_path to " + schemaName);

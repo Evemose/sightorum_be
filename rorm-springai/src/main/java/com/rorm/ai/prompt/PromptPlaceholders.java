@@ -22,97 +22,162 @@ import java.util.function.Supplier;
 public class PromptPlaceholders {
 
     public static final String QUERY_STRUCTURE = """
-        # QUERY CONSTRUCTION REFERENCE
+        # Query Construction Reference (Current)
         
-        Queries use JSON structure with dot-separated paths through the metamodel.
+        Use JSON query objects with expression nodes (`@type`) and dot-separated paths.
         
-        ## Query Object
+        ## 1) Query Shape
         ```json
         {
-          "from": "tableName",
-          "fromAlias": "t",
-          "selector": { /* what to SELECT */ },
-          "joins": [{ /* explicit joins */ }],
-          "where": { /* filter expression */ },
-          "groupBy": { "expressions": [...] },
-          "having": { /* post-aggregation filter */ },
-          "orderBy": [{ "expression": {...}, "ascending": true }],
+          "from": "employees",
+          "fromAlias": "e",
+          "selector": {"@type": "single", "expression": {"@type": "path", "path": "e.id"}, "distinct": false, "alias": "id"},
+          "joins": [],
+          "where": {"@type": "binary", "left": {"@type": "path", "path": "e.active"}, "operator": "EQUALS", "right": {"@type": "literal", "value": true}},
+          "groupBy": null,
+          "having": null,
+          "orderBy": [{"expression": {"@type": "path", "path": "e.createdAt"}, "ascending": false}],
           "limit": 100,
           "offset": 0
         }
         ```
         
-        ## Path Resolution
-        1. First segment: alias OR attribute name
-           - Matches join/FROM alias -> starts from that aliased root
-           - Otherwise -> attribute of implicit FROM root
-        2. Subsequent segments: navigate through metamodel
-           - CompositeAttribute -> nested attributes
-           - ReferenceAttribute -> target root's attributes
+        ## 2) Path Resolution
+        - First segment is alias-or-attribute.
+        - If it matches `fromAlias` or a join alias, path starts from that alias.
+        - Otherwise, first segment is treated as an attribute of the implicit FROM root.
+        - Then navigate normally through composite/reference attributes.
         
-        Examples: `"name"` (FROM root), `"c.name"` (aliased), `"address.city"` (composite), `"o.customer.name"` (reference)
+        Valid examples:
+        - `"name"` -> attribute of FROM root
+        - `"e.name"` -> attribute from alias `e`
+        - `"address.city"` -> composite navigation
+        - `"o.customer.name"` -> reference navigation
         
-        ## Expression Types (@type)
-        - `"path"`: `{"@type":"path", "path":"customer.name"}`
-        - `"literal"`: `{"@type":"literal", "value": 123}`
-        - `"binary"`: `{"@type":"binary", "left":{...}, "operator":"EQUALS", "right":{...}}`
-        - `"unary"`: `{"@type":"unary", "operator":"NOT", "operand":{...}}`
-        - `"ternary"`: `{"@type":"ternary", "first":{...}, "operator":"BETWEEN", "second":{...}, "third":{...}}`
-        - `"aggregation"`: `{"@type":"aggregation", "functionName":"COUNT", "arguments":[], "distinct":false}`
-        - `"function"`: `{"@type":"function", "functionName":"UPPER", "arguments":[...]}`
-        - `"window"`: Window function with OVER clause
-        - `"subquery"`: Nested query
-        - `"outerRef"`: Correlated subquery reference
+        Counterexamples:
+        - `"unknownAlias.name"` when no such alias exists
+        - `"name.foo"` where `name` is scalar (non-navigable)
         
-        ## Selector Types (@type)
-        - `"root"`: SELECT * from entity
-        - `"single"`: SELECT one expression with optional alias
-        - `"multi"`: SELECT multiple expressions with aliases
+        ## 3) Selector Types (`@type`)
+        - `"root"`: select the root
+        - `"single"`: one expression + optional alias
+        - `"multi"`: multiple selected expressions
         
-        ## Operators
+        ## 4) Expression Types (`@type`)
+        - `"path"`: `{"@type":"path","path":"e.name"}`
+        - `"literal"`: `{"@type":"literal","value":123}`
+        - `"binary"`: `{"@type":"binary","left":{...},"operator":"EQUALS","right":{...}}`
+        - `"unary"`: `{"@type":"unary","operator":"NOT","operand":{...}}`
+        - `"ternary"`: `{"@type":"ternary","first":{...},"operator":"BETWEEN","second":{...},"third":{...}}`
+        - `"quantified"`: `{"@type":"quantified","left":{...},"comparison":"GREATER_THAN","quantifier":"ANY","subquery":{...}}`
+        - `"case"`: `{"@type":"case","whens":[...],"elseExpr":{...}}`
+        - `"aggregation"`, `"function"`, `"window"`, `"subquery"`, `"outerRef"`
         
-        **Binary**: EQUALS, GREATER_THAN, LESS_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL, LIKE, IN, AND, OR
-        Arithmetic: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO
+        ## 5) Operators
+        Binary:
+        - comparison: `EQUALS`, `GREATER_THAN`, `GREATER_THAN_OR_EQUAL`, `LESS_THAN`, `LESS_THAN_OR_EQUAL`, `LIKE`, `IN`
+        - logical: `AND`, `OR`
+        - arithmetic: `ADD`, `SUBTRACT`, `MULTIPLY`, `DIVIDE`, `MODULO`
         
-        **Negation**: Use unary NOT wrapping the positive operator
-        - NOT_EQUALS: `{"@type":"unary", "operator":"NOT", "operand":{"@type":"binary", "operator":"EQUALS", ...}}`
-        - NOT_LIKE: `{"@type":"unary", "operator":"NOT", "operand":{"@type":"binary", "operator":"LIKE", ...}}`
-        - NOT_IN: `{"@type":"unary", "operator":"NOT", "operand":{"@type":"binary", "operator":"IN", ...}}`
+        Unary:
+        - `IS_NULL`, `IS_NOT_NULL`, `IS_TRUE`, `IS_FALSE`, `NOT`, `NEGATE`, `EXISTS`
         
-        **Unary**: IS_NULL, IS_NOT_NULL, IS_TRUE, IS_FALSE, NOT, NEGATE
+        Ternary:
+        - `BETWEEN`
         
-        **Ternary**: BETWEEN (for NOT BETWEEN, wrap with NOT unary)
+        Negation rule:
+        - Use unary `NOT` around positive operators (no `NOT_EQUALS`, `NOT_LIKE`, `NOT_IN`, `NOT_BETWEEN` operator names).
         
-        **Aggregates**: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP, STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR \
-        CORR (correlation), REGR_SLOPE (regression slope)
+        ## 6) Quantified Comparisons (ANY/ALL)
+        Canonical shape:
+        ```json
+        {
+          "@type": "quantified",
+          "left": {"@type": "path", "path": "e.salary"},
+          "comparison": "GREATER_THAN",
+          "quantifier": "ALL",
+          "subquery": {
+            "@type": "subquery",
+            "query": {
+              "from": "departments",
+              "fromAlias": "d",
+              "selector": {"@type": "single", "expression": {"@type": "path", "path": "d.budget"}, "distinct": false, "alias": null}
+            }
+          }
+        }
+        ```
         
-        **Functions**:
-        String: UPPER, LOWER, TRIM, LTRIM, RTRIM, CONCAT, SUBSTRING, REPLACE, LEFT, RIGHT, REVERSE, LPAD, RPAD, INITCAP, REPEAT, LENGTH, POSITION
-        Numeric: ABS, ROUND, FLOOR, CEIL, TRUNC, SIGN, MOD, SQRT, POWER, EXP, LN, LOG
-        Date/Time: NOW, CURRENT_DATE, CURRENT_TIME, DATE_TRUNC, EXTRACT
-        Conditional: COALESCE, NULLIF, GREATEST, LEAST, CASE
-        Special: CAST function (NOT CAST_(TYPE) or something)
+        Valid composition:
+        ```json
+        {"@type":"unary","operator":"NOT","operand":{"@type":"quantified", ... }}
+        ```
         
-        ## Example: CAST
-        CAST is a function that converts a value to a specified type:
-        {"@type": "function", "functionName": "CAST",
-         "arguments": [
-           value, type
-         ]}
+        Counterexamples:
+        - Wrong type: `{"@type":"binary","operator":"EQUALS_ANY",...}`
+        - Wrong fields for quantified: using `operator`/`query` instead of `comparison`/`subquery`
+        - Invalid comparison in quantified: `"comparison":"AND"`
+        - Non-subquery RHS encoded as quantified subquery payload
         
-        ## Very important example: CASE / Conditional Bucketing
-        CASE is a function with pairs of (condition, result) arguments, plus a final default:
-        {"@type": "function", "functionName": "CASE",
-         "arguments": [
-           condition1, result1,
-           condition2, result2,
-           defaultResult
-         ]}
+        ## 7) CASE WHEN (Structured)
+        Canonical shape:
+        ```json
+        {
+          "@type": "case",
+          "whens": [
+            {
+              "condition": {"@type":"binary","left":{"@type":"path","path":"e.salary"},"operator":"GREATER_THAN","right":{"@type":"literal","value":100000}},
+              "result": {"@type":"literal","value":"high"}
+            },
+            {
+              "condition": {"@type":"binary","left":{"@type":"path","path":"e.salary"},"operator":"GREATER_THAN","right":{"@type":"literal","value":50000}},
+              "result": {"@type":"literal","value":"mid"}
+            }
+          ],
+          "elseExpr": {"@type":"literal","value":"low"}
+        }
+        ```
         
-        For simple bucketing, prefer using analyzeExpression or WHERE filters
-        per bucket rather than constructing complex CASE expressions.
+        Counterexamples:
+        - Do not encode CASE as a generic function call
+        - `whens` must contain condition/result pairs
+        - Non-boolean `condition` expressions are invalid
         
-        **Window**: ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, NTH_VALUE, NTILE""";
+        ## 8) Functions and Aggregations (Explicit List)
+        Functions:
+        - Conditional: `COALESCE`, `NULLIF`, `GREATEST`, `LEAST`, `CASE`
+        - Date/time: `NOW`, `CURRENT_DATE`, `CURRENT_TIME`, `DATE_TRUNC`, `EXTRACT`, `INTERVAL`
+        - String: `CONCAT`, `LOWER`, `UPPER`, `LENGTH`, `TRIM`, `LTRIM`, `RTRIM`, `LEFT`, `RIGHT`, `SUBSTRING`, `REPLACE`, `POSITION`, `REVERSE`, `REPEAT`, `LPAD`, `RPAD`, `INITCAP`, `SPLIT_PART`, `REGEXP_REPLACE`
+        - Numeric: `ABS`, `CEIL`, `FLOOR`, `ROUND`, `TRUNC`, `MOD`, `POWER`, `SQRT`, `EXP`, `LN`, `LOG`, `SIGN`
+        - Special: `CAST`
+        
+        Aggregations:
+        - `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, `STDDEV_POP`, `STDDEV_SAMP`, `VAR_POP`, `VAR_SAMP`, `STRING_AGG`, `ARRAY_AGG`, `BOOL_AND`, `BOOL_OR`, `CORR`, `REGR_SLOPE`, `PERCENTILE_CONT`
+        
+        Aggregation with filterWhere (maps to SQL FILTER clause):
+        ```json
+        {
+          "@type": "aggregation",
+          "functionName": "COUNT",
+          "arguments": [{"@type":"path","path":"e.id"}],
+          "distinct": true,
+          "filterWhere": {
+            "@type": "binary",
+            "left": {"@type":"path","path":"e.active"},
+            "operator": "EQUALS",
+            "right": {"@type":"literal","value": true}
+          }
+        }
+        ```
+        
+        Counterexample:
+        - `{"@type":"aggregation","functionName":"COUNT","arguments":[...],"filter":{"@type":"binary",...}}` (invalid key `filter`; use `filterWhere`)
+        
+        ## 9) Final Rules
+        - Always use explicit `@type` expression nodes.
+        - Prefer structured `quantified` and structured `case` nodes.
+        - Use unary `NOT` for negated variants.
+        - Keep subqueries scalar where scalar value is expected.
+        """;
 
     private final MetamodelContextBuilder metamodelContextBuilder;
 

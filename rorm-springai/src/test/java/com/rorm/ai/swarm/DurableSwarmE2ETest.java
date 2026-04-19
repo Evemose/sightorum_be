@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.rorm.CompletableDurableFuture;
 import com.rorm.DurableFuture;
+import com.rorm.DurableRuntime;
 import com.rorm.StepJournal;
 import com.rorm.ai.MetamodelContextBuilder;
 import com.rorm.ai.anthropic.AnthropicParamsBuilder;
@@ -20,6 +21,7 @@ import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.PipelineSpecConverter;
 import com.rorm.ml.dto.CausalVerificationJobRequest;
 import com.rorm.ml.dto.PipelineSpecRequest;
+import com.rorm.ml.runtime.InMemoryDurableRuntime;
 import com.rorm.ml.stream.JobCompletionHandler;
 import com.rorm.ml.stream.JobEvent;
 import com.rorm.ml.stream.JobEventType;
@@ -34,7 +36,9 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -92,6 +96,10 @@ class DurableSwarmE2ETest {
     // ── Test-only Spring configuration ───────────────────────────────────
 
     @Configuration
+    @ComponentScan(basePackages = {
+        "com.rorm.ai.swarm.phase",
+        "com.rorm.ai.swarm.executor"
+    })
     static class TestApp {
 
         @Bean
@@ -180,8 +188,8 @@ class DurableSwarmE2ETest {
         }
 
         @Bean
-        AiChatService aiChatService(ChatClient c, ChatMemoryManager m, ChatRequestPreprocessor p) {
-            return new AgentChatService(c, m, p);
+        AiChatService aiChatService(ChatClient c, ChatMemoryManager m, ChatRequestPreprocessor p, ObjectMapper om) {
+            return new AgentChatService(c, m, p, om);
         }
 
         @Bean
@@ -260,10 +268,22 @@ class DurableSwarmE2ETest {
         }
 
         @Bean
-        DurableSwarm durableSwarm(AiChatService chat, DurableSwarmConfig cfg,
-                                  PipelineSpecConverter conv, MlTrainingService ml,
-                                  ObjectMapper om, PromptPlaceholders pp) {
-            return new DurableSwarm(chat, cfg, conv, ml, om, pp);
+        DurableRuntime durableRuntime(ApplicationContext applicationContext) {
+            return new InMemoryDurableRuntime(applicationContext);
+        }
+
+        @Bean
+        SwarmEventBus swarmEventBus() {
+            return new InMemorySwarmEventBus();
+        }
+
+        @Bean
+        DurableSwarm durableSwarm(com.rorm.ai.swarm.phase.ReconPhase recon,
+                                  com.rorm.ai.swarm.phase.GenPhase gen,
+                                  com.rorm.ai.swarm.phase.CompilePhase compile,
+                                  com.rorm.ai.swarm.phase.NullPhase nullPhase,
+                                  SwarmEventBus bus) {
+            return new DurableSwarm(recon, gen, compile, nullPhase, bus);
         }
     }
 }

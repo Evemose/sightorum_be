@@ -189,6 +189,19 @@ public sealed interface DataType {
         }
     }
 
+    record IntervalType() implements DataType {
+        @Override
+        public Object valueOf(Object value) {
+            // Intervals are represented as strings like "3 days", "1 year"
+            return value.toString();
+        }
+
+        @Override
+        public Class<String> javaType() {
+            return String.class;
+        }
+    }
+
     record ListType(DataType elementType) implements DataType {
         @Override
         public List<?> valueOf(Object value) {

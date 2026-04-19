@@ -48,11 +48,7 @@ class CoalesceFunctionTest {
         var dslContext = DSL.using(SQLDialect.POSTGRES);
         var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
-        queryTransformer = new QueryTransformer(
-            dslContext,
-            expressionTransformer,
-            new JoinCollector(expressionTransformer)
-        );
+        queryTransformer = new QueryTransformer(dslContext, expressionTransformer);
     }
 
     @Test

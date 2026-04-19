@@ -16,7 +16,7 @@ public final class TestQueryStack {
     public static JooqFetcher createFetcher(DSLContext dsl) {
         var registry = TestHandlerRegistry.createWithAllBuiltIns();
         var exprTransformer = new ExpressionTransformer(registry);
-        var queryTransformer = new QueryTransformer(dsl, exprTransformer, new JoinCollector(exprTransformer));
+        var queryTransformer = new QueryTransformer(dsl, exprTransformer);
         return new JooqFetcher(dsl, queryTransformer);
     }
 }

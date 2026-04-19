@@ -14,5 +14,6 @@ public sealed interface BuiltInUnaryOperatorHandler extends UnaryOperatorHandler
     IsTrueOperator,
     IsFalseOperator,
     NegateOperator,
-    NotOperator {
+    NotOperator,
+    ExistsOperator {
 }

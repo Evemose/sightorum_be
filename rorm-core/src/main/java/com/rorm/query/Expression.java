@@ -1,6 +1,7 @@
 package com.rorm.query;
 
 import com.rorm.query.Expression.*;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -11,10 +12,11 @@ public sealed interface Expression permits
     WindowFunction,
     Literal,
     BinaryExpression,
+    QuantifiedComparison,
     UnaryExpression,
     TernaryExpression,
-    Subquery,
-    OuterRef {
+    CaseExpression,
+    Subquery {
 
     record FunctionCall(
         String functionName,
@@ -33,8 +35,16 @@ public sealed interface Expression permits
     record Aggregation(
         String functionName,
         List<Expression> arguments,
-        boolean distinct
+        boolean distinct,
+        @Nullable Expression filterWhere
     ) implements Expression {
+
+        /**
+         * Backward-compatible constructor without filter.
+         */
+        public Aggregation(String functionName, List<Expression> arguments, boolean distinct) {
+            this(functionName, arguments, distinct, null);
+        }
 
         public static Aggregation of(StandardAggregation aggregation, Expression arg) {
             return new Aggregation(aggregation.identifier(), List.of(arg), false);
@@ -54,6 +64,13 @@ public sealed interface Expression permits
 
         public static Aggregation countDistinct(Expression arg) {
             return new Aggregation("COUNT", List.of(arg), true);
+        }
+
+        /**
+         * Returns this aggregation with a FILTER (WHERE ...) clause.
+         */
+        public Aggregation withFilter(Expression filterCondition) {
+            return new Aggregation(functionName, arguments, distinct, filterCondition);
         }
     }
 
@@ -145,6 +162,43 @@ public sealed interface Expression permits
         public static BinaryExpression divide(Expression left, Expression right) {
             return of(left, StandardOperator.Binary.DIVIDE, right);
         }
+    }
+
+    record QuantifiedComparison(
+        Expression left,
+        StandardOperator.Binary comparison,
+        Quantifier quantifier,
+        Subquery subquery
+    ) implements Expression {
+
+        public QuantifiedComparison {
+            if (!isSupportedComparison(comparison)) {
+                throw new IllegalArgumentException(
+                    "Unsupported quantified comparison operator: " + comparison
+                );
+            }
+        }
+
+        private static boolean isSupportedComparison(StandardOperator.Binary comparison) {
+            return switch (comparison) {
+                case EQUALS,
+                     GREATER_THAN,
+                     GREATER_THAN_OR_EQUAL,
+                     LESS_THAN,
+                     LESS_THAN_OR_EQUAL -> true;
+                default -> false;
+            };
+        }
+
+        public static QuantifiedComparison any(Expression left, StandardOperator.Binary comparison, Subquery subquery) {
+            return new QuantifiedComparison(left, comparison, Quantifier.ANY, subquery);
+        }
+
+        public static QuantifiedComparison all(Expression left, StandardOperator.Binary comparison, Subquery subquery) {
+            return new QuantifiedComparison(left, comparison, Quantifier.ALL, subquery);
+        }
+
+        public enum Quantifier {ANY, ALL}
     }
 
     record UnaryExpression(

@@ -66,6 +66,7 @@ public interface MetamodelMapper {
     @SubclassMapping(source = DateTimeType.class, target = DateTimeTypeDTO.class)
     @SubclassMapping(source = DayOfWeekType.class, target = DayOfWeekTypeDTO.class)
     @SubclassMapping(source = CategorcialType.class, target = EnumTypeDTO.class)
+    @SubclassMapping(source = IntervalType.class, target = IntervalTypeDTO.class)
     @SubclassMapping(source = ListType.class, target = ListTypeDTO.class)
     DataTypeDTO toDTO(DataType dataType);
 
@@ -86,6 +87,8 @@ public interface MetamodelMapper {
     DayOfWeekTypeDTO toDTO(DayOfWeekType dataType);
 
     EnumTypeDTO toDTO(CategorcialType dataType);
+
+    IntervalTypeDTO toDTO(IntervalType dataType);
 
     ListTypeDTO toDTO(ListType dataType);
 

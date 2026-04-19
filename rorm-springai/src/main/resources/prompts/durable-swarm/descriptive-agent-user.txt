@@ -1,0 +1,7 @@
+<metamodel>
+{{METAMODEL}}
+</metamodel>
+
+<user_query>
+{{USER_QUERY}}
+</user_query>

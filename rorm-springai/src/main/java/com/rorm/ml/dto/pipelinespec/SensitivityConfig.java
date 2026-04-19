@@ -1,5 +1,6 @@
 package com.rorm.ml.dto.pipelinespec;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
@@ -84,11 +85,13 @@ public record SensitivityConfig(
         double threshold,
 
         @JsonPropertyDescription("Expected count of rows with treatment > threshold.")
-        @JsonProperty(required = true)
+        @JsonProperty(value = "expected_n_treated", required = true)
+        @JsonAlias("expected_ntreated")
         int expectedNTreated,
 
         @JsonPropertyDescription("Expected count of rows with treatment <= threshold.")
-        @JsonProperty(required = true)
+        @JsonProperty(value = "expected_n_control", required = true)
+        @JsonAlias("expected_ncontrol")
         int expectedNControl
     ) {}
 

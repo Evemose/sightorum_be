@@ -38,6 +38,7 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
     private Map<String, Object> toolContext = Map.of();
     @lombok.Builder.Default
     private Boolean internalToolExecutionEnabled = false;
+    private @Nullable Map<String, Object> responseSchema;
     /**
      * Adaptive caching strategy function. Given round context (previous messages, tool outputs),
      * returns the caching strategy to apply for the current round.
@@ -90,6 +91,7 @@ public class AnthropicChatOptions implements ToolCallingChatOptions {
             .toolNames(Set.copyOf(toolNames))
             .toolContext(Map.copyOf(toolContext))
             .internalToolExecutionEnabled(internalToolExecutionEnabled)
+            .responseSchema(responseSchema)
             .cachingStrategyFunction(cachingStrategyFunction)
             .build();
     }

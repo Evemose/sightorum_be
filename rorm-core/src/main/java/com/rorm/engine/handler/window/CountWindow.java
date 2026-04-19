@@ -28,6 +28,6 @@ public final class CountWindow extends AbstractWindowFunction {
         var partition = transformPartitionFields(windowSpec, ctx);
         var order = transformOrderFields(windowSpec, ctx);
         var field = args.isEmpty() ? DSL.asterisk() : ctx.transform(args.getFirst());
-        return applyWindowSpec(DSL.count(field), partition, order);
+        return applyWindowSpec(DSL.count(field), partition, order, windowSpec.frame());
     }
 }

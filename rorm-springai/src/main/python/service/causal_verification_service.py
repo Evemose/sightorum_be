@@ -699,7 +699,7 @@ class CausalVerificationService:
         else:
             result["final_ci"] = primary_ci
         result["discrepancy_log"] = [
-            {"field": d.field_name, "generator_value": d.generator_value,
+            {"field_name": d.field_name, "generator_value": d.generator_value,
              "compiler_value": d.compiler_value, "resolution": d.resolution}
             for d in spec.discrepancy_log
         ]

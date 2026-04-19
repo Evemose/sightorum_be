@@ -56,7 +56,8 @@ public enum TypeCategory {
             case DataType.NumericType _ -> NUMERIC;
             case DataType.StringType _, DataType.CategorcialType _, DataType.DayOfWeekType _ -> CATEGORICAL;
             case DataType.BooleanType _ -> BOOLEAN;
-            case DataType.DateType _, DataType.TimeType _, DataType.DateTimeType _, DataType.TimezoneType _ -> TEMPORAL;
+            case DataType.DateType _, DataType.TimeType _, DataType.DateTimeType _, DataType.TimezoneType _,
+                 DataType.IntervalType _ -> TEMPORAL;
             case DataType.ListType _ -> COLLECTION;
         };
     }

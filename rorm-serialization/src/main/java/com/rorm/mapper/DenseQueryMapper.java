@@ -39,7 +39,7 @@ public class DenseQueryMapper {
     }
 
     public Expression expressionToEntity(DenseExpressionDto dto, ModelSpace modelSpace, String rootName) {
-        var dummyQuery = new QueryDTO(rootName, null, null, new LinkedHashSet<>(), null, null, null, null, null, null);
+        var dummyQuery = new QueryDTO(rootName, null, null, new LinkedHashSet<>(), null, null, null, null, null, null, null, null, null);
         return queryMapper.toEntity(toExpressionDTO(dto), modelSpace, dummyQuery);
     }
 
@@ -72,10 +72,17 @@ public class DenseQueryMapper {
             ),
             toExpressionDTO(dense.having()),
             dense.orderBy() == null ? null : dense.orderBy().stream()
-                .map(ob -> new QueryDTO.OrderByDTO(toExpressionDTO(ob.expression()), ob.ascending()))
+                .map(ob -> new QueryDTO.OrderByDTO(toExpressionDTO(ob.expression()), ob.ascending(), ob.nullsHandling()))
                 .toList(),
             dense.limit(),
-            dense.offset()
+            dense.offset(),
+            dense.withTies(),
+            dense.ctes() == null ? null : dense.ctes().stream()
+                .map(cte -> new QueryDTO.CteDTO(cte.name(), toQueryDTO(cte.query()), cte.columns()))
+                .toList(),
+            dense.setOperations() == null ? null : dense.setOperations().stream()
+                .map(so -> new QueryDTO.SetOperationDTO(so.type(), toQueryDTO(so.query())))
+                .toList()
         );
     }
 
@@ -93,12 +100,19 @@ public class DenseQueryMapper {
             case "aggregation" -> new AggregationDTO(
                 dense.functionName(),
                 mapArgs(dense.arguments()),
-                dense.distinct() != null && dense.distinct()
+                dense.distinct() != null && dense.distinct(),
+                toExpressionDTO(dense.filterWhere())
             );
             case "binary" -> new BinaryExpressionDTO(
                 toExpressionDTO(dense.left()),
                 BinaryOperator.valueOf(dense.operator()),
                 toExpressionDTO(dense.right())
+            );
+            case "quantified" -> new QuantifiedComparisonDTO(
+                toExpressionDTO(dense.left()),
+                BinaryOperator.valueOf(dense.operator()),
+                QuantifierDTO.valueOf(dense.quantifier()),
+                new SubqueryDTO(resolveQuantifiedQuery(dense))
             );
             case "unary" -> new UnaryExpressionDTO(
                 UnaryOperator.valueOf(dense.operator()),
@@ -116,7 +130,12 @@ public class DenseQueryMapper {
                 toWindowSpecDTO(dense.windowSpec())
             );
             case "subquery" -> new SubqueryDTO(toQueryDTO(dense.query()));
-            case "outerRef" -> new OuterRefDTO(dense.depth(), dense.path());
+            case "case" -> new ExpressionDTO.CaseExpressionDTO(
+                dense.whens() == null ? List.of() : dense.whens().stream()
+                    .map(w -> new ExpressionDTO.WhenClauseDTO(toExpressionDTO(w.condition()), toExpressionDTO(w.result())))
+                    .toList(),
+                toExpressionDTO(dense.elseExpr())
+            );
             default -> throw new IllegalArgumentException("Unknown expression type: " + dense.type());
         };
     }
@@ -157,13 +176,39 @@ public class DenseQueryMapper {
         return new QueryDTO.WindowSpecDTO(
             dense.partitionBy() == null ? null : dense.partitionBy().stream().map(this::toExpressionDTO).toList(),
             dense.orderBy() == null ? null : dense.orderBy().stream()
-                .map(ob -> new QueryDTO.OrderByDTO(toExpressionDTO(ob.expression()), ob.ascending()))
-                .toList()
+                .map(ob -> new QueryDTO.OrderByDTO(toExpressionDTO(ob.expression()), ob.ascending(), ob.nullsHandling()))
+                .toList(),
+            toWindowFrameDTO(dense.frame())
+        );
+    }
+
+    private QueryDTO.WindowFrameDTO toWindowFrameDTO(WindowFrameDto dense) {
+        if (dense == null) {
+            return null;
+        }
+        return new QueryDTO.WindowFrameDTO(
+            dense.type(),
+            new QueryDTO.FrameBoundDTO(dense.start().type(), dense.start().offset()),
+            new QueryDTO.FrameBoundDTO(dense.end().type(), dense.end().offset())
         );
     }
 
     private List<ExpressionDTO> mapArgs(List<DenseExpressionDto> args) {
         return args == null ? List.of() : args.stream().map(this::toExpressionDTO).toList();
+    }
+
+    private QueryDTO resolveQuantifiedQuery(DenseExpressionDto dense) {
+        var query = dense.query();
+        if (query != null) {
+            return toQueryDTO(query);
+        }
+        var wrapped = dense.subquery();
+        if (wrapped != null && "subquery".equals(wrapped.type()) && wrapped.query() != null) {
+            return toQueryDTO(wrapped.query());
+        }
+        throw new IllegalArgumentException(
+            "Quantified expression requires subquery query payload (provide query or subquery.query)"
+        );
     }
 
     // === Old DTO → Dense ===
@@ -185,10 +230,17 @@ public class DenseQueryMapper {
             ),
             fromExpressionDTO(dto.having()),
             dto.orderBy() == null ? null : dto.orderBy().stream()
-                .map(ob -> new OrderByDto(fromExpressionDTO(ob.expression()), ob.ascending()))
+                .map(ob -> new OrderByDto(fromExpressionDTO(ob.expression()), ob.ascending(), ob.nullsHandling()))
                 .toList(),
             dto.limit(),
-            dto.offset()
+            dto.offset(),
+            dto.withTies(),
+            dto.ctes() == null ? null : dto.ctes().stream()
+                .map(cte -> new CteDto(cte.name(), fromQueryDTO(cte.query()), cte.columns()))
+                .toList(),
+            dto.setOperations() == null ? null : dto.setOperations().stream()
+                .map(so -> new SetOperationDto(so.type(), fromQueryDTO(so.query())))
+                .toList()
         );
     }
 
@@ -206,12 +258,19 @@ public class DenseQueryMapper {
             case AggregationDTO a -> DenseExpressionDto.aggregation(
                 a.functionName(),
                 a.arguments().stream().map(this::fromExpressionDTO).toList(),
-                a.distinct()
+                a.distinct(),
+                fromExpressionDTO(a.filterWhere())
             );
             case BinaryExpressionDTO b -> DenseExpressionDto.binary(
                 fromExpressionDTO(b.left()),
                 b.operator().name(),
                 fromExpressionDTO(b.right())
+            );
+            case QuantifiedComparisonDTO q -> DenseExpressionDto.quantified(
+                fromExpressionDTO(q.left()),
+                q.comparison().name(),
+                q.quantifier().name(),
+                fromQueryDTO(q.subquery().query())
             );
             case UnaryExpressionDTO u -> DenseExpressionDto.unary(
                 u.operator().name(),
@@ -229,7 +288,12 @@ public class DenseQueryMapper {
                 fromWindowSpecDTO(w.windowSpec())
             );
             case SubqueryDTO s -> DenseExpressionDto.subquery(fromQueryDTO(s.query()));
-            case OuterRefDTO o -> DenseExpressionDto.outerRef(o.depth(), o.path());
+            case ExpressionDTO.CaseExpressionDTO c -> DenseExpressionDto.caseExpr(
+                c.whens().stream()
+                    .map(w -> new DenseExpressionDto.WhenClauseDto(fromExpressionDTO(w.condition()), fromExpressionDTO(w.result())))
+                    .toList(),
+                fromExpressionDTO(c.elseExpr())
+            );
         };
     }
 
@@ -268,8 +332,20 @@ public class DenseQueryMapper {
         return new WindowSpecDto(
             dto.partitionBy() == null ? null : dto.partitionBy().stream().map(this::fromExpressionDTO).toList(),
             dto.orderBy() == null ? null : dto.orderBy().stream()
-                .map(ob -> new OrderByDto(fromExpressionDTO(ob.expression()), ob.ascending()))
-                .toList()
+                .map(ob -> new OrderByDto(fromExpressionDTO(ob.expression()), ob.ascending(), ob.nullsHandling()))
+                .toList(),
+            fromWindowFrameDTO(dto.frame())
+        );
+    }
+
+    private WindowFrameDto fromWindowFrameDTO(QueryDTO.WindowFrameDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        return new WindowFrameDto(
+            dto.type(),
+            new FrameBoundDto(dto.start().type(), dto.start().offset()),
+            new FrameBoundDto(dto.end().type(), dto.end().offset())
         );
     }
 }

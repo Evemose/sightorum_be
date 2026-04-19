@@ -7,7 +7,6 @@ import com.rorm.ml.stream.JobCompletionHandler;
 import com.rorm.ml.stream.JobEventsSupport;
 import com.rorm.ml.stream.JobFutureRegistry;
 import com.rorm.ml.stream.JobStreamListener;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -50,14 +49,14 @@ public class RormMlConfiguration {
 
     @Bean
     @Fallback
-    @ConditionalOnProperty(name = "rorm.ml.durable-execution", havingValue = "false", matchIfMissing = true)
+    @ConditionalOnInMemoryExecution
     public DurableRuntime inMemoryDurableRuntime(ApplicationContext applicationContext) {
         return new InMemoryDurableRuntime(applicationContext);
     }
 
     @Bean
     @Fallback
-    @ConditionalOnProperty(name = "rorm.ml.durable-execution", havingValue = "false", matchIfMissing = true)
+    @ConditionalOnInMemoryExecution
     public JobCompletionHandler inMemoryJobCompletionHandler(JobFutureRegistry registry) {
         return new JobEventsSupport(registry);
     }

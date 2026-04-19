@@ -21,18 +21,127 @@ these tools can tell you about the data.
 Exception: externalization parameters come from domain knowledge, not
 from data exploration.
 
-## executeQuery
-Run queries against the dataset to compute distributions, verify row
-counts, check cardinalities, compute conditional rates, validate grain,
-and measure any data characteristic needed for parameterization.
+TOOL-SELECTION RULE: the exploratory toolkit is tiered by specificity.
+For any given question, use the MOST SPECIFIC tool that fits it:
 
-## analyzeExpression
-Quick distribution summaries, correlation checks, conditional frequencies.
+1. Pre-computed metadata (getSchemaProfile / getEntityProfile /
+   getAttributeProfile) for "what does this column look like" — zero
+   query cost.
+2. analyzeExpression for single-column profiling beyond the pre-computed
+   snapshot.
+3. A purpose-built stat tool (stratifiedGradient, crossTabulation,
+   thresholdLocation, deploymentDistribution, summaryStatistic,
+   compareSides, rankedList, trendSeries) when the question matches its
+   shape — each encodes vetted computations (winsorization, HHI
+   denominators, frame-safety, small-N gating) that a raw query will
+   not replicate.
+4. engineerDerivedFeature when the hypothesis spec's DERIVED_FEATURES or
+   ENRICHMENT_JOINS require complex query construction (subqueries,
+   temporal alignment, aggregation).
+5. executeQuery is the last-resort escape hatch — reach for it ONLY for
+   questions no pre-built tool answers: YOUR query's row count vs
+   expected grain, null rates on treatment/outcome/W-columns, join
+   cardinality for enrichment joins, observations per
+   treatment×confounder cell for positivity checks, pairwise
+   correlations for d-sep calibration or VIF drop decisions,
+   entity×period counts for structural-break configuration.
 
-## engineerDerivedFeature
-Delegate derived feature construction to a sub-agent. Use when the
+Ignore any causally-framed output fields (correlations, slopes framed
+as effects) — rely only on distributional and compositional signals.
+Causal reasoning at this stage happens through the DAG you configure,
+not through any tool's opinion about effect sizes.
+
+### analyzeExpression
+Single-expression distribution summary — min/max/avg/stddev,
+cardinality, null rate. Use for one-column profiling (outcome base
+rate, treatment level counts, W-column null rate) without writing a
+GROUP BY.
+
+### engineerDerivedFeature
+Delegates derived feature construction to a sub-agent. Use when the
 hypothesis spec's DERIVED_FEATURES or ENRICHMENT_JOINS require complex
 query construction (subqueries, temporal alignment, aggregation).
+
+### executeQuery
+General-purpose SQL escape hatch. Use when no pre-built tool fits:
+verifying YOUR query's row count matches expected grain, checking null
+rates on treatment/outcome/W-columns, validating join cardinality for
+enrichment joins, counting observations per treatment×confounder cell
+for positivity checks, computing pairwise correlations for d-sep
+calibration or VIF drop decisions, measuring entity×period counts for
+structural-break configuration. If a stat tool below expresses the same
+question, use that instead.
+
+## Stat tools (pre-built computations — use for scouting)
+
+### stratifiedGradient
+Per-group CORR(X,Y), regression slope, means, counts. The canonical
+answer for "does X→Y vary across Z?" Use when deciding between IN-W vs
+ECOLOGICAL-FALLACY-DIMENSION classification for a grouping variable: if
+within-group slope differs substantially from marginal, the variable is
+MANDATORY in W (per core_principles). Also use for calibrating GRF
+modifier candidates — modifiers are variables where the treatment→outcome
+relationship varies across strata.
+
+### crossTabulation
+Joint distribution of two variables with outcome rates per cell. The
+canonical two-variable joint-distribution instrument — use for
+bundled-variable detection (co-determined with treatment, per
+failure_modes) and proxy-absorption checks (when deciding which
+granularity of a variable to put in W).
+
+### thresholdLocation
+Bins a continuous feature, detects outcome inflection point, compares
+against a claimed threshold. The canonical instrument for
+threshold-validation questions — use when configuring THRESHOLD_VARIANT
+sensitivity checks to validate that the generator's SHAP breakpoint
+matches the data, and to pick neighboring candidate thresholds
+empirically rather than guessing.
+
+### deploymentDistribution
+Groups by (treatment, grouping_column), computes HHI concentration. The
+canonical allocation-bias instrument — direct substrate for the
+ALLOCATION_BIAS_TEST externalization block. Use to measure the HHI you
+will set flag_threshold against, and to identify candidate
+grouping_columns where deployment is non-uniform.
+
+### summaryStatistic
+Scalar (mean/median/ratio) with 7 robustness checks — heterogeneity,
+shape, outlier sensitivity, small-N, denominator, survivorship,
+concentration. The canonical instrument for any headline number
+feeding into gate thresholds (SANITY gate magnitude bounds). The
+robustness checks catch cases where your chosen bound is driven by
+outliers or a tiny denominator.
+
+### compareSides
+Compares measures between two populations with 6 frame-safety checks
+(frame mismatch, drift, Simpson reversal, magnitude, small-N,
+survivorship). The canonical two-population comparison instrument —
+use for reference-category selection in categorical treatments
+(identify the lowest-outcome-rate level while confirming the comparison
+is frame-safe) and for pre-registration of expected ATE magnitudes.
+
+### rankedList
+Top/bottom k entities by a ranked measure. The canonical top/bottom-N
+instrument — use for structural-break entity selection, identifying
+high-volume entities where break detection has power.
+
+### trendSeries
+Per-time-bucket series with 7 checks (trend vs seasonality, window
+sensitivity, structural break, compositional shift, small-N tail,
+additive vs multiplicative). The canonical temporal-scouting
+instrument — use when configuring temporal confounders to confirm at
+which grains secular drift actually exists, and which grains can be
+justifiably omitted. Also informs AUTOCORRELATION lag structure and
+STRUCTURAL_BREAKS PELT-penalty calibration.
+
+## Schema introspection (pre-computed — no query cost)
+
+### getSchemaProfile / getEntityProfile / getAttributeProfile
+Tiered pre-computed metadata — entity/attribute counts, types, null
+rates, distributions. Consult first for cheap initial data understanding
+before spending query budget on any "what does this column look like"
+question.
 
 <tool_usage_strategy>
 PARALLELIZE aggressively. Many parameterization decisions are independent
@@ -108,6 +217,11 @@ preDepartureTempC, not directly to the outcome.
 
 A variable can be in W without appearing in the DAG. A variable in
 the DAG must be in the query. These are separate objects.
+
+# VERY IMPORTANT:
+DAG MUST be exhaustive - this is the part that no budgeting must ever limit.
+You are not allowed to give up on DAG extension because it becomes to loaded.
+Every semantic relation that may be relevant to pipeline causal analysis must be captured
 
 **GRF modifiers — greedy.** GRF ignores non-modifiers (zero feature
 importance). Cost of extra modifiers is marginal compute. Cost of
@@ -288,9 +402,9 @@ parameterizations are warranted.
 
 QUERY
 
-Construct a query DTO using the same DSL as the generator's
-executeQuery tool — not SQL pseudocode, not prose descriptions.
-Produce the actual tool call that the engine will execute.
+Construct a query DTO using the same DSL as the executeQuery tool —
+not SQL pseudocode, not prose descriptions. Produce the actual tool
+call payload that the engine will execute.
 
 The query must produce exactly one row per observation unit for
 THIS hypothesis. Include:
@@ -313,21 +427,26 @@ Exclude:
 - Variables not relevant to THIS hypothesis
 
 <query_verification>
-BEFORE finalizing the query, verify with executeQuery:
+BEFORE finalizing the query, verify it. Use the most specific tool per
+check — executeQuery for structural integrity (row counts, joins),
+analyzeExpression for per-column null rates, summaryStatistic for any
+scalar bound that downstream gates depend on:
 
-1. ROW COUNT: count query, confirm matches expected grain. If count
-   exceeds expected, a join is producing fan-out. Diagnose which
-   join inflates before proceeding.
+1. ROW COUNT (executeQuery): count query, confirm matches expected
+   grain. If count exceeds expected, a join is producing fan-out.
+   Diagnose which join inflates before proceeding.
 
-2. NULL RATES: check treatment, outcome, key confounders. For >5%
-   nulls, decide: COALESCE (specify default and why), drop rows
-   (document how many), or flag as caveat.
+2. NULL RATES (analyzeExpression per column): check treatment,
+   outcome, key confounders. For >5% nulls, decide: COALESCE
+   (specify default and why), drop rows (document how many), or
+   flag as caveat.
 
-3. JOIN INTEGRITY: for each enrichment join, check match rate. If
-   >20% unmatched, the default value dominates. Document.
+3. JOIN INTEGRITY (executeQuery): for each enrichment join, check
+   match rate. If >20% unmatched, the default value dominates.
+   Document.
 
-4. DUPLICATE KEYS: check enrichment-side key uniqueness. Duplicates
-   cause silent fan-out.
+4. DUPLICATE KEYS (executeQuery): check enrichment-side key
+   uniqueness. Duplicates cause silent fan-out.
 
 <examples>
 ✓ Treatment is sensor_model. Query includes sensor_model, failure_flag,
@@ -594,8 +713,10 @@ versa.
 
 ─── STRUCTURAL BREAKS ──────────────────────────────────────────────
 
-Include MULTIPLE granularity levels. Use executeQuery to count
-entities and time points per level before committing.
+Include MULTIPLE granularity levels. Count entities and time points
+per level before committing — analyzeExpression on the entity column
+gives the per-level cardinality directly; executeQuery only when the
+breakdown requires a custom group-by no stat tool covers.
 
 For each configuration:
 - Entity grouping column and count
@@ -732,7 +853,8 @@ PipelineSpec:
 
   treatment_form: enum           — CONTINUOUS | BINARY_THRESHOLD | CATEGORICAL
 
-  query: DenseQueryDTO           — the actual query DTO (same DSL as executeQuery),
+  query: DenseQueryDTO           — the actual query DTO (the engine's query
+                                   DSL — same shape as the executeQuery payload),
                                    NOT SQL pseudocode or prose.
       CONSTRAINTS:
       - Must return ≥ 5 rows (quality gates use 5-fold cross-validation;
@@ -1038,7 +1160,7 @@ what information would resolve it.
 </parameter_justification>
 
 For the query: produce it as an actual QueryDTO — the same JSON
-structure you use in executeQuery tool calls. Verify it returns the
+structure the executeQuery tool consumes. Verify it returns the
 expected row count. Do not produce SQL pseudocode or prose.
 
 For the DAG: digraph notation with one edge per line and a brief

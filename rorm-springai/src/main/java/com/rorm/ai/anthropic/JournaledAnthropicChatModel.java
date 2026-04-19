@@ -235,34 +235,28 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return strategyFn.strategy(context);
     }
 
-    private void resolveModelForClient(MessageCreateParams.Builder builder,
-                                       AnthropicClient client, @Nullable ChatOptions options) {
-        if (client == directClient) {
-            return;
+    @SuppressWarnings("unchecked")
+    private JsonNode fixObjectStrings(JsonValue jsonValue) {
+        var om = ObjectMappers.jsonMapper();
+        if (jsonValue.asString().isPresent()) {
+            jsonValue = JsonValue.fromJsonNode(om.valueToTree(jsonValue.asString().get()));
         }
-        var map = Map.of(
-            "claude-sonnet-4-6", "us.anthropic.claude-sonnet-4-6",
-            "claude-opus-4-6", "us.anthropic.claude-opus-4-6-v1",
-            "claude-haiku-4-5", "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-        );
+        var finalJsonValue = jsonValue;
+        return ((Optional<Map<String, JsonValue>>) jsonValue.asObject())
+            .map(map -> map.entrySet().stream()
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> {
+                        var strValue = ((Optional<String>) entry.getValue().asString());
+                        return strValue
+                            .filter(s -> s.startsWith("{") || s.startsWith("["))
+                            .flatMap(this::tryReadTree)
+                            .orElseGet(() -> toJsonNode(entry.getValue()));
+                    }
+                )))
+            .<JsonNode>map(om::valueToTree)
+            .orElseGet(() -> toJsonNode(finalJsonValue));
 
-        var model = options != null && options.getModel() != null
-            ? options.getModel() : AnthropicParamsBuilder.DEFAULT_MODEL;
-        if (model.contains(".") || model.contains(":")) {
-            if (!map.containsValue(model)) {
-                throw new IllegalArgumentException(
-                    "Full model name " + model + " for bedrock client is unknown. Supported models: " + map.keySet()
-                );
-            }
-            return;
-        }
-        var modelName = map.get(model);
-        if (modelName == null) {
-            throw new IllegalArgumentException(
-                "Model " + model + " is not supported on bedrock client. Supported models: " + map.keySet()
-            );
-        }
-        builder.model(modelName);
     }
 
     private StepJournal resolveJournal(@Nullable ChatOptions options) {
@@ -272,11 +266,38 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return StepJournal.DEFAULT;
     }
 
-    private AnthropicClient resolveClient(@Nullable ChatOptions options) {
-        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
-            return directClient;
+    private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
+        var callbackMap = resolveToolCallbackMap(prompt.getOptions());
+        var toolCtx = resolveToolContext(prompt.getOptions());
+        var journal = resolveJournal(prompt.getOptions());
+        var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
+        var client = resolveClient(prompt.getOptions());
+        var rounds = new ArrayList<ToolRound>();
+
+        for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+            var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
+            var builder = paramsBuilder.toBuilder(prompt, strategy);
+            addToolRounds(builder, rounds, strategy);
+            resolveModelForClient(builder, client, prompt.getOptions());
+            var params = builder.build();
+            log.info("Calling {} with model={}", client == bedrockClient ? "bedrock" : "direct", params.model());
+            var executed = new boolean[]{false};
+            var message = journal.run("llm-stream-" + round, Message.class, () -> {
+                executed[0] = true;
+                return fixMissingToolInputs(streamRound(params, sink, client));
+            });
+            if (!executed[0]) {
+                emitCachedRound(message, sink);
+            }
+            if (!hasToolCalls(message, callbackMap)) {
+                emitCustomGenerations(message, rounds, sink);
+                sink.complete();
+                return;
+            }
+            var toolRound = buildToolRound(message, callbackMap, toolCtx);
+            rounds.add(toolRound);
         }
-        return bedrockClient;
+        sink.error(toolLoopExceeded());
     }
 
     private static UsageConsuming estimateUsage(MessageCreateParams params) {
@@ -481,24 +502,12 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private JsonNode fixObjectStrings(JsonValue jsonValue) {
-        var om = ObjectMappers.jsonMapper();
-        return ((Optional<Map<String, JsonValue>>) jsonValue.asObject())
-            .map(map -> map.entrySet().stream()
-                .collect(Collectors.toMap(
-                    Map.Entry::getKey,
-                    entry -> {
-                        var strValue = ((Optional<String>) entry.getValue().asString());
-                        return strValue
-                            .filter(s -> s.startsWith("{") || s.startsWith("["))
-                            .flatMap(this::tryReadTree)
-                            .orElseGet(() -> toJsonNode(entry.getValue()));
-                    }
-                )))
-            .<JsonNode>map(om::valueToTree)
-            .orElseGet(() -> toJsonNode(jsonValue));
-
+    private AnthropicClient resolveClient(@Nullable ChatOptions options) {
+//        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
+//            return directClient;
+//        }
+//        return bedrockClient;
+        return directClient;
     }
 
     private ChatResponse withObservation(Prompt prompt, Function<ChatModelObservationContext, ChatResponse> body) {
@@ -652,41 +661,35 @@ public class JournaledAnthropicChatModel implements ChatModel {
         }
     }
 
-    private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
-        var callbackMap = resolveToolCallbackMap(prompt.getOptions());
-        var toolCtx = resolveToolContext(prompt.getOptions());
-        var journal = resolveJournal(prompt.getOptions());
-        var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
-        var client = resolveClient(prompt.getOptions());
-        var rounds = new ArrayList<ToolRound>();
-
-        for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-            var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
-            var builder = paramsBuilder.toBuilder(prompt, strategy);
-            addToolRounds(builder, rounds, strategy);
-            resolveModelForClient(builder, client, prompt.getOptions());
-            var params = builder.build();
-            log.info("Calling {} with model={}", client == bedrockClient ? "bedrock" : "direct", params.model());
-            var executed = new boolean[]{false};
-            var message = journal.run("llm-stream-" + round, Message.class, () -> {
-                executed[0] = true;
-                return throttle.execute(
-                    estimateUsage(params),
-                    () -> fixMissingToolInputs(streamRound(params, sink, client)),
-                    TokenUsage::from);
-            });
-            if (!executed[0]) {
-                emitCachedRound(message, sink);
-            }
-            if (!hasToolCalls(message, callbackMap)) {
-                emitCustomGenerations(message, rounds, sink);
-                sink.complete();
-                return;
-            }
-            var toolRound = buildToolRound(message, callbackMap, toolCtx);
-            rounds.add(toolRound);
+    private void resolveModelForClient(MessageCreateParams.Builder builder,
+                                       AnthropicClient client, @Nullable ChatOptions options) {
+        if (client == directClient) {
+            return;
         }
-        sink.error(toolLoopExceeded());
+        var map = Map.of(
+            "claude-sonnet-4-6", "us.anthropic.claude-sonnet-4-6",
+            "claude-opus-4-6", "us.anthropic.claude-opus-4-6-v1",
+            "claude-haiku-4-5", "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "claude-opus-4-7", "us.anthropic.claude-opus-4-7"
+        );
+
+        var model = options != null && options.getModel() != null
+            ? options.getModel() : AnthropicParamsBuilder.DEFAULT_MODEL;
+        if (model.contains(".") || model.contains(":")) {
+            if (!map.containsValue(model)) {
+                throw new IllegalArgumentException(
+                    "Full model name " + model + " for bedrock client is unknown. Supported models: " + map.keySet()
+                );
+            }
+            return;
+        }
+        var modelName = map.get(model);
+        if (modelName == null) {
+            throw new IllegalArgumentException(
+                "Model " + model + " is not supported on bedrock client. Supported models: " + map.keySet()
+            );
+        }
+        builder.model(modelName);
     }
 
     private void emitCustomGenerations(Message message, List<ToolRound> rounds, FluxSink<ChatResponse> sink) {

@@ -42,7 +42,6 @@ public class FeatureEngineeringTool {
         
         You may retry up to 5 times on errors. Common failure modes:
         - Wrong column name → use getEntityProfile to check
-        - outerRef depth wrong → depth=1 means immediate parent query
         - Type mismatch in date arithmetic → use EXTRACT or function wrappers
         - Null handling → wrap with COALESCE where appropriate
         - 1:N joins produce duplicate rows → use DISTINCT or aggregation to fix

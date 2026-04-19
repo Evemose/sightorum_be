@@ -112,9 +112,13 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "mean", null, null, null, null, null,
-            List.of(), false, toolContext);
+            List.of(), false, false, null, toolContext);
         var parsed = parse(json);
 
+        if (!Boolean.TRUE.equals(parsed.get("success"))) {
+            System.out.println("Test failed with error: " + parsed.get("error"));
+            System.out.println("Full JSON: " + json);
+        }
         assertThat(parsed.get("success")).isEqualTo(true);
         assertThat(parsed.get("archetype")).isEqualTo("SUMMARY_STAT");
         assertThat((String) parsed.get("headline")).contains("100");
@@ -144,7 +148,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "median", null, null, null, null, null,
-            List.of(), false, toolContext);
+            List.of(), false, false, null, toolContext);
         var parsed = parse(json);
 
         assertThat(parsed.get("success")).isEqualTo(true);
@@ -168,7 +172,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "mean", null, null, null, null, null,
-            List.of(path("region")), false, toolContext);
+            List.of(path("region")), false, false, null, toolContext);
         var parsed = parse(json);
 
         @SuppressWarnings("unchecked")
@@ -190,7 +194,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "mean", null, null, null, null, null,
-            List.of(), false, toolContext);
+            List.of(), false, false, null, toolContext);
         var parsed = parse(json);
 
         @SuppressWarnings("unchecked")
@@ -217,7 +221,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "mean", null, null, null, null, null,
-            List.of(path("region")), true, toolContext);
+            List.of(path("region")), true, false, null, toolContext);
         var parsed = parse(json);
 
         @SuppressWarnings("unchecked")
@@ -239,7 +243,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "mean", null, null, null, null, null,
-            List.of(), false, toolContext);
+            List.of(), false, false, null, toolContext);
         var parsed = parse(json);
 
         @SuppressWarnings("unchecked")
@@ -261,7 +265,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "mean", null, null, null, null, null,
-            List.of(path("region")), false, toolContext);
+            List.of(path("region")), false, false, null, toolContext);
         var parsed = parse(json);
 
         @SuppressWarnings("unchecked")
@@ -284,7 +288,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "ratio", path("qty"), null,
-            null, null, null, List.of(path("region")), false, toolContext);
+            null, null, null, List.of(path("region")), false, false, null, toolContext);
         var parsed = parse(json);
 
         @SuppressWarnings("unchecked")
@@ -304,7 +308,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "percentile_50", null, null, null, null, null,
-            List.of(), false, toolContext);
+            List.of(), false, false, null, toolContext);
         var parsed = parse(json);
 
         assertThat(parsed.get("success")).isEqualTo(false);
@@ -322,7 +326,7 @@ class SummaryStatToolTest {
 
         var json = tool.summaryStatistic(
             "sales", path("amount"), "mean", null, null, null, null, null,
-            List.of(), true, toolContext);
+            List.of(), true, false, null, toolContext);
         var parsed = parse(json);
 
         @SuppressWarnings("unchecked")

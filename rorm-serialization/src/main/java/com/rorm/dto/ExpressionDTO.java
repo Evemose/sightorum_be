@@ -15,10 +15,11 @@ import java.util.List;
     @JsonSubTypes.Type(value = ExpressionDTO.AggregationDTO.class, name = "aggregation"),
     @JsonSubTypes.Type(value = ExpressionDTO.WindowFunctionDTO.class, name = "window"),
     @JsonSubTypes.Type(value = ExpressionDTO.BinaryExpressionDTO.class, name = "binary"),
+    @JsonSubTypes.Type(value = ExpressionDTO.QuantifiedComparisonDTO.class, name = "quantified"),
     @JsonSubTypes.Type(value = ExpressionDTO.UnaryExpressionDTO.class, name = "unary"),
     @JsonSubTypes.Type(value = ExpressionDTO.TernaryExpressionDTO.class, name = "ternary"),
     @JsonSubTypes.Type(value = ExpressionDTO.SubqueryDTO.class, name = "subquery"),
-    @JsonSubTypes.Type(value = ExpressionDTO.OuterRefDTO.class, name = "outerRef")
+    @JsonSubTypes.Type(value = ExpressionDTO.CaseExpressionDTO.class, name = "case")
 })
 @JsonClassDescription("Base type for all query expressions. For simple attribute paths, you can use a plain string like 'email' or 'customer.name'.")
 public sealed interface ExpressionDTO permits
@@ -28,10 +29,11 @@ public sealed interface ExpressionDTO permits
     ExpressionDTO.AggregationDTO,
     ExpressionDTO.WindowFunctionDTO,
     ExpressionDTO.BinaryExpressionDTO,
+    ExpressionDTO.QuantifiedComparisonDTO,
     ExpressionDTO.UnaryExpressionDTO,
     ExpressionDTO.TernaryExpressionDTO,
     ExpressionDTO.SubqueryDTO,
-    ExpressionDTO.OuterRefDTO {
+    ExpressionDTO.CaseExpressionDTO {
 
     @JsonClassDescription("A path expression referencing an attribute, potentially through nested references")
     record PathDTO(
@@ -56,29 +58,28 @@ public sealed interface ExpressionDTO permits
         }
     }
 
+    enum QuantifierDTO {
+        ANY,
+        ALL
+    }
+
     @JsonClassDescription("A SQL function call (non-aggregate)")
     record FunctionCallDTO(
-        @JsonPropertyDescription("Name of the SQL function. Examples: 'UPPER', 'LOWER', 'CONCAT', 'COALESCE', 'SUBSTRING', 'CASE' (for CASE WHEN: use CASE with args [condition, thenValue, elseValue])")
+        @JsonPropertyDescription("""
+            Name of the SQL function.
+            Supported functions:
+            - Conditional: COALESCE, NULLIF, GREATEST, LEAST, CASE
+            - Date/time: NOW, CURRENT_DATE, CURRENT_TIME, DATE_TRUNC, EXTRACT, INTERVAL
+            - String: CONCAT, LOWER, UPPER, LENGTH, TRIM, LTRIM, RTRIM, LEFT, RIGHT, SUBSTRING, REPLACE, POSITION, REVERSE, REPEAT, LPAD, RPAD, INITCAP, SPLIT_PART, REGEXP_REPLACE
+            - Numeric: ABS, CEIL, FLOOR, ROUND, TRUNC, MOD, POWER, SQRT, EXP, LN, LOG, SIGN
+            - Special: CAST
+            """)
         @JsonProperty(required = true)
         String functionName,
 
         @JsonPropertyDescription("Arguments to pass to the function.")
         @JsonProperty(required = true)
         List<ExpressionDTO> arguments
-    ) implements ExpressionDTO {}
-
-    @JsonClassDescription("An aggregate function (COUNT, SUM, AVG, MIN, MAX)")
-    record AggregationDTO(
-        @JsonPropertyDescription("Name of the aggregate function: COUNT, SUM, AVG, MIN, MAX")
-        @JsonProperty(required = true)
-        String functionName,
-
-        @JsonPropertyDescription("Arguments to aggregate. For COUNT(*), use empty list.")
-        @JsonProperty(required = true)
-        List<ExpressionDTO> arguments,
-
-        @JsonPropertyDescription("Whether to apply DISTINCT before aggregation (e.g., COUNT(DISTINCT x)).")
-        boolean distinct
     ) implements ExpressionDTO {}
 
     @JsonClassDescription("A window/analytic function with OVER clause")
@@ -118,9 +119,63 @@ public sealed interface ExpressionDTO permits
         ExpressionDTO right
     ) implements ExpressionDTO {}
 
+    @JsonClassDescription("""
+        An aggregate function with optional FILTER (WHERE ...) clause.
+        Supported aggregates: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP,
+        STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR, CORR, REGR_SLOPE, PERCENTILE_CONT.
+        Example with filterWhere:
+        {"@type":"aggregation","functionName":"COUNT","arguments":[{"@type":"path","path":"e.id"}],"distinct":true,
+         "filterWhere":{"@type":"binary","left":{"@type":"path","path":"e.active"},"operator":"EQUALS","right":{"@type":"literal","value":true}}}
+        """)
+    record AggregationDTO(
+        @JsonPropertyDescription("Name of aggregate function: COUNT, SUM, AVG, MIN, MAX, STDDEV_POP, STDDEV_SAMP, VAR_POP, VAR_SAMP, STRING_AGG, ARRAY_AGG, BOOL_AND, BOOL_OR, CORR, REGR_SLOPE, PERCENTILE_CONT")
+        @JsonProperty(required = true)
+        String functionName,
+
+        @JsonPropertyDescription("Arguments to aggregate. For COUNT(*), use empty list. PERCENTILE_CONT expects [fraction literal in 0..1, order expression].")
+        @JsonProperty(required = true)
+        List<ExpressionDTO> arguments,
+
+        @JsonPropertyDescription("Whether to apply DISTINCT before aggregation (e.g., COUNT(DISTINCT x)).")
+        boolean distinct,
+
+        @JsonPropertyDescription("Optional FILTER (WHERE ...) condition applied to the aggregate, equivalent to SQL: AGG(expr) FILTER (WHERE condition).")
+        @JsonProperty(required = false)
+        ExpressionDTO filterWhere
+    ) implements ExpressionDTO {
+        /**
+         * Backward-compatible constructor without filter.
+         */
+        public AggregationDTO(String functionName, List<ExpressionDTO> arguments, boolean distinct) {
+            this(functionName, arguments, distinct, null);
+        }
+    }
+
+    @JsonClassDescription("""
+        Quantified comparison against a subquery: <comparison> <quantifier> (subquery).
+        Example: {"@type":"quantified","left":{"@type":"path","path":"salary"},"comparison":"GREATER_THAN","quantifier":"ALL","subquery":{"@type":"subquery","query":{...}}}
+        """)
+    record QuantifiedComparisonDTO(
+        @JsonPropertyDescription("Left-hand side expression.")
+        @JsonProperty(required = true)
+        ExpressionDTO left,
+
+        @JsonPropertyDescription("Comparison operator: EQUALS, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL")
+        @JsonProperty(required = true)
+        BinaryOperator comparison,
+
+        @JsonPropertyDescription("Quantifier: ANY or ALL")
+        @JsonProperty(required = true)
+        QuantifierDTO quantifier,
+
+        @JsonPropertyDescription("Right-hand side scalar subquery.")
+        @JsonProperty(required = true)
+        SubqueryDTO subquery
+    ) implements ExpressionDTO {}
+
     @JsonClassDescription("Unary expression with operator and single operand")
     record UnaryExpressionDTO(
-        @JsonPropertyDescription("Unary operator: IS_NULL, IS_NOT_NULL, IS_TRUE, IS_FALSE, NOT, NEGATE")
+        @JsonPropertyDescription("Unary operator: IS_NULL, IS_NOT_NULL, IS_TRUE, IS_FALSE, NOT, NEGATE, EXISTS")
         @JsonProperty(required = true)
         UnaryOperator operator,
 
@@ -164,14 +219,28 @@ public sealed interface ExpressionDTO permits
         }
     }
 
-    @JsonClassDescription("Reference to an outer query's attribute for correlated subqueries")
-    record OuterRefDTO(
-        @JsonPropertyDescription("Depth of the outer query to reference (1 = immediate parent, 2 = grandparent, etc.).")
+    @JsonClassDescription("A single WHEN condition THEN result clause inside a CASE expression")
+    record WhenClauseDTO(
+        @JsonPropertyDescription("The boolean condition expression.")
         @JsonProperty(required = true)
-        int depth,
+        ExpressionDTO condition,
 
-        @JsonPropertyDescription("Dot-separated path to the attribute in the outer query. Examples: 'id', 'customer.name'")
+        @JsonPropertyDescription("The result expression when condition is true.")
         @JsonProperty(required = true)
-        String path
+        ExpressionDTO result
+    ) {}
+
+    @JsonClassDescription("""
+        CASE WHEN expression with structured WHEN/THEN/ELSE clauses.
+        Example: {"@type":"case","whens":[{"condition":{"@type":"binary",...},"result":{"@type":"literal","value":"high"}}],"elseExpr":{"@type":"literal","value":"low"}}
+        """)
+    record CaseExpressionDTO(
+        @JsonPropertyDescription("List of WHEN/THEN clauses (at least one required).")
+        @JsonProperty(required = true)
+        List<WhenClauseDTO> whens,
+
+        @JsonPropertyDescription("Optional ELSE expression returned when no WHEN condition matches.")
+        @JsonProperty(required = false)
+        ExpressionDTO elseExpr
     ) implements ExpressionDTO {}
 }

@@ -1,0 +1,8 @@
+Hypothesis specification:
+{{HYPOTHESIS_SPEC}}
+
+Pipeline specification (compiled by the executor-compiler):
+{{PIPELINE_SPEC}}
+
+Pipeline execution results:
+{{PIPELINE_OUTPUT}}
