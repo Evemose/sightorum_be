@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
-import java.util.stream.Stream;
 
 @JsonClassDescription("""
     Generator output: causal hypotheses plus below-detection thresholds, domain
@@ -57,42 +56,19 @@ public record HypothesisGenerationDTO(
     List<InteractionCandidate> interactionCandidates
 ) {
 
-    /**
-     * Slices every global item (BDTs, domain discrepancies, rare-event
-     * findings, interaction candidates) from the raw rebuttal source using
-     * each item's firstLine/lastLine anchors, and concatenates the slices
-     * into a single blob of untouched raw text. Intended to be concatenated
-     * onto a per-hypothesis spec slice so the full global context travels
-     * with the hypothesis without going through any lossy structured
-     * rendering.
-     */
-    public String renderGlobalsFromRaw(String rebuttalRaw) {
-        var sb = new StringBuilder();
-        Stream.of(
-                belowDetectionThresholds.stream().map(b -> b.sliceBlock(rebuttalRaw)),
-                domainDiscrepancies.stream().map(d -> d.sliceBlock(rebuttalRaw)),
-                rareEventFindings.stream().map(r -> r.sliceBlock(rebuttalRaw)),
-                interactionCandidates.stream().map(i -> i.sliceBlock(rebuttalRaw)))
-            .flatMap(s -> s)
-            .forEach(block -> {
-                if (sb.length() > 0) {
-                    sb.append("\n\n");
-                }
-                sb.append(block);
-            });
-        return sb.toString();
-    }
-
-
     @JsonClassDescription("""
         One causal hypothesis. Treatment must be a single source column from
         the anchor entity or a reachable enrichment entity (no CONCAT or
         composed treatments).""")
     public record Hypothesis(
 
-        @JsonPropertyDescription("Hypothesis identifier, e.g. 'H1'.")
+        @JsonPropertyDescription("""
+            Hypothesis title, e.g. 'H1'. MUST exactly match the `title:`
+            value on the second non-blank line inside the HYPOTHESIS fence
+            in the raw source — this string is the deterministic key used
+            to slice the raw block back out of the generator output.""")
         @JsonProperty(required = true)
-        String id,
+        String title,
 
         @JsonPropertyDescription("Treatment column name. Must be a single source column.")
         @JsonProperty(required = true)
@@ -191,51 +167,18 @@ public record HypothesisGenerationDTO(
             multivariate control, model-derived threshold, identification
             strategy, rare-data sensitivity, or model sensitivity. Null when
             no caveats apply.""")
-        @Nullable List<ExecutionCaveat> executionCaveats,
-
-        @JsonPropertyDescription("""
-            First line of this hypothesis's block as it appears in the raw
-            source, copied verbatim. Used together with lastLine as a
-            deterministic anchor to slice the full block out of the raw
-            source. Short (under 120 chars). Pick a line that uniquely
-            identifies this hypothesis's start.""")
-        @JsonProperty(required = true)
-        String firstLine,
-
-        @JsonPropertyDescription("""
-            Last line of this hypothesis's block as it appears in the raw
-            source, copied verbatim. Used together with firstLine as a
-            deterministic anchor to slice the full block out of the raw
-            source. Short (under 120 chars). Pick a line that uniquely marks
-            this hypothesis's end.""")
-        @JsonProperty(required = true)
-        String lastLine
+        @Nullable List<ExecutionCaveat> executionCaveats
     ) {
 
-        /**
-         * Test-only factory producing a minimal Hypothesis for fixtures.
-         */
-        public static Hypothesis forAnchors(String id, String firstLine, String lastLine) {
+        public static Hypothesis forTitle(String title) {
             return new Hypothesis(
-                id, "", "", "", null, null, "", "",
+                title, "", "", "", null, null, "", "",
                 List.of(), List.of(),
                 new AnchorGrounding("", List.of(), List.of(), List.of()),
                 List.of(), "", List.of(), List.of(), List.of(),
                 new Evidence("", "", null, null, null, null, null, null, null, "", null),
-                null, List.of(), null,
-                firstLine, lastLine
+                null, List.of(), null
             );
-        }
-
-        /**
-         * Slices the raw source text between {@link #firstLine} and
-         * {@link #lastLine}, inclusive of both endpoints, returning the
-         * full block exactly as it appeared in the original. Throws
-         * {@link IllegalArgumentException} when either anchor cannot be
-         * located or when lastLine does not appear after firstLine.
-         */
-        public String sliceSpec(String rawSource) {
-            return Slicer.slice(rawSource, firstLine, lastLine, "hypothesis " + id);
         }
     }
 
@@ -612,29 +555,8 @@ public record HypothesisGenerationDTO(
 
         @JsonPropertyDescription("Recommended follow-up analysis that might surface the effect.")
         @JsonProperty(required = true)
-        RecommendedDownstream recommendedDownstream,
-
-        @JsonPropertyDescription("""
-            First line of this block as it appears in the raw source,
-            copied verbatim. Used with lastLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String firstLine,
-
-        @JsonPropertyDescription("""
-            Last line of this block as it appears in the raw source,
-            copied verbatim. Used with firstLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String lastLine
-    ) {
-        /**
-         * Slices this block out of the raw rebuttal source.
-         */
-        public String sliceBlock(String rawSource) {
-            return Slicer.slice(rawSource, firstLine, lastLine, "below_detection " + feature);
-        }
-    }
+        RecommendedDownstream recommendedDownstream
+    ) {}
 
     @JsonClassDescription("""
         Subgroup-level exception to a population-level null. Captures the
@@ -735,29 +657,8 @@ public record HypothesisGenerationDTO(
 
         @JsonPropertyDescription("Concrete analytical step and expected outcomes under each interpretation.")
         @JsonProperty(required = true)
-        ProposedResolution proposedResolution,
-
-        @JsonPropertyDescription("""
-            First line of this block as it appears in the raw source,
-            copied verbatim. Used with lastLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String firstLine,
-
-        @JsonPropertyDescription("""
-            Last line of this block as it appears in the raw source,
-            copied verbatim. Used with firstLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String lastLine
-    ) {
-        /**
-         * Slices this block out of the raw rebuttal source.
-         */
-        public String sliceBlock(String rawSource) {
-            return Slicer.slice(rawSource, firstLine, lastLine, "domain_discrepancy " + expectedDriver);
-        }
-    }
+        ProposedResolution proposedResolution
+    ) {}
 
     @JsonClassDescription("""
         Proposed resolution for a domain discrepancy: a concrete analytical
@@ -852,29 +753,8 @@ public record HypothesisGenerationDTO(
             verification required before acting; MONITOR_ONLY = collect more
             data before deciding.""")
         @JsonProperty(required = true)
-        String recommendedAction,
-
-        @JsonPropertyDescription("""
-            First line of this block as it appears in the raw source,
-            copied verbatim. Used with lastLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String firstLine,
-
-        @JsonPropertyDescription("""
-            Last line of this block as it appears in the raw source,
-            copied verbatim. Used with firstLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String lastLine
-    ) {
-        /**
-         * Slices this block out of the raw rebuttal source.
-         */
-        public String sliceBlock(String rawSource) {
-            return Slicer.slice(rawSource, firstLine, lastLine, "rare_event " + feature);
-        }
-    }
+        String recommendedAction
+    ) {}
 
     @JsonClassDescription("One conditional check on a rare-event finding.")
     public record ConditionalContext(
@@ -915,28 +795,6 @@ public record HypothesisGenerationDTO(
 
         @JsonPropertyDescription("Mechanism reasoning for why the components interact rather than add.")
         @JsonProperty(required = true)
-        String reasoning,
-
-        @JsonPropertyDescription("""
-            First line of this block as it appears in the raw source,
-            copied verbatim. Used with lastLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String firstLine,
-
-        @JsonPropertyDescription("""
-            Last line of this block as it appears in the raw source,
-            copied verbatim. Used with firstLine to deterministically slice
-            this block out of the raw source. Short (under 120 chars).""")
-        @JsonProperty(required = true)
-        String lastLine
-    ) {
-        /**
-         * Slices this block out of the raw rebuttal source.
-         */
-        public String sliceBlock(String rawSource) {
-            return Slicer.slice(rawSource, firstLine, lastLine,
-                "interaction_candidate " + String.join("+", components));
-        }
-    }
+        String reasoning
+    ) {}
 }

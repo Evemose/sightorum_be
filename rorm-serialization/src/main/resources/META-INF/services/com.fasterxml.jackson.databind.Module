@@ -1,1 +1,2 @@
 com.rorm.dto.dense.DenseQueryDtoModule
+com.rorm.serialization.metamodel.ModelSpaceMixinModule

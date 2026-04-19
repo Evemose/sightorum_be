@@ -264,7 +264,11 @@ class ThresholdVariant:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ThresholdVariant":
-        return cls(**d)
+        return cls(
+            threshold=d["threshold"],
+            expected_n_treated=d.get("expected_n_treated", d.get("expected_ntreated")),
+            expected_n_control=d.get("expected_n_control", d.get("expected_ncontrol")),
+        )
 
 
 @dataclass
@@ -524,7 +528,7 @@ class DiscrepancyEntry:
     @classmethod
     def from_dict(cls, d: dict) -> "DiscrepancyEntry":
         return cls(
-            field_name=d["field"],
+            field_name=d.get("field_name") or d["field"],
             generator_value=d["generator_value"],
             compiler_value=d["compiler_value"],
             resolution=d["resolution"],

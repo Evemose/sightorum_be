@@ -23,5 +23,6 @@ public sealed interface BuiltInFunctionHandler extends FunctionHandler permits
     CurrentDateFunction,
     CurrentTimeFunction,
     DateTruncFunction,
-    ExtractFunction {
+    ExtractFunction,
+    IntervalFunction {
 }

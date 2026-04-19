@@ -1,10 +1,7 @@
 package com.rorm.engine;
 
-import com.rorm.metamodel.BasicAttribute;
+import com.rorm.engine.handler.BooleanFieldUtils;
 import com.rorm.query.Query;
-import com.rorm.query.Selector.MultiExprSelector;
-import com.rorm.query.Selector.RootSelector;
-import com.rorm.query.Selector.SingleExprSelector;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.jooq.*;
@@ -17,73 +14,43 @@ import static org.jooq.impl.DSL.*;
 class SubqueryTransformer {
 
     private final ExpressionTransformer expr;
-    private final JoinCollector joinCollector;
 
     @PostConstruct
     void init() {
         expr.setSubqueryTransformer(this);
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     Field<?> transform(Query query) {
         var nestedCtx = expr.ctx().nested(query.from());
-        return expr.withContext(nestedCtx, () -> transformInContext(query));
+        return expr.withContext(nestedCtx, () -> field((Select) buildInContext(query)));
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private Field<?> transformInContext(Query query) {
+    private Select<?> buildInContext(Query query) {
         var ctx = expr.ctx();
-        var selectFields = buildSelect(query);
-        var fromStep = selectFields.from(ctx.rootTable());
+        var autoJoins = ScopeResolver.resolveQueryJoins(query, ctx);
 
-        var joins = joinCollector.collectFromQuery(query);
+        var fields = expr.renderSelectorFields(query.selector(), ctx);
+        var selectStep = query.selector().distinct() ? selectDistinct(fields) : select(fields);
+        Select<?> result = QueryTransformer.applyAutoJoins(selectStep.from(ctx.rootTable()), autoJoins);
 
-        SelectJoinStep joinStep = fromStep;
-        for (var join : joins) {
-            if (join.leftJoinColumn() != null && join.rightJoinColumn() != null) {
-                joinStep = joinStep.leftJoin(join.table())
-                    .on(join.leftJoinColumn().eq((Field) join.rightJoinColumn()));
-            }
+        if (query.where() != null) {
+            result = ((SelectWhereStep<?>) result).where(BooleanFieldUtils.asCondition(expr.transform(query.where())));
         }
-
-        var whereCondition = query.where() != null ? (Condition) expr.transform(query.where()) : noCondition();
-        var conditionStep = joinStep.where(whereCondition);
-
-        Select<?> result = conditionStep;
         if (query.groupBy() != null) {
             var groupByFields = query.groupBy().expressions().stream()
                 .map(expr::transform)
                 .toArray(GroupField[]::new);
-            var groupStep = conditionStep.groupBy(groupByFields);
-            result = groupStep;
-            if (query.having() != null) {
-                result = groupStep.having((Condition) expr.transform(query.having()));
-            }
+            result = ((SelectGroupByStep<?>) result).groupBy(groupByFields);
         }
-
-        return field((Select) result);
+        if (query.having() != null) {
+            result = ((SelectHavingStep<?>) result).having(BooleanFieldUtils.asCondition(expr.transform(query.having())));
+        }
+        return result;
     }
 
-    private SelectSelectStep<?> buildSelect(Query query) {
-        var selector = query.selector();
-        return switch (selector) {
-            case SingleExprSelector(var e, var distinct, var alias) -> {
-                var f = alias != null ? expr.transform(e).as(alias) : expr.transform(e);
-                yield distinct ? selectDistinct(f) : select(f);
-            }
-            case MultiExprSelector(var exprs, var distinct) -> {
-                var fields = exprs.stream()
-                    .map(ae -> ae.alias() != null ? expr.transform(ae.expression()).as(ae.alias()) : expr.transform(ae.expression()))
-                    .toArray(Field[]::new);
-                yield distinct ? selectDistinct(fields) : select(fields);
-            }
-            case RootSelector(var root, var distinct) -> {
-                var fields = root.attributes().stream()
-                    .filter(BasicAttribute.class::isInstance)
-                    .map(BasicAttribute.class::cast)
-                    .map(attr -> expr.ctx().resolveField(attr, expr.ctx().rootTable()))
-                    .toArray(Field[]::new);
-                yield distinct ? selectDistinct(fields) : select(fields);
-            }
-        };
+    Select<?> transformAsSelect(Query query) {
+        var nestedCtx = expr.ctx().nested(query.from());
+        return expr.withContext(nestedCtx, () -> buildInContext(query));
     }
 }

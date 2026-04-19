@@ -26,13 +26,11 @@ public final class StringAggAggregation implements BuiltInAggregationHandler {
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Field<?> transform(List<Expression> args, boolean distinct, TransformContext ctx) {
-        var fields = ctx.transformAll(args);
-        if (fields.length >= 2) {
-            Field field0 = fields[0];
-            Field field1 = fields[1];
-            return DSL.groupConcat(field0).separator(field1.toString());
+        var value = ctx.transform(args.getFirst());
+        var delimiter = args.size() >= 2 ? ctx.transform(args.get(1)) : DSL.inline(",");
+        if (distinct) {
+            return DSL.field("string_agg(distinct {0}, {1})", String.class, value, delimiter);
         }
-        Field field0 = fields[0];
-        return DSL.groupConcat(field0);
+        return DSL.field("string_agg({0}, {1})", String.class, value, delimiter);
     }
 }

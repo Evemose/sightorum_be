@@ -169,6 +169,7 @@ public class MetamodelContextBuilder {
             case DateTimeType _ -> "datetime";
             case DayOfWeekType _ -> "day of week";
             case DataType.CategorcialType e -> "enum(" + String.join(", ", e.values()) + ")";
+            case DataType.IntervalType _ -> "interval";
             case ListType l -> "list of " + describeDataType(l.elementType());
         };
     }

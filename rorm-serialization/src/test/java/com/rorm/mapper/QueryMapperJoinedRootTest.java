@@ -1,6 +1,12 @@
 package com.rorm.mapper;
 
 import com.rorm.dto.ExpressionDTO.PathDTO;
+import com.rorm.dto.ExpressionDTO.SubqueryDTO;
+import com.rorm.dto.ExpressionDTO.LiteralDTO;
+import com.rorm.dto.QueryDTO.OrderByDTO;
+import com.rorm.dto.QueryDTO.SetOperationDTO;
+import com.rorm.dto.SelectorDTO.MultiExprSelectorDTO;
+import com.rorm.dto.SelectorDTO.SelectedExpressionDTO;
 import com.rorm.dto.QueryDTO;
 import com.rorm.dto.QueryDTO.JoinDTO;
 import com.rorm.dto.QueryDTO.JoinedRootDTO;
@@ -15,6 +21,7 @@ import com.rorm.query.Query;
 import com.rorm.query.SelectedExpression;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
+import com.rorm.query.Subquery;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -360,6 +367,221 @@ class QueryMapperJoinedRootTest {
                 .singleElement()
                 .satisfies(join -> {
                     assertThat(join.aliasedRoot().alias()).isEqualTo("orders");
+                });
+        }
+
+        @Test
+        @DisplayName("deserializes outerRef with alias-prefixed path inside correlated subquery")
+        void deserializesOuterRefWithAliasPrefix() {
+            var subquery = new QueryDTO(
+                "orders",
+                "o",
+                new SingleExprSelectorDTO(new PathDTO("o.id"), false, null),
+                null,
+                new com.rorm.dto.ExpressionDTO.BinaryExpressionDTO(
+                    new PathDTO("o.customer_id"),
+                    BinaryOperator.EQUALS,
+                    new PathDTO("c.id")
+                ),
+                null, null, null, null, null
+            );
+
+            var dto = new QueryDTO(
+                "customers",
+                "c",
+                new SingleExprSelectorDTO(new SubqueryDTO(subquery), false, "x"),
+                null,
+                null, null, null, null, null, null
+            );
+
+            var query = mapper.toEntity(dto, modelSpace);
+
+            assertThat(query.selector())
+                .isInstanceOf(SingleExprSelector.class)
+                .extracting(sel -> ((SingleExprSelector) sel).expression())
+                .isInstanceOf(com.rorm.query.Subquery.class);
+        }
+
+        @Test
+        @DisplayName("deserializes ORDER BY selector alias in set-operation query")
+        void deserializesOrderBySelectorAliasInSetOperationQuery() {
+            var leftSelector = new MultiExprSelectorDTO(Set.of(
+                new SelectedExpressionDTO(new LiteralDTO("left"), "branch"),
+                new SelectedExpressionDTO(new PathDTO("id"), "id")
+            ), false);
+            var rightSelector = new MultiExprSelectorDTO(Set.of(
+                new SelectedExpressionDTO(new LiteralDTO("right"), "branch"),
+                new SelectedExpressionDTO(new PathDTO("id"), "id")
+            ), false);
+
+            var rightQuery = new QueryDTO(
+                "orders",
+                "o2",
+                rightSelector,
+                null,
+                null, null, null, null, null, null
+            );
+
+            var dto = new QueryDTO(
+                "orders",
+                "o1",
+                leftSelector,
+                null,
+                null,
+                null,
+                null,
+                List.of(new OrderByDTO(new PathDTO("branch"), true, null)),
+                null,
+                null,
+                null,
+                null,
+                List.of(new SetOperationDTO("UNION", rightQuery))
+            );
+
+            var query = mapper.toEntity(dto, modelSpace);
+
+            assertThat(query.orderBy())
+                .singleElement()
+                .extracting(ob -> ob.expression())
+                .isInstanceOf(Path.class)
+                .extracting(expr -> ((Path) expr).target())
+                .isInstanceOf(BasicAttribute.class)
+                .extracting(attr -> ((BasicAttribute) attr).name())
+                .isEqualTo("branch");
+        }
+
+        @Test
+        @DisplayName("maps correlated scalar subquery outerRef to parent query attribute")
+        void mapsCorrelatedScalarSubqueryOuterRefToParentQueryAttribute() {
+            var subquery = new QueryDTO(
+                "orders",
+                "o",
+                new SingleExprSelectorDTO(new PathDTO("o.id"), false, null),
+                null,
+                new com.rorm.dto.ExpressionDTO.BinaryExpressionDTO(
+                    new PathDTO("o.customer_id"),
+                    BinaryOperator.EQUALS,
+                    new PathDTO("c.id")
+                ),
+                null, null, null, null, null
+            );
+
+            var dto = new QueryDTO(
+                "customers",
+                "c",
+                new SingleExprSelectorDTO(new SubqueryDTO(subquery), false, "order_id"),
+                null,
+                null, null, null, null, null, null
+            );
+
+            var query = mapper.toEntity(dto, modelSpace);
+
+            assertThat(query.selector())
+                .isInstanceOf(SingleExprSelector.class)
+                .extracting(sel -> ((SingleExprSelector) sel).expression())
+                .isInstanceOf(Subquery.class)
+                .satisfies(subqueryExpr -> {
+                    var mappedSubquery = ((Subquery) subqueryExpr).query();
+                    assertThat(mappedSubquery.where())
+                        .isInstanceOf(BinaryExpression.class)
+                        .extracting(where -> ((BinaryExpression) where).right())
+                        .isInstanceOf(Path.class)
+                        .extracting(or -> ((Path) or).target())
+                        .isEqualTo(customerId);
+                });
+        }
+    }
+
+    @Nested
+    @DisplayName("CTE context root resolution")
+    class CteContextRootResolution {
+
+        @Test
+        @DisplayName("deserializes FROM root from CTE name")
+        void deserializesFromRootFromCteName() {
+            var cteQuery = new QueryDTO(
+                "orders",
+                null,
+                new SingleExprSelectorDTO(new PathDTO("id"), false, "id"),
+                null,
+                null, null, null, null, null, null
+            );
+            var cte = new QueryDTO.CteDTO("order_ids", cteQuery, List.of("id"));
+
+            var dto = new QueryDTO(
+                "order_ids",
+                "oi",
+                new SingleExprSelectorDTO(new PathDTO("id"), false, "id"),
+                null,
+                null, null, null, null, null, null,
+                List.of(cte),
+                null
+            );
+
+            var query = mapper.toEntity(dto, modelSpace);
+
+            assertThat(query.from().root().primaryTableName()).isEqualTo("order_ids");
+            assertThat(query.from().alias()).isEqualTo("oi");
+            assertThat(query.selector())
+                .isInstanceOf(SingleExprSelector.class)
+                .extracting(sel -> ((SingleExprSelector) sel).expression())
+                .isInstanceOf(Path.class)
+                .extracting(expr -> ((Path) expr).target())
+                .isInstanceOf(BasicAttribute.class)
+                .extracting(attr -> ((BasicAttribute) attr).name())
+                .isEqualTo("id");
+        }
+
+        @Test
+        @DisplayName("deserializes JOIN root from CTE name and resolves aliased CTE path")
+        void deserializesJoinRootFromCteName() {
+            var cteQuery = new QueryDTO(
+                "orders",
+                null,
+                new SingleExprSelectorDTO(new PathDTO("id"), false, "id"),
+                null,
+                null, null, null, null, null, null
+            );
+            var cte = new QueryDTO.CteDTO("order_ids", cteQuery, List.of("id"));
+
+            var join = new JoinDTO(
+                new JoinedRootDTO("order_ids", "oi"),
+                JoinType.INNER,
+                new com.rorm.dto.ExpressionDTO.BinaryExpressionDTO(
+                    new PathDTO("id"),
+                    BinaryOperator.EQUALS,
+                    new PathDTO("oi.id")
+                )
+            );
+
+            var dto = new QueryDTO(
+                "customers",
+                null,
+                new SingleExprSelectorDTO(new PathDTO("oi.id"), false, "id"),
+                new LinkedHashSet<>(List.of(join)),
+                null, null, null, null, null, null,
+                List.of(cte),
+                null
+            );
+
+            var query = mapper.toEntity(dto, modelSpace);
+
+            assertThat(query.joins())
+                .singleElement()
+                .satisfies(j -> {
+                    assertThat(j.aliasedRoot().root().primaryTableName()).isEqualTo("order_ids");
+                    assertThat(j.aliasedRoot().alias()).isEqualTo("oi");
+                });
+            assertThat(query.selector())
+                .isInstanceOf(SingleExprSelector.class)
+                .extracting(sel -> ((SingleExprSelector) sel).expression())
+                .isInstanceOf(Path.class)
+                .satisfies(expr -> {
+                    var path = (Path) expr;
+                    assertThat(path.target()).isInstanceOf(BasicAttribute.class);
+                    assertThat(((BasicAttribute) path.target()).name()).isEqualTo("id");
+                    assertThat(path.parent()).isNotNull();
+                    assertThat(path.parent().target()).isInstanceOf(AliasedRoot.class);
                 });
         }
     }

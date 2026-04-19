@@ -1,96 +1,93 @@
 package com.rorm.ai.swarm;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.StepJournal;
-import com.rorm.ai.chat.AiChatService;
-import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.SwarmResult.AnchorResult;
 import com.rorm.ai.swarm.SwarmResult.HypothesisResult;
-import com.rorm.ai.swarm.agents.SecondarySwarmAgent;
-import com.rorm.ai.swarm.phase.*;
-import com.rorm.ml.MlTrainingService;
-import com.rorm.ml.PipelineSpecConverter;
+import com.rorm.ai.swarm.dto.HypothesisGenerationDTO.Hypothesis;
+import com.rorm.ai.swarm.phase.AnchorContext;
+import com.rorm.ai.swarm.phase.CompilePhase;
+import com.rorm.ai.swarm.phase.GenPhase;
+import com.rorm.ai.swarm.phase.HypothesisContext;
+import com.rorm.ai.swarm.phase.NullPhase;
+import com.rorm.ai.swarm.phase.PipelineContext;
+import com.rorm.ai.swarm.phase.ReconPhase;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Sinks;
 
+import java.util.Map;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+/**
+ * Orchestrator for the durable swarm workflow. Each phase is a self-contained
+ * component that submits its individual steps as independent durable
+ * invocations via {@link com.rorm.DurableRuntime}. {@code runId} is threaded
+ * explicitly into phase public APIs (so it survives the fanout thread
+ * transition) — each phase rebinds it into {@link PhaseScope} internally.
+ */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class DurableSwarm {
 
     private static final Pattern ANCHOR_ENTITY = Pattern.compile("Anchor entity:\\s*(\\S+)");
 
-    private final AiChatService chatService;
-    private final DurableSwarmConfig config;
-    private final PromptPlaceholders promptPlaceholders;
     private final ReconPhase reconPhase;
     private final GenPhase genPhase;
     private final CompilePhase compilePhase;
     private final NullPhase nullPhase;
-
-    public DurableSwarm(AiChatService chatService, DurableSwarmConfig config,
-                        PipelineSpecConverter pipelineSpecConverter, MlTrainingService mlService,
-                        ObjectMapper objectMapper, PromptPlaceholders promptPlaceholders) {
-        this.chatService = chatService;
-        this.config = config;
-        this.promptPlaceholders = promptPlaceholders;
-        this.reconPhase = new ReconPhase(config);
-        this.genPhase = new GenPhase(config);
-        this.compilePhase = new CompilePhase(config, pipelineSpecConverter, mlService);
-        this.nullPhase = new NullPhase(config, objectMapper);
-    }
+    private final SwarmEventBus eventBus;
 
     public SwarmResult run(SwarmInput input) {
-        return run(input, Sinks.many().replay().all());
+        return run(input, "swarm-" + StepJournal.current().randomUUID());
     }
 
-    public SwarmResult run(SwarmInput input, Sinks.Many<SwarmEvent> eventSink) {
-        var ctx = createRunContext(input, eventSink);
-        return ScopedValue.where(SwarmScope.CTX, ctx).call(() -> {
-            var recon = reconPhase.execute();
-            log.info("[swarm] Starting {} anchor pipelines", input.anchors().size());
-            var anchorResults = ctx.journal().fanout("swarm:anchor", AnchorResult.class,
+    public SwarmResult run(SwarmInput input, String runId) {
+        log.info("[swarm] starting run {} with {} anchors", runId, input.anchors().size());
+        try {
+            var recon = reconPhase.run(input, runId);
+            var anchorResults = StepJournal.current().fanout("swarm:anchor", AnchorResult.class,
                 input.anchors().stream()
-                    .<Supplier<AnchorResult>>map(anchor -> () -> runAnchorPipeline(anchor, recon))
+                    .<Supplier<AnchorResult>>map(anchor -> () -> runAnchor(input, anchor, recon, runId))
                     .toList());
             return new SwarmResult(recon.scout().dto(), recon.domain().dto(), anchorResults);
-        });
+        } finally {
+            eventBus.complete(runId);
+        }
     }
 
-    private SwarmRunContext createRunContext(SwarmInput input, Sinks.Many<SwarmEvent> eventSink) {
-        var summarizer = new SecondarySwarmAgent(
-            config.summarizer(), chatService, input.schema(), input.modelSpace(), promptPlaceholders);
-        return new SwarmRunContext(
-            input, StepJournal.current(), eventSink, summarizer, chatService, promptPlaceholders);
+    private AnchorResult runAnchor(SwarmInput input, String anchor, ReconPhase.Output recon, String runId) {
+        var anchorCtx = new AnchorContext(input, anchor, anchorTagOf(anchor), recon);
+        var gen = genPhase.run(anchorCtx, runId);
+        log.info("[swarm] {} hypotheses for anchor {}",
+            gen.rebuttal().dto().hypotheses().size(), anchorCtx.anchorTag());
+        var hypothesisResults = StepJournal.current().fanout("swarm:hypothesis", HypothesisResult.class,
+            gen.rebuttal().dto().hypotheses().stream()
+                .<Supplier<HypothesisResult>>map(h -> () -> runHypothesis(anchorCtx, gen, h, runId))
+                .toList());
+        return new AnchorResult(anchor, gen.chatId(), gen.generator().dto(),
+            gen.sceptic().dto(), gen.rebuttal().dto(), hypothesisResults);
     }
 
-    private AnchorResult runAnchorPipeline(String anchor, ReconPhase.Output recon) {
-        return ScopedValue.where(SwarmScope.ANCHOR_TAG, anchorTagOf(anchor)).call(() -> {
-            var gen = genPhase.execute(anchor, recon.parentIds(),
-                recon.scout().rawResponse(), recon.domain().rawResponse());
-            var rebuttalId = gen.rebuttal().id();
-            var rebuttalRaw = gen.rebuttal().rawResponse();
-            var rebuttalDto = gen.rebuttal().dto();
+    private HypothesisResult runHypothesis(AnchorContext anchorCtx, GenPhase.Output gen,
+                                           Hypothesis h, String runId) {
+        var hypoCtx = new HypothesisContext(anchorCtx, gen, h.title());
+        var compile = compilePhase.run(hypoCtx, runId);
+        var diagnosis = needsNullPhase(compile.pipelineResult().metrics())
+            ? nullPhase.run(new PipelineContext(hypoCtx, compile), runId).diagnosis().dto()
+            : null;
+        return new HypothesisResult(h.title(), gen.rebuttal().rawResponse(),
+            compile.compiler().dto(), compile.pipelineResult(),
+            compile.scepticReview().dto(), diagnosis);
+    }
 
-            // Slice the globals ONCE for the entire rebuttal - same block is reused
-            // for every hypothesis compile call below.
-            var globalsBlock = rebuttalDto.renderGlobalsFromRaw(rebuttalRaw);
-            var hypotheses = rebuttalDto.hypotheses();
-            log.info("[swarm] {} hypotheses, running compiler + pipeline", hypotheses.size());
-            var hypothesisResults = SwarmScope.ctx().journal().fanout(
-                "swarm:hypothesis", HypothesisResult.class,
-                hypotheses.stream()
-                    .<Supplier<HypothesisResult>>map(h -> () -> runHypothesisPipeline(
-                        rebuttalId, h.id(), combineSpec(h.sliceSpec(rebuttalRaw), globalsBlock),
-                        recon.domain().rawResponse()))
-                    .toList());
-
-            return new AnchorResult(anchor, gen.chatId(), gen.generator().dto(),
-                gen.sceptic().dto(), rebuttalDto, hypothesisResults);
-        });
+    private static boolean needsNullPhase(Map<String, Object> metrics) {
+        if (Boolean.TRUE.equals(metrics.get("ci_crosses_zero"))) {
+            return true;
+        }
+        return metrics.get("steps") instanceof Map<?, ?> steps
+               && steps.containsKey("null_diagnostics");
     }
 
     static String anchorTagOf(String anchor) {
@@ -101,19 +98,5 @@ public class DurableSwarm {
         }
         var trimmed = firstLine.trim();
         return trimmed.isEmpty() ? "anchor" : trimmed;
-    }
-
-    private HypothesisResult runHypothesisPipeline(EventId rebuttalId, String hypothesisId,
-                                                   String specBlock, String domainRaw) {
-        var compile = compilePhase.execute(rebuttalId, hypothesisId, specBlock, domainRaw);
-        var compilerId = compile.compiler().id();
-        var nullResult = nullPhase.execute(compilerId, hypothesisId, specBlock, domainRaw,
-            compile.pipelineResult());
-        return new HypothesisResult(hypothesisId, specBlock,
-            compile.compiler().dto(), compile.pipelineResult(), nullResult.diagnosis().dto());
-    }
-
-    private static String combineSpec(String hypBlock, String globalsBlock) {
-        return globalsBlock.isEmpty() ? hypBlock : hypBlock + "\n\n" + globalsBlock;
     }
 }

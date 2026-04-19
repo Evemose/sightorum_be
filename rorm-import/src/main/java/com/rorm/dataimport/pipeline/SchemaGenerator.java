@@ -129,6 +129,7 @@ class SchemaGenerator {
             case DataType.TimezoneType _ -> "TEXT"; // Store as ISO string
             case DataType.DayOfWeekType _ -> "TEXT"; // Store as day name
             case DataType.CategorcialType _ -> "TEXT"; // Store as enum value string
+            case DataType.IntervalType _ -> "INTERVAL"; // PostgreSQL INTERVAL type
             case DataType.ListType listType -> {
                 // For list types, we store as TEXT array or JSON depending on element type
                 // For now, use TEXT[] for simple types

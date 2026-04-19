@@ -101,10 +101,9 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
     protected void afterDatabaseSetup() {
         var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
-        var joinCollector = new JoinCollector(expressionTransformer);
-        var subqueryTransformer = new SubqueryTransformer(expressionTransformer, joinCollector);
+        var subqueryTransformer = new SubqueryTransformer(expressionTransformer);
         expressionTransformer.setSubqueryTransformer(subqueryTransformer);
-        transformer = new QueryTransformer(dsl, expressionTransformer, joinCollector);
+        transformer = new QueryTransformer(dsl, expressionTransformer);
 
         dsl.execute("""
                 create table customers (
@@ -261,7 +260,7 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
             // SELECT name, (SELECT COUNT(*) FROM orders WHERE customer_id = c.id) as order_count
             // FROM customers c
             var customerIdPath = new Path(customerId, null);
-            var outerCustomerId = new OuterRef(1, customerIdPath);
+            var outerCustomerId = customerIdPath;
 
             var countSubquery = new Subquery(Query.builder()
                 .from(AliasedRoot.of(orderRoot))
@@ -302,7 +301,7 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
             // SELECT name, (SELECT MAX(total) FROM orders WHERE customer_id = c.id) as max_order
             // FROM customers c
             var customerIdPath = new Path(customerId, null);
-            var outerCustomerId = new OuterRef(1, customerIdPath);
+            var outerCustomerId = customerIdPath;
 
             var maxSubquery = new Subquery(Query.builder()
                 .from(AliasedRoot.of(orderRoot))
@@ -373,7 +372,7 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
                     new BinaryExpression(
                         new Path(orderCustomerId, null),
                         StandardOperator.Binary.EQUALS.identifier(),
-                        new OuterRef(1, customerIdPath)  // depth=1, references customer.id
+                        customerIdPath
                     ),
                     StandardOperator.Binary.AND.identifier(),
                     new BinaryExpression(
@@ -431,7 +430,7 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
                 .where(new BinaryExpression(
                     new Path(itemOrderId, null),
                     StandardOperator.Binary.EQUALS.identifier(),
-                    new OuterRef(1, orderIdPath)  // depth=1, references order.id
+                    orderIdPath
                 ))
                 .build());
 
@@ -444,7 +443,7 @@ class SubqueryTransformerTest extends AbstractPostgresTest {
                 .where(new BinaryExpression(
                     new Path(orderCustomerId, null),
                     StandardOperator.Binary.EQUALS.identifier(),
-                    new OuterRef(1, customerIdPath)  // depth=1, references customer.id
+                    customerIdPath
                 ))
                 .build());
 

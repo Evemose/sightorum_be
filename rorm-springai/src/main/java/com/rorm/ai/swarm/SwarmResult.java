@@ -38,6 +38,7 @@ public record SwarmResult(
         String hypothesisSpec,
         PipelineSpecRequest compilerOutput,
         @Nullable JobEvent pipelineResult,
+        @Nullable CompilerCorrectionDTO compilerScepticReview,
         @Nullable ForensicDiagnosisDTO diagnosis
     ) {
     }

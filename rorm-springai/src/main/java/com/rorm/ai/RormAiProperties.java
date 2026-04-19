@@ -23,7 +23,7 @@ public record RormAiProperties(
                 """;
         }
         if (maxQueryResults <= 0) {
-            maxQueryResults = 10000;
+            maxQueryResults = 1000;
         }
     }
 }

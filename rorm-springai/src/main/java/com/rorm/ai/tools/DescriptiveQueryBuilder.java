@@ -102,10 +102,10 @@ final class DescriptiveQueryBuilder {
                                              @Nullable String timeStart,
                                              @Nullable String timeEnd) {
         if (timeExpression == null || (timeStart == null && timeEnd == null)) {
-            return filter;
+            return filter == null ? DenseExpressionDto.literal(true) : filter;
         }
         var clauses = new ArrayList<DenseExpressionDto>();
-        if (filter != null) {
+        if (filter != null && !(filter.type().equals("literal") && filter.value() == null)) {
             clauses.add(filter);
         }
         if (timeStart != null) {

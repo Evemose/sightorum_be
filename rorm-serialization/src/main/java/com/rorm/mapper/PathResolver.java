@@ -2,6 +2,7 @@ package com.rorm.mapper;
 
 import com.rorm.dto.QueryDTO;
 import com.rorm.dto.QueryDTO.JoinDTO;
+import com.rorm.dto.SelectorDTO;
 import com.rorm.metamodel.*;
 import com.rorm.metamodel.CollectionAttribute.CompositeElement;
 import com.rorm.query.Path;
@@ -24,13 +25,55 @@ class PathResolver {
             throw new IllegalArgumentException("Invalid path: " + path);
         }
         var aliases = gatherAliases(modelSpace, query);
-        var current = startPath(segments[0], aliases, find(modelSpace, query.from()));
+        var fromRoot = find(modelSpace, query.from());
+        var current = startPathOrProjectionAlias(segments[0], aliases, fromRoot, query);
         var result = new Path(current);
         for (var i = 1; i < segments.length; i++) {
             current = findAttribute(current, segments[i]);
             result = new Path(current, result);
         }
         return result;
+    }
+
+    private PathTarget startPathOrProjectionAlias(String firstSegment, Map<String, Root> aliases, Root fromRoot, QueryDTO query) {
+        try {
+            return startPath(firstSegment, aliases, fromRoot);
+        } catch (IllegalArgumentException ex) {
+            var synthetic = resolveProjectionAlias(firstSegment, query, fromRoot);
+            if (synthetic != null) {
+                return synthetic;
+            }
+            throw ex;
+        }
+    }
+
+    private PathTarget resolveProjectionAlias(String segment, QueryDTO query, Root fromRoot) {
+        if (query.selector() == null) {
+            return null;
+        }
+        return switch (query.selector()) {
+            case SelectorDTO.SingleExprSelectorDTO single ->
+                isMatchingAlias(single.alias(), segment) ? syntheticAttribute(segment, fromRoot) : null;
+            case SelectorDTO.MultiExprSelectorDTO multi -> multi.expressions().stream()
+                .map(SelectorDTO.SelectedExpressionDTO::alias)
+                .filter(alias -> isMatchingAlias(alias, segment))
+                .findFirst()
+                .map(_ -> syntheticAttribute(segment, fromRoot))
+                .orElse(null);
+            case SelectorDTO.RootSelectorDTO _ -> null;
+        };
+    }
+
+    private boolean isMatchingAlias(String alias, String segment) {
+        return alias != null && !alias.isBlank() && alias.equals(segment);
+    }
+
+    private BasicAttribute syntheticAttribute(String alias, Root fromRoot) {
+        return new BasicAttribute(
+            alias,
+            new AttributeLocation(fromRoot.primaryTableName(), alias),
+            new DataType.StringType()
+        );
     }
 
     private Map<String, Root> gatherAliases(ModelSpace modelSpace, QueryDTO query) {

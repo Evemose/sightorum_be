@@ -27,6 +27,6 @@ public final class DenseRankWindow extends AbstractWindowFunction {
     public Field<?> transform(List<Expression> args, WindowSpec windowSpec, TransformContext ctx) {
         var partition = transformPartitionFields(windowSpec, ctx);
         var order = transformOrderFields(windowSpec, ctx);
-        return applyWindowSpec(DSL.denseRank(), partition, order);
+        return applyWindowSpec(DSL.denseRank(), partition, order, windowSpec.frame());
     }
 }

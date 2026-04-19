@@ -37,6 +37,7 @@ public interface TypeParser {
             case DataType.TimezoneType _ -> new TimezoneParser().parse(value);
             case DataType.CategorcialType enm -> new EnumParser(List.of(enm.values())).parse(value);
             case DataType.StringType _ -> new StringParser().parse(value);
+            case DataType.IntervalType _ -> value; // Intervals stored as strings
             case DataType.ListType _ -> value; // Collections handled separately
         };
     }

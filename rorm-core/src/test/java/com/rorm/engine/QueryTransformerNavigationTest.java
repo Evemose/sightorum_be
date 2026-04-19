@@ -169,7 +169,7 @@ class QueryTransformerNavigationTest extends AbstractPostgresTest {
 
         var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
-        transformer = new QueryTransformer(dsl, expressionTransformer, new JoinCollector(expressionTransformer));
+        transformer = new QueryTransformer(dsl, expressionTransformer);
     }
 
     @Test

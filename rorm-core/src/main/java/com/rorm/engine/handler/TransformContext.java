@@ -2,6 +2,8 @@ package com.rorm.engine.handler;
 
 import com.rorm.query.Expression;
 import org.jooq.Field;
+import org.jooq.Select;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -29,6 +31,15 @@ public interface TransformContext {
      * @return the jOOQ Field
      */
     Field<?> transform(Expression expression);
+
+    /**
+     * Transforms a subquery expression into a jOOQ Select for use in
+     * contexts requiring a full query (e.g., IN subquery, EXISTS).
+     *
+     * @param subquery the subquery expression
+     * @return the jOOQ Select, or null if the expression is not a subquery
+     */
+    @Nullable Select<?> transformAsSelect(Expression expression);
 
     /**
      * Extracts an integer value from a Literal expression.

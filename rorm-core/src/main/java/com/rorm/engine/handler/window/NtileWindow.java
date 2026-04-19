@@ -28,6 +28,6 @@ public final class NtileWindow extends AbstractWindowFunction {
         var partition = transformPartitionFields(windowSpec, ctx);
         var order = transformOrderFields(windowSpec, ctx);
         int buckets = ctx.extractInt(args.getFirst());
-        return applyWindowSpec(DSL.ntile(buckets), partition, order);
+        return applyWindowSpec(DSL.ntile(buckets), partition, order, windowSpec.frame());
     }
 }

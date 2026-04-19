@@ -1,5 +1,7 @@
 package com.rorm.ai.chat;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.rorm.ai.anthropic.ServerToolGeneration;
 import com.rorm.ai.anthropic.StreamToolCallGeneration;
 import com.rorm.ai.anthropic.ThinkingGeneration;
@@ -11,6 +13,15 @@ import org.springframework.ai.chat.model.Generation;
  * string prefixes. Produced from {@link ChatResponse} via {@link #from(ChatResponse)},
  * which maps {@link Generation} subtypes to the corresponding variant.
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "tokenType")
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = StreamToken.Text.class, name = "TEXT"),
+    @JsonSubTypes.Type(value = StreamToken.Thinking.class, name = "THINKING"),
+    @JsonSubTypes.Type(value = StreamToken.ToolCall.class, name = "TOOL_CALL"),
+    @JsonSubTypes.Type(value = StreamToken.ServerTool.class, name = "SERVER_TOOL"),
+    @JsonSubTypes.Type(value = StreamToken.SearchResult.class, name = "SEARCH_RESULT"),
+    @JsonSubTypes.Type(value = StreamToken.Citation.class, name = "CITATION")
+})
 public sealed interface StreamToken {
 
     static StreamToken from(ChatResponse response) {

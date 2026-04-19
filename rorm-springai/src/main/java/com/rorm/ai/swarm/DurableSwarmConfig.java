@@ -1,6 +1,7 @@
 package com.rorm.ai.swarm;
 
 import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
+import com.rorm.ai.anthropic.AnthropicChatOptions.ToolRoundInfo;
 import com.rorm.ai.chat.CacheStrategy;
 import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.chat.ToolGroup;
@@ -10,6 +11,7 @@ import org.springframework.core.io.ClassPathResource;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Set;
 
 import static org.springframework.util.StringUtils.hasText;
@@ -22,7 +24,9 @@ public record DurableSwarmConfig(
     String rebuttalPromptTemplate,
     AgentModelConfig mechanicalSceptic,
     AgentModelConfig executorCompiler,
+    AgentModelConfig compilerSceptic,
     AgentModelConfig forensicPathologist,
+    AgentModelConfig descriptiveAgent,
     AgentModelConfig summarizer
 ) {
 
@@ -35,20 +39,33 @@ public record DurableSwarmConfig(
 
     public DurableSwarmConfig {
         scout = withDefaults(scout, "scout", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY), SHORT_CACHE).withModel("claude-sonnet-4-6");
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE).withModel("claude-sonnet-4-6");
         domainResearcher = withDefaults(domainResearcher, "domain-researcher", ThinkingLevel.HIGH,
             Set.of(ToolGroup.WEB_ACCESS), NO_CACHE);
         generator = withDefaults(generator, "generator", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.DATA_RELATIONS), FIRST_ROUND_SHORT);
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.DATA_RELATIONS), FIRST_ROUND_SHORT);
         if (!hasText(rebuttalPromptTemplate)) {
             rebuttalPromptTemplate = loadResourceIfExists(PROMPT_ROOT + "rebuttal-user.txt");
         }
         mechanicalSceptic = withDefaults(mechanicalSceptic, "mechanical-sceptic", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.VERIFICATION), SHORT_CACHE);
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.VERIFICATION), SHORT_CACHE);
         executorCompiler = withDefaults(executorCompiler, "executor-compiler", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY), SHORT_CACHE);
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE);
+        compilerSceptic = withDefaults(compilerSceptic, "compiler-sceptic", ThinkingLevel.HIGH,
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.CAUSAL_REEXECUTION),
+            ctx -> {
+                var toolRoundInfos = ctx.previousRounds();
+                if (toolRoundInfos.isEmpty()) {
+                    return CacheTTL.SHORT;
+                }
+                return toolRoundInfos.getLast().toolNames().contains("reexecuteCausalPipeline") ?
+                    CacheTTL.NONE : CacheTTL.SHORT;
+            }
+        );
         forensicPathologist = withDefaults(forensicPathologist, "forensic-pathologist", ThinkingLevel.HIGH,
             Set.of(), NO_CACHE);
+        descriptiveAgent = withDefaults(descriptiveAgent, "descriptive-agent", ThinkingLevel.HIGH,
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE).withModel("claude-sonnet-4-6");
         summarizer = withDefaults(summarizer, "summarizer", ThinkingLevel.NONE,
             Set.of(), NO_CACHE).withModel("claude-haiku-4-5");
     }
@@ -79,7 +96,7 @@ public record DurableSwarmConfig(
             config = config.withCacheStrategy(defaultCacheStrategy);
         }
         if (config.model() == null) {
-            config = config.withModel("claude-opus-4-6");
+            config = config.withModel("claude-opus-4-7");
         }
         return config;
     }

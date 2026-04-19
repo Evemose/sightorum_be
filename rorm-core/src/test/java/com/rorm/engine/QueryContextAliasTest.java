@@ -238,7 +238,7 @@ class QueryContextAliasTest {
         void qualifiesAutoJoinedReferenceTablesWhenSchemaProvided() {
             var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
             var expressionTransformer = new ExpressionTransformer(handlerRegistry);
-            var transformer = new QueryTransformer(DSL.using(SQLDialect.POSTGRES), expressionTransformer, new JoinCollector(expressionTransformer));
+            var transformer = new QueryTransformer(DSL.using(SQLDialect.POSTGRES), expressionTransformer);
 
             var customerNameViaReference = new Path(customerName, new Path(orderCustomer, null));
             var query = Query.builder()

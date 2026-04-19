@@ -5,6 +5,7 @@ import com.rorm.engine.handler.TransformContext;
 import com.rorm.engine.handler.TypeResolutionContext;
 import com.rorm.metamodel.DataType;
 import com.rorm.query.Expression;
+import com.rorm.query.Subquery;
 import org.jooq.Field;
 import org.jooq.impl.DSL;
 
@@ -38,6 +39,14 @@ public final class InOperator implements BuiltInBinaryOperatorHandler {
             } else if (value != null && value.getClass().isArray()) {
                 var arrayValues = Arrays.stream((Object[]) value).map(DSL::inline).toArray(Field[]::new);
                 return leftField.in(arrayValues);
+            }
+        }
+
+        // Special handling for Subquery — use IN (SELECT ...) syntax
+        if (right instanceof Subquery) {
+            var select = ctx.transformAsSelect(right);
+            if (select != null) {
+                return leftField.in(select);
             }
         }
 

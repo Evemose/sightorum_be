@@ -2,6 +2,9 @@ package com.rorm.ml.restate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
+import com.rorm.ai.swarm.SwarmEventBus;
+import com.rorm.ai.swarm.ValKeySwarmEventBus;
+import com.rorm.ml.ConditionalOnDurableExecution;
 import com.rorm.ml.RormMlProperties;
 import com.rorm.ml.stream.DurableRendezvous;
 import com.rorm.ml.stream.JobCompletionHandler;
@@ -13,11 +16,12 @@ import dev.restate.sdk.springboot.EnableRestate;
 import dev.restate.sdk.springboot.RestateServiceConfigurator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -31,7 +35,7 @@ import java.time.Duration;
 
 @Configuration
 @EnableRestate
-@ConditionalOnProperty(name = "rorm.ml.durable-execution", havingValue = "true")
+@ConditionalOnDurableExecution
 public class RestateConfiguration {
 
     @Bean
@@ -56,9 +60,12 @@ public class RestateConfiguration {
     @Bean
     public DurableRuntime restateDurableRuntime(
         Client restateClient,
-        @RestateAdminClient RestClient restateAdminClient
+        @RestateAdminClient RestClient restateAdminClient,
+        @Value("${rorm.ml.runtime.initial-poll-interval:1s}") Duration initialPollInterval,
+        @Value("${rorm.ml.runtime.max-poll-interval:30s}") Duration maxPollInterval
     ) {
-        return new RestateDurableRuntime(restateClient, restateAdminClient);
+        return new RestateDurableRuntime(
+            restateClient, restateAdminClient, initialPollInterval, maxPollInterval);
     }
 
     @Bean(defaultCandidate = false)
@@ -100,6 +107,20 @@ public class RestateConfiguration {
         DurableRendezvous durableRendezvous
     ) {
         return new RestateJobCompletionHandler(restateClient, fallbackRegistry, durableRendezvous);
+    }
+
+    @Bean
+    public SwarmEventBus swarmEventBus(
+        StringRedisTemplate redisTemplate,
+        ObjectMapper objectMapper,
+        @Value("${rorm.ai.swarm.bus.stream-ttl:1h}") Duration streamTtl,
+        @Value("${rorm.ai.swarm.bus.batch-size:1000}") int batchSize,
+        @Value("${rorm.ai.swarm.bus.sink-capacity:1024}") int sinkCapacity,
+        @Value("${rorm.ai.swarm.bus.xread-block:5s}") Duration xreadBlock,
+        @Value("${rorm.ai.swarm.bus.backpressure-park:1ms}") Duration backpressurePark
+    ) {
+        return new ValKeySwarmEventBus(redisTemplate, objectMapper,
+            streamTtl, batchSize, sinkCapacity, xreadBlock, backpressurePark);
     }
 
     @Bean

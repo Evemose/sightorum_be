@@ -33,6 +33,6 @@ public final class AvgWindow extends AbstractWindowFunction {
         var partition = transformPartitionFields(windowSpec, ctx);
         var order = transformOrderFields(windowSpec, ctx);
         Field field = ctx.transform(args.getFirst());
-        return applyWindowSpec(DSL.avg(field), partition, order);
+        return applyWindowSpec(DSL.avg(field), partition, order, windowSpec.frame());
     }
 }

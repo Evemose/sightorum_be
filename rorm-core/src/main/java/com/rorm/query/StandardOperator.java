@@ -29,7 +29,8 @@ public sealed interface StandardOperator {
         IS_TRUE(IsTrueOperator.NAME),
         IS_FALSE(IsFalseOperator.NAME),
         NEGATE(NegateOperator.NAME),
-        NOT(NotOperator.NAME);
+        NOT(NotOperator.NAME),
+        EXISTS(ExistsOperator.NAME);
 
         private final String identifier;
 

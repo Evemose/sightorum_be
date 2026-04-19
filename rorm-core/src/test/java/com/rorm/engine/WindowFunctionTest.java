@@ -6,12 +6,14 @@ import com.rorm.query.Expression.Literal;
 import com.rorm.query.Expression.WindowFunction;
 import com.rorm.query.*;
 import com.rorm.query.Selector.MultiExprSelector;
+import com.rorm.query.WindowFrame.FrameBound;
 import com.rorm.testutil.TestHandlerRegistry;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -40,11 +42,7 @@ class WindowFunctionTest {
         var dslContext = DSL.using(SQLDialect.POSTGRES);
         var handlerRegistry = TestHandlerRegistry.createWithAllBuiltIns();
         var expressionTransformer = new ExpressionTransformer(handlerRegistry);
-        queryTransformer = new QueryTransformer(
-            dslContext,
-            expressionTransformer,
-            new JoinCollector(expressionTransformer)
-        );
+        queryTransformer = new QueryTransformer(dslContext, expressionTransformer);
     }
 
     @Test
@@ -504,6 +502,296 @@ class WindowFunctionTest {
         assertThat(sql.toLowerCase())
             .doesNotContain("count(distinct")
             .doesNotContain("sum(distinct");
+    }
+
+    @Test
+    @DisplayName("ARRAY_AGG DISTINCT is rendered with DISTINCT")
+    void testArrayAggDistinct() {
+        var query = Query.builder()
+            .from(AliasedRoot.of(testRoot))
+            .selector(new MultiExprSelector(Set.of(
+                new SelectedExpression(new Aggregation("ARRAY_AGG", List.of(new Path(field2, null)), true), "arr")
+            ), false))
+            .build();
+
+        var sql = queryTransformer.transform(query).getSQL();
+
+        assertThat(sql).containsIgnoringCase("array_agg(distinct");
+    }
+
+    @Test
+    @DisplayName("STRING_AGG DISTINCT is rendered with DISTINCT")
+    void testStringAggDistinct() {
+        var query = Query.builder()
+            .from(AliasedRoot.of(testRoot))
+            .selector(new MultiExprSelector(Set.of(
+                new SelectedExpression(new Aggregation("STRING_AGG", List.of(new Path(field2, null), new Literal(",")), true), "joined")
+            ), false))
+            .build();
+
+        var sql = queryTransformer.transform(query).getSQL();
+
+        assertThat(sql).containsIgnoringCase("string_agg(distinct");
+    }
+
+    @Test
+    @DisplayName("PERCENTILE_CONT can be used as a window function")
+    void testPercentileContWindow() {
+        var query = Query.builder()
+            .from(AliasedRoot.of(testRoot))
+            .selector(new MultiExprSelector(Set.of(
+                new SelectedExpression(
+                    new WindowFunction(
+                        "PERCENTILE_CONT",
+                        List.of(new Literal(0.5), new Path(field1, null)),
+                        new WindowSpec(List.of(new Path(field2, null)), null)
+                    ),
+                    "p50"
+                )
+            ), false))
+            .build();
+
+        var sql = queryTransformer.transform(query).getSQL();
+
+        assertThat(sql)
+            .containsIgnoringCase("percentile_cont(")
+            .containsIgnoringCase("within group")
+            .containsIgnoringCase("over");
+    }
+
+    @Nested
+    @DisplayName("Window Frame Tests")
+    class WindowFrameTests {
+
+        @Test
+        @DisplayName("Running total: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW")
+        void testRunningTotal() {
+            var frame = WindowFrame.rowsUnboundedPrecedingToCurrentRow();
+            var query = Query.builder()
+                .from(AliasedRoot.of(testRoot))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(new Path(field1, null), "field1"),
+                    new SelectedExpression(
+                        new WindowFunction(
+                            "SUM",
+                            List.of(new Path(field1, null)),
+                            new WindowSpec(
+                                null,
+                                List.of(new OrderBy(new Path(field1, null), true)),
+                                frame
+                            )
+                        ),
+                        "running_total"
+                    )
+                ), false))
+                .build();
+
+            var sql = queryTransformer.transform(query).getSQL();
+
+            assertThat(sql)
+                .containsIgnoringCase("sum(")
+                .containsIgnoringCase("over")
+                .containsIgnoringCase("order by")
+                .containsIgnoringCase("rows between unbounded preceding and current row");
+        }
+
+        @Test
+        @DisplayName("Rolling average: ROWS BETWEEN 2 PRECEDING AND CURRENT ROW")
+        void testRollingAverage() {
+            var frame = WindowFrame.rowsPreceding(2);
+            var query = Query.builder()
+                .from(AliasedRoot.of(testRoot))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(new Path(field1, null), "field1"),
+                    new SelectedExpression(
+                        new WindowFunction(
+                            "AVG",
+                            List.of(new Path(field1, null)),
+                            new WindowSpec(
+                                null,
+                                List.of(new OrderBy(new Path(field1, null), true)),
+                                frame
+                            )
+                        ),
+                        "rolling_avg"
+                    )
+                ), false))
+                .build();
+
+            var sql = queryTransformer.transform(query).getSQL();
+
+            assertThat(sql)
+                .containsIgnoringCase("avg(")
+                .containsIgnoringCase("over")
+                .containsIgnoringCase("rows between 2 preceding and current row");
+        }
+
+        @Test
+        @DisplayName("Symmetric rolling window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING")
+        void testSymmetricWindow() {
+            var frame = WindowFrame.rowsBetween(1, 1);
+            var query = Query.builder()
+                .from(AliasedRoot.of(testRoot))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(new Path(field1, null), "field1"),
+                    new SelectedExpression(
+                        new WindowFunction(
+                            "AVG",
+                            List.of(new Path(field1, null)),
+                            new WindowSpec(
+                                List.of(new Path(field2, null)),
+                                List.of(new OrderBy(new Path(field1, null), true)),
+                                frame
+                            )
+                        ),
+                        "smooth_avg"
+                    )
+                ), false))
+                .build();
+
+            var sql = queryTransformer.transform(query).getSQL();
+
+            assertThat(sql)
+                .containsIgnoringCase("avg(")
+                .containsIgnoringCase("partition by")
+                .containsIgnoringCase("rows between 1 preceding and 1 following");
+        }
+
+        @Test
+        @DisplayName("RANGE frame: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW")
+        void testRangeFrame() {
+            var frame = new WindowFrame(
+                WindowFrame.FrameType.RANGE,
+                FrameBound.unboundedPreceding(),
+                FrameBound.currentRow()
+            );
+            var query = Query.builder()
+                .from(AliasedRoot.of(testRoot))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(new Path(field1, null), "field1"),
+                    new SelectedExpression(
+                        new WindowFunction(
+                            "SUM",
+                            List.of(new Path(field1, null)),
+                            new WindowSpec(
+                                null,
+                                List.of(new OrderBy(new Path(field1, null), true)),
+                                frame
+                            )
+                        ),
+                        "cumulative"
+                    )
+                ), false))
+                .build();
+
+            var sql = queryTransformer.transform(query).getSQL();
+
+            assertThat(sql)
+                .containsIgnoringCase("sum(")
+                .containsIgnoringCase("range between unbounded preceding and current row");
+        }
+
+        @Test
+        @DisplayName("GROUPS frame: GROUPS BETWEEN 1 PRECEDING AND 1 FOLLOWING")
+        void testGroupsFrame() {
+            var frame = new WindowFrame(
+                WindowFrame.FrameType.GROUPS,
+                FrameBound.preceding(1),
+                FrameBound.following(1)
+            );
+            var query = Query.builder()
+                .from(AliasedRoot.of(testRoot))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(new Path(field1, null), "field1"),
+                    new SelectedExpression(
+                        new WindowFunction(
+                            "COUNT",
+                            List.of(new Path(field1, null)),
+                            new WindowSpec(
+                                null,
+                                List.of(new OrderBy(new Path(field1, null), true)),
+                                frame
+                            )
+                        ),
+                        "group_count"
+                    )
+                ), false))
+                .build();
+
+            var sql = queryTransformer.transform(query).getSQL();
+
+            assertThat(sql)
+                .containsIgnoringCase("count(")
+                .containsIgnoringCase("groups between 1 preceding and 1 following");
+        }
+
+        @Test
+        @DisplayName("No frame — backward compatible")
+        void testNoFrame() {
+            var query = Query.builder()
+                .from(AliasedRoot.of(testRoot))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(new Path(field1, null), "field1"),
+                    new SelectedExpression(
+                        new WindowFunction(
+                            "SUM",
+                            List.of(new Path(field1, null)),
+                            new WindowSpec(
+                                List.of(new Path(field2, null)),
+                                List.of(new OrderBy(new Path(field1, null), true))
+                            )
+                        ),
+                        "windowed_sum"
+                    )
+                ), false))
+                .build();
+
+            var sql = queryTransformer.transform(query).getSQL();
+
+            assertThat(sql)
+                .containsIgnoringCase("sum(")
+                .containsIgnoringCase("partition by")
+                .containsIgnoringCase("order by");
+            // No explicit frame clause when frame is null
+            assertThat(sql.toLowerCase())
+                .doesNotContain("rows between")
+                .doesNotContain("range between")
+                .doesNotContain("groups between");
+        }
+
+        @Test
+        @DisplayName("Full unbounded frame: ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING")
+        void testFullUnboundedFrame() {
+            var frame = new WindowFrame(
+                WindowFrame.FrameType.ROWS,
+                FrameBound.unboundedPreceding(),
+                FrameBound.unboundedFollowing()
+            );
+            var query = Query.builder()
+                .from(AliasedRoot.of(testRoot))
+                .selector(new MultiExprSelector(Set.of(
+                    new SelectedExpression(new Path(field1, null), "field1"),
+                    new SelectedExpression(
+                        new WindowFunction(
+                            "MAX",
+                            List.of(new Path(field1, null)),
+                            new WindowSpec(
+                                null,
+                                List.of(new OrderBy(new Path(field1, null), true)),
+                                frame
+                            )
+                        ),
+                        "global_max"
+                    )
+                ), false))
+                .build();
+
+            var sql = queryTransformer.transform(query).getSQL();
+
+            assertThat(sql)
+                .containsIgnoringCase("max(")
+                .containsIgnoringCase("rows between unbounded preceding and unbounded following");
+        }
     }
 }
 

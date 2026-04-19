@@ -27,6 +27,6 @@ public final class MinWindow extends AbstractWindowFunction {
     public Field<?> transform(List<Expression> args, WindowSpec windowSpec, TransformContext ctx) {
         var partition = transformPartitionFields(windowSpec, ctx);
         var order = transformOrderFields(windowSpec, ctx);
-        return applyWindowSpec(DSL.min(ctx.transform(args.getFirst())), partition, order);
+        return applyWindowSpec(DSL.min(ctx.transform(args.getFirst())), partition, order, windowSpec.frame());
     }
 }

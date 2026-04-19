@@ -33,6 +33,6 @@ public final class SumWindow extends AbstractWindowFunction {
         var partition = transformPartitionFields(windowSpec, ctx);
         var order = transformOrderFields(windowSpec, ctx);
         Field field = ctx.transform(args.getFirst());
-        return applyWindowSpec(DSL.sum(field), partition, order);
+        return applyWindowSpec(DSL.sum(field), partition, order, windowSpec.frame());
     }
 }

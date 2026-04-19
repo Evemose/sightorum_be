@@ -11,7 +11,8 @@ public sealed interface Operator permits
         IS_TRUE,
         IS_FALSE,
         NEGATE,
-        NOT
+        NOT,
+        EXISTS
     }
 
     enum BinaryOperator implements Operator {

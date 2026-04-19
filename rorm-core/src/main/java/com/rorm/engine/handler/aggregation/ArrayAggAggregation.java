@@ -25,7 +25,9 @@ public final class ArrayAggAggregation implements BuiltInAggregationHandler {
     }
 
     @Override
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public Field<?> transform(List<Expression> args, boolean distinct, TransformContext ctx) {
-        return DSL.arrayAgg(ctx.transform(args.getFirst()));
+        Field field = ctx.transform(args.getFirst());
+        return distinct ? DSL.arrayAggDistinct(field) : DSL.arrayAgg(field);
     }
 }

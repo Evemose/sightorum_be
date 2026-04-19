@@ -73,8 +73,39 @@ public record QueryDTO(
 
     @JsonPropertyDescription("Number of rows to skip (OFFSET clause for pagination).")
     @JsonProperty(required = false)
-    Long offset
+    Long offset,
+
+    @JsonPropertyDescription("Include tied rows at the limit boundary (FETCH FIRST ... WITH TIES). Requires ORDER BY clause.")
+    @JsonProperty(required = false)
+    Boolean withTies,
+
+    @JsonPropertyDescription("Common Table Expressions (WITH clause). Each CTE defines a named subquery that can be referenced in the main query.")
+    @JsonProperty(required = false)
+    List<CteDTO> ctes,
+
+    @JsonPropertyDescription("Set operations (UNION, INTERSECT, EXCEPT) to combine with other queries.")
+    @JsonProperty(required = false)
+    List<SetOperationDTO> setOperations
 ) {
+
+    /**
+     * Backward-compatible constructor without withTies, ctes and setOperations.
+     */
+    public QueryDTO(String from, String fromAlias, SelectorDTO selector,
+                    SequencedSet<JoinDTO> joins, ExpressionDTO where, GroupByDTO groupBy,
+                    ExpressionDTO having, List<OrderByDTO> orderBy, Long limit, Long offset) {
+        this(from, fromAlias, selector, joins, where, groupBy, having, orderBy, limit, offset, null, null, null);
+    }
+
+    /**
+     * Backward-compatible constructor without withTies (12 args, old canonical).
+     */
+    public QueryDTO(String from, String fromAlias, SelectorDTO selector,
+                    SequencedSet<JoinDTO> joins, ExpressionDTO where, GroupByDTO groupBy,
+                    ExpressionDTO having, List<OrderByDTO> orderBy, Long limit, Long offset,
+                    List<CteDTO> ctes, List<SetOperationDTO> setOperations) {
+        this(from, fromAlias, selector, joins, where, groupBy, having, orderBy, limit, offset, null, ctes, setOperations);
+    }
 
     @JsonClassDescription("GROUP BY clause specification")
     public record GroupByDTO(
@@ -87,7 +118,7 @@ public record QueryDTO(
         }
     }
 
-    @JsonClassDescription("ORDER BY clause item with expression and sort direction")
+    @JsonClassDescription("ORDER BY clause item with expression, sort direction, and optional nulls placement")
     public record OrderByDTO(
         @JsonPropertyDescription("Expression to order by.")
         @JsonProperty(required = true)
@@ -95,8 +126,19 @@ public record QueryDTO(
 
         @JsonPropertyDescription("Sort direction: true for ASC, false for DESC.")
         @JsonProperty(required = true)
-        boolean ascending
-    ) {}
+        boolean ascending,
+
+        @JsonPropertyDescription("Optional nulls placement: NULLS_FIRST or NULLS_LAST. Omit for database default.")
+        @JsonProperty(required = false)
+        String nullsHandling
+    ) {
+        /**
+         * Backward-compatible constructor without nulls handling.
+         */
+        public OrderByDTO(ExpressionDTO expression, boolean ascending) {
+            this(expression, ascending, null);
+        }
+    }
 
     @JsonClassDescription("Explicit JOIN clause with a JoinedRoot")
     public record JoinDTO(
@@ -132,6 +174,69 @@ public record QueryDTO(
 
         @JsonPropertyDescription("Order specifications for ORDER BY within the window.")
         @JsonProperty(required = false)
-        List<OrderByDTO> orderBy
+        List<OrderByDTO> orderBy,
+
+        @JsonPropertyDescription("Window frame specification (ROWS/RANGE/GROUPS BETWEEN).")
+        @JsonProperty(required = false)
+        WindowFrameDTO frame
+    ) {
+        /**
+         * Backward-compatible constructor without frame.
+         */
+        public WindowSpecDTO(List<ExpressionDTO> partitionBy, List<OrderByDTO> orderBy) {
+            this(partitionBy, orderBy, null);
+        }
+    }
+
+    @JsonClassDescription("Window frame: ROWS/RANGE/GROUPS BETWEEN start AND end.")
+    public record WindowFrameDTO(
+        @JsonPropertyDescription("Frame unit: ROWS, RANGE, or GROUPS.")
+        @JsonProperty(required = true)
+        String type,
+
+        @JsonPropertyDescription("Lower bound of the frame.")
+        @JsonProperty(required = true)
+        FrameBoundDTO start,
+
+        @JsonPropertyDescription("Upper bound of the frame.")
+        @JsonProperty(required = true)
+        FrameBoundDTO end
+    ) {}
+
+    @JsonClassDescription("Window frame endpoint.")
+    public record FrameBoundDTO(
+        @JsonPropertyDescription("Bound type: UNBOUNDED_PRECEDING, N_PRECEDING, CURRENT_ROW, N_FOLLOWING, UNBOUNDED_FOLLOWING.")
+        @JsonProperty(required = true)
+        String type,
+
+        @JsonPropertyDescription("Offset for N_PRECEDING / N_FOLLOWING.")
+        @JsonProperty(required = false)
+        Integer offset
+    ) {}
+
+    @JsonClassDescription("A Common Table Expression (CTE) for WITH clause")
+    public record CteDTO(
+        @JsonPropertyDescription("Name of the CTE, used as a table reference in the main query.")
+        @JsonProperty(required = true)
+        String name,
+
+        @JsonPropertyDescription("The CTE query definition.")
+        @JsonProperty(required = true)
+        QueryDTO query,
+
+        @JsonPropertyDescription("Optional explicit column aliases for the CTE.")
+        @JsonProperty(required = false)
+        List<String> columns
+    ) {}
+
+    @JsonClassDescription("A set operation (UNION, INTERSECT, EXCEPT) with another query")
+    public record SetOperationDTO(
+        @JsonPropertyDescription("Type: UNION, UNION_ALL, INTERSECT, INTERSECT_ALL, EXCEPT, EXCEPT_ALL")
+        @JsonProperty(required = true)
+        String type,
+
+        @JsonPropertyDescription("The query to combine with.")
+        @JsonProperty(required = true)
+        QueryDTO query
     ) {}
 }

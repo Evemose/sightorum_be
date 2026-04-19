@@ -48,7 +48,7 @@ public class AnthropicParamsBuilder {
             .model(model)
             .maxTokens(maxTokens);
 
-        configureThinking(builder, options);
+        configureOutputConfig(builder, options);
         configureSystemPrompt(builder, prompt, cacheTTL);
         configureTools(builder, options, cacheTTL);
         addMessages(builder, prompt, cacheTTL);
@@ -56,24 +56,48 @@ public class AnthropicParamsBuilder {
         return builder;
     }
 
-    private void configureThinking(MessageCreateParams.Builder builder, ChatOptions options) {
-        if (options instanceof AnthropicChatOptions ao
+    private void configureOutputConfig(MessageCreateParams.Builder builder, ChatOptions options) {
+        var ao = options instanceof AnthropicChatOptions a ? a : null;
+        var hasThinking = ao != null
             && ao.getThinkingLevel() != null
-            && ao.getThinkingLevel() != ThinkingLevel.NONE) {
-            builder
-                .thinking(ThinkingConfigAdaptive.builder().build())
-                .outputConfig(OutputConfig.builder().effort(switch (ao.getThinkingLevel()) {
-                    case NONE -> throw new IllegalStateException("Can't have NONE thinking level here");
-                    case MEDIUM -> Effort.HIGH;
+                          && ao.getThinkingLevel() != ThinkingLevel.NONE;
+        var hasSchema = ao != null && ao.getResponseSchema() != null;
+
+        if (hasThinking) {
+            builder.thinking(ThinkingConfigAdaptive.builder().build());
+        }
+
+        if (hasThinking || hasSchema) {
+            var outputBuilder = OutputConfig.builder();
+            if (hasThinking) {
+                outputBuilder.effort(switch (ao.getThinkingLevel()) {
+                    case NONE -> throw new IllegalStateException();
+                    case MEDIUM -> Effort.MEDIUM;
                     case HIGH -> Optional.ofNullable(options.getModel())
                         .filter(m -> m.equals("claude-opus-4-6"))
                         .map(_ -> Effort.MAX)
                         .orElse(Effort.HIGH);
-                }).build());
-            return;
+                });
+            }
+            if (hasSchema) {
+                outputBuilder.format(toJsonOutputFormat(ao.getResponseSchema()));
+            }
+            builder.outputConfig(outputBuilder.build());
         }
-        var temp = options != null && options.getTemperature() != null ? options.getTemperature() : 0.7;
-        builder.temperature(temp);
+
+        if (!hasThinking) {
+            var temp = options != null && options.getTemperature() != null
+                ? options.getTemperature() : 0.7;
+            builder.temperature(temp);
+        }
+    }
+
+    private JsonOutputFormat toJsonOutputFormat(Map<String, Object> schema) {
+        var schemaBuilder = JsonOutputFormat.Schema.builder();
+        for (var entry : schema.entrySet()) {
+            schemaBuilder.putAdditionalProperty(entry.getKey(), JsonValue.from(entry.getValue()));
+        }
+        return JsonOutputFormat.builder().schema(schemaBuilder.build()).build();
     }
 
     private void configureSystemPrompt(MessageCreateParams.Builder builder, Prompt prompt, CacheTTL cacheTTL) {

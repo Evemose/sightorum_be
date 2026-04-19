@@ -8,6 +8,7 @@ import com.rorm.engine.handler.operator.ternary.BetweenOperator;
 import com.rorm.engine.handler.operator.unary.*;
 import com.rorm.engine.handler.window.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -25,24 +26,27 @@ public final class TestHandlerRegistry {
      * @return a fully configured HandlerRegistry
      */
     public static HandlerRegistry createWithAllBuiltIns() {
+        var binaryOps = new ArrayList<com.rorm.engine.handler.BinaryOperatorHandler>();
+        binaryOps.addAll(List.of(
+            new EqualsOperator(),
+            new GreaterThanOperator(),
+            new GreaterThanOrEqualOperator(),
+            new LessThanOperator(),
+            new LessThanOrEqualOperator(),
+            new LikeOperator(),
+            new InOperator(),
+            new AddOperator(),
+            new SubtractOperator(),
+            new MultiplyOperator(),
+            new DivideOperator(),
+            new ModuloOperator(),
+            new AndOperator(),
+            new OrOperator()
+        ));
+
         return HandlerRegistry.builder()
             // Binary operators
-            .binaryOperators(List.of(
-                new EqualsOperator(),
-                new GreaterThanOperator(),
-                new GreaterThanOrEqualOperator(),
-                new LessThanOperator(),
-                new LessThanOrEqualOperator(),
-                new LikeOperator(),
-                new InOperator(),
-                new AddOperator(),
-                new SubtractOperator(),
-                new MultiplyOperator(),
-                new DivideOperator(),
-                new ModuloOperator(),
-                new AndOperator(),
-                new OrOperator()
-            ))
+            .binaryOperators(binaryOps)
             // Unary operators
             .unaryOperators(List.of(
                 new IsNullOperator(),
@@ -50,7 +54,8 @@ public final class TestHandlerRegistry {
                 new IsTrueOperator(),
                 new IsFalseOperator(),
                 new NegateOperator(),
-                new NotOperator()
+                new NotOperator(),
+                new ExistsOperator()
             ))
             // Ternary operators
             .ternaryOperators(List.of(
@@ -89,6 +94,7 @@ public final class TestHandlerRegistry {
                 new CurrentTimeFunction(),
                 new DateTruncFunction(),
                 new ExtractFunction(),
+                new IntervalFunction(),
                 // String functions
                 new ConcatFunction(),
                 new LowerFunction(),
@@ -107,6 +113,8 @@ public final class TestHandlerRegistry {
                 new LPadFunction(),
                 new RPadFunction(),
                 new InitCapFunction(),
+                new SplitPartFunction(),
+                new RegexpReplaceFunction(),
                 // Numeric functions
                 new AbsFunction(),
                 new CeilFunction(),
@@ -120,6 +128,8 @@ public final class TestHandlerRegistry {
                 new LnFunction(),
                 new LogFunction(),
                 new SignFunction()
+                ,
+                new CastFunction()
             ))
             // Window functions
             .windowFunctions(List.of(
@@ -134,6 +144,7 @@ public final class TestHandlerRegistry {
                 new FirstValueWindow(),
                 new LastValueWindow(),
                 new NthValueWindow(),
+                new PercentileContWindow(),
                 new CountWindow(),
                 new SumWindow(),
                 new AvgWindow(),
