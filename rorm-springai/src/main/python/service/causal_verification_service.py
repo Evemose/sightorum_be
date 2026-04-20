@@ -794,24 +794,17 @@ class CausalVerificationService:
                           f"for 5-fold cross-validation in quality gates")
 
         # -- core columns --
-        _require_col(spec.treatment, "treatment")
         _require_col(spec.outcome, "outcome")
 
-        # NaN / constant checks on treatment and outcome
-        if spec.treatment in cols:
-            nan_count = int(data[spec.treatment].isna().sum())
-            if nan_count > 0:
-                errors.append(f"treatment column '{spec.treatment}' contains "
-                              f"{nan_count} NaN value(s); pearsonr / DML will fail")
-            if data[spec.treatment].nunique(dropna=True) < 2:
-                errors.append(f"treatment column '{spec.treatment}' has fewer than "
-                              f"2 unique values; DML estimation requires variance")
         if spec.outcome in cols:
             _require_numeric(spec.outcome, "outcome")
             nan_count = int(data[spec.outcome].isna().sum())
             if nan_count > 0:
                 errors.append(f"outcome column '{spec.outcome}' contains "
                               f"{nan_count} NaN value(s); pearsonr / DML will fail")
+            if data[spec.outcome].nunique(dropna=True) < 2:
+                errors.append(f"outcome column '{spec.outcome}' has fewer than "
+                              f"2 unique values; DML estimation requires variance")
 
         # -- adjustment set --
         for c in spec.adjustment_set:
@@ -837,9 +830,6 @@ class CausalVerificationService:
                 errors.append("dag_edges: graph contains a cycle; "
                               "nx.is_d_separator requires a DAG")
             dag_nodes = set(dag.nodes)
-            if spec.treatment in cols and spec.treatment not in dag_nodes:
-                errors.append(f"dag_edges: treatment '{spec.treatment}' is not "
-                              f"a node in the DAG")
             if spec.outcome in cols and spec.outcome not in dag_nodes:
                 errors.append(f"dag_edges: outcome '{spec.outcome}' is not "
                               f"a node in the DAG")
@@ -857,6 +847,17 @@ class CausalVerificationService:
         for v in spec.estimation_variants:
             variant_ids.append(v.id)
             _require_col(v.treatment_column, f"estimation_variant '{v.id}' treatment_column")
+            if v.treatment_column in cols:
+                if v.treatment_form == TreatmentForm.CONTINUOUS:
+                    _require_numeric(v.treatment_column,
+                                     f"estimation_variant '{v.id}' treatment_column (CONTINUOUS)")
+                nan_count = int(data[v.treatment_column].isna().sum())
+                if nan_count > 0:
+                    errors.append(f"estimation_variant '{v.id}': treatment_column "
+                                  f"'{v.treatment_column}' contains {nan_count} NaN value(s)")
+                if data[v.treatment_column].nunique(dropna=True) < 2:
+                    errors.append(f"estimation_variant '{v.id}': treatment_column "
+                                  f"'{v.treatment_column}' has fewer than 2 unique values")
             for c in v.w_columns:
                 _require_col(c, f"estimation_variant '{v.id}' w_columns")
             if v.treatment_form == TreatmentForm.BINARY_THRESHOLD:
@@ -889,6 +890,7 @@ class CausalVerificationService:
         if spec.mediation:
             for med in spec.mediation:
                 _require_col(med.mediator, f"mediation '{med.mediator}'")
+                _require_numeric(med.mediator, f"mediation '{med.mediator}'")
                 if med.total_variant_id not in seen:
                     errors.append(f"mediation '{med.mediator}': total_variant_id "
                                   f"'{med.total_variant_id}' not found")
@@ -941,10 +943,6 @@ class CausalVerificationService:
             if not isinstance(tv.threshold, (int, float)):
                 errors.append(f"sensitivity.threshold_variants: threshold must be "
                               f"numeric, got '{tv.threshold}'")
-            else:
-                _require_numeric(spec.treatment,
-                                 f"sensitivity.threshold_variants (threshold={tv.threshold}): "
-                                 f"treatment")
         for mv in spec.sensitivity.model_variants:
             if mv.primary_variant_id not in seen:
                 errors.append(f"sensitivity.model_variants: primary_variant_id "
