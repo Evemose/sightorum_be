@@ -638,42 +638,46 @@ def _add_causal_verification_routes(app: FastAPI):
 
     @app.post(
         "/analysis/causal-verification/runs/{run_id}/reexecute",
+        response_model=dict,
         tags=["Causal Verification"],
     )
     @inject
-    async def reexecute_sync(
+    async def reexecute_async(
             run_id: str,
             spec_patch: dict,
-            reexecution_engine=Depends(Provide[ApplicationContainer.reexecution_engine]),
-            datasource=Depends(Provide[ApplicationContainer.datasource]),
+            event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
+            config: Settings = Depends(Provide[ApplicationContainer.config]),
     ):
         """
         Re-execute a completed run with a partial spec change.
 
         Only the steps affected by the changed fields are re-computed.
-        Returns the new run_id, per-step diffs, and the full result.
-        Both the base run and the new run are frozen on completion.
+        Queues the reexecution asynchronously — returns analysis_id immediately.
+        Monitor progress via event channels.
         """
-        import asyncio
-        from starlette.responses import Response
-        from service.pipeline_checkpoint import _json_fallback
+        analysis_id = str(uuid.uuid4())
 
-        loop = asyncio.get_event_loop()
-        try:
-            result = await loop.run_in_executor(
-                None,
-                lambda: reexecution_engine.reexecute(
-                    base_run_id=run_id,
-                    spec_patch=spec_patch,
-                    datasource=datasource,
-                ),
-            )
-            body = json.dumps(result, default=_json_fallback)
-        except ValueError as e:
-            body = json.dumps({"detail": str(e)})
-            return Response(content=body.encode("utf-8"), status_code=400,
-                            media_type="application/json")
-        return Response(content=body.encode("utf-8"), media_type="application/json")
+        await event_publisher.add_to_stream(
+            config.pipeline.streams.causal_verification_requests,
+            {
+                "message_type": "causal_reexecution_request",
+                "payload": json.dumps({
+                    "analysis_id": analysis_id,
+                    "base_run_id": run_id,
+                    "spec_patch": spec_patch,
+                }),
+                "metadata": json.dumps({}),
+                "timestamp": datetime.now().isoformat(),
+                "retry_count": "0",
+            }
+        )
+
+        return {
+            "status": "accepted",
+            "analysis_id": analysis_id,
+            "base_run_id": run_id,
+            "message": "Causal reexecution request queued successfully",
+        }
 
     @app.get(
         "/analysis/causal-verification/runs",

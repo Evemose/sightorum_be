@@ -2,9 +2,14 @@ package com.rorm.ml.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.StepJournal;
+import com.rorm.ai.DeferredToolResult;
 import com.rorm.ai.JournaledTool;
 import com.rorm.ml.MlTrainingService;
+import com.rorm.ml.dto.PipelineSpecPatch;
 import com.rorm.ml.exception.MlServiceException;
+import com.rorm.ml.stream.JobCompletionHandler;
+import com.rorm.ml.stream.JobEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -13,18 +18,16 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
-import com.rorm.ml.dto.PipelineSpecPatch;
-
 import java.util.Map;
 
 @Slf4j
 @Component
-@JournaledTool
 @RequiredArgsConstructor
 public class CausalReexecutionTool {
 
     private final MlTrainingService mlService;
     private final ObjectMapper objectMapper;
+    private final JobCompletionHandler completionHandler;
 
     @Tool(
         name = "reexecuteCausalPipeline",
@@ -73,14 +76,19 @@ public class CausalReexecutionTool {
     ) {
         var resolvedRunId = resolveRunId(runId, toolContext);
         try {
-            log.info("Re-executing causal pipeline run '{}'", resolvedRunId);
+            log.info("Submitting causal pipeline re-execution for run '{}'", resolvedRunId);
 
-            var result = mlService.reexecutePipeline(resolvedRunId, specPatch);
+            var response = mlService.reexecutePipeline(resolvedRunId, specPatch);
 
-            log.info("Re-execution complete: new_run={}, reexecuted={}, skipped={}",
-                result.runId(), result.reexecutedSteps(), result.skippedSteps());
+            if (response.isNotAccepted()) {
+                return errorResponse("Re-execution not accepted: " + response.message());
+            }
 
-            return writeJson(result);
+            log.info("Re-execution queued: analysis_id={}", response.analysisId());
+
+            var future = StepJournal.current().awakeable(JobEvent.class);
+            completionHandler.register(response.analysisId(), future);
+            return DeferredToolResult.defer(toolContext, future.map(this::writeJson));
         } catch (MlServiceException e) {
             log.error("Pipeline re-execution failed for run '{}'", resolvedRunId, e);
             return errorResponse("Re-execution failed: " + e.getMessage());

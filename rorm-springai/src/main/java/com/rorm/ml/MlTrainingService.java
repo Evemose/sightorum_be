@@ -3,7 +3,6 @@ package com.rorm.ml;
 import com.rorm.DurableFuture;
 import com.rorm.StepJournal;
 import com.rorm.ml.dto.*;
-import com.rorm.ml.dto.PipelineSpecPatch;
 import com.rorm.ml.exception.MlServiceException;
 import com.rorm.ml.stream.JobCompletionHandler;
 import com.rorm.ml.stream.JobEvent;
@@ -272,14 +271,14 @@ public class MlTrainingService {
         }
     }
 
-    public ReexecutionResult reexecutePipeline(String runId, PipelineSpecPatch specPatch) {
+    public AsyncJobResponse reexecutePipeline(String runId, PipelineSpecPatch specPatch) {
         try {
             return restClient.post()
                 .uri("/analysis/causal-verification/runs/{runId}/reexecute", runId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(specPatch)
                 .retrieve()
-                .body(ReexecutionResult.class);
+                .body(AsyncJobResponse.class);
         } catch (RestClientException e) {
             throw new MlServiceException("Failed to re-execute pipeline run " + runId, e);
         }
