@@ -589,6 +589,7 @@ class CausalVerificationRequest:
     externalization: ExternalizationConfig
 
     discrepancy_log: list[DiscrepancyEntry] = field(default_factory=list)
+    original_treatment: Optional[str] = None
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "CausalVerificationRequest":
@@ -619,6 +620,7 @@ class CausalVerificationRequest:
             ],
             externalization=ExternalizationConfig.from_dict(d.get("externalization") or {}),
             discrepancy_log=[DiscrepancyEntry.from_dict(x) for x in (d.get("discrepancy_log") or [])],
+            original_treatment=d.get("original_treatment"),
         )
 
     def to_dict(self) -> dict[str, Any]:

@@ -2,10 +2,10 @@ package com.rorm.ml.tools;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rorm.StepJournal;
 import com.rorm.ai.DeferredToolResult;
-import com.rorm.ai.JournaledTool;
+import com.rorm.ai.RormToolContext;
 import com.rorm.ml.MlTrainingService;
+import com.rorm.ml.dto.AsyncJobResponse;
 import com.rorm.ml.dto.PipelineSpecPatch;
 import com.rorm.ml.exception.MlServiceException;
 import com.rorm.ml.stream.JobCompletionHandler;
@@ -75,10 +75,17 @@ public class CausalReexecutionTool {
 
     ) {
         var resolvedRunId = resolveRunId(runId, toolContext);
+        var ctx = RormToolContext.from(toolContext);
+        var journal = ctx.stepJournal();
+        var callId = ctx.id();
         try {
             log.info("Submitting causal pipeline re-execution for run '{}'", resolvedRunId);
 
-            var response = mlService.reexecutePipeline(resolvedRunId, specPatch);
+            var response = journal.run(
+                callId + ":submit",
+                AsyncJobResponse.class,
+                () -> mlService.reexecutePipeline(resolvedRunId, specPatch)
+            );
 
             if (response.isNotAccepted()) {
                 return errorResponse("Re-execution not accepted: " + response.message());
@@ -86,7 +93,7 @@ public class CausalReexecutionTool {
 
             log.info("Re-execution queued: analysis_id={}", response.analysisId());
 
-            var future = StepJournal.current().awakeable(JobEvent.class);
+            var future = journal.awakeable(JobEvent.class);
             completionHandler.register(response.analysisId(), future);
             return DeferredToolResult.defer(toolContext, future.map(this::writeJson));
         } catch (MlServiceException e) {
@@ -107,14 +114,6 @@ public class CausalReexecutionTool {
             "runId is required — provide it explicitly or ensure pipelineRunId is in the tool context");
     }
 
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
-            return errorResponse(e.getMessage());
-        }
-    }
-
     private String errorResponse(String message) {
         try {
             return objectMapper.writeValueAsString(Map.of(
@@ -123,6 +122,14 @@ public class CausalReexecutionTool {
             ));
         } catch (JsonProcessingException e) {
             return "{\"success\":false,\"error\":\"" + message.replace("\"", "\\\"") + "\"}";
+        }
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return errorResponse(e.getMessage());
         }
     }
 
