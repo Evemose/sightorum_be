@@ -638,7 +638,6 @@ def _add_causal_verification_routes(app: FastAPI):
 
     @app.post(
         "/analysis/causal-verification/runs/{run_id}/reexecute",
-        response_model=dict,
         tags=["Causal Verification"],
     )
     @inject
@@ -656,11 +655,12 @@ def _add_causal_verification_routes(app: FastAPI):
         Both the base run and the new run are frozen on completion.
         """
         import asyncio
-        from fastapi.responses import JSONResponse
+        import json
+        from fastapi.responses import Response
 
         loop = asyncio.get_event_loop()
         try:
-            return await loop.run_in_executor(
+            result = await loop.run_in_executor(
                 None,
                 lambda: reexecution_engine.reexecute(
                     base_run_id=run_id,
@@ -668,8 +668,24 @@ def _add_causal_verification_routes(app: FastAPI):
                     datasource=datasource,
                 ),
             )
+
+            def _fallback(obj):
+                if hasattr(obj, "tolist"):
+                    return obj.tolist()
+                if hasattr(obj, "item"):
+                    return obj.item()
+                raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+            return Response(
+                content=json.dumps(result, default=_fallback),
+                media_type="application/json",
+            )
         except ValueError as e:
-            return JSONResponse(status_code=400, content={"detail": str(e)})
+            return Response(
+                content=json.dumps({"detail": str(e)}),
+                status_code=400,
+                media_type="application/json",
+            )
 
     @app.get(
         "/analysis/causal-verification/runs",
