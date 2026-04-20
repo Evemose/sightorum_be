@@ -1507,7 +1507,7 @@ class CausalVerificationService:
                     return report, None, None, None
 
                 rewritten = self._rewrite_variants_for_positivity(
-                    spec, treatment_col, hierarchy[0] if level_idx > 0 else None,
+                    spec, treatment_col, spec.treatment,
                     data, surviving_mask)
                 report = {
                     "attempted_levels": attempted_levels,
@@ -1541,13 +1541,15 @@ class CausalVerificationService:
     def _rewrite_variants_for_positivity(self, spec, final_treatment, original_treatment,
                                          data, surviving_mask):
         """Rewrite estimation variants for coarsened treatment level."""
-        from copy import deepcopy
         from dataclasses import replace as dc_replace
         coarsened = original_treatment is not None and final_treatment != original_treatment
 
+        if not coarsened:
+            return list(spec.estimation_variants)
+
         # Build fine→coarse mapping once
         fine_to_coarse = {}
-        if coarsened and original_treatment in data.raw.columns and final_treatment in data.raw.columns:
+        if original_treatment in data.raw.columns and final_treatment in data.raw.columns:
             surviving_data = data.raw[surviving_mask] if surviving_mask is not None else data.raw
             mapping = surviving_data[[original_treatment, final_treatment]].drop_duplicates()
             for _, row in mapping.iterrows():
@@ -1558,14 +1560,17 @@ class CausalVerificationService:
 
         rewritten = []
         for v in spec.estimation_variants:
-            if not coarsened:
-                rewritten.append(v)
+            if v.treatment_form == TreatmentForm.BINARY_THRESHOLD:
+                self._trace("Variant %s: dropped (BINARY_THRESHOLD meaningless after "
+                            "treatment rewrite %s → %s)",
+                            v.id, original_treatment, final_treatment)
                 continue
+
+            new_form = TreatmentForm.CATEGORICAL
 
             if v.filter is not None:
                 filt = v.filter
-                if hasattr(filt, 'values') and filt.values:
-
+                if hasattr(filt, 'values') and filt.values and filt.column == original_treatment:
                     coarse_values = set()
                     for fv in filt.values:
                         mapped = fine_to_coarse.get(str(fv))
@@ -1573,10 +1578,8 @@ class CausalVerificationService:
                             coarse_values.add(mapped)
 
                     if len(coarse_values) < 2:
-                        # Both levels map to same coarse value or one was trimmed → drop
                         continue
 
-                    # Map original reference category to coarse level
                     mapped_ref = fine_to_coarse.get(str(v.reference_category)) \
                         if v.reference_category else None
                     if mapped_ref not in coarse_values:
@@ -1586,21 +1589,28 @@ class CausalVerificationService:
                                 v.reference_category, mapped_ref)
                     new_v = dc_replace(v,
                                        treatment_column=final_treatment,
+                                       treatment_form=new_form,
+                                       threshold_value=None,
                                        filter=dc_replace(filt,
                                                          column=final_treatment,
                                                          values=sorted(coarse_values)),
                                        reference_category=mapped_ref)
                     rewritten.append(new_v)
                 else:
-                    rewritten.append(dc_replace(v, treatment_column=final_treatment))
+                    rewritten.append(dc_replace(v,
+                                                treatment_column=final_treatment,
+                                                treatment_form=new_form,
+                                                threshold_value=None))
             else:
-                # Primary/nonparam/direct variants: rewrite treatment + reference
                 mapped_ref = fine_to_coarse.get(str(v.reference_category)) \
-                    if v.reference_category and coarsened else v.reference_category
-                self._trace("Variant %s rewrite: treatment=%s, ref %s → %s",
-                            v.id, final_treatment, v.reference_category, mapped_ref)
+                    if v.reference_category else v.reference_category
+                self._trace("Variant %s rewrite: treatment=%s, form=%s→CATEGORICAL, ref %s → %s",
+                            v.id, final_treatment, v.treatment_form.value,
+                            v.reference_category, mapped_ref)
                 rewritten.append(dc_replace(v,
                                             treatment_column=final_treatment,
+                                            treatment_form=new_form,
+                                            threshold_value=None,
                                             reference_category=mapped_ref))
 
         return rewritten
@@ -1625,6 +1635,8 @@ class CausalVerificationService:
                 new_variants.append(v)
 
         new_treatment = final_treatment if final_treatment else spec.treatment
+        treatment_changed = new_treatment != spec.treatment
+        new_form = TreatmentForm.CATEGORICAL if treatment_changed else spec.treatment_form
 
         # Filter treatment column from GRF modifier_columns to avoid
         # including the treatment variable as an effect modifier.
@@ -1647,7 +1659,7 @@ class CausalVerificationService:
 
         # Update allocation_bias treatment_column references
         new_ext = spec.externalization
-        if new_ext and spec.treatment != new_treatment:
+        if new_ext and treatment_changed:
             from dto.causal_verification_request import AllocationBias, ExternalizationConfig
             new_alloc = []
             for ab in new_ext.allocation_bias:
@@ -1668,6 +1680,8 @@ class CausalVerificationService:
 
         new_spec = dc_replace(spec,
                               treatment=new_treatment,
+                              treatment_form=new_form,
+                              original_treatment=spec.treatment if treatment_changed else spec.original_treatment,
                               estimation_variants=new_variants,
                               grf_configs=new_grf_configs,
                               externalization=new_ext)
@@ -1754,9 +1768,12 @@ class CausalVerificationService:
                 T = enc[spec.treatment].values
                 W = enc[confounders].values
 
+                discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
+                model_t = LGBMClassifier(**lgbm_kw) if discrete else LGBMRegressor(**lgbm_kw)
                 grf = CausalForestDML(
                     model_y=LGBMRegressor(**lgbm_kw),
-                    model_t=LGBMRegressor(**lgbm_kw),
+                    model_t=model_t,
+                    discrete_treatment=discrete,
                     n_estimators=grf_n_est,
                     min_samples_leaf=GRF_MIN_LEAF,
                     random_state=RANDOM_STATE,
@@ -2003,14 +2020,17 @@ class CausalVerificationService:
             shifts.append((f"forward_{lag}", lag))
             shifts.append((f"backward_{lag}", -lag))
 
+        # Use original treatment for placebo shifts — shifting a categorical
+        # column produced by positivity coarsening is meaningless
+        placebo_treatment = spec.original_treatment or spec.treatment
         placebo_dag = self._replace_dag_node(
-            dag_nx, spec.treatment, f"_tp_{spec.treatment}"
+            dag_nx, placebo_treatment, f"_tp_{placebo_treatment}"
         )
-        placebo_col = f"_tp_{spec.treatment}"
+        placebo_col = f"_tp_{placebo_treatment}"
 
         def _run_probe(label, lag):
             df = sorted_enc.copy()
-            df[placebo_col] = df[spec.treatment].shift(lag)
+            df[placebo_col] = df[placebo_treatment].shift(lag)
             df = df.dropna(subset=[placebo_col])
             if len(df) < 5:
                 return {"label": label, "lag": lag,
@@ -2048,7 +2068,6 @@ class CausalVerificationService:
             "flag": flag,
         }
 
-    @staticmethod
     @staticmethod
     def _replace_dag_node(dag: nx.DiGraph, old_node: str, new_node: str) -> nx.DiGraph:
         """Return a new DiGraph with old_node renamed to new_node."""
@@ -2121,6 +2140,7 @@ class CausalVerificationService:
 
     def _sensitivity(self, data, spec, refined_edges, primary_effect, estimation_results, budget=None) -> dict:
         result: dict[str, Any] = {}
+        discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
 
         # Confounder drops — each is an independent DML fit
         def _run_drop(drop):
@@ -2128,7 +2148,7 @@ class CausalVerificationService:
                 [(s, d) for s, d in refined_edges
                  if s != drop.column and d != drop.column]
             )
-            est = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_v)
+            est = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_v, discrete=discrete)
             deviation = (abs(est - primary_effect) / abs(primary_effect) * 100
                          if est is not None and primary_effect else None)
             return {
@@ -2150,7 +2170,7 @@ class CausalVerificationService:
             if add.column not in data.columns:
                 return {"column": add.column, "error": "column not in data"}
             dag_v = self._edges_to_nx(refined_edges + [(add.column, spec.outcome)])
-            est = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_v)
+            est = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_v, discrete=discrete)
             deviation = (abs(est - primary_effect) / abs(primary_effect) * 100
                          if est is not None and primary_effect else None)
             return {
@@ -2166,22 +2186,34 @@ class CausalVerificationService:
         ]
         result["confounder_adds"] = [f.result() for _, f in add_futures]
 
-        # Threshold variants
+        # Threshold variants — use original (pre-positivity) treatment column
+        # so thresholds remain meaningful after categorical coarsening
+        thresh_treatment = spec.original_treatment or spec.treatment
         thresh = []
         for tv in spec.sensitivity.threshold_variants:
+            if thresh_treatment not in data.encoded.columns:
+                thresh.append({
+                    "threshold": tv.threshold,
+                    "effect": None,
+                    "error": f"treatment column '{thresh_treatment}' not in data",
+                    "n_treated": 0,
+                    "n_control": 0,
+                    "expected_n_treated": tv.expected_n_treated,
+                    "expected_n_control": tv.expected_n_control,
+                })
+                continue
             col = f"_thresh_{tv.threshold}"
-            bin_series = (data.encoded[spec.treatment] > tv.threshold).astype(int)
+            bin_series = (data.encoded[thresh_treatment] > tv.threshold).astype(int)
             n_treated = int(bin_series.sum())
             n_control = int((~bin_series.astype(bool)).sum())
-            # Build a temporary PipelineDataFrame with the binary column added
             aug_enc = data.encoded.copy()
             aug_enc[col] = bin_series
             aug_raw = data.raw.copy()
             aug_raw[col] = bin_series
             aug_data = PipelineDataFrame(aug_raw, aug_enc, data.cat_columns, data.encoders)
             dag_v = self._edges_to_nx(
-                [(col if s == spec.treatment else s,
-                  col if d == spec.treatment else d)
+                [(col if s == thresh_treatment else s,
+                  col if d == thresh_treatment else d)
                  for s, d in refined_edges]
             )
             est = self._run_dml_quick(aug_data, col, spec.outcome, dag_v)
@@ -2366,6 +2398,11 @@ class CausalVerificationService:
         descendants = nx.descendants(dag, spec.treatment) if dag.has_node(spec.treatment) else set()
         ancestors = nx.ancestors(dag, spec.treatment) if dag.has_node(spec.treatment) else set()
         excluded = mediator_cols | descendants | ancestors | {spec.treatment, spec.outcome}
+        if spec.original_treatment:
+            excluded.add(spec.original_treatment)
+            if dag.has_node(spec.original_treatment):
+                excluded |= nx.descendants(dag, spec.original_treatment)
+                excluded |= nx.ancestors(dag, spec.original_treatment)
         logger.info("Auto-correction exclusions: mediators=%s, descendants=%s, "
                     "ancestors=%s, total_excluded=%s",
                     sorted(mediator_cols), sorted(descendants),
@@ -2381,7 +2418,9 @@ class CausalVerificationService:
                     [c["column"] for c in eligible])
         for c in eligible[:ac_cfg.max_iterations]:
             dag_aug = self._edges_to_nx(refined_edges + [(c["column"], spec.outcome)])
-            corrected = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_aug)
+            discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
+            corrected = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_aug,
+                                            discrete=discrete)
             if corrected is not None:
                 delta_frac = (abs(corrected - corrected_value) / abs(corrected_value)
                               if corrected_value else 0)
@@ -2808,10 +2847,10 @@ class CausalVerificationService:
             return df[col] == f.values[0]
         return pd.Series(True, index=df.index)
 
-    def _run_dml_quick(self, data, treatment, outcome, dag: nx.DiGraph) -> Optional[float]:
+    def _run_dml_quick(self, data, treatment, outcome, dag: nx.DiGraph,
+                       discrete: bool = False) -> Optional[float]:
         """Fast DML estimate using econml directly (bypasses DoWhy graph layer)."""
         try:
-            # W = all parents of treatment and outcome, minus treatment itself
             w_cols = sorted(
                 ((set(dag.predecessors(treatment)) if dag.has_node(treatment) else set())
                  | (set(dag.predecessors(outcome)) if dag.has_node(outcome) else set()))
@@ -2826,10 +2865,11 @@ class CausalVerificationService:
             T = enc[treatment].values
             W = enc[w_cols].values
 
+            model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
             dml = LinearDML(
                 model_y=LGBMRegressor(**LGBM_DEFAULTS),
-                model_t=LGBMRegressor(**LGBM_DEFAULTS),
-                discrete_treatment=False,
+                model_t=model_t,
+                discrete_treatment=discrete,
             )
             dml.fit(Y, T, W=W)
             return float(dml.effect().mean())
