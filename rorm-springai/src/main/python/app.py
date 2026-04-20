@@ -655,8 +655,8 @@ def _add_causal_verification_routes(app: FastAPI):
         Both the base run and the new run are frozen on completion.
         """
         import asyncio
-        import json
-        from fastapi.responses import Response
+        from fastapi.responses import JSONResponse
+        from service.pipeline_checkpoint import _json_fallback
 
         loop = asyncio.get_event_loop()
         try:
@@ -668,24 +668,10 @@ def _add_causal_verification_routes(app: FastAPI):
                     datasource=datasource,
                 ),
             )
-
-            def _fallback(obj):
-                if hasattr(obj, "tolist"):
-                    return obj.tolist()
-                if hasattr(obj, "item"):
-                    return obj.item()
-                raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
-
-            return Response(
-                content=json.dumps(result, default=_fallback),
-                media_type="application/json",
-            )
+            sanitized = json.loads(json.dumps(result, default=_json_fallback))
+            return JSONResponse(content=sanitized)
         except ValueError as e:
-            return Response(
-                content=json.dumps({"detail": str(e)}),
-                status_code=400,
-                media_type="application/json",
-            )
+            return JSONResponse(status_code=400, content={"detail": str(e)})
 
     @app.get(
         "/analysis/causal-verification/runs",
