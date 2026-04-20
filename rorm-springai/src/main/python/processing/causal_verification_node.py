@@ -34,6 +34,7 @@ class CausalVerificationPipelineNode(PipelineNode):
             datasource_factory,
             event_publisher: EventPublisher,
             throttler: AsyncThrottlerWrapper,
+            reexecution_engine=None,
             output_stream: Optional[str] = None,
             consumer_group: str = "causal_verification_workers",
             consumer_name: Optional[str] = None,
@@ -57,9 +58,16 @@ class CausalVerificationPipelineNode(PipelineNode):
         self.datasource_factory = datasource_factory
         self.event_publisher = event_publisher
         self.throttler = throttler
+        self.reexecution_engine = reexecution_engine
 
     async def process(self, message: StreamMessage) -> Optional[StreamMessage]:
-        """Process one async causal verification request."""
+        """Process one async causal verification request or reexecution."""
+        msg_type = message.message_type
+        if msg_type == "causal_reexecution_request":
+            return await self._process_reexecution(message)
+        return await self._process_fresh_run(message)
+
+    async def _process_fresh_run(self, message: StreamMessage) -> Optional[StreamMessage]:
         analysis_id = message.payload.get("analysis_id")
         request_data = message.payload.get("request_data")
 
@@ -87,18 +95,7 @@ class CausalVerificationPipelineNode(PipelineNode):
                 message=f"Causal verification started for hypothesis: {spec.hypothesis_id}",
             )
 
-            async def progress_callback(progress: float, msg: str = ""):
-                await self.event_publisher.publish_progress(
-                    job_id=analysis_id, progress=progress, message=msg
-                )
-
-            def sync_progress(progress: float, msg: str = ""):
-                try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        asyncio.create_task(progress_callback(progress, msg))
-                except Exception:
-                    pass
+            sync_progress = self._make_sync_progress(analysis_id)
 
             datasource = self.datasource_factory()
             loop = asyncio.get_event_loop()
@@ -128,6 +125,73 @@ class CausalVerificationPipelineNode(PipelineNode):
                 },
                 metadata=message.metadata,
             )
+
+    async def _process_reexecution(self, message: StreamMessage) -> Optional[StreamMessage]:
+        analysis_id = message.payload.get("analysis_id")
+        base_run_id = message.payload.get("base_run_id")
+        spec_patch = message.payload.get("spec_patch")
+
+        if not analysis_id or not base_run_id or spec_patch is None:
+            raise ValueError("Invalid reexecution message: missing analysis_id, base_run_id, or spec_patch")
+
+        if self.reexecution_engine is None:
+            raise ValueError("Reexecution engine not configured")
+
+        logger.info(f"Causal reexecution {analysis_id} (base={base_run_id}) waiting for throttle slot")
+
+        async with self.throttler:
+            await self.event_publisher.publish_started(
+                job_id=analysis_id,
+                model_type="causal_reexecution",
+                message=f"Causal reexecution started (base run: {base_run_id})",
+            )
+
+            sync_progress = self._make_sync_progress(analysis_id)
+            datasource = self.datasource_factory()
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: self.reexecution_engine.reexecute(
+                    base_run_id=base_run_id,
+                    spec_patch=spec_patch,
+                    datasource=datasource,
+                    progress_callback=sync_progress,
+                ),
+            )
+
+            await self.event_publisher.publish_success(
+                job_id=analysis_id,
+                metrics=result,
+                message="Causal reexecution completed successfully",
+            )
+
+            return StreamMessage(
+                message_id=f"{analysis_id}_result",
+                message_type="causal_reexecution_completed",
+                payload={
+                    "analysis_id": analysis_id,
+                    "success": True,
+                    "base_run_id": base_run_id,
+                    "result": result,
+                },
+                metadata=message.metadata,
+            )
+
+    def _make_sync_progress(self, analysis_id: str):
+        async def progress_callback(progress: float, msg: str = ""):
+            await self.event_publisher.publish_progress(
+                job_id=analysis_id, progress=progress, message=msg
+            )
+
+        def sync_progress(progress: float, msg: str = ""):
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(progress_callback(progress, msg))
+            except Exception:
+                pass
+
+        return sync_progress
 
     async def on_permanent_failure(self, message: StreamMessage, error: Exception):
         """Handle permanent causal verification failure."""

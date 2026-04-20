@@ -241,12 +241,15 @@ class ApplicationContainer(containers.DeclarativeContainer):
     )
 
     causal_verification_node = providers.Singleton(
-        lambda cfg, causal_verification_service, pool, query_throttler, event_publisher, async_throttler, worker_pool:
+        lambda cfg, causal_verification_service, reexecution_engine, pool, query_throttler, event_publisher,
+               async_throttler, worker_pool:
         _create_causal_verification_node(
-            cfg, causal_verification_service, pool, query_throttler, event_publisher, async_throttler, worker_pool
+            cfg, causal_verification_service, reexecution_engine, pool, query_throttler, event_publisher,
+            async_throttler, worker_pool
         ),
         cfg=config,
         causal_verification_service=causal_verification_service,
+        reexecution_engine=reexecution_engine,
         pool=db_pool,
         query_throttler=query_throttler,
         event_publisher=event_publisher,
@@ -537,6 +540,7 @@ def _create_reexecution_engine(causal_verification_service, cfg: Settings):
 def _create_causal_verification_node(
         cfg: Settings,
         causal_verification_service,
+        reexecution_engine,
         pool,
         query_throttler,
         event_publisher,
@@ -563,6 +567,7 @@ def _create_causal_verification_node(
         datasource_factory=datasource_factory,
         event_publisher=event_publisher,
         throttler=async_throttler,
+        reexecution_engine=reexecution_engine,
         consumer_group=cfg.pipeline.consumer_groups.causal_verification,
         worker_pool=worker_pool,
         backpressure=cfg.backpressure,
