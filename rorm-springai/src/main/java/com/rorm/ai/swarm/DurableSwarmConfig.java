@@ -1,7 +1,6 @@
 package com.rorm.ai.swarm;
 
 import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
-import com.rorm.ai.anthropic.AnthropicChatOptions.ToolRoundInfo;
 import com.rorm.ai.chat.CacheStrategy;
 import com.rorm.ai.chat.ThinkingLevel;
 import com.rorm.ai.chat.ToolGroup;
@@ -11,7 +10,6 @@ import org.springframework.core.io.ClassPathResource;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Set;
 
 import static org.springframework.util.StringUtils.hasText;
@@ -96,7 +94,7 @@ public record DurableSwarmConfig(
             config = config.withCacheStrategy(defaultCacheStrategy);
         }
         if (config.model() == null) {
-            config = config.withModel("claude-opus-4-7");
+            config = config.withModel("claude-opus-4-6");
         }
         return config;
     }
