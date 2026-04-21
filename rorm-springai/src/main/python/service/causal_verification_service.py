@@ -1742,15 +1742,18 @@ class CausalVerificationService:
                 grf_n_est = max(4, (grf_n_est // 4) * 4)
 
                 fit_data = data
+                discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
                 if budget and len(data) > 100_000:
                     rss = _rss_mb()
                     data_mb = _data_mb(data)
-                    projected = rss + data_mb * 200
+                    n_levels = data.raw[spec.treatment].nunique()
+                    # discrete_treatment one-hot encodes T: memory scales with n_levels
+                    grf_mem_mult = 200 * n_levels if discrete else 200
+                    projected = rss + data_mb * grf_mem_mult
                     target = budget.container_mb * 0.80
                     if projected > target:
-                        safe_mb = max(0, target - rss) / 200
+                        safe_mb = max(0, target - rss) / grf_mem_mult
                         frac = min(1.0, safe_mb / data_mb) if data_mb > 0 else 1.0
-                        n_levels = data.raw[spec.treatment].nunique()
                         min_frac = (500 * n_levels) / len(data) if len(data) > 0 else 1.0
                         frac = max(min_frac, frac)
                         if frac < 1.0:
