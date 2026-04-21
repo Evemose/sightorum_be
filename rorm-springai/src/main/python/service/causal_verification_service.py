@@ -2416,10 +2416,15 @@ class CausalVerificationService:
                     len(correlations),
                     len(eligible),
                     [c["column"] for c in eligible])
+        discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
+        ac_data = data
+        if discrete and len(data) > 100_000:
+            ac_data = data.stratified_subsample(spec.treatment, 100_000 / len(data))
+            logger.info("Auto-correction: subsampled %d → %d rows for discrete treatment",
+                        len(data), len(ac_data))
         for c in eligible[:ac_cfg.max_iterations]:
             dag_aug = self._edges_to_nx(refined_edges + [(c["column"], spec.outcome)])
-            discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
-            corrected = self._run_dml_quick(data, spec.treatment, spec.outcome, dag_aug,
+            corrected = self._run_dml_quick(ac_data, spec.treatment, spec.outcome, dag_aug,
                                             discrete=discrete)
             if corrected is not None:
                 delta_frac = (abs(corrected - corrected_value) / abs(corrected_value)
