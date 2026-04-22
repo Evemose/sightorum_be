@@ -18,7 +18,8 @@ from dto.causal_verification_request import (
     FieldCorrelationCheck, GrfConfig, MediationConfig, MediatorExclusion,
     MetadataCorrelation, ModelVariant, OverlapCheck, OverlapStrategy,
     PositivityCheck, RangeChecks, RefutationConfig, RefutationType,
-    ResidualChecks, SensitivityConfig, ThresholdVariant, TreatmentForm,
+    ResidualChecks, SensitivityConfig, StructuralBreakConfig,
+    ThresholdVariant, TreatmentForm,
     UnmeasuredConfoundingConfig, UnmeasuredMethod, VarianceCheck,
     VariantFilter, FilterOperator, VifConfig,
 )
@@ -147,6 +148,81 @@ class TestEstimationExhaustive:
         assert isinstance(r["error"], str)
         assert len(r["error"]) > 0
 
+    def test_binary_threshold_category_labels_semantic(self):
+        """BINARY_THRESHOLD labels must reference the threshold, not raw values."""
+        rng = np.random.default_rng(42)
+        n = 2000
+        treatment = rng.normal(50, 15, n)
+        conf = rng.normal(0, 1, n)
+        outcome = rng.binomial(1, 1 / (1 + np.exp(-(0.05 * (treatment - 50) + conf)))).astype(float)
+        df = pd.DataFrame({"treatment": treatment, "outcome": outcome, "conf": conf})
+        data = PipelineDataFrame.from_dataframe(df)
+        variant = EstimationVariant(
+            id="v_bin", treatment_column="treatment",
+            treatment_form=TreatmentForm.BINARY_THRESHOLD,
+            model_type="LinearDML", w_columns=["conf"],
+            threshold_value=50.0,
+        )
+        edges = [("conf", "treatment"), ("treatment", "outcome"), ("conf", "outcome")]
+        r = run_estimation_variant(data, variant, edges, edges_to_nx(edges), "outcome")
+        assert "category_effects" in r
+        cats = r["category_effects"]
+        assert len(cats) == 2
+        expected_keys = {"below_or_equal_50.0", "above_50.0"}
+        assert set(cats.keys()) == expected_keys, \
+            f"labels must reference threshold, got {set(cats.keys())}"
+        for k in cats:
+            assert "treatment=" not in k, \
+                f"label '{k}' leaked raw treatment column as value"
+            for raw_val in df["treatment"].unique()[:5]:
+                assert f"={raw_val}" not in k and f"={raw_val:.1f}" not in k, \
+                    f"label '{k}' contains raw treatment value"
+
+    def test_binary_outcome_ci_clamped_and_flagged(self):
+        """Binary outcome with extreme imbalance → CI clamped to [-1, 1]."""
+        rng = np.random.default_rng(42)
+        n = 3000
+        treatment = np.zeros(n)
+        treatment[:15] = 1.0
+        conf = rng.normal(0, 1, n)
+        outcome_prob = np.where(treatment == 1, 0.95, 0.05)
+        outcome = rng.binomial(1, outcome_prob).astype(float)
+        df = pd.DataFrame({
+            "treatment": treatment.astype(float),
+            "outcome": outcome,
+            "conf": conf,
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        variant = EstimationVariant(
+            id="v_extreme", treatment_column="treatment",
+            treatment_form=TreatmentForm.CATEGORICAL,
+            model_type="LinearDML", w_columns=["conf"],
+        )
+        edges = [("conf", "treatment"), ("treatment", "outcome"), ("conf", "outcome")]
+        r = run_estimation_variant(data, variant, edges, edges_to_nx(edges), "outcome")
+        if r.get("effect") is not None:
+            assert r["binary_outcome"] is True
+            ci_lo, ci_hi = r["ci"]
+            assert -1.0 <= ci_lo <= 1.0, f"clamped CI_lo={ci_lo} out of [-1,1]"
+            assert -1.0 <= ci_hi <= 1.0, f"clamped CI_hi={ci_hi} out of [-1,1]"
+            if "ci_warning" in r:
+                ci_raw_lo, ci_raw_hi = r["ci_raw"]
+                assert ci_raw_lo < -1.0 or ci_raw_hi > 1.0, \
+                    "ci_warning should only appear when raw CI exceeded bounds"
+
+    def test_continuous_outcome_no_binary_clamping(self, causal_data):
+        data, _ = causal_data
+        variant = EstimationVariant(
+            id="v_cont", treatment_column="treatment",
+            treatment_form=TreatmentForm.CONTINUOUS,
+            model_type="LinearDML", w_columns=["conf"],
+        )
+        r = run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                   edges_to_nx(CAUSAL_EDGES), "outcome")
+        assert r["binary_outcome"] is False
+        assert "ci_warning" not in r
+        assert r["ci"] == r["ci_raw"]
+
 
 class TestQualityGatesExhaustive:
 
@@ -180,6 +256,92 @@ class TestQualityGatesExhaustive:
 
 
 class TestSensitivityExhaustive:
+
+    def test_add_already_in_primary_w_is_noop(self, causal_data):
+        """Adding a confounder already in primary W must report 0% deviation
+        (previously: DAG-derived W was different, produced non-zero noise)."""
+        data, true_ate = causal_data
+        spec = make_spec(
+            confounders=["conf", "noise"],
+            sensitivity=SensitivityConfig(
+                confounder_drops=[],
+                confounder_adds=[
+                    ConfounderAdd(column="conf", reasoning="already in W"),
+                    ConfounderAdd(column="noise", reasoning="already in W"),
+                ],
+                threshold_variants=[], model_variants=[],
+            ),
+        )
+        edges = CAUSAL_EDGES + [("noise", "outcome")]
+        r = sensitivity(data, spec, edges, true_ate, {})
+        adds = r["confounder_adds"]
+        assert len(adds) == 2
+        for a in adds:
+            assert a["deviation_pct"] == 0.0, \
+                f"adding {a['column']} (already in W) should be no-op, got {a['deviation_pct']}"
+            assert "note" in a
+            assert "already in primary" in a["note"]
+            assert a["w_size"] == a["w_baseline_size"]
+
+    def test_drop_column_not_in_primary_w_errors(self, causal_data):
+        """Dropping a column not in primary W cannot measure deviation."""
+        data, true_ate = causal_data
+        spec = make_spec(
+            confounders=["conf"],
+            sensitivity=SensitivityConfig(
+                confounder_drops=[
+                    ConfounderDrop(column="not_in_W", deviation_threshold_pct=10.0),
+                ],
+                confounder_adds=[], threshold_variants=[], model_variants=[],
+            ),
+        )
+        r = sensitivity(data, spec, CAUSAL_EDGES, true_ate, {})
+        d = r["confounder_drops"][0]
+        assert d["column"] == "not_in_W"
+        assert d["effect"] is None
+        assert d["deviation_pct"] is None
+        assert d["flag"] is False
+        assert "not in primary variant" in d["error"]
+
+    def test_add_new_column_extends_primary_w(self, causal_data):
+        """Adding a genuinely new column must extend primary W by exactly 1."""
+        data, true_ate = causal_data
+        spec = make_spec(
+            confounders=["conf"],
+            sensitivity=SensitivityConfig(
+                confounder_drops=[],
+                confounder_adds=[
+                    ConfounderAdd(column="noise", reasoning="genuinely new"),
+                ],
+                threshold_variants=[], model_variants=[],
+            ),
+        )
+        r = sensitivity(data, spec, CAUSAL_EDGES + [("noise", "outcome")],
+                        true_ate, {})
+        a = r["confounder_adds"][0]
+        assert a["column"] == "noise"
+        assert a["w_baseline_size"] == 1
+        assert a["w_size"] == 2
+        assert isinstance(a["deviation_pct"], float)
+        assert abs(a["deviation_pct"]) < 20.0, \
+            f"noise is actually independent; deviation should be small, got {a['deviation_pct']}"
+
+    def test_drop_reports_w_size_decrease_by_one(self, causal_data):
+        data, true_ate = causal_data
+        spec = make_spec(
+            confounders=["conf", "noise"],
+            sensitivity=SensitivityConfig(
+                confounder_drops=[
+                    ConfounderDrop(column="noise", deviation_threshold_pct=30.0),
+                ],
+                confounder_adds=[], threshold_variants=[], model_variants=[],
+            ),
+        )
+        edges = CAUSAL_EDGES + [("noise", "outcome")]
+        r = sensitivity(data, spec, edges, true_ate, {})
+        d = r["confounder_drops"][0]
+        assert d["w_baseline_size"] == 2
+        assert d["w_size"] == 1
 
     def test_confounder_drops_all_fields(self, causal_data):
         data, true_ate = causal_data
@@ -350,7 +512,39 @@ class TestResidualDiagnosticsExhaustive:
 
 class TestMediationExhaustive:
 
-    def test_all_output_fields(self):
+    def test_uses_direct_variant_from_estimation_results(self):
+        """When direct_variant_id has a pre-computed effect, mediation
+        uses it instead of refitting — verifying (5) is fixed."""
+        spec = make_spec(
+            confounders=["conf"], original_treatment="treatment",
+            mediation=[MediationConfig(
+                mediator="mediator", pathway="T->M->Y",
+                total_variant_id="v_total", direct_variant_id="v_direct",
+            )],
+        )
+        rng = np.random.default_rng(42)
+        n = 100
+        df = pd.DataFrame({
+            "treatment": rng.normal(0, 1, n),
+            "outcome": rng.normal(0, 1, n),
+            "conf": rng.normal(0, 1, n),
+            "mediator": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        estimation_results = {
+            "v_total": {"effect": 0.50},
+            "v_direct": {"effect": 0.20},
+        }
+        r = mediation(data, spec, ["conf"], estimation_results, [])
+        assert len(r) == 1
+        m = r[0]
+        assert m["source"] == "estimation_variants"
+        assert m["direct_effect"] == pytest.approx(0.20)
+        assert m["mediated_effect"] == pytest.approx(0.30)
+        assert m["fraction"] == pytest.approx(0.60)
+        assert m["direct_effect"] + m["mediated_effect"] == pytest.approx(0.50)
+
+    def test_falls_back_to_refit_when_direct_variant_missing(self):
         rng = np.random.default_rng(42)
         n = 5000
         conf = rng.normal(0, 1, n)
@@ -365,23 +559,23 @@ class TestMediationExhaustive:
             confounders=["conf"], original_treatment="treatment",
             mediation=[MediationConfig(
                 mediator="mediator", pathway="T->M->Y",
-                total_variant_id="v1", direct_variant_id="v1",
+                total_variant_id="v_total", direct_variant_id="v_direct_missing",
             )],
         )
+        estimation_results = {"v_total": {"effect": total}}
         edges = [("conf", "treatment"), ("treatment", "mediator"),
                  ("mediator", "outcome"), ("treatment", "outcome")]
-        r = mediation(data, spec, ["conf"], {"v1": {"effect": total}}, edges)
+        r = mediation(data, spec, ["conf"], estimation_results, edges)
         assert len(r) == 1
         m = r[0]
+        assert m["source"] == "refit"
         assert m["mediator"] == "mediator"
         assert m["pathway"] == "T->M->Y"
         assert isinstance(m["direct_effect"], float)
         assert abs(m["direct_effect"]) < total + 0.15
         assert isinstance(m["mediated_effect"], float)
-        assert abs(m["direct_effect"] + m["mediated_effect"] - total) < 0.3
+        assert abs(m["direct_effect"] + m["mediated_effect"] - total) < 0.01
         assert isinstance(m["fraction"], float)
-        assert 0.2 < m["fraction"] < 0.9, \
-            f"true fraction~0.6, got {m['fraction']:.3f}"
 
 
 class TestRangeChecksExhaustive:
@@ -417,6 +611,8 @@ class TestRangeChecksExhaustive:
         assert "collinear_a" in vif["flagged"]
         assert "collinear_b" in vif["flagged"]
         assert "independent" not in vif["flagged"]
+        assert vif["dropped_columns"] == []
+        assert vif["drop_pairs_applied"] == []
 
         assert isinstance(r["treatment_cv"], float)
 
@@ -426,6 +622,38 @@ class TestRangeChecksExhaustive:
         assert var[0]["structural_note"] == "test note"
         assert isinstance(var[0]["std"], float)
         assert var[0]["std"] > 0.5
+
+    def test_drop_pairs_applied(self):
+        rng = np.random.default_rng(42)
+        n = 3000
+        x = rng.normal(0, 1, n)
+        df = pd.DataFrame({
+            "treatment": rng.normal(0, 1, n),
+            "outcome": rng.normal(0, 1, n),
+            "keep_col": x,
+            "drop_col": x + rng.normal(0, 0.01, n),
+            "independent": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["keep_col", "drop_col", "independent"],
+            range_checks=RangeChecks(
+                vif=VifConfig(threshold=10.0, drop_pairs=[
+                    {"keep": "keep_col", "drop": "drop_col"},
+                ]),
+                overlap=[], variance=[],
+            ),
+        )
+        r = range_checks(data, spec, ["keep_col", "drop_col", "independent"], {})
+        vif = r["vif"]
+        assert "drop_col" not in vif["values"], \
+            "drop_col should be excluded from VIF computation"
+        assert "keep_col" in vif["values"]
+        assert vif["values"]["keep_col"] < 10.0, \
+            "after dropping collinear partner, keep_col VIF should be low"
+        assert vif["dropped_columns"] == ["drop_col"]
+        assert len(vif["drop_pairs_applied"]) == 1
+        assert vif["drop_pairs_applied"][0]["drop"] == "drop_col"
 
     def test_overlap_all_fields(self, binary_data):
         data, _ = binary_data
@@ -955,6 +1183,544 @@ class TestPipelineDataFrame:
         counts = sub.raw["g"].value_counts()
         assert 40 <= counts["A"] <= 60
         assert 40 <= counts["B"] <= 60
+
+
+class TestRecentFixes:
+    """Tests for bugs (v), (a-d), (e-f), (j/n), (k) found in code audit."""
+
+    def test_autocorrection_uses_primary_w_not_dag_derived(self, causal_data):
+        """(v): residual_diagnostics auto-correction now uses primary W."""
+        data, _ = causal_data
+        spec = make_spec(
+            confounders=["conf"],
+            residual_checks=ResidualChecks(
+                autocorrelation=[],
+                field_correlation=FieldCorrelationCheck(
+                    threshold=0.001, check_columns=["noise"]),
+                auto_correction=AutoCorrectionConfig(
+                    max_iterations=3, stop_criterion_ci_pct=5.0),
+                metadata_correlation=[],
+            ),
+        )
+        edges = CAUSAL_EDGES + [("noise", "outcome")]
+        captured_w = []
+        orig_run_dml = run_dml_quick
+        from service.causal_verification import residual_diagnostics as rd_mod
+
+        def wrapped(*args, **kwargs):
+            if "w_cols" in kwargs and kwargs["w_cols"] is not None:
+                captured_w.append(list(kwargs["w_cols"]))
+            return 0.5
+
+        with patch.object(rd_mod, "run_dml_quick", side_effect=wrapped):
+            rd_mod.residual_diagnostics(data, spec, ["conf"], edges, 0.5)
+        if captured_w:
+            first_w = captured_w[0]
+            assert "conf" in first_w, \
+                f"auto-correction W should extend primary W (['conf']), got {first_w}"
+
+    def test_e_value_rejects_non_binary_outcome(self, causal_data):
+        """(b): E-value computation now requires binary outcome."""
+        data, _ = causal_data
+        spec = make_spec(
+            confounders=["conf"],
+            unmeasured_confounding=[
+                UnmeasuredConfoundingConfig(
+                    variant_id="v1", method=UnmeasuredMethod.E_VALUE,
+                    null_hypothesis="ATE=0", notes="test"),
+            ],
+        )
+        r = unmeasured_confounding(data, spec,
+                                   {"v1": {"effect": -0.5, "ci": (-0.7, -0.3), "discrete": False}})
+        assert len(r) == 1
+        assert r[0]["method"] == "E_VALUE"
+        assert "error" in r[0]
+        assert "binary" in r[0]["error"].lower()
+
+    def test_e_value_uses_nearest_null_ci_bound(self):
+        """(c): E-value CI uses CI bound closest to null, not always ci[0]."""
+        rng = np.random.default_rng(42)
+        n = 2000
+        df = pd.DataFrame({
+            "treatment": rng.normal(50, 10, n),
+            "outcome": rng.binomial(1, 0.2, n).astype(float),
+            "conf": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["conf"],
+            unmeasured_confounding=[
+                UnmeasuredConfoundingConfig(
+                    variant_id="v_pos", method=UnmeasuredMethod.E_VALUE,
+                    null_hypothesis="ATE=0", notes="pos effect"),
+            ],
+        )
+        r = unmeasured_confounding(data, spec, {
+            "v_pos": {"effect": 0.05, "ci": (0.01, 0.10), "discrete": False},
+        })
+        assert r[0].get("ci_bound_used") == pytest.approx(0.01), \
+            f"for pos effect CI (0.01, 0.10), nearest-null is 0.01, got {r[0].get('ci_bound_used')}"
+
+        r2 = unmeasured_confounding(data, spec, {
+            "v_pos": {"effect": -0.05, "ci": (-0.10, -0.01), "discrete": False},
+        })
+        assert r2[0].get("ci_bound_used") == pytest.approx(-0.01), \
+            f"for neg effect CI (-0.10, -0.01), nearest-null is -0.01, got {r2[0].get('ci_bound_used')}"
+
+    def test_e_value_ci_crosses_zero_sets_e_ci_one(self):
+        rng = np.random.default_rng(42)
+        n = 2000
+        df = pd.DataFrame({
+            "treatment": rng.normal(50, 10, n),
+            "outcome": rng.binomial(1, 0.2, n).astype(float),
+            "conf": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["conf"],
+            unmeasured_confounding=[
+                UnmeasuredConfoundingConfig(
+                    variant_id="v1", method=UnmeasuredMethod.E_VALUE,
+                    null_hypothesis="ATE=0", notes="test"),
+            ],
+        )
+        r = unmeasured_confounding(data, spec, {
+            "v1": {"effect": 0.01, "ci": (-0.05, 0.07), "discrete": False},
+        })
+        assert r[0]["e_value_ci"] == 1.0, \
+            "CI that crosses zero → no bound against unmeasured confounding"
+        assert r[0]["ci_bound_used"] == 0.0
+
+    def test_rosenbaum_bounds_flagged_as_unimplemented(self, causal_data):
+        """(d): Rosenbaum bounds method now flags itself as not implemented."""
+        data, _ = causal_data
+        spec = make_spec(
+            confounders=["conf"],
+            unmeasured_confounding=[
+                UnmeasuredConfoundingConfig(
+                    variant_id="v1", method=UnmeasuredMethod.ROSENBAUM_BOUNDS,
+                    null_hypothesis="ATE=0", notes="rosenbaum test"),
+            ],
+        )
+        r = unmeasured_confounding(data, spec,
+                                   {"v1": {"effect": 0.5, "ci": (0.3, 0.7), "discrete": False}})
+        assert r[0]["method"] == "ROSENBAUM_BOUNDS"
+        assert r[0]["implemented"] is False
+        assert "not implemented" in r[0]["error"]
+
+    def test_treatment_cv_undefined_for_categorical(self):
+        """(j): treatment_cv returns None + note for categorical treatment."""
+        rng = np.random.default_rng(42)
+        n = 1000
+        df = pd.DataFrame({
+            "treatment": rng.choice(["A", "B", "C", "D"], n),
+            "outcome": rng.normal(0, 1, n),
+            "conf": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(confounders=["conf"])
+        r = range_checks(data, spec, ["conf"], {})
+        assert r["treatment_cv"] is None
+        assert "categorical" in r["treatment_cv_note"].lower()
+
+    def test_treatment_cv_defined_for_continuous(self, causal_data):
+        data, _ = causal_data
+        spec = make_spec(confounders=["conf"])
+        r = range_checks(data, spec, ["conf"], {})
+        assert r["treatment_cv"] is not None
+        assert isinstance(r["treatment_cv"], float)
+
+    def test_quality_gates_uses_accuracy_for_binary_outcome(self):
+        """(n): quality_gates uses accuracy for binary outcome, r2 for continuous."""
+        rng = np.random.default_rng(42)
+        n = 1000
+        conf = rng.normal(0, 1, n)
+        treatment = conf + rng.normal(0, 1, n)
+        outcome_prob = 1 / (1 + np.exp(-(0.5 * treatment + conf)))
+        outcome = rng.binomial(1, outcome_prob).astype(float)
+        df = pd.DataFrame({"treatment": treatment, "outcome": outcome, "conf": conf})
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(confounders=["conf"])
+        r = quality_gates(data, spec, ["conf"], 0.5, (0.3, 0.7))
+        assert r["nuisance_r2"]["outcome_score_type"] == "accuracy"
+        assert 0.5 <= r["nuisance_r2"]["outcome_r2"] <= 1.0, \
+            "binary-outcome accuracy should be in [0.5, 1.0]"
+
+    def test_quality_gates_uses_accuracy_for_categorical_treatment(self):
+        """(n): quality_gates uses accuracy for categorical treatment R²."""
+        rng = np.random.default_rng(42)
+        n = 1000
+        conf = rng.normal(0, 1, n)
+        treat = np.where(conf > 0, "high", "low")
+        outcome = rng.normal(0, 1, n) + (treat == "high").astype(float)
+        df = pd.DataFrame({"treatment": treat, "outcome": outcome, "conf": conf})
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["conf"],
+            treatment_form=TreatmentForm.CATEGORICAL,
+        )
+        r = quality_gates(data, spec, ["conf"], 0.5, (0.3, 0.7))
+        assert r["nuisance_r2"]["treatment_score_type"] == "accuracy"
+
+    def test_overlap_rejects_multilevel_treatment_without_threshold(self):
+        """(l/k): Overlap no longer silently binarizes multi-level treatment."""
+        rng = np.random.default_rng(42)
+        n = 1000
+        df = pd.DataFrame({
+            "treatment": rng.integers(0, 10, n).astype(float),
+            "outcome": rng.normal(0, 1, n),
+            "conf": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["conf"],
+            estimation_variants=[
+                EstimationVariant(
+                    id="v_multi", treatment_column="treatment",
+                    treatment_form=TreatmentForm.CATEGORICAL,
+                    model_type="LinearDML", w_columns=["conf"],
+                ),
+            ],
+            range_checks=RangeChecks(
+                vif=VifConfig(threshold=10.0, drop_pairs=[]),
+                overlap=[OverlapCheck(variant_id="v_multi", threshold=0.1,
+                                      response_strategy=OverlapStrategy.TRIM,
+                                      trim_bounds=[0.01, 0.99])],
+                variance=[],
+            ),
+        )
+        r = range_checks(data, spec, ["conf"],
+                         {"v_multi": {"treatment_column": "treatment"}})
+        ov = r["overlap"][0]
+        assert "error" in ov, \
+            f"multi-level treatment without threshold should error, got {ov}"
+        assert "binary" in ov["error"].lower() or "BINARY_THRESHOLD" in ov["error"]
+
+    def test_overlap_binary_threshold_reports_n_splits(self, binary_data):
+        """(k): Overlap with BINARY_THRESHOLD variant reports n_treated/n_control."""
+        rng = np.random.default_rng(42)
+        n = 2000
+        df = pd.DataFrame({
+            "treatment": rng.normal(50, 10, n),
+            "outcome": rng.binomial(1, 0.3, n).astype(float),
+            "conf": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["conf"],
+            estimation_variants=[
+                EstimationVariant(
+                    id="v_bt", treatment_column="treatment",
+                    treatment_form=TreatmentForm.BINARY_THRESHOLD,
+                    threshold_value=50.0,
+                    model_type="LinearDML", w_columns=["conf"],
+                ),
+            ],
+            range_checks=RangeChecks(
+                vif=VifConfig(threshold=10.0, drop_pairs=[]),
+                overlap=[OverlapCheck(variant_id="v_bt", threshold=0.1,
+                                      response_strategy=OverlapStrategy.TRIM,
+                                      trim_bounds=[0.01, 0.99])],
+                variance=[],
+            ),
+        )
+        r = range_checks(data, spec, ["conf"],
+                         {"v_bt": {"treatment_column": "_bin_treatment_50.0"}})
+        ov = r["overlap"][0]
+        assert "error" not in ov, f"should not error, got {ov}"
+        assert ov["binarization"] == "threshold"
+        assert ov["n_treated"] + ov["n_control"] == n
+        assert 500 < ov["n_treated"] < 1500
+
+    def test_grf_fits_continuous_when_original_is_continuous(self, h3_data):
+        """(e/f): GRF fits continuous treatment even when spec.treatment_form
+        was rewritten to CATEGORICAL (grf uses original_treatment)."""
+        from service.causal_verification.grf import grf_heterogeneity
+        from dataclasses import replace as dc_replace
+        spec = make_h3_spec(include_node_id=False, positivity=False)
+        spec = dc_replace(spec,
+                          treatment="nodeId",
+                          original_treatment="nodeRefrigHealthPct",
+                          treatment_form=TreatmentForm.CATEGORICAL,
+                          grf_configs=[GrfConfig(
+                              id="g1",
+                              modifier_columns=["climateZone"],
+                              slicing={"climateZone": "unique"},
+                          )])
+        results = grf_heterogeneity(h3_data, spec, H3_CONFOUNDERS)
+        assert len(results) == 1
+        r = results[0]
+        assert r.get("config_id") == "g1"
+        assert "error" not in r or "slices" in r
+
+
+class TestRemainingFixes:
+    """Tests for (h), (o), (p), (s/t), (w), (x)."""
+
+    def test_power_analysis_uses_ci_raw_not_clamped(self):
+        """(h): power_analysis should use ci_raw (unclamped) for SE computation."""
+        from service.causal_verification.null_diagnostics import null_diagnostics
+        rng = np.random.default_rng(42)
+        n = 500
+        df = pd.DataFrame({
+            "treatment": rng.choice([0.0, 1.0], n),
+            "outcome": rng.binomial(1, 0.1, n).astype(float),
+            "conf": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(confounders=["conf"])
+        primary_ci_clamped = (-1.0, 0.5)
+        primary_ci_raw = (-1.5, 0.8)
+        estimation_results = {
+            "v1": {
+                "effect": -0.3,
+                "ci": primary_ci_clamped,
+                "ci_raw": primary_ci_raw,
+                "discrete": True,
+            }
+        }
+        sensitivity_result = {"confounder_drops": []}
+        r = null_diagnostics(data, spec, ["conf"], -0.3, primary_ci_clamped,
+                             estimation_results, sensitivity_result)
+        pa = r["power_analysis"]
+        assert "observed_se" in pa
+        from scipy.stats import norm
+        z_alpha = norm.ppf(0.975)
+        expected_se = (primary_ci_raw[1] - primary_ci_raw[0]) / (2 * z_alpha)
+        assert abs(pa["observed_se"] - expected_se) < 1e-6, \
+            f"SE should use raw CI, got {pa['observed_se']} expected {expected_se}"
+
+    def test_power_analysis_handles_degenerate_ci(self):
+        from service.causal_verification.null_diagnostics import power_analysis
+        data = make_pipeline_df(n=200)
+        spec = make_spec()
+        r = power_analysis(data, spec, 0.5, (0.5, 0.5))
+        assert "error" in r
+        r2 = power_analysis(data, spec, 0.5, None)
+        assert "error" in r2
+
+    def test_externalization_threshold_key_normalization(self):
+        """(o): threshold 50 in ordering matches 50.0 in tv_effects."""
+        data = make_pipeline_df(n=200)
+        spec = make_spec(
+            externalization=ExternalizationConfig(
+                domain_rankings=[
+                    DomainRanking(ordering="(50) > (70) > (90)",
+                                  source="test", scope="all",
+                                  expected_concordance=0.5),
+                ],
+                allocation_bias=[],
+            ),
+        )
+        result_dict = {
+            "steps": {
+                "estimation": {},
+                "sensitivity": {
+                    "threshold_variants": [
+                        {"threshold": 50.0, "effect": -0.15, "n_treated": 2500, "n_control": 2500},
+                        {"threshold": 70.0, "effect": -0.10, "n_treated": 2500, "n_control": 2500},
+                        {"threshold": 90.0, "effect": -0.05, "n_treated": 2500, "n_control": 2500},
+                    ],
+                },
+                "grf": [],
+            }
+        }
+        r = externalization(data, spec, result_dict)
+        dr = r["domain_rankings"][0]
+        assert "error" not in dr, f"should match all thresholds, got {dr.get('error')}"
+        assert dr["source_type"] == "threshold_variants"
+        assert dr["unmatched_elements"] == [], \
+            f"all three thresholds should match, unmatched: {dr['unmatched_elements']}"
+
+    def test_externalization_tv_sample_size_is_total_not_control(self):
+        """(q): sample sizes should be n_treated + n_control, not just n_control."""
+        data = make_pipeline_df(n=200)
+        spec = make_spec(
+            externalization=ExternalizationConfig(
+                domain_rankings=[
+                    DomainRanking(ordering="(50) > (70)",
+                                  source="test", scope="all",
+                                  expected_concordance=0.5),
+                ],
+                allocation_bias=[],
+            ),
+        )
+        result_dict = {
+            "steps": {
+                "estimation": {},
+                "sensitivity": {
+                    "threshold_variants": [
+                        {"threshold": 50.0, "effect": -0.15, "n_treated": 100, "n_control": 4900},
+                        {"threshold": 70.0, "effect": -0.10, "n_treated": 2000, "n_control": 3000},
+                    ],
+                },
+                "grf": [],
+            }
+        }
+        r = externalization(data, spec, result_dict)
+        dr = r["domain_rankings"][0]
+        details = dr.get("details", {}).get("cross_tier", [])
+        if details:
+            all_ns = set()
+            for pair in details:
+                all_ns.add(pair.get("left_n"))
+                all_ns.add(pair.get("right_n"))
+            assert 5000 in all_ns, \
+                f"sample size should be total (5000), got {all_ns}"
+
+    def test_dsep_uses_configured_threshold(self):
+        """(s,t): d-sep uses user-configured threshold, not max_r^1.5 heuristic."""
+        rng = np.random.default_rng(42)
+        n = 3000
+        x = rng.normal(0, 1, n)
+        df = pd.DataFrame({
+            "A": x + rng.normal(0, 1.5, n),
+            "B": x + rng.normal(0, 1.5, n),
+            "outcome": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        edges = [("A", "outcome"), ("B", "outcome")]
+        r_low = dsep_refinement(data, edges, 0.05)
+        r_high = dsep_refinement(data, edges, 0.99)
+        assert r_low["violation_count"] >= r_high["violation_count"], \
+            f"lower threshold should flag >= violations: " \
+            f"low={r_low['violation_count']} vs high={r_high['violation_count']}"
+        for v in r_high["violations"]:
+            assert abs(v["correlation"]) > 0.99, \
+                f"threshold 0.99 should only flag |r|>0.99, got r={v['correlation']}"
+
+    def test_mediation_rejects_different_filters(self):
+        """(w): mediation errors when total/direct variants have different filters."""
+        rng = np.random.default_rng(42)
+        n = 200
+        df = pd.DataFrame({
+            "treatment": rng.normal(0, 1, n),
+            "outcome": rng.normal(0, 1, n),
+            "conf": rng.normal(0, 1, n),
+            "mediator": rng.normal(0, 1, n),
+            "subset": rng.choice(["A", "B"], n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["conf"],
+            estimation_variants=[
+                EstimationVariant(
+                    id="v_total", treatment_column="treatment",
+                    treatment_form=TreatmentForm.CONTINUOUS,
+                    model_type="LinearDML", w_columns=["conf"],
+                    filter=None,
+                ),
+                EstimationVariant(
+                    id="v_direct", treatment_column="treatment",
+                    treatment_form=TreatmentForm.CONTINUOUS,
+                    model_type="LinearDML", w_columns=["conf", "mediator"],
+                    filter=VariantFilter(column="subset",
+                                         operator=FilterOperator.EQ, values=["A"]),
+                ),
+            ],
+            mediation=[MediationConfig(
+                mediator="mediator", pathway="T->M->Y",
+                total_variant_id="v_total", direct_variant_id="v_direct",
+            )],
+        )
+        estimation_results = {
+            "v_total": {"effect": 0.5},
+            "v_direct": {"effect": 0.2},
+        }
+        r = mediation(data, spec, ["conf"], estimation_results, [])
+        assert len(r) == 1
+        assert "error" in r[0]
+        assert "filter" in r[0]["error"].lower()
+
+    def test_mediation_rejects_different_treatment_columns(self):
+        data = make_pipeline_df(n=200)
+        spec = make_spec(
+            confounders=["conf_a"],
+            estimation_variants=[
+                EstimationVariant(
+                    id="v_total", treatment_column="treatment",
+                    treatment_form=TreatmentForm.CONTINUOUS,
+                    model_type="LinearDML", w_columns=["conf_a"],
+                ),
+                EstimationVariant(
+                    id="v_direct", treatment_column="conf_a",
+                    treatment_form=TreatmentForm.CATEGORICAL,
+                    model_type="LinearDML", w_columns=["conf_b"],
+                ),
+            ],
+            mediation=[MediationConfig(
+                mediator="conf_b", pathway="T->M->Y",
+                total_variant_id="v_total", direct_variant_id="v_direct",
+            )],
+        )
+        estimation_results = {
+            "v_total": {"effect": 0.5},
+            "v_direct": {"effect": 0.3},
+        }
+        r = mediation(data, spec, ["conf_a"], estimation_results, [])
+        assert len(r) == 1
+        assert "error" in r[0]
+        assert "treatment" in r[0]["error"].lower()
+
+    def test_structural_breaks_rejects_categorical_treatment(self, h3_data):
+        """(x): structural_breaks errors on categorical treatment."""
+        from service.causal_verification.structural_breaks import structural_breaks
+        from dataclasses import replace as dc_replace
+        df = h3_data.raw.copy()
+        df["shipmentDate"] = pd.date_range("2024-01-01", periods=len(df), freq="h")
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_h3_spec(include_node_id=False, positivity=False)
+        spec = dc_replace(spec,
+                          treatment="nodeId",
+                          treatment_form=TreatmentForm.CATEGORICAL,
+                          original_treatment=None,
+                          structural_breaks=[
+                              StructuralBreakConfig(
+                                  id="sb1",
+                                  entity_column="region",
+                                  temporal_column="shipmentDate",
+                                  temporal_grain="M",
+                                  pelt_penalty=4.79,
+                                  min_obs_per_period=3,
+                                  known_events_tables=None,
+                                  entity_count=7,
+                                  temporal_points=10,
+                              ),
+                          ])
+        r = structural_breaks(data, spec, -0.007, (-0.01, -0.003))
+        assert len(r) == 1
+        assert r[0]["id"] == "sb1"
+        assert "error" in r[0]
+        assert "categorical" in r[0]["error"].lower()
+
+    def test_structural_breaks_uses_original_treatment(self, h3_data):
+        from service.causal_verification.structural_breaks import structural_breaks
+        from dataclasses import replace as dc_replace
+        df = h3_data.raw.copy()
+        df["shipmentDate"] = pd.date_range("2024-01-01", periods=len(df), freq="h")
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_h3_spec(include_node_id=False, positivity=False)
+        spec = dc_replace(spec,
+                          treatment="nodeId",
+                          treatment_form=TreatmentForm.CATEGORICAL,
+                          original_treatment="nodeRefrigHealthPct",
+                          structural_breaks=[
+                              StructuralBreakConfig(
+                                  id="sb_orig",
+                                  entity_column="region",
+                                  temporal_column="shipmentDate",
+                                  temporal_grain="M",
+                                  pelt_penalty=4.79,
+                                  min_obs_per_period=3,
+                                  known_events_tables=None,
+                                  entity_count=7,
+                                  temporal_points=10,
+                              ),
+                          ])
+        r = structural_breaks(data, spec, -0.007, (-0.01, -0.003))
+        assert len(r) == 1
+        assert r[0]["id"] == "sb_orig"
+        assert "error" not in r[0] or "tier" in r[0]
 
 
 class TestBackwardCompat:

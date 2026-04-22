@@ -143,6 +143,14 @@ rates, distributions. Consult first for cheap initial data understanding
 before spending query budget on any "what does this column look like"
 question.
 
+## Spec validation
+
+### validatePipelineSpec
+Checks the final PipelineSpec against a comprehensive schema.
+This tool is a mandatory last step before your final output.
+It requires a structured input and will return detailed error messages if any required field is missing or misformatted.
+Use it to ensure your pipeline configuration is complete and correctly structured before submission.
+
 <tool_usage_strategy>
 PARALLELIZE aggressively. Many parameterization decisions are independent
 and can be resolved in a single tool call round:
@@ -1131,7 +1139,7 @@ SECTION 7: OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════════════
 
 <output_format>
-Write your output as structured natural language organized by the
+Write your output as structured natural language (not necsessarily yaml-formatted) organized by the
 pipeline sections above. For each section:
 
 1. State your reasoning (brief — WHY this value, not a narrative)

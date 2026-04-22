@@ -83,7 +83,7 @@ class AiChatRunner {
     void compileH3() throws Exception {
         //noinspection ConstantValue
         if (true) {
-            var res = durableRuntime.submit("runner-compile-h3-2", new JobSpec(
+            var res = durableRuntime.submit("runner-compile-h3-3", new JobSpec(
                 "agentJp",
                 "runCompilePhaseH3"
             ));

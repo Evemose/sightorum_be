@@ -2,8 +2,11 @@ package com.rorm.ml.restate;
 
 import com.rorm.DurableFuture;
 import com.rorm.StepJournal;
+import com.rorm.ml.restate.RestateDurableFuture.Delegated;
+import com.rorm.ml.restate.RestateDurableFuture.Resolved;
 import dev.restate.sdk.ObjectContext;
 import dev.restate.sdk.common.StateKey;
+import lombok.SneakyThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,10 +44,10 @@ public class RestateStepJournal implements StepJournal {
         var qualifiedName = qualifiedName(stepName);
         var cached = ctx.get(StateKey.of(qualifiedName, resultType));
         if (cached.isPresent()) {
-            return new RestateDurableFuture.Resolved<>(resultType.cast(cached.get()), UUID.randomUUID().toString());
+            return new Resolved<>(resultType.cast(cached.get()), UUID.randomUUID().toString());
         }
         var future = ctx.runAsync(qualifiedName, resultType, action::get);
-        return new RestateDurableFuture.Delegated<>(
+        return new Delegated<>(
             future.map(result -> {
                 ctx.set(StateKey.of(qualifiedName, resultType), result);
                 return result;
@@ -85,12 +88,7 @@ public class RestateStepJournal implements StepJournal {
         return run("random", UUID.class, UUID::randomUUID);
     }
 
-    @Override
-    public <T> DurableFuture<T> awakeable(Class<T> type) {
-        var awakeable = ctx.awakeable(type);
-        return new RestateDurableFuture.Delegated<>(awakeable, awakeable.id());
-    }
-
+    @SneakyThrows
     @Override
     public <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
         var qualifiedName = qualifiedName(stepName);
@@ -102,6 +100,12 @@ public class RestateStepJournal implements StepJournal {
         var result = ctx.run(qualifiedName, resultType, action::get);
         ctx.set(stateKey, result);
         return result;
+    }
+
+    @Override
+    public <T> DurableFuture<T> awakeable(Class<T> type) {
+        var awakeable = ctx.awakeable(type);
+        return new Delegated<>(awakeable, awakeable.id());
     }
 
     /**

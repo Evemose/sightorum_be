@@ -72,16 +72,29 @@ def eval_filter(df: pd.DataFrame, f: VariantFilter) -> "pd.Series[bool]":
 
 
 def run_dml_quick(data, treatment, outcome, dag: nx.DiGraph,
-                  discrete: bool = False) -> Optional[float]:
+                  discrete: bool = False,
+                  w_cols: Optional[list[str]] = None) -> Optional[float]:
+    """Quick DML estimate.
+
+    If ``w_cols`` is provided, uses it verbatim — caller is responsible for
+    ensuring it matches the semantic W they want to test. Otherwise derives
+    W from DAG predecessors (convenience path for refutations / d-sep tests).
+    """
     try:
-        w_cols = sorted(
-            ((set(dag.predecessors(treatment)) if dag.has_node(treatment) else set())
-             | (set(dag.predecessors(outcome)) if dag.has_node(outcome) else set()))
-            - {treatment, outcome}
-        )
-        w_cols = [c for c in w_cols if c in data.columns]
-        if not w_cols:
-            w_cols = [c for c in data.columns if c not in (treatment, outcome)]
+        if w_cols is None:
+            w_cols = sorted(
+                ((set(dag.predecessors(treatment)) if dag.has_node(treatment) else set())
+                 | (set(dag.predecessors(outcome)) if dag.has_node(outcome) else set()))
+                - {treatment, outcome}
+            )
+            w_cols = [c for c in w_cols if c in data.columns]
+            if not w_cols:
+                w_cols = [c for c in data.columns if c not in (treatment, outcome)]
+        else:
+            w_cols = [c for c in w_cols if c in data.columns]
+            if not w_cols:
+                logger.warning("run_dml_quick: empty w_cols after filtering")
+                return None
 
         enc = data.encoded
         Y = enc[outcome].values

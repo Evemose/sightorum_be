@@ -11,7 +11,16 @@ logger = logging.getLogger(__name__)
 def range_checks(data, spec, confounders, estimation_results, budget=None):
     result: dict[str, Any] = {}
 
-    vif_cols = confounders + [spec.treatment]
+    drop_set = set()
+    applied_drops = []
+    for dp in spec.range_checks.vif.drop_pairs:
+        drop_col = dp.get("drop")
+        keep_col = dp.get("keep")
+        if drop_col and drop_col in confounders:
+            drop_set.add(drop_col)
+            applied_drops.append({"keep": keep_col, "drop": drop_col})
+
+    vif_cols = [c for c in confounders if c not in drop_set] + [spec.treatment]
     X_vif = data.encoded[vif_cols].dropna().astype(float)
     X_vif_const = np.column_stack([np.ones(len(X_vif)), X_vif.values])
     vif_values = {}
@@ -28,26 +37,67 @@ def range_checks(data, spec, confounders, estimation_results, budget=None):
         "threshold": spec.range_checks.vif.threshold,
         "flagged": [col for col, v in vif_values.items()
                     if v is not None and v > spec.range_checks.vif.threshold],
+        "drop_pairs_applied": applied_drops,
+        "dropped_columns": sorted(drop_set),
     }
 
     t_enc = data.encoded[spec.treatment]
-    cv = float(t_enc.std() / t_enc.mean()) if t_enc.mean() != 0 else 0
-    result["treatment_cv"] = cv
+    is_categorical = spec.treatment in data.cat_columns
+    if is_categorical:
+        result["treatment_cv"] = None
+        result["treatment_cv_note"] = (
+            "CV undefined for categorical treatment — treatment column is "
+            "label-encoded integers where CV is an artifact of alphabetical "
+            "ordering, not a real coefficient of variation"
+        )
+    else:
+        mean = float(t_enc.mean())
+        if abs(mean) < 1e-10:
+            result["treatment_cv"] = None
+            result["treatment_cv_note"] = (
+                f"CV undefined: treatment mean ≈ 0 ({mean:.2e})"
+            )
+        else:
+            result["treatment_cv"] = float(t_enc.std() / mean)
+
+    variant_map = {v.id: v for v in spec.estimation_variants}
 
     overlaps = []
     for ov in spec.range_checks.overlap:
-        variant = estimation_results.get(ov.variant_id, {})
-        t_col = variant.get("treatment_column", spec.treatment)
+        variant_cfg = variant_map.get(ov.variant_id)
+        variant_res = estimation_results.get(ov.variant_id, {})
         try:
-            if t_col.startswith("_bin_") and t_col not in data.columns:
-                parts = t_col.split("_", 3)
-                src_col = parts[2] if len(parts) >= 3 else spec.treatment
-                threshold = float(parts[3]) if len(parts) >= 4 else 0
+            if variant_cfg is not None and \
+                    variant_cfg.treatment_form.value == "BINARY_THRESHOLD" and \
+                    variant_cfg.threshold_value is not None:
+                src_col = variant_cfg.treatment_column
+                threshold = float(variant_cfg.threshold_value)
+                if src_col not in data.encoded.columns:
+                    overlaps.append({"variant_id": ov.variant_id,
+                                     "error": f"source treatment column "
+                                              f"'{src_col}' not in data"})
+                    continue
                 binary = (data.encoded[src_col] > threshold).astype(int)
+                binarization = "threshold"
             else:
-                binary = data.encoded[t_col]
-            if binary.nunique() > 2:
-                binary = (binary > binary.median()).astype(int)
+                t_col = variant_res.get("treatment_column", spec.treatment)
+                if t_col not in data.encoded.columns:
+                    overlaps.append({"variant_id": ov.variant_id,
+                                     "error": f"treatment column '{t_col}' "
+                                              f"not in data"})
+                    continue
+                raw_binary = data.encoded[t_col]
+                if raw_binary.nunique() > 2:
+                    overlaps.append({
+                        "variant_id": ov.variant_id,
+                        "error": f"overlap check requires binary treatment "
+                                 f"but '{t_col}' has {int(raw_binary.nunique())} "
+                                 f"unique values — configure a BINARY_THRESHOLD "
+                                 f"variant or binarize explicitly",
+                    })
+                    continue
+                binary = raw_binary
+                binarization = "direct"
             if binary.nunique() < 2:
                 overlaps.append({"variant_id": ov.variant_id,
                                  "error": "treatment has < 2 classes after binarization"})
@@ -67,6 +117,9 @@ def range_checks(data, spec, confounders, estimation_results, budget=None):
                 "threshold": ov.threshold,
                 "flagged": overlap_val < ov.threshold,
                 "response_strategy": ov.response_strategy.value,
+                "binarization": binarization,
+                "n_treated": int(binary.sum()),
+                "n_control": int((1 - binary).sum()),
             })
         except Exception as e:
             overlaps.append({"variant_id": ov.variant_id, "error": str(e)})

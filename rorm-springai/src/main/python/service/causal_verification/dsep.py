@@ -35,10 +35,9 @@ def _run_dsep_tests(data, edges, all_nodes, threshold):
     for a, b, cond in implications:
         r = _test_ci(data, a, b, cond)
         buffer[(a, b, frozenset(cond))] = r
-    max_r = max((abs(r["correlation"]) for r in buffer.values()), default=0)
     violations, confirmed = [], []
     for (a, b, _), r in buffer.items():
-        if r["p_value"] < CI_ALPHA and abs(r["correlation"]) > max_r ** 1.5:
+        if r["p_value"] < CI_ALPHA and abs(r["correlation"]) > threshold:
             violations.append(r)
         else:
             confirmed.append(r)

@@ -60,7 +60,12 @@ public class CausalReexecutionTool {
             Run ID of the base run to re-execute against. Optional — when
             omitted, the current pipeline run from context is used (this is
             the normal mode inside compiler-sceptic review). Provide
-            explicitly only when re-executing a different or older run.""")
+            explicitly only when re-executing a different run then initial you were provided with.
+            
+            This is NOT hypothesis id, it is run id of the pipeline result,
+            and you should not specify it for initial rerun - it will be implicitly
+            resolved from context
+            """)
         @Nullable String runId,
 
         @ToolParam(description = """

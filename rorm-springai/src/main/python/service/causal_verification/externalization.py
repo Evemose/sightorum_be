@@ -25,9 +25,17 @@ def externalization(data, spec, pipeline_result):
             .get("sensitivity", {})
             .get("threshold_variants", [])):
         if tv.get("effect") is not None:
-            key = str(tv["threshold"])
-            tv_effects[key] = tv["effect"]
-            tv_sample_sizes[key] = tv.get("n_control", 0)
+            raw = tv["threshold"]
+            key_a = str(raw)
+            try:
+                num = float(raw)
+                key_b = str(int(num)) if num == int(num) else str(num)
+            except (TypeError, ValueError):
+                key_b = key_a
+            n_total = int(tv.get("n_treated", 0)) + int(tv.get("n_control", 0))
+            for k in {key_a, key_b}:
+                tv_effects[k] = tv["effect"]
+                tv_sample_sizes[k] = n_total
 
     rankings = []
     for dr in spec.externalization.domain_rankings:
@@ -61,11 +69,25 @@ def externalization(data, spec, pipeline_result):
             entry["source_type"] = "category_effects" if cat_effects else "grf_slices"
             if cat_effects:
                 col = spec.treatment
-                counts = data.raw[col].value_counts()
-                for label in cat_effects:
-                    val = label.split("=", 1)[1] if "=" in label else label
-                    if val in counts.index:
-                        sample_sizes[label] = int(counts[val])
+                if col in data.raw.columns:
+                    counts = data.raw[col].value_counts()
+                    for label in cat_effects:
+                        if "=" in label:
+                            val = label.split("=", 1)[1]
+                            if val in counts.index:
+                                sample_sizes[label] = int(counts[val])
+                            else:
+                                try:
+                                    num_val = float(val)
+                                    for idx in counts.index:
+                                        try:
+                                            if float(idx) == num_val:
+                                                sample_sizes[label] = int(counts[idx])
+                                                break
+                                        except (TypeError, ValueError):
+                                            continue
+                                except (TypeError, ValueError):
+                                    pass
 
         # FIX E8: flag when effects are empty (upstream breakage)
         if not effects:

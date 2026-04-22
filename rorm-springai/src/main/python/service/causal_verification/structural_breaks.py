@@ -11,25 +11,42 @@ def structural_breaks(data, spec, effect, ci):
         "_entity": data.raw[spec.structural_breaks[0].entity_column]
         if spec.structural_breaks else pd.Series(dtype="object"),
     })
+    sb_treatment = spec.original_treatment or spec.treatment
+    sb_treatment_categorical = sb_treatment in data.cat_columns
     results = []
     for sb in spec.structural_breaks:
         if sb.entity_column not in data.columns or sb.temporal_column not in data.columns:
             results.append({"id": sb.id, "error": "column not found"})
             continue
 
+        if sb_treatment_categorical:
+            results.append({
+                "id": sb.id,
+                "error": (
+                    f"structural breaks require numeric treatment to measure "
+                    f"treatment delta across break points; treatment "
+                    f"'{sb_treatment}' is categorical (aggregating integer "
+                    f"codes via mean produces a meaningless 'treatment level')"
+                ),
+            })
+            continue
+
         try:
+            if sb_treatment not in data.encoded.columns:
+                results.append({"id": sb.id, "error": f"treatment '{sb_treatment}' not in data"})
+                continue
             df_agg = pd.DataFrame({
                 sb.entity_column: data.raw[sb.entity_column],
                 "_period": pd.to_datetime(data.raw[sb.temporal_column]).dt.to_period(
                     sb.temporal_grain[0].upper()),
                 spec.outcome: data.encoded[spec.outcome],
-                spec.treatment: data.encoded[spec.treatment],
+                sb_treatment: data.encoded[sb_treatment],
             })
             agg = (
                 df_agg.groupby([sb.entity_column, "_period"])
                 .agg(
                     _rate=(spec.outcome, "mean"),
-                    _mean_t=(spec.treatment, "mean"),
+                    _mean_t=(sb_treatment, "mean"),
                     _n=(spec.outcome, "count"),
                 )
                 .reset_index()
