@@ -17,8 +17,11 @@ def null_diagnostics(data, spec, confounders, primary_effect, primary_ci,
     result: dict[str, Any] = {}
     result["absorption_curve"] = absorption_curve(
         data, spec, confounders, sensitivity_result, budget)
+    primary_res = estimation_results.get(
+        spec.estimation_variants[0].id, {}) if spec.estimation_variants else {}
+    primary_ci_raw = primary_res.get("ci_raw") or primary_ci
     result["power_analysis"] = power_analysis(
-        data, spec, primary_effect, primary_ci)
+        data, spec, primary_effect, primary_ci_raw)
     result["subpopulation_edges"] = subpopulation_edge_scan(
         estimation_results)
     return result
@@ -93,14 +96,22 @@ def absorption_curve(data, spec, confounders, sensitivity_result, budget=None,
 
 def power_analysis(data, spec, primary_effect, primary_ci):
     n = len(data)
+    n_levels = int(data.raw[spec.treatment].nunique())
+    base = {
+        "n_observations": n,
+        "n_treatment_levels": n_levels,
+        "observed_effect": float(primary_effect) if primary_effect else None,
+    }
+    if primary_ci is None:
+        return {**base, "error": "no CI available for power analysis"}
     ci_lo, ci_hi = primary_ci
+    if ci_hi <= ci_lo:
+        return {**base, "error": f"degenerate CI [{ci_lo}, {ci_hi}]"}
+
     z_alpha = norm.ppf(1 - CI_ALPHA / 2)
     z_beta = norm.ppf(0.80)
-
     se_obs = (ci_hi - ci_lo) / (2 * z_alpha)
     mde = (z_alpha + z_beta) * se_obs
-
-    n_levels = int(data.raw[spec.treatment].nunique())
 
     n_needed = None
     below_mde = None
@@ -110,11 +121,9 @@ def power_analysis(data, spec, primary_effect, primary_ci):
             n_needed = int(math.ceil(n * (mde / abs(primary_effect)) ** 2))
 
     return {
-        "n_observations": n,
-        "n_treatment_levels": n_levels,
+        **base,
         "observed_se": float(se_obs),
         "mde_80_power": float(mde),
-        "observed_effect": float(primary_effect) if primary_effect else None,
         "effect_below_mde": below_mde,
         "n_needed_for_observed_effect": n_needed,
     }

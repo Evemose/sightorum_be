@@ -14,6 +14,9 @@ def sensitivity(data, spec, refined_edges, primary_effect, estimation_results,
     discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
     protected = protected_columns or set()
 
+    primary_variant = spec.estimation_variants[0] if spec.estimation_variants else None
+    primary_w = list(primary_variant.w_columns) if primary_variant else []
+
     def _submit(fn):
         if pool_submit:
             return pool_submit(budget, fn)
@@ -26,11 +29,23 @@ def sensitivity(data, spec, refined_edges, primary_effect, estimation_results,
         return f
 
     def _run_drop(drop):
+        if drop.column not in primary_w:
+            return {
+                "column": drop.column,
+                "effect": None,
+                "deviation_pct": None,
+                "threshold_pct": drop.deviation_threshold_pct,
+                "flag": False,
+                "error": f"column '{drop.column}' not in primary variant's w_columns; "
+                         f"cannot measure drop deviation",
+            }
+        w_minus = [c for c in primary_w if c != drop.column]
         dag_v = edges_to_nx(
             [(s, d) for s, d in refined_edges
              if s != drop.column and d != drop.column]
         )
-        est = run_dml_quick(data, spec.treatment, spec.outcome, dag_v, discrete=discrete)
+        est = run_dml_quick(data, spec.treatment, spec.outcome, dag_v,
+                            discrete=discrete, w_cols=w_minus)
         deviation = (abs(est - primary_effect) / abs(primary_effect) * 100
                      if est is not None and primary_effect else None)
         return {
@@ -39,6 +54,8 @@ def sensitivity(data, spec, refined_edges, primary_effect, estimation_results,
             "deviation_pct": float(deviation) if deviation is not None else None,
             "threshold_pct": drop.deviation_threshold_pct,
             "flag": deviation is not None and deviation > drop.deviation_threshold_pct,
+            "w_size": len(w_minus),
+            "w_baseline_size": len(primary_w),
         }
 
     drop_futures = [
@@ -50,8 +67,21 @@ def sensitivity(data, spec, refined_edges, primary_effect, estimation_results,
     def _run_add(add):
         if add.column not in data.columns:
             return {"column": add.column, "error": "column not in data"}
+        if add.column in primary_w:
+            return {
+                "column": add.column,
+                "reasoning": add.reasoning,
+                "effect": float(primary_effect) if primary_effect is not None else None,
+                "deviation_pct": 0.0,
+                "note": "already in primary variant's w_columns; "
+                        "confounder_add is a no-op",
+                "w_size": len(primary_w),
+                "w_baseline_size": len(primary_w),
+            }
+        w_plus = primary_w + [add.column]
         dag_v = edges_to_nx(refined_edges + [(add.column, spec.outcome)])
-        est = run_dml_quick(data, spec.treatment, spec.outcome, dag_v, discrete=discrete)
+        est = run_dml_quick(data, spec.treatment, spec.outcome, dag_v,
+                            discrete=discrete, w_cols=w_plus)
         deviation = (abs(est - primary_effect) / abs(primary_effect) * 100
                      if est is not None and primary_effect else None)
         return {
@@ -59,6 +89,8 @@ def sensitivity(data, spec, refined_edges, primary_effect, estimation_results,
             "reasoning": add.reasoning,
             "effect": float(est) if est is not None else None,
             "deviation_pct": float(deviation) if deviation is not None else None,
+            "w_size": len(w_plus),
+            "w_baseline_size": len(primary_w),
         }
 
     add_futures = [

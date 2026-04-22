@@ -7,7 +7,6 @@ import com.anthropic.helpers.MessageAccumulator;
 import com.anthropic.models.messages.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.rorm.DurableFuture;
 import com.rorm.StepJournal;
 import com.rorm.ai.DeferredToolResult;
 import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
@@ -623,12 +622,16 @@ public class JournaledAnthropicChatModel implements ChatModel {
 
         if (!collector.isEmpty()) {
             log.info("Awaiting {} deferred tool results", collector.size());
-            DurableFuture.all(collector.values().toArray(DurableFuture[]::new)).await();
             for (int i = 0; i < results.size(); i++) {
                 var r = results.get(i);
                 var future = collector.get(toolCalls.get(i).id());
                 if (future != null) {
-                    results.set(i, new ToolCallResult(r.toolUseId(), future.await()));
+                    try {
+                        results.set(i, new ToolCallResult(r.toolUseId(), future.await()));
+                    } catch (Exception e) {
+                        log.error("Error awaiting deferred tool result for {}: {}", r.toolUseId(), e.getMessage());
+                        results.set(i, new ToolCallResult(r.toolUseId(), "{\"error\":\"Error awaiting deferred tool result: " + e.getMessage() + "\"}"));
+                    }
                 }
             }
         }

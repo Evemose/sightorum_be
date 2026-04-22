@@ -21,6 +21,19 @@ def grf_heterogeneity(data, spec, confounders, budget=None, checkpoint=None,
     if grf_treatment not in data.columns:
         grf_treatment = spec.treatment
 
+    # discrete flag must reflect grf_treatment's actual dtype, not the
+    # (possibly post-rewrite) spec.treatment_form. If treatment was
+    # coarsened from continuous → categorical, grf_treatment is still
+    # the continuous original, so GRF should fit it as continuous.
+    if grf_treatment in data.cat_columns:
+        grf_discrete = True
+    elif grf_treatment in data.raw.columns:
+        import pandas as _pd
+        grf_discrete = not _pd.api.types.is_numeric_dtype(data.raw[grf_treatment])
+    else:
+        grf_discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
+    confounders = [c for c in confounders if c != grf_treatment]
+
     def _fit_one_grf(cfg: GrfConfig) -> dict:
         try:
             lgbm_kw = budget.lgbm_defaults() if budget else LGBM_DEFAULTS
@@ -28,18 +41,17 @@ def grf_heterogeneity(data, spec, confounders, budget=None, checkpoint=None,
             grf_n_est = max(4, (grf_n_est // 4) * 4)
 
             fit_data = data
-            discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
             if budget and len(data) > 100_000:
                 rss = _rss_mb()
                 data_mb_val = _data_mb(data)
-                n_levels = data.raw[grf_treatment].nunique()
-                grf_mem_mult = 200 * n_levels if discrete else 200
+                n_levels = data.raw[grf_treatment].nunique() if grf_discrete else 1
+                grf_mem_mult = 200 * n_levels if grf_discrete else 200
                 projected = rss + data_mb_val * grf_mem_mult
                 target = budget.container_mb * 0.80
                 if projected > target:
                     safe_mb = max(0, target - rss) / grf_mem_mult
                     frac = min(1.0, safe_mb / data_mb_val) if data_mb_val > 0 else 1.0
-                    min_frac = (500 * n_levels) / len(data) if len(data) > 0 else 1.0
+                    min_frac = (500 * max(1, n_levels)) / len(data) if len(data) > 0 else 1.0
                     frac = max(min_frac, frac)
                     if frac < 1.0:
                         fit_data = data.stratified_subsample(grf_treatment, frac)
@@ -50,12 +62,11 @@ def grf_heterogeneity(data, spec, confounders, budget=None, checkpoint=None,
             T = enc[grf_treatment].values
             W = enc[confounders].values
 
-            discrete = spec.treatment_form != TreatmentForm.CONTINUOUS
-            model_t = LGBMClassifier(**lgbm_kw) if discrete else LGBMRegressor(**lgbm_kw)
+            model_t = LGBMClassifier(**lgbm_kw) if grf_discrete else LGBMRegressor(**lgbm_kw)
             grf = CausalForestDML(
                 model_y=LGBMRegressor(**lgbm_kw),
                 model_t=model_t,
-                discrete_treatment=discrete,
+                discrete_treatment=grf_discrete,
                 n_estimators=grf_n_est,
                 min_samples_leaf=GRF_MIN_LEAF,
                 random_state=RANDOM_STATE,

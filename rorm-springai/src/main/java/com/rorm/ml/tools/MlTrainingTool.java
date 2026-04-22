@@ -401,8 +401,7 @@ public class MlTrainingTool {
             });
             var future = journal.awakeable(JobEvent.class);
             completionHandler.register(jobId, future);
-            return DeferredToolResult.defer(toolContext,
-                future.map(event -> writeJson(event)));
+            return DeferredToolResult.defer(toolContext, future.map(this::writeJson));
 
         } catch (Exception e) {
             log.error("Failed to launch hyperparameter tuning", e);

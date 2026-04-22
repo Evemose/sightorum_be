@@ -106,10 +106,15 @@ def residual_diagnostics(data, spec, confounders, refined_edges, effect,
     if discrete and len(data) > 100_000:
         ac_data = data.stratified_subsample(spec.treatment, 100_000 / len(data))
 
+    primary_w = list(confounders)
+    accumulated_w = list(primary_w)
     for idx, c in enumerate(eligible[:ac_cfg.max_iterations]):
+        if c["column"] in accumulated_w:
+            continue
+        w_plus = accumulated_w + [c["column"]]
         dag_aug = edges_to_nx(refined_edges + [(c["column"], spec.outcome)])
         corrected = run_dml_quick(ac_data, spec.treatment, spec.outcome, dag_aug,
-                                  discrete=discrete)
+                                  discrete=discrete, w_cols=w_plus)
         if corrected is not None:
             delta_frac = (abs(corrected - corrected_value) / abs(corrected_value)
                           if corrected_value else 0)
@@ -138,7 +143,10 @@ def residual_diagnostics(data, spec, confounders, refined_edges, effect,
                 "original": float(corrected_value),
                 "corrected": float(corrected),
                 "delta_pct": float(delta_frac * 100),
+                "w_size": len(w_plus),
+                "w_baseline_size": len(primary_w),
             })
+            accumulated_w = w_plus
             if delta_frac * 100 < ac_cfg.stop_criterion_ci_pct:
                 break
             corrected_value = corrected
