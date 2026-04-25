@@ -4,11 +4,7 @@ import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.MemoryInclude;
 import com.rorm.ai.prompt.PromptPlaceholders;
-import com.rorm.ai.swarm.AgentModelConfig;
-import com.rorm.ai.swarm.DurableSwarmConfig;
-import com.rorm.ai.swarm.StepOutput;
-import com.rorm.ai.swarm.SwarmEventBus;
-import com.rorm.ai.swarm.SwarmStreamEvent;
+import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.agents.FirstLevelSwarmAgent;
 import com.rorm.ai.swarm.agents.SecondarySwarmAgent;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +32,10 @@ public class StepExecutorSupport {
                                      Class<T> responseType) {
         var kind = input.eventId().kind();
         eventBus.publish(input.runId(), new SwarmStreamEvent.AgentStarted(input.eventId(), kind));
-        var raw = streamRaw(input, agentConfig);
+        var effectiveConfig = input.systemPromptOverride() != null
+            ? agentConfig.withSystemPrompt(input.systemPromptOverride())
+            : agentConfig;
+        var raw = streamRaw(input, effectiveConfig);
         var dto = summarize(input, raw, responseType);
         eventBus.publish(input.runId(), new SwarmStreamEvent.AgentFinished(input.eventId(), kind, raw));
         return new StepOutput<>(input.eventId(), dto, raw);

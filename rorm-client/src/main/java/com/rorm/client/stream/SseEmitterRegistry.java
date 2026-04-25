@@ -93,13 +93,11 @@ public class SseEmitterRegistry {
             } catch (AsyncRequestNotUsableException e) {
                 log.debug("Client disconnected for topic {}: {}", topic, e.getMessage());
                 toRemove.add(wrapper);
-                cleanupEmitter(wrapper.emitter);
             } catch (IOException e) {
                 log.debug("Failed to send SSE event to topic {}: {}", topic, e.getMessage());
                 toRemove.add(wrapper);
-                cleanupEmitter(wrapper.emitter);
-            } catch (Exception e) {
-                log.warn("Unexpected error sending SSE event to topic {}: {}", topic, e.getMessage());
+            } catch (Throwable t) {
+                log.warn("Unexpected error sending SSE event to topic {}: {}", topic, t.getMessage());
                 toRemove.add(wrapper);
             }
         }
@@ -136,11 +134,31 @@ public class SseEmitterRegistry {
         for (var wrapper : list) {
             try {
                 wrapper.emitter.send(SseEmitter.event().name("complete").data(""));
-                wrapper.emitter.complete();
-            } catch (IOException e) {
-                log.debug("Error completing SSE emitter for topic {}: {}", topic, e.getMessage());
+            } catch (Throwable t) {
+                log.debug("Error sending complete event for topic {}: {}", topic, t.getMessage());
             }
+            cleanupEmitter(wrapper.emitter);
         }
+    }
+
+    /**
+     * Safely cleans up an emitter by completing it with error.
+     * Swallows any exceptions as the emitter might already be in an error state.
+     */
+    private void cleanupEmitter(SseEmitter emitter) {
+        try {
+            emitter.complete();
+        } catch (Throwable ignored) {
+            // Emitter might already be in error state, ignore
+        }
+    }
+
+    /**
+     * Checks if there are any active subscribers for a topic.
+     */
+    public boolean hasSubscribers(String topic) {
+        var list = emitters.get(topic);
+        return list != null && !list.isEmpty();
     }
 
     /**
@@ -155,33 +173,13 @@ public class SseEmitterRegistry {
         for (var wrapper : list) {
             try {
                 wrapper.emitter.send(SseEmitter.event().name("error").data(message));
-                wrapper.emitter.completeWithError(new RuntimeException(message));
-            } catch (IOException e) {
-                log.debug("Error sending error event for topic {}: {}", topic, e.getMessage());
+            } catch (Throwable t) {
+                log.debug("Error sending error event for topic {}: {}", topic, t.getMessage());
             }
+            cleanupEmitter(wrapper.emitter);
         }
 
         emitters.remove(topic);
-    }
-
-    /**
-     * Checks if there are any active subscribers for a topic.
-     */
-    public boolean hasSubscribers(String topic) {
-        var list = emitters.get(topic);
-        return list != null && !list.isEmpty();
-    }
-
-    /**
-     * Safely cleans up an emitter by completing it with error.
-     * Swallows any exceptions as the emitter might already be in an error state.
-     */
-    private void cleanupEmitter(SseEmitter emitter) {
-        try {
-            emitter.complete();
-        } catch (Exception _) {
-            // Emitter might already be in error state, ignore
-        }
     }
 
     /**
@@ -201,13 +199,11 @@ public class SseEmitterRegistry {
                 } catch (AsyncRequestNotUsableException e) {
                     log.debug("Client disconnected during heartbeat for topic {}", topic);
                     toRemove.add(wrapper);
-                    cleanupEmitter(wrapper.emitter);
                 } catch (IOException e) {
                     log.debug("Heartbeat failed for topic {}, removing emitter: {}", topic, e.getMessage());
                     toRemove.add(wrapper);
-                    cleanupEmitter(wrapper.emitter);
-                } catch (Exception e) {
-                    log.warn("Unexpected error during heartbeat for topic {}: {}", topic, e.getMessage());
+                } catch (Throwable t) {
+                    log.warn("Unexpected error during heartbeat for topic {}: {}", topic, t.getMessage());
                     toRemove.add(wrapper);
                 }
             }

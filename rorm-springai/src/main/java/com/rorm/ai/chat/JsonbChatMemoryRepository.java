@@ -34,7 +34,7 @@ public class JsonbChatMemoryRepository implements ChatMemoryRepository {
     @Override
     public List<Message> findByConversationId(String conversationId) {
         return jdbcTemplate.query(
-            "select message_type, payload from chat_memory where conversation_id = ? order by created_at",
+            "select message_type, payload from chat_memory where conversation_id = ? order by id",
             (rs, _) -> toMessage(rs.getString("message_type"), readPayload(rs.getString("payload"))),
             conversationId
         );

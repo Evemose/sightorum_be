@@ -2,6 +2,8 @@ package com.rorm.client.chat.tool;
 
 import com.rorm.ai.RormToolContext;
 import com.rorm.client.chat.AnalysisService;
+import com.rorm.client.chat.session.AnalysisKind;
+import com.rorm.client.chat.session.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 public class DescriptiveAnalysisTool {
 
     private final AnalysisService analysisService;
+    private final SessionService sessionService;
 
     @Tool(
         name = "startDescriptiveAnalysis",
@@ -31,9 +34,12 @@ public class DescriptiveAnalysisTool {
         ToolContext toolContext
     ) {
         var ctx = RormToolContext.from(toolContext);
+        var sessionId = (String) toolContext.getContext().get("sessionId");
         var runId = analysisService.startDescriptiveAnalysis(ctx.schema(), ctx.modelSpace(), query);
+        if (sessionId != null) {
+            sessionService.registerAnalysis(sessionId, runId, AnalysisKind.DESCRIPTIVE, query);
+        }
         return "Descriptive analysis started. Run ID: " + runId +
-               ". The user can follow progress at /datasets/" + ctx.schema() +
-               "/analysis/" + runId + "/stream (SSE endpoint).";
+               ". The user can follow progress at /research/" + runId + "/stream (SSE endpoint).";
     }
 }

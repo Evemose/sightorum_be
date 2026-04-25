@@ -79,7 +79,8 @@ def grf_heterogeneity(data, spec, confounders, budget=None, checkpoint=None,
                 if col not in fit_data.columns:
                     continue
                 col_vals = fit_data[col]
-                if method == "unique":
+                method_normalized = method.lower() if isinstance(method, str) else method
+                if method_normalized == "unique":
                     for val in sorted(col_vals.unique()):
                         mask = (col_vals == val).values
                         subset = cates[mask]
@@ -88,7 +89,7 @@ def grf_heterogeneity(data, spec, confounders, budget=None, checkpoint=None,
                             "std_cate": float(subset.std()),
                             "n": int(len(subset)),
                         }
-                elif method == "quartile":
+                elif method_normalized == "quartile":
                     q_col = pd.qcut(fit_data.raw[col], 4, duplicates="drop")
                     for q, grp_idx in fit_data.raw.groupby(q_col).groups.items():
                         positions = fit_data.raw.index.get_indexer(grp_idx)

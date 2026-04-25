@@ -1,5 +1,6 @@
 package com.rorm.client.chat.tool;
 
+import com.rorm.client.chat.session.SessionService;
 import com.rorm.client.import_.ImportJobService;
 import com.rorm.client.import_.dto.StartImportRequest;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.UUID;
 public class ImportTool {
 
     private final ImportJobService importJobService;
+    private final SessionService sessionService;
 
     @Tool(
         name = "startImport",
@@ -39,6 +41,10 @@ public class ImportTool {
         var request = new StartImportRequest(
             uploadId, targetSchema, chunkSize, Map.of(), List.of());
         var response = importJobService.startImport(request);
+        var sessionId = (String) toolContext.getContext().get("sessionId");
+        if (sessionId != null) {
+            sessionService.registerImport(sessionId, response.id().toString());
+        }
         return "Import started. Job ID: " + response.id() +
                ". Target schema: " + targetSchema +
                ". Track progress at /import/jobs/" + response.id() + "/stream";

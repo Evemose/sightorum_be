@@ -1,0 +1,1 @@
+Construct the advocate's case for the hypothesis using the materials in your system prompt. Follow the instructions in your role definition.

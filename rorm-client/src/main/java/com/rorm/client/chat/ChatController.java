@@ -1,6 +1,7 @@
 package com.rorm.client.chat;
 
 import com.rorm.client.chat.dto.ChatMessageRequest;
+import com.rorm.client.chat.session.SessionService;
 import com.rorm.client.stream.SseEmitterRegistry;
 import com.rorm.client.utils.WithSchema;
 import jakarta.validation.Valid;
@@ -11,8 +12,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.util.UUID;
-
 @Slf4j
 @RestController
 @RequestMapping("/datasets/{schema}/chat")
@@ -21,6 +20,7 @@ import java.util.UUID;
 public class ChatController {
 
     private final ChatService chatService;
+    private final SessionService sessionService;
     private final SseEmitterRegistry sseRegistry;
 
     @WithSchema("schema")
@@ -29,11 +29,12 @@ public class ChatController {
         @PathVariable String schema,
         @Valid @RequestBody ChatMessageRequest request
     ) {
-        var sessionId = request.sessionId() != null ? request.sessionId() : UUID.randomUUID().toString();
-        var topic = ChatService.chatTopic(sessionId);
+        var sessionId = request.sessionId() != null ? request.sessionId() : SessionService.newId();
+        var session = sessionService.findOrCreate(sessionId, schema);
+        var topic = ChatService.chatTopic(session.getPrimaryChatId());
         var emitter = sseRegistry.register(topic, null);
-        chatService.streamResponse(schema, sessionId, request.message());
-        log.info("Chat started: schema={}, sessionId={}", schema, sessionId);
+        chatService.streamResponse(schema, session.getId(), session.getPrimaryChatId(), request.message());
+        log.info("Chat message: schema={}, sessionId={}", schema, session.getId());
         return emitter;
     }
 
@@ -43,7 +44,8 @@ public class ChatController {
         @PathVariable String sessionId,
         @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId
     ) {
+        var session = sessionService.get(sessionId);
         log.info("Chat SSE reconnect: schema={}, sessionId={}, lastEventId={}", schema, sessionId, lastEventId);
-        return sseRegistry.register(ChatService.chatTopic(sessionId), lastEventId);
+        return sseRegistry.register(ChatService.chatTopic(session.getPrimaryChatId()), lastEventId);
     }
 }

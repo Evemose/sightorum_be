@@ -1723,6 +1723,265 @@ class TestRemainingFixes:
         assert "error" not in r[0] or "tier" in r[0]
 
 
+class TestFilterDeserialization:
+    """Tests for VariantFilter.from_dict robustness — production KeyError fix."""
+
+    def test_leaf_filter_basic(self):
+        f = VariantFilter.from_dict({
+            "column": "region", "operator": "IN", "values": ["A", "B"]
+        })
+        assert f.column == "region"
+        assert f.operator == FilterOperator.IN
+        assert f.values == ["A", "B"]
+
+    def test_and_lowercase_jsonconvention(self):
+        """Compiler-generated specs use lowercase 'and'/'or'/'not'."""
+        f = VariantFilter.from_dict({
+            "and": [
+                {"column": "vehicleRefrigModel", "operator": "IN",
+                 "values": ["Daikin_RKN", "Thermo_King_Advancer_A400"]},
+            ]
+        })
+        assert f.and_filters is not None
+        assert len(f.and_filters) == 1
+        assert f.and_filters[0].column == "vehicleRefrigModel"
+        assert f.and_filters[0].operator == FilterOperator.IN
+        assert f.and_filters[0].values == ["Daikin_RKN", "Thermo_King_Advancer_A400"]
+
+    def test_or_lowercase(self):
+        f = VariantFilter.from_dict({
+            "or": [
+                {"column": "a", "operator": "EQ", "values": [1]},
+                {"column": "b", "operator": "EQ", "values": [2]},
+            ]
+        })
+        assert f.or_filters is not None
+        assert len(f.or_filters) == 2
+
+    def test_not_lowercase(self):
+        f = VariantFilter.from_dict({
+            "not": {"column": "a", "operator": "EQ", "values": [1]},
+        })
+        assert f.not_filter is not None
+        assert f.not_filter.column == "a"
+
+    def test_v4_production_shape(self):
+        """Exact filter shape from production V4 variant that crashed."""
+        from dto.causal_verification_request import EstimationVariant as EV
+        v = EV.from_dict({
+            "id": "V4",
+            "treatment_column": "vehicleRefrigModel",
+            "treatment_form": "CATEGORICAL",
+            "model_type": "LinearDML",
+            "w_columns": ["ambientTempAtArrivalC"],
+            "reference_category": "Thermo_King_Advancer_A400",
+            "threshold_value": None,
+            "filter": {
+                "and": [
+                    {"column": "vehicleRefrigModel", "operator": "IN",
+                     "values": ["Daikin_RKN", "Thermo_King_Advancer_A400"]}
+                ]
+            },
+            "notes": "Extreme contrast",
+        })
+        assert v.id == "V4"
+        assert v.filter is not None
+        assert v.filter.and_filters is not None
+        assert len(v.filter.and_filters) == 1
+        leaf = v.filter.and_filters[0]
+        assert leaf.column == "vehicleRefrigModel"
+        assert leaf.operator == FilterOperator.IN
+        assert "Daikin_RKN" in leaf.values
+
+    def test_and_uppercase(self):
+        f = VariantFilter.from_dict({
+            "AND": [
+                {"column": "a", "operator": "EQ", "values": [1]},
+                {"column": "b", "operator": "GT", "values": [0]},
+            ]
+        })
+        assert f.and_filters is not None
+        assert len(f.and_filters) == 2
+        assert f.and_filters[0].column == "a"
+
+    def test_asdict_roundtrip(self):
+        from dataclasses import asdict
+        original = VariantFilter(and_filters=[
+            VariantFilter(column="region", operator=FilterOperator.IN, values=["A"]),
+            VariantFilter(column="year", operator=FilterOperator.GT, values=[2020]),
+        ])
+        as_d = asdict(original)
+        rebuilt = VariantFilter.from_dict(as_d)
+        assert rebuilt.and_filters is not None
+        assert len(rebuilt.and_filters) == 2
+        assert rebuilt.and_filters[0].column == "region"
+        assert rebuilt.and_filters[0].operator == FilterOperator.IN
+        assert rebuilt.and_filters[1].column == "year"
+
+    def test_nested_or_not_roundtrip(self):
+        from dataclasses import asdict
+        original = VariantFilter(not_filter=VariantFilter(or_filters=[
+            VariantFilter(column="x", operator=FilterOperator.LT, values=[5]),
+            VariantFilter(column="y", operator=FilterOperator.EQ, values=["a"]),
+        ]))
+        rebuilt = VariantFilter.from_dict(asdict(original))
+        assert rebuilt.not_filter is not None
+        assert rebuilt.not_filter.or_filters is not None
+        assert len(rebuilt.not_filter.or_filters) == 2
+
+    def test_empty_dict_errors_with_context(self):
+        with pytest.raises(ValueError, match="empty"):
+            VariantFilter.from_dict({})
+
+    def test_partial_leaf_errors_with_context(self):
+        with pytest.raises(ValueError, match="partial|missing"):
+            VariantFilter.from_dict({"column": "x", "operator": "IN"})
+
+    def test_non_dict_errors(self):
+        with pytest.raises(ValueError, match="expected dict"):
+            VariantFilter.from_dict("not a dict")
+        with pytest.raises(ValueError, match="expected dict"):
+            VariantFilter.from_dict(["A", "B"])
+
+    def test_estimation_variant_propagates_filter_error_with_id(self):
+        from dto.causal_verification_request import EstimationVariant as EV
+        with pytest.raises(ValueError) as exc:
+            EV.from_dict({
+                "id": "v_broken",
+                "treatment_column": "T",
+                "treatment_form": "CONTINUOUS",
+                "model_type": "LinearDML",
+                "w_columns": ["c1"],
+                "filter": {"operator": "IN"},
+            })
+        assert "v_broken" in str(exc.value)
+        assert "filter" in str(exc.value).lower()
+
+    def test_full_request_roundtrip_preserves_filter(self):
+        from dataclasses import asdict
+        from dto.causal_verification_request import CausalVerificationRequest
+        spec = make_spec(
+            estimation_variants=[
+                EstimationVariant(
+                    id="v1", treatment_column="treatment",
+                    treatment_form=TreatmentForm.CONTINUOUS,
+                    model_type="LinearDML", w_columns=["conf_a"],
+                    filter=VariantFilter(and_filters=[
+                        VariantFilter(column="conf_a", operator=FilterOperator.IN,
+                                      values=["A", "B"]),
+                        VariantFilter(column="conf_b", operator=FilterOperator.EQ,
+                                      values=["X"]),
+                    ]),
+                ),
+            ],
+        )
+        d = asdict(spec)
+        rebuilt = CausalVerificationRequest.from_dict(d)
+        v = rebuilt.estimation_variants[0]
+        assert v.id == "v1"
+        assert v.filter is not None
+        assert v.filter.and_filters is not None
+        assert len(v.filter.and_filters) == 2
+        assert v.filter.and_filters[0].column == "conf_a"
+
+
+class TestCaseInsensitiveEnumParsing:
+    """All str enums in DTOs accept any case for compiler robustness."""
+
+    def test_treatment_form_uppercase(self):
+        from dto.causal_verification_request import _parse_enum
+        assert _parse_enum(TreatmentForm, "CONTINUOUS") == TreatmentForm.CONTINUOUS
+        assert _parse_enum(TreatmentForm, "continuous") == TreatmentForm.CONTINUOUS
+        assert _parse_enum(TreatmentForm, "Continuous") == TreatmentForm.CONTINUOUS
+
+    def test_treatment_form_compound(self):
+        from dto.causal_verification_request import _parse_enum
+        assert _parse_enum(TreatmentForm, "BINARY_THRESHOLD") == TreatmentForm.BINARY_THRESHOLD
+        assert _parse_enum(TreatmentForm, "binary_threshold") == TreatmentForm.BINARY_THRESHOLD
+        assert _parse_enum(TreatmentForm, "Binary_Threshold") == TreatmentForm.BINARY_THRESHOLD
+
+    def test_filter_operator_any_case(self):
+        from dto.causal_verification_request import _parse_enum
+        for v in ("IN", "in", "In", "iN"):
+            assert _parse_enum(FilterOperator, v) == FilterOperator.IN
+
+    def test_refutation_type_any_case(self):
+        from dto.causal_verification_request import _parse_enum
+        assert _parse_enum(RefutationType, "PLACEBO") == RefutationType.PLACEBO
+        assert _parse_enum(RefutationType, "placebo") == RefutationType.PLACEBO
+        assert _parse_enum(RefutationType, "Random_Cause") == RefutationType.RANDOM_CAUSE
+
+    def test_unmeasured_method_any_case(self):
+        from dto.causal_verification_request import _parse_enum
+        assert _parse_enum(UnmeasuredMethod, "E_VALUE") == UnmeasuredMethod.E_VALUE
+        assert _parse_enum(UnmeasuredMethod, "e_value") == UnmeasuredMethod.E_VALUE
+        assert _parse_enum(UnmeasuredMethod, "rosenbaum_bounds") == UnmeasuredMethod.ROSENBAUM_BOUNDS
+
+    def test_overlap_strategy_any_case(self):
+        from dto.causal_verification_request import _parse_enum
+        assert _parse_enum(OverlapStrategy, "TRIM") == OverlapStrategy.TRIM
+        assert _parse_enum(OverlapStrategy, "trim") == OverlapStrategy.TRIM
+
+    def test_slicing_method_uppercase_accepted(self):
+        """SlicingMethod canonical is lowercase but compilers may emit uppercase."""
+        from dto.causal_verification_request import _parse_enum, SlicingMethod
+        assert _parse_enum(SlicingMethod, "unique") == SlicingMethod.UNIQUE
+        assert _parse_enum(SlicingMethod, "UNIQUE") == SlicingMethod.UNIQUE
+        assert _parse_enum(SlicingMethod, "Quartile") == SlicingMethod.QUARTILE
+
+    def test_invalid_value_lists_options(self):
+        from dto.causal_verification_request import _parse_enum
+        with pytest.raises(ValueError, match="Valid"):
+            _parse_enum(TreatmentForm, "NONLINEAR")
+
+    def test_grf_config_normalizes_slicing_method(self):
+        cfg = GrfConfig(id="g1", modifier_columns=["x"],
+                        slicing={"x": "QUARTILE"})
+        assert cfg.slicing["x"] == "quartile"
+        cfg2 = GrfConfig(id="g2", modifier_columns=["x"],
+                         slicing={"x": "Unique"})
+        assert cfg2.slicing["x"] == "unique"
+
+    def test_grf_config_from_dict_normalizes(self):
+        from dto.causal_verification_request import GrfConfig as GC
+        cfg = GC.from_dict({
+            "id": "g3",
+            "modifier_columns": ["a", "b"],
+            "slicing": {"a": "UNIQUE", "b": "Quartile"},
+        })
+        assert cfg.slicing == {"a": "unique", "b": "quartile"}
+
+    def test_estimation_variant_treatment_form_any_case(self):
+        from dto.causal_verification_request import EstimationVariant as EV
+        v = EV.from_dict({
+            "id": "v1",
+            "treatment_column": "T",
+            "treatment_form": "categorical",
+            "model_type": "LinearDML",
+            "w_columns": ["c1"],
+        })
+        assert v.treatment_form == TreatmentForm.CATEGORICAL
+
+    def test_filter_operator_lowercase_in_filter(self):
+        f = VariantFilter.from_dict({
+            "column": "x", "operator": "in", "values": [1, 2],
+        })
+        assert f.operator == FilterOperator.IN
+
+    def test_refutation_config_any_case(self):
+        from dto.causal_verification_request import RefutationConfig as RC
+        assert RC.from_dict({"type": "placebo"}).type == RefutationType.PLACEBO
+        assert RC.from_dict({"type": "Temporal_Placebo"}).type == RefutationType.TEMPORAL_PLACEBO
+
+    def test_overlap_check_any_case(self):
+        from dto.causal_verification_request import OverlapCheck as OC
+        oc = OC.from_dict({
+            "variant_id": "v1", "threshold": 0.1,
+            "response_strategy": "trim", "trim_bounds": [0.01, 0.99],
+        })
+        assert oc.response_strategy == OverlapStrategy.TRIM
+
+
 class TestBackwardCompat:
 
     def test_imports(self):

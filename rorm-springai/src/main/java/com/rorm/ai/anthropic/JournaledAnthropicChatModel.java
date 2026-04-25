@@ -121,22 +121,6 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return block.toParam();
     }
 
-    private static List<ContentBlockParam> toToolResultBlocks(
-        List<ToolCallResult> results, boolean cacheLastBlock, CacheControlEphemeral.Ttl cacheTtl
-    ) {
-        var blocks = new ArrayList<ContentBlockParam>(results.size());
-        for (int i = 0; i < results.size(); i++) {
-            var r = results.get(i);
-            var trBuilder = ToolResultBlockParam.builder()
-                .toolUseId(r.toolUseId()).content(r.content());
-            if (cacheLastBlock && i == results.size() - 1) {
-                trBuilder.cacheControl(CacheControlEphemeral.builder().ttl(cacheTtl).build());
-            }
-            blocks.add(ContentBlockParam.ofToolResult(trBuilder.build()));
-        }
-        return blocks;
-    }
-
     @Override
     public ChatResponse call(Prompt prompt) {
         return withObservation(prompt, observationCtx -> {
@@ -149,8 +133,9 @@ public class JournaledAnthropicChatModel implements ChatModel {
 
             for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
                 var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
-                var builder = paramsBuilder.toBuilder(prompt, strategy);
-                addToolRounds(builder, rounds, strategy);
+                var budget = new AnthropicParamsBuilder.CacheBreakpointBudget();
+                var builder = paramsBuilder.toBuilder(prompt, strategy, budget);
+                addToolRounds(builder, rounds, strategy, budget);
                 resolveModelForClient(builder, client, prompt.getOptions());
                 var params = builder.build();
                 var response = journal.run("llm-" + round, Message.class,
@@ -168,6 +153,30 @@ public class JournaledAnthropicChatModel implements ChatModel {
             }
             throw toolLoopExceeded();
         });
+    }
+
+    private void addToolRounds(
+        MessageCreateParams.Builder builder, List<ToolRound> rounds, CacheTTL strategy,
+        AnthropicParamsBuilder.CacheBreakpointBudget budget
+    ) {
+        for (int i = 0; i < rounds.size(); i++) {
+            var round = rounds.get(i);
+            var isLast = (i == rounds.size() - 1);
+            var blocks = isLast ? round.fullAssistantBlocks() : round.leanAssistantBlocks();
+            builder.addMessage(MessageParam.builder()
+                .role(MessageParam.Role.ASSISTANT)
+                .contentOfBlockParams(blocks)
+                .build());
+
+            var cacheBoundary = !isLast && (i == rounds.size() - 2);
+            var cacheTtl = strategy == CacheTTL.LONG
+                ? CacheControlEphemeral.Ttl.TTL_1H
+                : CacheControlEphemeral.Ttl.TTL_5M;
+            var cc = strategy != CacheTTL.NONE && cacheBoundary ? budget.tryClaim(cacheTtl) : null;
+
+            builder.addUserMessageOfBlockParams(
+                toToolResultBlocks(round.toolResults(), cc));
+        }
     }
 
     private CacheTTL computeCachingStrategy(
@@ -265,38 +274,32 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return StepJournal.DEFAULT;
     }
 
-    private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
-        var callbackMap = resolveToolCallbackMap(prompt.getOptions());
-        var toolCtx = resolveToolContext(prompt.getOptions());
-        var journal = resolveJournal(prompt.getOptions());
-        var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
-        var client = resolveClient(prompt.getOptions());
-        var rounds = new ArrayList<ToolRound>();
-
-        for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-            var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
-            var builder = paramsBuilder.toBuilder(prompt, strategy);
-            addToolRounds(builder, rounds, strategy);
-            resolveModelForClient(builder, client, prompt.getOptions());
-            var params = builder.build();
-            log.info("Calling {} with model={}", client == bedrockClient ? "bedrock" : "direct", params.model());
-            var executed = new boolean[]{false};
-            var message = journal.run("llm-stream-" + round, Message.class, () -> {
-                executed[0] = true;
-                return fixMissingToolInputs(streamRound(params, sink, client));
-            });
-            if (!executed[0]) {
-                emitCachedRound(message, sink);
-            }
-            if (!hasToolCalls(message, callbackMap)) {
-                emitCustomGenerations(message, rounds, sink);
-                sink.complete();
-                return;
-            }
-            var toolRound = buildToolRound(message, callbackMap, toolCtx);
-            rounds.add(toolRound);
-        }
-        sink.error(toolLoopExceeded());
+    private ToolRound buildToolRound(
+        Message response, Map<String, ToolCallback> callbackMap,
+        ToolContext toolContext
+    ) {
+        var fullBlocks = response.content().stream()
+            .map(JournaledAnthropicChatModel::toRequestBlock)
+            .toList();
+        var hasThinking = response.content().stream().anyMatch(ContentBlock::isThinking);
+        var leanBlocks = hasThinking
+            ? response.content().stream()
+            .filter(b -> !b.isThinking())
+            .map(JournaledAnthropicChatModel::toRequestBlock)
+            .toList()
+            : fullBlocks;
+        var calledTools = response.content().stream()
+            .filter(ContentBlock::isToolUse)
+            .map(b -> b.asToolUse().name())
+            .collect(Collectors.toSet());
+        var roundThinking = response.content().stream()
+            .filter(ContentBlock::isThinking)
+            .map(b -> b.asThinking().thinking())
+            .collect(Collectors.joining("\n"));
+        var roundServerToolCalls = extractServerToolCalls(response);
+        var toolResults = executeTools(response, callbackMap, toolContext);
+        return new ToolRound(fullBlocks, leanBlocks, toolResults, calledTools,
+            roundThinking, roundServerToolCalls);
     }
 
     private static UsageConsuming estimateUsage(MessageCreateParams params) {
@@ -381,28 +384,20 @@ public class JournaledAnthropicChatModel implements ChatModel {
         );
     }
 
-    private void addToolRounds(
-        MessageCreateParams.Builder builder, List<ToolRound> rounds, CacheTTL strategy
+    private static List<ContentBlockParam> toToolResultBlocks(
+        List<ToolCallResult> results, @Nullable CacheControlEphemeral lastBlockCacheControl
     ) {
-        for (int i = 0; i < rounds.size(); i++) {
-            var round = rounds.get(i);
-            var isLast = (i == rounds.size() - 1);
-            var blocks = isLast ? round.fullAssistantBlocks() : round.leanAssistantBlocks();
-            builder.addMessage(MessageParam.builder()
-                .role(MessageParam.Role.ASSISTANT)
-                .contentOfBlockParams(blocks)
-                .build());
-
-            // Apply caching based on strategy
-            var cacheBoundary = !isLast && (i == rounds.size() - 2);
-            var shouldCache = strategy != CacheTTL.NONE && cacheBoundary;
-            var cacheTtl = strategy == CacheTTL.LONG
-                ? CacheControlEphemeral.Ttl.TTL_1H
-                : CacheControlEphemeral.Ttl.TTL_5M;
-
-            builder.addUserMessageOfBlockParams(
-                toToolResultBlocks(round.toolResults(), shouldCache, cacheTtl));
+        var blocks = new ArrayList<ContentBlockParam>(results.size());
+        for (int i = 0; i < results.size(); i++) {
+            var r = results.get(i);
+            var trBuilder = ToolResultBlockParam.builder()
+                .toolUseId(r.toolUseId()).content(r.content());
+            if (lastBlockCacheControl != null && i == results.size() - 1) {
+                trBuilder.cacheControl(lastBlockCacheControl);
+            }
+            blocks.add(ContentBlockParam.ofToolResult(trBuilder.build()));
         }
+        return blocks;
     }
 
     private String safeToolInput(ToolUseBlockParam tu) {
@@ -427,26 +422,39 @@ public class JournaledAnthropicChatModel implements ChatModel {
             .orElse("unknown");
     }
 
-    private ToolRound buildToolRound(
-        Message response, Map<String, ToolCallback> callbackMap,
-        ToolContext toolContext
-    ) {
-        var fullBlocks = response.content().stream()
-            .map(JournaledAnthropicChatModel::toRequestBlock)
-            .toList();
-        var hasThinking = response.content().stream().anyMatch(ContentBlock::isThinking);
-        var leanBlocks = hasThinking
-            ? response.content().stream()
-            .filter(b -> !b.isThinking())
-            .map(JournaledAnthropicChatModel::toRequestBlock)
-            .toList()
-            : fullBlocks;
-        var calledTools = response.content().stream()
-            .filter(ContentBlock::isToolUse)
-            .map(b -> b.asToolUse().name())
-            .collect(Collectors.toSet());
-        var toolResults = executeTools(response, callbackMap, toolContext);
-        return new ToolRound(fullBlocks, leanBlocks, toolResults, calledTools);
+    private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
+        var callbackMap = resolveToolCallbackMap(prompt.getOptions());
+        var toolCtx = resolveToolContext(prompt.getOptions());
+        var journal = resolveJournal(prompt.getOptions());
+        var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
+        var client = resolveClient(prompt.getOptions());
+        var rounds = new ArrayList<ToolRound>();
+
+        for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+            var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
+            var budget = new AnthropicParamsBuilder.CacheBreakpointBudget();
+            var builder = paramsBuilder.toBuilder(prompt, strategy, budget);
+            addToolRounds(builder, rounds, strategy, budget);
+            resolveModelForClient(builder, client, prompt.getOptions());
+            var params = builder.build();
+            log.info("Calling {} with model={}", client == bedrockClient ? "bedrock" : "direct", params.model());
+            var executed = new boolean[]{false};
+            var message = journal.run("llm-stream-" + round, Message.class, () -> {
+                executed[0] = true;
+                return fixMissingToolInputs(streamRound(params, sink, client));
+            });
+            if (!executed[0]) {
+                emitCachedRound(message, sink);
+            }
+            if (!hasToolCalls(message, callbackMap)) {
+                emitCustomGenerations(message, rounds, sink);
+                sink.complete();
+                return;
+            }
+            var toolRound = buildToolRound(message, callbackMap, toolCtx);
+            rounds.add(toolRound);
+        }
+        sink.error(toolLoopExceeded());
     }
 
     private static IllegalStateException toolLoopExceeded() {
@@ -454,35 +462,28 @@ public class JournaledAnthropicChatModel implements ChatModel {
     }
 
     private void addCustomGenerations(
-        List<Generation> generations, String thinking,
-        List<ToolRound> rounds, List<Map<String, Object>> serverToolCalls
+        List<Generation> generations, String finalThinking,
+        List<ToolRound> rounds, List<Map<String, Object>> finalServerToolCalls
     ) {
+        // Emit the chronological "pre-final" tail. Each tool round is preceded by
+        // its own thinking and its own server-tool calls (web searches interleaved
+        // with reasoning inside the assistant message). The final turn's thinking
+        // and server tools are emitted after all rounds but still belong *before*
+        // the final assistant in replay order — ChatMemoryManager defers the
+        // slot-0 final assistant (placed there for Spring AI consumer API) to the
+        // end when persisting.
+        for (var round : rounds) {
+            addTurnEphemera(generations, round.thinking(), round.serverToolCalls());
+            generations.add(new ToolRoundGeneration(
+                buildRoundAssistantMessage(round), buildRoundToolResponse(round)));
+        }
+        addTurnEphemera(generations, finalThinking, finalServerToolCalls);
+    }
+
+    private void addTurnEphemera(List<Generation> generations, String thinking,
+                                 List<Map<String, Object>> serverToolCalls) {
         if (!thinking.isEmpty()) {
             generations.add(new ThinkingGeneration(thinking));
-        }
-        for (var round : rounds) {
-            var roundToolCalls = round.fullAssistantBlocks().stream()
-                .filter(ContentBlockParam::isToolUse)
-                .map(b -> {
-                    var tu = b.asToolUse();
-                    return new AssistantMessage.ToolCall(tu.id(), "function", tu.name(), safeToolInput(tu));
-                })
-                .toList();
-            var roundText = round.fullAssistantBlocks().stream()
-                .filter(ContentBlockParam::isText)
-                .map(b -> b.asText().text())
-                .collect(Collectors.joining("\n"));
-            var roundAssistant = AssistantMessage.builder()
-                .content(roundText).toolCalls(roundToolCalls).build();
-            var toolResponses = round.toolResults().stream()
-                .map(tr -> new ToolResponseMessage.ToolResponse(
-                    tr.toolUseId(),
-                    extractToolName(tr.toolUseId(), round),
-                    tr.content()
-                ))
-                .toList();
-            var toolResponseMsg = ToolResponseMessage.builder().responses(toolResponses).build();
-            generations.add(new ToolRoundGeneration(roundAssistant, toolResponseMsg));
         }
         for (var stc : serverToolCalls) {
             generations.add(new ServerToolGeneration(new com.rorm.ai.chat.ServerToolMessage(
@@ -491,6 +492,32 @@ public class JournaledAnthropicChatModel implements ChatModel {
                 (String) stc.get("outputJson")
             )));
         }
+    }
+
+    private AssistantMessage buildRoundAssistantMessage(ToolRound round) {
+        var roundToolCalls = round.fullAssistantBlocks().stream()
+            .filter(ContentBlockParam::isToolUse)
+            .map(b -> {
+                var tu = b.asToolUse();
+                return new AssistantMessage.ToolCall(tu.id(), "function", tu.name(), safeToolInput(tu));
+            })
+            .toList();
+        var roundText = round.fullAssistantBlocks().stream()
+            .filter(ContentBlockParam::isText)
+            .map(b -> b.asText().text())
+            .collect(Collectors.joining("\n"));
+        return AssistantMessage.builder().content(roundText).toolCalls(roundToolCalls).build();
+    }
+
+    private ToolResponseMessage buildRoundToolResponse(ToolRound round) {
+        var toolResponses = round.toolResults().stream()
+            .map(tr -> new ToolResponseMessage.ToolResponse(
+                tr.toolUseId(),
+                extractToolName(tr.toolUseId(), round),
+                tr.content()
+            ))
+            .toList();
+        return ToolResponseMessage.builder().responses(toolResponses).build();
     }
 
     private String toJson(Object value) {
@@ -800,5 +827,7 @@ public class JournaledAnthropicChatModel implements ChatModel {
         List<ContentBlockParam> fullAssistantBlocks,
         List<ContentBlockParam> leanAssistantBlocks,
         List<ToolCallResult> toolResults,
-        Set<String> calledToolNames) {}
+        Set<String> calledToolNames,
+        String thinking,
+        List<Map<String, Object>> serverToolCalls) {}
 }

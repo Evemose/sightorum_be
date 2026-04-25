@@ -58,7 +58,7 @@ class AiChatRunner {
                 "runGenPhase"
             ));
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(System.out, submit);
-            durableRuntime.submit("runner-compile-from-genphase-3", new JobSpec(
+            durableRuntime.submit("runner-compile-from-genphase-4", new JobSpec(
                 "agentJp",
                 "runCompilePipelineFromGen",
                 new Object[]{submit},
@@ -83,9 +83,21 @@ class AiChatRunner {
     void compileH3() throws Exception {
         //noinspection ConstantValue
         if (true) {
-            var res = durableRuntime.submit("runner-compile-h3-3", new JobSpec(
+            var res = durableRuntime.submit("runner-compile-h3-4", new JobSpec(
                 "agentJp",
                 "runCompilePhaseH3"
+            ));
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(System.out, res);
+        }
+    }
+
+    @Test
+    void standoffH3() throws Exception {
+        //noinspection ConstantValue
+        if (true) { // guard from accidental execution
+            var res = durableRuntime.submit("runner-standoff-h3-1", new JobSpec(
+                "agentJp",
+                "runStandoffH3"
             ));
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(System.out, res);
         }
@@ -130,6 +142,10 @@ class AiChatRunner {
         private NullPhase nullPhase;
         @Autowired
         private DescPhase descPhase;
+        @Autowired
+        private StandoffPhase standoffPhase;
+        @Autowired
+        private org.springframework.core.io.ResourceLoader resourceLoader;
         @Autowired
         private SwarmEventBus eventBus;
 
@@ -422,6 +438,20 @@ class AiChatRunner {
 
         public GenPhase.Output runGenPhase() {
             return withFormatter(runId -> genPhase.run(buildAnchor(buildInput(), buildFakeRecon()), runId));
+        }
+
+        @SneakyThrows
+        public StandoffPhase.Output runStandoffH3() {
+            var resource = resourceLoader.getResource(H3_WITH_SCEPTIC_LATEST_FILE_PATH);
+            CompilePhase.Output compile;
+            try (var in = resource.getInputStream()) {
+                compile = objectMapper.readValue(in, CompilePhase.Output.class);
+            }
+            var anchor = new AnchorContext(buildInput(), SAMPLE_ANCHOR, "containers", buildFakeRecon());
+            var gen = buildFakeGen();
+            var hypoCtx = new HypothesisContext(anchor, gen, "H3");
+            var pipeCtx = new PipelineContext(hypoCtx, compile);
+            return withFormatter(runId -> standoffPhase.run(pipeCtx, runId));
         }
 
     }
