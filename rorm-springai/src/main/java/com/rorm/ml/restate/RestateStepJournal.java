@@ -143,7 +143,8 @@ public class RestateStepJournal implements StepJournal {
             var branchOrdinal = new AtomicInteger(0);
             final var action = actions.get(i);
             results.add(ctx.runAsync(branchPrefix, resultType,
-                () -> ScopedValue.where(SCOPED_ORDINAL, branchOrdinal)
+                () -> ScopedValue.where(StepJournal.CURRENT, this)
+                    .where(SCOPED_ORDINAL, branchOrdinal)
                     .where(SCOPED_PREFIX, branchPrefix)
                     .call(action::get)));
         }

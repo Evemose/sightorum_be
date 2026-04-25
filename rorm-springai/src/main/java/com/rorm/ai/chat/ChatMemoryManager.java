@@ -75,7 +75,13 @@ public class ChatMemoryManager {
     }
 
     static List<Message> generationsToMessages(List<Generation> generations) {
+        // Producer emits chronologically: [finalAssistant (slot 0 for Spring AI
+        // consumer compatibility), then per-round {thinking?, serverTools*,
+        // toolRound}, then finalTurn {thinking?, serverTools*}]. We walk the list
+        // in order, emit messages as we go, and defer the slot-0 plain Generation
+        // (the final assistant) to the end — its conceptual chronological position.
         var messages = new ArrayList<Message>();
+        Message deferredFinalAssistant = null;
         for (var gen : generations) {
             switch (gen) {
                 case ThinkingGeneration tg -> messages.add(new ThinkingMessage(tg.getThinkingText()));
@@ -87,10 +93,13 @@ public class ChatMemoryManager {
                 default -> {
                     var output = gen.getOutput();
                     if (output.getText() != null && !output.getText().isEmpty()) {
-                        messages.add(output);
+                        deferredFinalAssistant = output;
                     }
                 }
             }
+        }
+        if (deferredFinalAssistant != null) {
+            messages.add(deferredFinalAssistant);
         }
         return messages;
     }

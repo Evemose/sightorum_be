@@ -14,7 +14,8 @@ import java.util.List;
 public record SwarmResult(
     ScoutAnalysisDTO scoutOutput,
     DomainResearchDTO domainResearch,
-    List<AnchorResult> anchorResults
+    List<AnchorResult> anchorResults,
+    @Nullable JudgeVerdictDTO judgeVerdict
 ) {
 
     /**
@@ -39,7 +40,9 @@ public record SwarmResult(
         PipelineSpecRequest compilerOutput,
         @Nullable JobEvent pipelineResult,
         @Nullable CompilerCorrectionDTO compilerScepticReview,
-        @Nullable ForensicDiagnosisDTO diagnosis
+        @Nullable ForensicDiagnosisDTO diagnosis,
+        @Nullable StandoffArgumentDTO advocate,
+        @Nullable StandoffArgumentDTO prosecutor
     ) {
     }
 }

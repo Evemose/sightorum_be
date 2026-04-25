@@ -5766,4 +5766,6 @@ public interface SampleRunLog {
         | e_value_primary | 1.16 (trivially confoundable) |
         | e_value_hot_zone | 2.01 (moderate robustness) |
         """);
+
+    String H3_WITH_SCEPTIC_LATEST_FILE_PATH = "classpath:h3_latest.json";
 }

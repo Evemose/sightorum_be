@@ -7,9 +7,41 @@ spec-driven causal inference execution.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
 
 from .requests import SQLDatasourceConfig
+
+_E = TypeVar("_E", bound=Enum)
+
+
+def _parse_enum(enum_cls: type[_E], value: Any) -> _E:
+    """Case-insensitive enum parsing.
+
+    Accepts the canonical value, .upper(), and .lower() variants so that
+    specs from compilers (which may use any case convention) parse without
+    spurious errors.
+    """
+    if isinstance(value, enum_cls):
+        return value
+    if not isinstance(value, str):
+        return enum_cls(value)
+    by_value = {m.value: m for m in enum_cls}
+    if value in by_value:
+        return by_value[value]
+    by_upper = {m.value.upper(): m for m in enum_cls}
+    if value.upper() in by_upper:
+        return by_upper[value.upper()]
+    by_lower = {m.value.lower(): m for m in enum_cls}
+    if value.lower() in by_lower:
+        return by_lower[value.lower()]
+    by_name_upper = {m.name.upper(): m for m in enum_cls}
+    if value.upper() in by_name_upper:
+        return by_name_upper[value.upper()]
+    valid = sorted(by_value.keys())
+    raise ValueError(
+        f"{enum_cls.__name__}: invalid value {value!r}. "
+        f"Valid (case-insensitive): {valid}"
+    )
 
 
 class TreatmentForm(str, Enum):
@@ -86,16 +118,55 @@ class VariantFilter:
 
     @classmethod
     def from_dict(cls, d: dict) -> "VariantFilter":
-        if "AND" in d:
+        if not isinstance(d, dict):
+            raise ValueError(
+                f"VariantFilter.from_dict expected dict, got {type(d).__name__}: {d!r}"
+            )
+        # Composite branches — accept uppercase ('AND'), lowercase ('and'),
+        # and asdict form ('and_filters') so specs from compilers, tests,
+        # and round-tripped checkpoints all work.
+        if d.get("AND") is not None:
             return cls(and_filters=[cls.from_dict(sub) for sub in d["AND"]])
-        if "OR" in d:
+        if d.get("and") is not None:
+            return cls(and_filters=[cls.from_dict(sub) for sub in d["and"]])
+        if d.get("and_filters") is not None:
+            return cls(and_filters=[cls.from_dict(sub) for sub in d["and_filters"]])
+        if d.get("OR") is not None:
             return cls(or_filters=[cls.from_dict(sub) for sub in d["OR"]])
-        if "NOT" in d:
+        if d.get("or") is not None:
+            return cls(or_filters=[cls.from_dict(sub) for sub in d["or"]])
+        if d.get("or_filters") is not None:
+            return cls(or_filters=[cls.from_dict(sub) for sub in d["or_filters"]])
+        if d.get("NOT") is not None:
             return cls(not_filter=cls.from_dict(d["NOT"]))
+        if d.get("not") is not None:
+            return cls(not_filter=cls.from_dict(d["not"]))
+        if d.get("not_filter") is not None:
+            return cls(not_filter=cls.from_dict(d["not_filter"]))
+
+        column = d.get("column")
+        operator = d.get("operator")
+        values = d.get("values")
+        if column is None and operator is None and values is None:
+            raise ValueError(
+                f"VariantFilter is empty: no AND/OR/NOT branches and no leaf "
+                f"fields (column/operator/values). Got keys {sorted(d.keys())}. "
+                f"Expected leaf {{'column','operator','values'}} OR composite "
+                f"{{'AND':[...]}} / {{'OR':[...]}} / {{'NOT':{{...}}}}. "
+                f"Dict: {d!r}"
+            )
+        missing = [k for k, v in
+                   (("column", column), ("operator", operator), ("values", values))
+                   if v is None]
+        if missing:
+            raise ValueError(
+                f"VariantFilter leaf is partial: missing or null {missing}. "
+                f"Got dict: {d!r}"
+            )
         return cls(
-            column=d["column"],
-            operator=FilterOperator(d["operator"]),
-            values=d["values"],
+            column=column,
+            operator=_parse_enum(FilterOperator, operator),
+            values=values,
         )
 
 
@@ -128,16 +199,23 @@ class EstimationVariant:
 
     @classmethod
     def from_dict(cls, d: dict) -> "EstimationVariant":
+        variant_id = d.get("id", "<unknown>")
+        try:
+            parsed_filter = VariantFilter.from_dict(d["filter"]) if d.get("filter") else None
+        except ValueError as e:
+            raise ValueError(
+                f"EstimationVariant '{variant_id}' has invalid filter: {e}"
+            ) from e
         return cls(
             id=d["id"],
             treatment_column=d["treatment_column"],
-            treatment_form=TreatmentForm(d["treatment_form"]),
+            treatment_form=_parse_enum(TreatmentForm, d["treatment_form"]),
             model_type=d["model_type"],
             w_columns=d["w_columns"],
             reference_category=d.get("reference_category"),
             threshold_value=d.get("threshold_value"),
             notes=d.get("notes"),
-            filter=VariantFilter.from_dict(d["filter"]) if d.get("filter") else None,
+            filter=parsed_filter,
         )
 
 
@@ -209,7 +287,7 @@ class SlicingConfig:
     @classmethod
     def from_dict(cls, d: dict) -> "SlicingConfig":
         items = list(d.items())
-        return cls(column=items[0][0], method=SlicingMethod(items[0][1]))
+        return cls(column=items[0][0], method=_parse_enum(SlicingMethod, items[0][1]))
 
 
 @dataclass
@@ -218,12 +296,24 @@ class GrfConfig:
     modifier_columns: list[str]
     slicing: dict[str, str]
 
+    def __post_init__(self):
+        normalized = {}
+        for col, method in (self.slicing or {}).items():
+            if isinstance(method, str):
+                try:
+                    normalized[col] = _parse_enum(SlicingMethod, method).value
+                except ValueError:
+                    normalized[col] = method
+            else:
+                normalized[col] = method
+        self.slicing = normalized
+
     @classmethod
     def from_dict(cls, d: dict) -> "GrfConfig":
         return cls(
             id=d["id"],
             modifier_columns=d["modifier_columns"],
-            slicing=d["slicing"],
+            slicing=d["slicing"] or {},
         )
 
 
@@ -233,7 +323,7 @@ class RefutationConfig:
 
     @classmethod
     def from_dict(cls, d: dict) -> "RefutationConfig":
-        return cls(type=RefutationType(d["type"]))
+        return cls(type=_parse_enum(RefutationType, d["type"]))
 
 
 @dataclass
@@ -407,7 +497,7 @@ class OverlapCheck:
         return cls(
             variant_id=d["variant_id"],
             threshold=d["threshold"],
-            response_strategy=OverlapStrategy(d["response_strategy"]),
+            response_strategy=_parse_enum(OverlapStrategy, d["response_strategy"]),
             trim_bounds=d.get("trim_bounds"),
         )
 
@@ -448,7 +538,7 @@ class UnmeasuredConfoundingConfig:
     def from_dict(cls, d: dict) -> "UnmeasuredConfoundingConfig":
         return cls(
             variant_id=d["variant_id"],
-            method=UnmeasuredMethod(d["method"]),
+            method=_parse_enum(UnmeasuredMethod, d["method"]),
             null_hypothesis=d["null_hypothesis"],
             notes=d["notes"],
         )
@@ -597,7 +687,7 @@ class CausalVerificationRequest:
             hypothesis_id=d["hypothesis_id"],
             treatment=d["treatment"],
             outcome=d["outcome"],
-            treatment_form=TreatmentForm(d["treatment_form"]),
+            treatment_form=_parse_enum(TreatmentForm, d["treatment_form"]),
             datasource=SQLDatasourceConfig.from_dict(d["datasource"]),
             expected_row_count=d["expected_row_count"],
             strip_columns=d.get("strip_columns") or [],

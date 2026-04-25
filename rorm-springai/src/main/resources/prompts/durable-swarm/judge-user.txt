@@ -1,0 +1,13 @@
+<metamodel>{{METAMODEL}}</metamodel>
+
+<domain_knowledge>{{DOMAIN_RESEARCH}}</domain_knowledge>
+
+<data_overview>{{CLUSTER_CONTEXT}}</data_overview>
+
+<user_query>{{USER_QUERY}}</user_query>
+
+<hypotheses>
+{{HYPOTHESES}}
+</hypotheses>
+
+Deliver your response to the user's query now.

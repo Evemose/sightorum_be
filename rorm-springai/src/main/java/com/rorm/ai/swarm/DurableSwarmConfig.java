@@ -24,6 +24,9 @@ public record DurableSwarmConfig(
     AgentModelConfig executorCompiler,
     AgentModelConfig compilerSceptic,
     AgentModelConfig forensicPathologist,
+    AgentModelConfig advocate,
+    AgentModelConfig prosecutor,
+    AgentModelConfig judge,
     AgentModelConfig descriptiveAgent,
     AgentModelConfig summarizer
 ) {
@@ -61,6 +64,12 @@ public record DurableSwarmConfig(
             }
         );
         forensicPathologist = withDefaults(forensicPathologist, "forensic-pathologist", ThinkingLevel.HIGH,
+            Set.of(), NO_CACHE);
+        advocate = withDefaults(advocate, "advocate", ThinkingLevel.HIGH,
+            Set.of(), SHORT_CACHE);
+        prosecutor = withDefaults(prosecutor, "prosecutor", ThinkingLevel.HIGH,
+            Set.of(), SHORT_CACHE);
+        judge = withDefaults(judge, "judge", ThinkingLevel.HIGH,
             Set.of(), NO_CACHE);
         descriptiveAgent = withDefaults(descriptiveAgent, "descriptive-agent", ThinkingLevel.HIGH,
             Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE).withModel("claude-sonnet-4-6");

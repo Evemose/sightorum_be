@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -35,25 +36,58 @@ public class AnthropicParamsBuilder {
 
     private static final long DEFAULT_MAX_TOKENS = 64_000L;
     static final String DEFAULT_MODEL = "claude-sonnet-4-6";
+    static final int MAX_CACHE_BREAKPOINTS = 4;
+    private static final Pattern INLINE_CACHE_MARKER = Pattern.compile("<--CACHE\\[(5m|1h)]-->");
 
     private final ObjectMapper objectMapper;
 
+    private static CacheControlEphemeral claim(CacheBreakpointBudget budget, CacheTTL cacheTTL) {
+        return switch (cacheTTL) {
+            case NONE -> null;
+            case SHORT -> budget.tryClaim(CacheControlEphemeral.Ttl.TTL_5M);
+            case LONG -> budget.tryClaim(CacheControlEphemeral.Ttl.TTL_1H);
+        };
+    }
+
+    private static List<TextBlockParam> splitWithInlineMarkers(
+        String text, CacheTTL trailingCacheTTL, CacheBreakpointBudget budget
+    ) {
+        var matcher = INLINE_CACHE_MARKER.matcher(text);
+        var blocks = new ArrayList<TextBlockParam>();
+        int last = 0;
+        while (matcher.find()) {
+            var chunk = text.substring(last, matcher.start());
+            last = matcher.end();
+            if (chunk.isEmpty()) {
+                continue;
+            }
+            var ttl = "5m".equals(matcher.group(1))
+                ? CacheControlEphemeral.Ttl.TTL_5M
+                : CacheControlEphemeral.Ttl.TTL_1H;
+            var b = TextBlockParam.builder().text(chunk);
+            var cc = budget.tryClaim(ttl);
+            if (cc != null) {
+                b.cacheControl(cc);
+            }
+            blocks.add(b.build());
+        }
+        var tail = text.substring(last);
+        if (!tail.isEmpty()) {
+            var tailBuilder = TextBlockParam.builder().text(tail);
+            var cc = claim(budget, trailingCacheTTL);
+            if (cc != null) {
+                tailBuilder.cacheControl(cc);
+            }
+            blocks.add(tailBuilder.build());
+        }
+        if (blocks.isEmpty()) {
+            blocks.add(TextBlockParam.builder().text(text).build());
+        }
+        return blocks;
+    }
+
     public MessageCreateParams.Builder toBuilder(Prompt prompt, CacheTTL cacheTTL) {
-        var options = prompt.getOptions();
-        var model = options != null && options.getModel() != null ? options.getModel() : DEFAULT_MODEL;
-        var maxTokens = options != null && options.getMaxTokens() != null
-            ? options.getMaxTokens().longValue() : DEFAULT_MAX_TOKENS;
-
-        var builder = MessageCreateParams.builder()
-            .model(model)
-            .maxTokens(maxTokens);
-
-        configureOutputConfig(builder, options);
-        configureSystemPrompt(builder, prompt, cacheTTL);
-        configureTools(builder, options, cacheTTL);
-        addMessages(builder, prompt, cacheTTL);
-
-        return builder;
+        return toBuilder(prompt, cacheTTL, new CacheBreakpointBudget());
     }
 
     private void configureOutputConfig(MessageCreateParams.Builder builder, ChatOptions options) {
@@ -100,21 +134,37 @@ public class AnthropicParamsBuilder {
         return JsonOutputFormat.builder().schema(schemaBuilder.build()).build();
     }
 
-    private void configureSystemPrompt(MessageCreateParams.Builder builder, Prompt prompt, CacheTTL cacheTTL) {
+    public MessageCreateParams.Builder toBuilder(Prompt prompt, CacheTTL cacheTTL, CacheBreakpointBudget budget) {
+        var options = prompt.getOptions();
+        var model = options != null && options.getModel() != null ? options.getModel() : DEFAULT_MODEL;
+        var maxTokens = options != null && options.getMaxTokens() != null
+            ? options.getMaxTokens().longValue() : DEFAULT_MAX_TOKENS;
+
+        var builder = MessageCreateParams.builder()
+            .model(model)
+            .maxTokens(maxTokens);
+
+        configureOutputConfig(builder, options);
+        configureSystemPrompt(builder, prompt, cacheTTL, budget);
+        configureTools(builder, options, cacheTTL, budget);
+        addMessages(builder, prompt, cacheTTL, budget);
+
+        return builder;
+    }
+
+    private void configureSystemPrompt(
+        MessageCreateParams.Builder builder, Prompt prompt, CacheTTL cacheTTL, CacheBreakpointBudget budget
+    ) {
         prompt.getInstructions().stream()
             .filter(SystemMessage.class::isInstance)
             .findFirst()
-            .ifPresent(sys -> {
-                var textBuilder = TextBlockParam.builder().text(sys.getText());
-                var cc = cacheControl(cacheTTL);
-                if (cc != null) {
-                    textBuilder.cacheControl(cc);
-                }
-                builder.systemOfTextBlockParams(List.of(textBuilder.build()));
-            });
+            .ifPresent(sys -> builder.systemOfTextBlockParams(
+                splitWithInlineMarkers(sys.getText(), cacheTTL, budget)));
     }
 
-    private void configureTools(MessageCreateParams.Builder builder, ChatOptions options, CacheTTL cacheTTL) {
+    private void configureTools(
+        MessageCreateParams.Builder builder, ChatOptions options, CacheTTL cacheTTL, CacheBreakpointBudget budget
+    ) {
         List<ToolCallback> callbacks = List.of();
         boolean webAccess = false;
 
@@ -129,19 +179,22 @@ public class AnthropicParamsBuilder {
             return;
         }
 
-        var cc = cacheControl(cacheTTL);
         var tools = callbacks.stream().map(this::toSdkTool)
             .sorted(java.util.Comparator.comparing(Tool::name))
             .toList();
         for (int i = 0; i < tools.size(); i++) {
             var tool = tools.get(i);
-            if (cc != null && i == tools.size() - 1 && !webAccess) {
-                tool = tool.toBuilder().cacheControl(cc).build();
+            if (i == tools.size() - 1 && !webAccess) {
+                var cc = claim(budget, cacheTTL);
+                if (cc != null) {
+                    tool = tool.toBuilder().cacheControl(cc).build();
+                }
             }
             builder.addTool(tool);
         }
         if (webAccess) {
             var webToolBuilder = WebSearchTool20260209.builder();
+            var cc = claim(budget, cacheTTL);
             if (cc != null) {
                 webToolBuilder.cacheControl(cc);
             }
@@ -150,21 +203,20 @@ public class AnthropicParamsBuilder {
         builder.toolChoice(ToolChoiceAuto.builder().build());
     }
 
-    private void addMessages(MessageCreateParams.Builder builder, Prompt prompt, CacheTTL cacheTTL) {
+    private void addMessages(
+        MessageCreateParams.Builder builder, Prompt prompt, CacheTTL cacheTTL, CacheBreakpointBudget budget
+    ) {
         var instructions = prompt.getInstructions();
-        var cc = cacheControl(cacheTTL);
         var firstUserMessageSeen = false;
         for (var message : instructions) {
             switch (message) {
                 case UserMessage user -> {
-                    var textBuilder = TextBlockParam.builder().text(user.getText());
-                    if (cc != null && !firstUserMessageSeen) {
-                        firstUserMessageSeen = true;
-                        textBuilder.cacheControl(cc);
-                    }
-                    builder.addUserMessageOfBlockParams(List.of(
-                        ContentBlockParam.ofText(textBuilder.build())
-                    ));
+                    var trailingTtl = !firstUserMessageSeen ? cacheTTL : CacheTTL.NONE;
+                    firstUserMessageSeen = true;
+                    var blocks = splitWithInlineMarkers(user.getText(), trailingTtl, budget).stream()
+                        .map(ContentBlockParam::ofText)
+                        .toList();
+                    builder.addUserMessageOfBlockParams(blocks);
                 }
                 case AssistantMessage assistant -> addAssistantMessage(builder, assistant);
                 case ToolResponseMessage toolResp -> addToolResponses(builder, toolResp);
@@ -176,12 +228,20 @@ public class AnthropicParamsBuilder {
         }
     }
 
-    private static CacheControlEphemeral cacheControl(CacheTTL cacheTTL) {
-        return switch (cacheTTL) {
-            case NONE -> null;
-            case SHORT -> CacheControlEphemeral.builder().ttl(CacheControlEphemeral.Ttl.TTL_5M).build();
-            case LONG -> CacheControlEphemeral.builder().ttl(CacheControlEphemeral.Ttl.TTL_1H).build();
-        };
+    public static final class CacheBreakpointBudget {
+        private int remaining = MAX_CACHE_BREAKPOINTS;
+
+        public CacheControlEphemeral tryClaim(CacheControlEphemeral.Ttl ttl) {
+            if (remaining <= 0) {
+                return null;
+            }
+            remaining--;
+            return CacheControlEphemeral.builder().ttl(ttl).build();
+        }
+
+        public int remaining() {
+            return remaining;
+        }
     }
 
     @SuppressWarnings("unchecked")

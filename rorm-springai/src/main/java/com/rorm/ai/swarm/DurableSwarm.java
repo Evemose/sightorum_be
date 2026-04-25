@@ -4,13 +4,7 @@ import com.rorm.StepJournal;
 import com.rorm.ai.swarm.SwarmResult.AnchorResult;
 import com.rorm.ai.swarm.SwarmResult.HypothesisResult;
 import com.rorm.ai.swarm.dto.HypothesisGenerationDTO.Hypothesis;
-import com.rorm.ai.swarm.phase.AnchorContext;
-import com.rorm.ai.swarm.phase.CompilePhase;
-import com.rorm.ai.swarm.phase.GenPhase;
-import com.rorm.ai.swarm.phase.HypothesisContext;
-import com.rorm.ai.swarm.phase.NullPhase;
-import com.rorm.ai.swarm.phase.PipelineContext;
-import com.rorm.ai.swarm.phase.ReconPhase;
+import com.rorm.ai.swarm.phase.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -37,6 +31,8 @@ public class DurableSwarm {
     private final GenPhase genPhase;
     private final CompilePhase compilePhase;
     private final NullPhase nullPhase;
+    private final StandoffPhase standoffPhase;
+    private final JudgePhase judgePhase;
     private final SwarmEventBus eventBus;
 
     public SwarmResult run(SwarmInput input) {
@@ -51,7 +47,8 @@ public class DurableSwarm {
                 input.anchors().stream()
                     .<Supplier<AnchorResult>>map(anchor -> () -> runAnchor(input, anchor, recon, runId))
                     .toList());
-            return new SwarmResult(recon.scout().dto(), recon.domain().dto(), anchorResults);
+            var judgeVerdict = judgePhase.run(input, recon, anchorResults, runId).dto();
+            return new SwarmResult(recon.scout().dto(), recon.domain().dto(), anchorResults, judgeVerdict);
         } finally {
             eventBus.complete(runId);
         }
@@ -74,12 +71,15 @@ public class DurableSwarm {
                                            Hypothesis h, String runId) {
         var hypoCtx = new HypothesisContext(anchorCtx, gen, h.title());
         var compile = compilePhase.run(hypoCtx, runId);
+        var pipeCtx = new PipelineContext(hypoCtx, compile);
         var diagnosis = needsNullPhase(compile.pipelineResult().metrics())
-            ? nullPhase.run(new PipelineContext(hypoCtx, compile), runId).diagnosis().dto()
+            ? nullPhase.run(pipeCtx, runId).diagnosis().dto()
             : null;
+        var standoff = standoffPhase.run(pipeCtx, runId);
         return new HypothesisResult(h.title(), gen.rebuttal().rawResponse(),
             compile.compiler().dto(), compile.pipelineResult(),
-            compile.scepticReview().dto(), diagnosis);
+            compile.scepticReview().dto(), diagnosis,
+            standoff.advocate().dto(), standoff.prosecutor().dto());
     }
 
     private static boolean needsNullPhase(Map<String, Object> metrics) {

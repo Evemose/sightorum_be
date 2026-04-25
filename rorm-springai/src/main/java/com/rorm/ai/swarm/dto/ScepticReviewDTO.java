@@ -112,9 +112,9 @@ public record ScepticReviewDTO(
             'C2' EVIDENCE_REUSE, 'C3' RARE_EVENT_OVERLAP,
             'C4' SATURATION_ASYMMETRY, 'C5' AGGREGATE_INCONSISTENCY.
             Ad-hoc patterns like 'threshold' are allowed when a check
-            does not fit the canonical set.""")
-        @JsonProperty(required = true)
-        String pattern,
+            does not fit the canonical set. May be null when the
+            pattern id is already encoded in planItem.""")
+        @Nullable String pattern,
 
         @JsonPropertyDescription("""
             Verdict: SUPPORTED | INCOMPLETE | OVERSTATED | CONDITIONAL
