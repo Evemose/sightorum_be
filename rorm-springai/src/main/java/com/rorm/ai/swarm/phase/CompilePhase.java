@@ -4,11 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
-import com.rorm.ai.swarm.ContentHash;
-import com.rorm.ai.swarm.DurableSwarmConfig;
-import com.rorm.ai.swarm.EventId;
-import com.rorm.ai.swarm.PhaseScope;
-import com.rorm.ai.swarm.StepOutput;
+import com.rorm.ai.ModelSpaceResolver;
+import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.dto.CompilerCorrectionDTO;
 import com.rorm.ai.swarm.executor.StepExecutionInput;
 import com.rorm.ml.MlTrainingService;
@@ -18,7 +15,6 @@ import com.rorm.ml.stream.JobEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -37,6 +33,7 @@ public class CompilePhase {
     private final DurableSwarmConfig config;
     private final PipelineSpecConverter pipelineSpecConverter;
     private final MlTrainingService mlService;
+    private final ModelSpaceResolver modelSpaceResolver;
 
     public Output run(HypothesisContext hypoCtx, String runId) {
         return ScopedValue.where(PhaseScope.RUN_ID, runId).call(() -> doRun(hypoCtx));
@@ -56,7 +53,7 @@ public class CompilePhase {
         var anchor = hypoCtx.anchor();
         var id = compilerId(hypoCtx);
         var input = new StepExecutionInput(id, compilerPrompt(hypoCtx),
-            anchor.swarm().schema(), anchor.swarm().modelSpace(), PhaseScope.runId());
+            anchor.swarm().schema(), PhaseScope.runId());
 
         log.info("[swarm] Compiling hypothesis {}", hypoCtx.hypothesisId());
         var sessionId = "compilerExecutor-" + id.token();
@@ -68,10 +65,24 @@ public class CompilePhase {
             )), COMPILER_REF);
     }
 
+    private EventId compilerId(HypothesisContext hypoCtx) {
+        return EventId.child("compiler",
+            ContentHash.of(Map.of(
+                "kind", "compiler",
+                "schema", hypoCtx.anchor().swarm().schema(),
+                "hypothesisSpec", hypoCtx.gen().rebuttal().rawResponse(),
+                "domainKnowledge", hypoCtx.anchor().recon().domain().rawResponse(),
+                "hypothesis", hypoCtx.hypothesisId()
+            )),
+            List.of(hypoCtx.gen().rebuttal().id()),
+            Map.of("anchor", hypoCtx.anchor().anchorTag(), "hypothesis", hypoCtx.hypothesisId()));
+    }
+
     private JobEvent submitPipeline(HypothesisContext hypoCtx, PipelineSpecRequest spec) {
         var swarm = hypoCtx.anchor().swarm();
+        var modelSpace = modelSpaceResolver.resolve(swarm.schema());
         var request = pipelineSpecConverter.convert(
-            spec, hypoCtx.hypothesisId() + " causal verification", swarm.modelSpace(), swarm.schema());
+            spec, hypoCtx.hypothesisId() + " causal verification", modelSpace, swarm.schema());
         return mlService.submit(request).await();
     }
 
@@ -89,7 +100,7 @@ public class CompilePhase {
             .replace("{{PIPELINE_SPEC}}", specJson)
             .replace("{{PIPELINE_OUTPUT}}", pipelineJson);
         var input = new StepExecutionInput(id, prompt,
-            anchor.swarm().schema(), anchor.swarm().modelSpace(), PhaseScope.runId(),
+            anchor.swarm().schema(), PhaseScope.runId(),
             null, null, Map.of("pipelineRunId", pipelineResult.jobId().toString()));
 
         log.info("[swarm] Compiler sceptic reviewing {}", hypoCtx.hypothesisId());
@@ -100,17 +111,6 @@ public class CompilePhase {
                 new Object[]{input},
                 new String[]{StepExecutionInput.class.getName()}
             )), SCEPTIC_REF);
-    }
-
-    private EventId compilerId(HypothesisContext hypoCtx) {
-        return EventId.child("compiler",
-            ContentHash.of(Map.of(
-                "kind", "compiler",
-                "schema", hypoCtx.anchor().swarm().schema(),
-                "hypothesisSpec", hypoCtx.gen().rebuttal().rawResponse(),
-                "domainKnowledge", hypoCtx.anchor().recon().domain().rawResponse())),
-            List.of(hypoCtx.gen().rebuttal().id()),
-            Map.of("anchor", hypoCtx.anchor().anchorTag(), "hypothesis", hypoCtx.hypothesisId()));
     }
 
     private String compilerPrompt(HypothesisContext hypoCtx) {

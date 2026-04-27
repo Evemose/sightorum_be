@@ -11,6 +11,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.support.RetrySynchronizationManager;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -30,7 +31,7 @@ public class AgentChatService implements AiChatService {
 
     @Override
     @SuppressWarnings("unchecked")
-    @Retryable(retryFor = {JsonProcessingException.class}, backoff = @Backoff(delay = 1))
+    @Retryable(retryFor = {JsonProcessingException.class}, backoff = @Backoff(delay = 1), maxAttempts = 10)
     public <T> T call(ChatRequest<T> request) {
         var response = buildSpec(request).call();
         if (request.responseType() == String.class) {
@@ -42,6 +43,7 @@ public class AgentChatService implements AiChatService {
     private ChatClient.ChatClientRequestSpec buildSpec(ChatRequest<?> request) {
         var callbacks = preprocessor.resolveToolCallbacks(request);
         var toolContext = preprocessor.buildToolContext(request);
+        var ctx = RetrySynchronizationManager.getContext();
 
         var options = AnthropicChatOptions.builder()
             .model(request.modelName())
@@ -55,8 +57,12 @@ public class AgentChatService implements AiChatService {
             .build();
 
         var advisors = buildAdvisors(request);
+        var system = preprocessor.resolveSystemPrompt(request);
+        if (ctx != null && ctx.getLastThrowable() != null) {
+            system += "\n\n" + "Last error: " + ctx.getLastThrowable();
+        }
         return chatClient.prompt()
-            .system(preprocessor.resolveSystemPrompt(request))
+            .system(system)
             .user(preprocessor.resolveUserPrompt(request))
             .options(options)
             .advisors(advisors);

@@ -43,8 +43,8 @@ class DigestRoundTripTest {
 
     private Digest digestWith(AnnotationAnchor anchor, GroupedTimeSeriesData.Point point) {
         var annotation = new AnnotationDef("peak", anchor);
-        var scaffold = new SharedChartProps(null, null, null, List.of(annotation), null, null);
-        var series = new GroupedTimeSeriesData.Series("revenue", ColorRole.BASE, List.of(point));
+        var scaffold = new SharedChartProps(null, null, null, List.of(annotation), null, null, null);
+        var series = new GroupedTimeSeriesData.Series("revenue", "base", List.of(point));
         ChartBlock chart = new LineChartBlocks.LineChartBlock(
             scaffold, new GroupedTimeSeriesData(List.of(series)), null, true);
         var page = new Page("p1", null, null, chart, null, null, null, null, null);
@@ -128,7 +128,7 @@ class DigestRoundTripTest {
         assertThat(categoricalCoord.x().raw()).isEqualTo("cat-A");
 
         var series = primary.data().series().getFirst();
-        assertThat(series.color()).isEqualTo(ColorRole.BASE);
+        assertThat(series.color()).isEqualTo("base");
 
         var points = series.points();
         assertThat(points.get(0).t().raw()).isEqualTo("2026-02-16");

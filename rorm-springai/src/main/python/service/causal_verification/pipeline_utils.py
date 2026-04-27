@@ -40,17 +40,35 @@ def apply_variant_filter(
 ) -> PipelineDataFrame:
     if variant.filter is None:
         return data
-    mask = eval_filter(data.raw, variant.filter)
+    try:
+        mask = eval_filter(data.raw, variant.filter)
+    except ValueError as e:
+        raise ValueError(
+            f"variant '{variant.id}' filter evaluation failed: {e}"
+        ) from e
+    n_in = len(data)
+    n_kept = int(mask.sum())
+    if n_kept == n_in:
+        logger.info("variant '%s' filter is a no-op (all %d rows match)",
+                    variant.id, n_in)
+    elif n_kept == 0:
+        logger.warning("variant '%s' filter excludes ALL rows", variant.id)
+    else:
+        logger.info("variant '%s' filter: %d/%d rows kept", variant.id, n_kept, n_in)
     return data.filter_mask(mask)
 
 
 def eval_filter(df: pd.DataFrame, f: VariantFilter) -> "pd.Series[bool]":
     if f.and_filters is not None:
+        if not f.and_filters:
+            raise ValueError("AND filter has no sub-filters")
         mask = pd.Series(True, index=df.index)
         for sub in f.and_filters:
             mask = mask & eval_filter(df, sub)
         return mask
     if f.or_filters is not None:
+        if not f.or_filters:
+            raise ValueError("OR filter has no sub-filters")
         mask = pd.Series(False, index=df.index)
         for sub in f.or_filters:
             mask = mask | eval_filter(df, sub)
@@ -58,17 +76,34 @@ def eval_filter(df: pd.DataFrame, f: VariantFilter) -> "pd.Series[bool]":
     if f.not_filter is not None:
         return ~eval_filter(df, f.not_filter)
     col = f.column
+    if col is None:
+        raise ValueError(f"filter leaf has no column: {f}")
     if col not in df.columns:
-        return pd.Series(True, index=df.index)
+        raise ValueError(
+            f"filter references column '{col}' not in data; "
+            f"available: {sorted(df.columns)[:20]}"
+            f"{'...' if len(df.columns) > 20 else ''}"
+        )
     if f.operator == FilterOperator.IN:
+        if not f.values:
+            raise ValueError(f"IN filter on '{col}' has empty values list")
         return df[col].isin(f.values)
     elif f.operator == FilterOperator.GT:
+        if not f.values:
+            raise ValueError(f"GT filter on '{col}' has no values")
         return df[col] > f.values[0]
     elif f.operator == FilterOperator.LT:
+        if not f.values:
+            raise ValueError(f"LT filter on '{col}' has no values")
         return df[col] < f.values[0]
     elif f.operator == FilterOperator.EQ:
+        if not f.values:
+            raise ValueError(f"EQ filter on '{col}' has no values")
         return df[col] == f.values[0]
-    return pd.Series(True, index=df.index)
+    raise ValueError(
+        f"unknown filter operator {f.operator!r} on column '{col}'; "
+        f"valid: {[op.value for op in FilterOperator]}"
+    )
 
 
 def run_dml_quick(data, treatment, outcome, dag: nx.DiGraph,

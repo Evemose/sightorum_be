@@ -49,11 +49,19 @@ def refutations_parallel(data, spec, dag_nx, primary_effect, budget,
             },
             "fit_params": {},
         }
-        # FIX E10: use raw data with string DAG for consistency
-        # dowhy expects column names matching DAG node names
+        # FIX E10: column names must match DAG nodes.
+        # dowhy's placebo refuter calls np.isnan on the treatment column;
+        # for string-valued categorical treatments this raises
+        # "ufunc 'isnan' not supported". Pass numeric-encoded data, but
+        # keep raw column names so the graph alignment still works.
         raw = refute_data.raw
+        encoded = refute_data.encoded
+        dowhy_df = raw.copy()
+        for col in (spec.treatment, spec.outcome):
+            if col in encoded.columns and col in refute_data.cat_columns:
+                dowhy_df[col] = encoded[col].astype("float64")
         model = dowhy.CausalModel(
-            data=raw, treatment=spec.treatment,
+            data=dowhy_df, treatment=spec.treatment,
             outcome=spec.outcome, graph=dag_nx,
             effect_modifiers=[],
         )
@@ -100,6 +108,13 @@ def refutations_parallel(data, spec, dag_nx, primary_effect, budget,
                 f.set_exception(e)
             futures[key] = f
             reclaim()
+        else:
+            f: Future = Future()
+            f.set_exception(ValueError(
+                f"refutation type {ref_cfg.type!r} has no dispatch handler; "
+                f"supported: {[t.value for t in dispatch.keys()]}"
+            ))
+            futures[key] = f
     return futures
 
 

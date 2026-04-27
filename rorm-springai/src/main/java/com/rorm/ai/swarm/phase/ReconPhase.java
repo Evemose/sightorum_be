@@ -3,14 +3,9 @@ package com.rorm.ai.swarm.phase;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
+import com.rorm.JobInvocation;
 import com.rorm.JobSpec;
-import com.rorm.StepJournal;
-import com.rorm.ai.swarm.ContentHash;
-import com.rorm.ai.swarm.DurableSwarmConfig;
-import com.rorm.ai.swarm.EventId;
-import com.rorm.ai.swarm.PhaseScope;
-import com.rorm.ai.swarm.StepOutput;
-import com.rorm.ai.swarm.SwarmInput;
+import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.dto.DomainResearchDTO;
 import com.rorm.ai.swarm.dto.ScoutAnalysisDTO;
 import com.rorm.ai.swarm.executor.StepExecutionInput;
@@ -20,7 +15,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 
 /**
  * Recon phase: fans out scout and domain-researcher executors as independent
@@ -48,9 +42,9 @@ public class ReconPhase {
         var domainInput = inputFor(input, "domain-researcher", config.domainResearcher().userPromptTemplate());
 
         log.info("[swarm] Starting scout + domain researcher");
-        var results = StepJournal.current().fanout("swarm:recon", Object.class, List.of(
-            submit("scoutExecutor", scoutInput),
-            submit("domainResearcherExecutor", domainInput)
+        var results = runtime.fanout(List.of(
+            invocation("scoutExecutor", scoutInput),
+            invocation("domainResearcherExecutor", domainInput)
         ));
         return new Output(
             mapper.convertValue(results.get(0), SCOUT_REF),
@@ -64,12 +58,12 @@ public class ReconPhase {
             "schema", input.schema(),
             "query", input.userQuery())));
         var prompt = template.replace("{{USER_QUERY}}", input.userQuery());
-        return new StepExecutionInput(id, prompt, input.schema(), input.modelSpace(), PhaseScope.runId());
+        return new StepExecutionInput(id, prompt, input.schema(), PhaseScope.runId());
     }
 
-    private Supplier<Object> submit(String beanName, StepExecutionInput stepInput) {
+    private JobInvocation invocation(String beanName, StepExecutionInput stepInput) {
         var sessionId = beanName + "-" + stepInput.eventId().token();
-        return () -> runtime.submit(sessionId, new JobSpec(
+        return new JobInvocation(sessionId, new JobSpec(
             beanName, "execute",
             new Object[]{stepInput},
             new String[]{StepExecutionInput.class.getName()}

@@ -33,6 +33,10 @@ public class DescriptiveAnalysisTool {
         String query,
         ToolContext toolContext
     ) {
+        if (query == null || query.isBlank()) {
+            return "Error: 'query' is required and must be a non-empty descriptive question. "
+                   + "Re-invoke startDescriptiveAnalysis with the user's question as the query argument.";
+        }
         var ctx = RormToolContext.from(toolContext);
         var sessionId = (String) toolContext.getContext().get("sessionId");
         var runId = analysisService.startDescriptiveAnalysis(ctx.schema(), ctx.modelSpace(), query);

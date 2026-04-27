@@ -5,11 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
 import com.rorm.ai.chat.MemoryInclude;
-import com.rorm.ai.swarm.ContentHash;
-import com.rorm.ai.swarm.DurableSwarmConfig;
-import com.rorm.ai.swarm.EventId;
-import com.rorm.ai.swarm.PhaseScope;
-import com.rorm.ai.swarm.StepOutput;
+import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.dto.HypothesisGenerationDTO;
 import com.rorm.ai.swarm.dto.ScepticReviewDTO;
 import com.rorm.ai.swarm.executor.StepExecutionInput;
@@ -84,7 +80,7 @@ public class GenPhase {
             anchor.anchor().lines().findFirst().orElse(anchor.anchor()));
         var input = new StepExecutionInput(
             id, generatorPrompt(anchor),
-            anchor.swarm().schema(), anchor.swarm().modelSpace(),
+            anchor.swarm().schema(),
             PhaseScope.runId(), chatId, null);
         return mapper.convertValue(submit("generatorExecutor", input), HYPOTHESIS_REF);
     }
@@ -93,7 +89,7 @@ public class GenPhase {
         log.info("[swarm] Mechanical sceptic");
         var input = new StepExecutionInput(
             id, scepticPrompt(generatorRaw),
-            anchor.swarm().schema(), anchor.swarm().modelSpace(), PhaseScope.runId());
+            anchor.swarm().schema(), PhaseScope.runId());
         return mapper.convertValue(submit("scepticExecutor", input), SCEPTIC_REF);
     }
 
@@ -102,7 +98,7 @@ public class GenPhase {
         log.info("[swarm] Generator rebuttal");
         var input = new StepExecutionInput(
             id, rebuttalPrompt(scepticRaw),
-            anchor.swarm().schema(), anchor.swarm().modelSpace(),
+            anchor.swarm().schema(),
             PhaseScope.runId(), chatId, REBUTTAL_MEMORY);
         return mapper.convertValue(submit("generatorExecutor", input), HYPOTHESIS_REF);
     }

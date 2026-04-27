@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import com.rorm.viz.dto.DivergenceLevel;
 import com.rorm.viz.dto.SharedChartProps;
 import com.rorm.viz.dto.data.BumpChartData;
@@ -36,7 +35,7 @@ public final class ComparisonChartBlocks {
         @JsonPropertyDescription("""
             Optional per-series color overrides, aligned to
             data.series[i]. Length should equal data.series.size().""")
-        @Nullable List<ColorRole> seriesColors
+        @Nullable List<String> seriesColors
     ) implements ChartBlock {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

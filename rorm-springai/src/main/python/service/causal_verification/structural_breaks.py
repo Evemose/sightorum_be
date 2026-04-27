@@ -54,16 +54,25 @@ def structural_breaks(data, spec, effect, ci):
             agg["_ts"] = agg["_period"].dt.to_timestamp()
 
             matches = []
+            skipped_entities = []
             for entity in agg[sb.entity_column].unique():
                 ed = agg[agg[sb.entity_column] == entity].sort_values("_period")
                 series = ed["_rate"].values
                 if len(series) < sb.min_obs_per_period:
+                    skipped_entities.append({
+                        "entity": str(entity),
+                        "reason": f"only {len(series)} periods (need ≥{sb.min_obs_per_period})",
+                    })
                     continue
                 try:
                     brks = ruptures.Pelt(model="rbf").fit(series).predict(
                         pen=sb.pelt_penalty
                     )
-                except Exception:
+                except Exception as e:
+                    skipped_entities.append({
+                        "entity": str(entity),
+                        "reason": f"PELT fit failed: {type(e).__name__}: {e}",
+                    })
                     continue
                 for bi in brks[:-1]:
                     if bi < 3 or bi > len(series) - 3:
@@ -95,14 +104,19 @@ def structural_breaks(data, spec, effect, ci):
             dir_matches = [m for m in matches if m["direction_match"]]
             tier = 1 if len(ci_matches) >= 2 else (2 if len(dir_matches) >= 1 else 3)
 
-            results.append({
+            entry = {
                 "id": sb.id,
                 "total_breaks": len(matches),
                 "direction_matches": len(dir_matches),
                 "ci_matches": len(ci_matches),
                 "tier": tier,
                 "matches": matches,
-            })
+                "n_entities_processed": int(agg[sb.entity_column].nunique()),
+                "n_entities_skipped": len(skipped_entities),
+            }
+            if skipped_entities:
+                entry["skipped_entities"] = skipped_entities[:50]
+            results.append(entry)
         except Exception as e:
             results.append({"id": sb.id, "error": str(e)})
     return results

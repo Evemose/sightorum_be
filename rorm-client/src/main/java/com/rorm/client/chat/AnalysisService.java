@@ -5,17 +5,21 @@ import com.rorm.JobSpec;
 import com.rorm.ai.swarm.SwarmEventBus;
 import com.rorm.ai.swarm.SwarmInput;
 import com.rorm.ai.swarm.SwarmStreamEvent;
-import com.rorm.ai.swarm.executor.StepExecutionInput;
 import com.rorm.client.chat.dto.AnalysisRequest;
+import com.rorm.client.chat.session.AnalysisStatus;
+import com.rorm.client.chat.session.SessionAnalysis;
+import com.rorm.client.chat.session.SessionService;
 import com.rorm.client.metamodel.MetamodelService;
 import com.rorm.client.stream.SseEmitterRegistry;
 import com.rorm.metamodel.ModelSpace;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,10 +29,26 @@ import java.util.concurrent.atomic.AtomicReference;
 @RequiredArgsConstructor
 public class AnalysisService {
 
+    private static final Duration EVENT_COLLECT_TIMEOUT = Duration.ofMinutes(2);
+
+    /**
+     * Max characters in one coalesced token event before forced split.
+     */
+    private static final int MAX_TOKEN_BYTES = 4096;
+    /**
+     * Max events per buffered batch in the live stream.
+     */
+    private static final int LIVE_BATCH_MAX = 256;
+    /**
+     * Time window the live stream waits before flushing a batch.
+     */
+    private static final Duration LIVE_BATCH_INTERVAL = Duration.ofMillis(100);
+
     private final DurableRuntime durableRuntime;
     private final MetamodelService metamodelService;
     private final SwarmEventBus swarmEventBus;
     private final SseEmitterRegistry sseRegistry;
+    private final SessionService sessionService;
 
     public String startAnalysis(String schema, AnalysisRequest request) {
         return startAnalysis(schema, metamodelService.getModelSpace(schema),
@@ -37,52 +57,121 @@ public class AnalysisService {
 
     public String startAnalysis(String schema, ModelSpace modelSpace,
                                 String query, List<String> anchors) {
-        var input = new SwarmInput(query, schema, modelSpace, anchors);
+        var input = new SwarmInput(query, schema, anchors);
         var runId = "analysis-" + UUID.randomUUID();
+        runDurable(runId, new JobSpec(
+            "durableSwarm", "run",
+            new Object[]{input, runId},
+            new String[]{SwarmInput.class.getName(), String.class.getName()}
+        ), false);
+        return runId;
+    }
 
+    /**
+     * Submit a durable run on a virtual thread and on completion drain the
+     * event bus into the session_analyses row so the run survives the Redis
+     * stream's TTL.
+     *
+     * @param closeBus when true, signal the bus to complete after submit
+     *                 returns. DurableSwarm completes its own bus in finally;
+     *                 standalone phases (descriptive) do not, so we close
+     *                 the bus here.
+     */
+    private void runDurable(String runId, JobSpec spec, boolean closeBus) {
         Thread.startVirtualThread(() -> {
+            String error = null;
             try {
-                durableRuntime.submit(runId, new JobSpec(
-                    "durableSwarm", "run",
-                    new Object[]{input, runId},
-                    new String[]{SwarmInput.class.getName(), String.class.getName()}
-                ));
+                durableRuntime.submit(runId, spec);
             } catch (Exception e) {
-                log.error("Analysis run {} failed", runId, e);
+                log.error("Run {} failed", runId, e);
+                error = e.getMessage();
+            } finally {
+                if (closeBus) {
+                    swarmEventBus.complete(runId);
+                }
+            }
+            var events = collectEvents(runId);
+            if (error == null) {
+                sessionService.markAnalysisSucceeded(runId, events);
+            } else {
+                sessionService.markAnalysisFailed(runId, error, events);
             }
         });
+    }
 
-        return runId;
+    private @Nullable List<SwarmStreamEvent> collectEvents(String runId) {
+        try {
+            var raw = swarmEventBus.subscribe(runId).collectList().block(EVENT_COLLECT_TIMEOUT);
+            return raw == null ? null : TokenAggregator.aggregate(raw, MAX_TOKEN_BYTES);
+        } catch (Exception e) {
+            log.warn("Failed to collect events for run {}: {}", runId, e.getMessage());
+            return null;
+        }
     }
 
     public String startDescriptiveAnalysis(String schema, ModelSpace modelSpace, String query) {
-        var input = new SwarmInput(query, schema, modelSpace, List.of());
+        var input = new SwarmInput(query, schema, List.of());
         var runId = "desc-" + UUID.randomUUID();
-
-        Thread.startVirtualThread(() -> {
-            try {
-                durableRuntime.submit(runId, new JobSpec(
-                    "descPhase", "run",
-                    new Object[]{input, runId},
-                    new String[]{SwarmInput.class.getName(), String.class.getName()}
-                ));
-            } catch (Exception e) {
-                log.error("Descriptive analysis run {} failed", runId, e);
-            } finally {
-                swarmEventBus.complete(runId);
-            }
-        });
-
+        runDurable(runId, new JobSpec(
+            "descPhase", "run",
+            new Object[]{input, runId},
+            new String[]{SwarmInput.class.getName(), String.class.getName()}
+        ), true);
         return runId;
     }
 
-    public SseEmitter streamEvents(String runId, String lastEventId) {
-        var subscriberTopic = "analysis:" + runId + ":" + UUID.randomUUID().toString().substring(0, 8);
-        var emitter = sseRegistry.register(subscriberTopic, null);
+    /**
+     * Single uniform endpoint for following a run. The caller never has to
+     * choose between "live" and "completed" — this method routes:
+     * <ul>
+     *   <li>If the run is terminal in the DB and has a persisted event log,
+     *       replay events from the DB and complete the stream. Survives any
+     *       Redis TTL.</li>
+     *   <li>Otherwise subscribe to the live event bus (replay-from-cursor-0
+     *       semantics + live tail).</li>
+     * </ul>
+     */
+    public SseEmitter streamEvents(String runId, @Nullable String lastEventId) {
         var skipUntil = lastEventId != null ? Long.parseLong(lastEventId) : 0L;
+        return sessionService.findAnalysis(runId)
+            .filter(a -> a.getStatus() != AnalysisStatus.RUNNING && a.getEvents() != null)
+            .map(a -> replayFromStorage(runId, a, skipUntil))
+            .orElseGet(() -> liveStream(runId, skipUntil));
+    }
+
+    private SseEmitter replayFromStorage(String runId, SessionAnalysis analysis, long skipUntil) {
+        var topic = subscriberTopic(runId);
+        var emitter = sseRegistry.register(topic, null);
+        var events = sessionService.readEvents(analysis.getEvents());
+        Thread.startVirtualThread(() -> {
+            try {
+                long seq = 0;
+                if (events != null) {
+                    for (var event : events) {
+                        seq++;
+                        if (seq <= skipUntil) {
+                            continue;
+                        }
+                        sseRegistry.publish(topic, eventName(event), String.valueOf(seq), event);
+                    }
+                }
+            } finally {
+                sseRegistry.complete(topic);
+            }
+        });
+        return emitter;
+    }
+
+    private SseEmitter liveStream(String runId, long skipUntil) {
+        var topic = subscriberTopic(runId);
+        var emitter = sseRegistry.register(topic, null);
 
         var disposableRef = new AtomicReference<Disposable>();
         var disposable = swarmEventBus.subscribe(runId)
+            .bufferTimeout(LIVE_BATCH_MAX, LIVE_BATCH_INTERVAL)
+            .filter(batch -> !batch.isEmpty())
+            .concatMap(batch -> reactor.core.publisher.Flux.fromIterable(
+                TokenAggregator.aggregate(batch, MAX_TOKEN_BYTES)))
             .index()
             .subscribe(
                 tuple -> {
@@ -90,14 +179,14 @@ public class AnalysisService {
                     if (seq <= skipUntil) {
                         return;
                     }
-                    sseRegistry.publish(subscriberTopic, eventName(tuple.getT2()),
+                    sseRegistry.publish(topic, eventName(tuple.getT2()),
                         String.valueOf(seq), tuple.getT2());
                 },
                 error -> {
                     log.error("Event stream error for run {}", runId, error);
-                    sseRegistry.error(subscriberTopic, error.getMessage());
+                    sseRegistry.error(topic, error.getMessage());
                 },
-                () -> sseRegistry.complete(subscriberTopic)
+                () -> sseRegistry.complete(topic)
             );
 
         disposableRef.set(disposable);
@@ -106,6 +195,10 @@ public class AnalysisService {
         emitter.onError(_ -> disposableRef.get().dispose());
 
         return emitter;
+    }
+
+    private static String subscriberTopic(String runId) {
+        return "analysis:" + runId + ":" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     private static String eventName(SwarmStreamEvent event) {

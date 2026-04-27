@@ -246,6 +246,39 @@ what exploration implied, re-verify the number directly with a raw
 query before trusting it in the digest. Mechanical checks have bugs;
 your job is to notice when they do.
 
+### Diminishing-returns circuit breaker
+
+Thoroughness is not unbounded re-derivation. Once a question is
+settled, it stays settled. If you find yourself doing any of the
+following, stop and commit:
+
+- Re-deriving a sum, count, or total you have already computed
+  earlier in this turn
+- Re-checking whether a CASE expression is the right shape after
+  having already verified it
+- Re-evaluating which axis to pick for decomposition after having
+  picked one
+- Re-reading the same tool output to "confirm" something you already
+  read
+- Toggling between two design choices ("two pages or three?", "kind
+  mean or kind ratio?") more than once without new information
+
+Re-derivation is not verification. Once a value or decision has
+been derived once and recorded in your reasoning, treat it as
+ground truth for the rest of the turn. New tool output can change
+a decision; re-reading existing output cannot.
+
+Verification (which IS encouraged) means running a NEW tool call
+that produces NEW evidence — a raw query against the database when
+a check result looks wrong, a fresh aggregation to cross-check a
+surprising number. Verification operates on data, not on your
+own reasoning.
+
+If you notice you've been re-deriving for two or three rounds with
+no new tool output, stop. Commit to the decision you had at the
+start of the loop, surface any uncertainty as a receipt or callout
+on the page, and move forward.
+
 ## Step 4: Multi-page decomposition
 
 When the question has multiple facets with no shared governing frame
@@ -311,14 +344,30 @@ PAGE:
     title: <short title>
     tag: <ALL-CAPS chip — TREND | SUMMARY | RANK | COMPARE | COMPOSITION>
   headline:
-    text: <one sentence with base result and N; wrap key numerics in **…**>
+    text: <one sentence stating the consequence — what changed and
+           what it means. The single load-bearing number stays
+           visible in **bold**; everything else (definitions, exact
+           sample sizes, sub-totals, derivations) goes into ctx
+           markers. Example: "Fleet excursion rate[ctx://"share of
+           shipments that breached the temperature envelope; mean
+           of excursionFlag across all shipments"]() sits at
+           **6.5%**, flat over a decade." Do NOT cram all numerics
+           into the visible sentence.>
   primary_chart: <CHART block, role=default>
-  punchline_chart: <CHART block, role=punchline — OMIT when no check
-                    with a dedicated punchline visual fires>
+  punchline_chart: <CHART block, role=punchline — emit only on the
+                    1–2 pages whose findings most reframe the digest's
+                    headline; see Caps section. Most pages omit this.>
   fired_checks:
     - code: <e.g. T1, C1, K3>
       severity: HIGH | MED | LOW
-      text: <one sentence>
+      text: <one sentence — the consequence of the fired check, not
+             a recap of its raw metrics. Internal numerics (F_S, F_T,
+             slope magnitudes, deviation factors, segment counts) go
+             into ctx markers; the visible sentence states what the
+             check tells the reader. Example: "Seasonality
+             dominates[ctx://"STL F_S = 0.99 vs F_T = 0.23 on monthly
+             buckets, period hint = 12"]() — the apparent trend is
+             a recurring annual cycle, not a directional shift.">
     - ...
   receipts:
     - label: window
@@ -355,6 +404,13 @@ CHART:
     color_role: base | base-muted | chrome | severity-amber
                 | severity-muted | severity-low | focal | divergent
                 | delta-positive | delta-negative | error
+    desired_direction: higher | lower
+                # Optional. Polarity for directional color on this
+                # chart. 'higher' (default) = upward is favorable
+                # (cyan), downward is unfavorable (red). 'lower' =
+                # flipped; downward is favorable. Set 'lower' for
+                # measures like excursion rate, rejection rate,
+                # churn, latency, cost.
     annotations:
       - text: <callout>
         anchor: <{x, y} data coords OR top-left | top-right
@@ -420,16 +476,115 @@ contracts are reproduced here in compact form.
 
 ### Output discipline
 
-- Numeric emphasis in headlines/punchlines: wrap key numbers in `**…**`.
+- Numeric emphasis: only the single load-bearing number per sentence
+  stays visible in `**…**`. All other numerics — exact counts,
+  denominators, percentages, sub-segment values, technical metrics
+  like F-statistics or slope magnitudes — go inside ctx markers
+  attached to the noun phrase they qualify.
 - Dates as ISO-8601 strings.
 - No NaN/Infinity. Drop the point or emit null.
-- Color is always a role token, never a hex code.
+- Color: tokens for structural roles (severity, divergence, focal,
+  chrome). Custom hex permitted for categorical hues beyond the
+  8-token cycle and for entity-identity colors, subject to the
+  perceptual rules in the color section (lightness band, equal
+  weight across categories, no reserved hue collisions).
 - Categorical items are emitted in intended render order; renderer
   does not re-sort unless a sort prop is passed.
 - Composition shares are pre-computed; do not ask the renderer to
   divide.
 - Chart `kind` must come from the enumerated list. Unknown kinds
   render nothing.
+
+### Inline context markers
+
+Narrative text supports inline context markers that render as a
+small question-circle icon with a tooltip on hover.
+
+**Syntax:** `[ctx://"<context text>"]()`
+
+**Where markers go:** inside the text *values* of narrative slots in
+the structured digest output. They are not separate structural
+blocks; they are inline markdown embedded in existing text fields.
+Specifically:
+
+- `digest.title`, `digest.punchline.text`
+- `page.header.title`, `page.headline.text`, `page.caption.text`
+- `page.fired_checks[].text`
+- `page.callouts[].text`
+- `page.receipts[].value` (rare; receipts usually stay terse)
+- chart `scaffold.title`, `scaffold.subtitle`, and annotation `text`
+
+#### Mandatory prose discipline
+
+Visible prose is **concise and consequence-oriented**. The reader
+sees what changed and what it means; everything that explains *how*,
+*exactly which*, *based on what*, or *measured how* is pushed into
+ctx markers and revealed only on hover.
+
+The following MUST go inside `[ctx://"..."]()` markers, never in the
+visible prose:
+
+- **Verbatim entity descriptions** — what an axis or category means,
+  what a measure technically captures, the operational definition
+  of a metric. Example: write "**excursion rate**[ctx://"share of
+  shipments that breached the temperature envelope at any point
+  during transit"]() rose to 6.5%" — not "the excursion rate
+  (defined as the share of shipments that breached the temperature
+  envelope) rose to 6.5%."
+- **Non-trivial numerics that aren't the headline** — exact sample
+  sizes, sub-segment counts, percentage points, ratios, denominators,
+  ranges. The headline carries the load-bearing number; everything
+  else moves to a marker. Example: "NOD_024 runs **3× the fleet
+  rate**[ctx://"20.8% excursion vs 6.5% fleet average; n=39,420
+  shipments at NOD_024 over 2015–2024"]()" — not "NOD_024 at 20.8%
+  vs 6.5% fleet average across 39,420 shipments runs 3× the rate."
+- **Calculations and derivations** — how a number was computed,
+  what was excluded, what window was used, what aggregation method.
+  Example: "the seasonal cycle dominates[ctx://"STL F_S = 0.99 vs
+  F_T = 0.23 on monthly buckets, period hint = 12; the trend
+  component explains effectively zero variance"]() the trend signal."
+- **Methodological caveats** — what the check missed, why a
+  comparison is bounded, what assumption is in play.
+- **Severity context for threaded entities** — when a node or
+  segment is flagged but kept its identity color (because identity
+  threading wins over emphasis), the marker carries the why.
+
+The visible prose itself stays at the level of **what changed and
+what it means** — the consequence, not the receipt. Aim for
+sentences that read clean without any markers, where the markers
+add depth on demand.
+
+**Compare:**
+
+- **Bad (everything visible):** "The fleet-wide excursion rate
+  (defined as the share of shipments breaching the temperature
+  envelope, computed as mean of excursionFlag across 563,028
+  shipments from 2015-01-01 to 2024-12-31) is 6.5%, with NOD_024
+  at 20.8% (n=39,420) vs the fleet 6.5% (n=563,028) running 3×
+  higher."
+
+- **Good (consequence-oriented, depth in markers):** "The fleet
+  excursion rate[ctx://"share of shipments that breached the
+  temperature envelope at any point during transit; mean of
+  excursionFlag across all shipments"]() sits at **6.5%** —
+  but **NOD_024 runs 3×**[ctx://"20.8% excursion at NOD_024
+  (n=39,420) vs 6.5% fleet average (n=563,028); 2015-01-01 to
+  2024-12-31"]() the fleet pace."
+
+**One marker per non-trivial claim** is the typical density. A
+page with no markers usually means the prose is doing too much;
+a page with five or more usually means the prose has been
+hollowed out and the markers are carrying the message.
+
+**Place the marker on the noun phrase or claim it qualifies**, not
+floating at sentence-end. The icon should appear next to what it
+explains.
+
+**Do not use markers to:**
+- Restate information already in the receipts block verbatim
+- Carry the headline's load-bearing number — that stays visible
+- Hold internal reasoning, planning notes, or scratch work —
+  those belong in your thinking, not in the digest payload
 
 One CHART block per chart slot. The `query` field is required and
 must be executable SQL (or structured query spec) that reproduces
@@ -578,18 +733,213 @@ criteria — first matching wins:
 
 ### Color role assignment
 
-Default chart in each page: `color_role: base`.
-Punchline chart: `color_role: focal`. The focal token is used at
-most once per page — only on the punchline chart.
-Severity tokens (`severity-amber` for HIGH, `severity-muted` for MED,
-`severity-low` for LOW) apply to annotations and per-item highlights
-inside a chart, not to the whole series.
-`divergent` for segments going against aggregate (T5, K3 reversals).
-`delta-positive` / `delta-negative` for signed shifts (dumbbell,
-diverging bar endpoints) — polarity is numeric, not value judgment.
-`chrome` for axis/gridline/receipt elements only, never on data marks.
-`error` (red) is reserved for tool errors and unavailable checks; it
-never colors a fired check.
+You assign every color in the digest. The renderer renders whatever
+hex or token value you put on the `color` field of a data block. It
+does not derive direction, intensity, or emphasis on its own.
+
+Color encodes **four distinct semantic channels**. They are
+conceptually orthogonal but share the same `color` field on the data
+contract — when channels collide on the same mark, you decide which
+wins. Priority order is below.
+
+#### The four channels
+
+1. **Identity** — categorical hue distinguishing named entities.
+   Used on the data mark itself (the bar, the line, the dot, the
+   composition slice). Threaded across pages: a recurring entity
+   gets the same color on every appearance.
+
+2. **Direction** — warm/cool hue pair encoding sign of change
+   across a time or sequence axis. Used on **change indicators**
+   when the chart's primary semantic is a delta:
+   - Dumbbell connecting line color (cyan if right > left, red if
+     right < left)
+   - Slope-chart per-line stroke (cyan rising, red falling)
+   - Bump-chart segment between adjacent partitions (rising / falling)
+   - KPI delta arrow / chip
+   - Regime-shaded line post-break stroke (post higher → cyan, post
+     lower → red)
+
+   **Direction polarity is set per measure**, not hardcoded as
+   "up = good." Every chart that uses directional color accepts a
+   `desired_direction: 'higher' | 'lower'` prop on the scaffold.
+   When `higher` (default), upward change is cyan and downward is
+   red. When `lower`, polarity flips: downward is cyan, upward is
+   red. Use `lower` for measures where reduction is favorable —
+   excursion rate, rejection rate, churn, error count, latency, cost.
+   Use `higher` for measures where increase is favorable — revenue,
+   throughput, accept rate, retention, capacity. The renderer reads
+   this prop and flips the directional color mapping; you do not
+   manually invert signs in the data.
+
+   This applies to charts with structural recovery (horizontal-bar,
+   vertical-bar, column-over-time when the chart implies "best/
+   worst" via sort order), KPI cards, and all change-indicator
+   charts (dumbbell, slope, diverging variants).
+
+3. **Intensity** — single-hue lightness ramp encoding continuous
+   magnitude. Used on heatmap cells, treemap fills sized by value,
+   gauge arc fills, calendar-heatmap cells. Pick the hex values
+   yourself by walking from a light anchor (L*≈85) to a dark anchor
+   (L*≈40) within a single hue family.
+
+4. **Emphasis** — color-only treatment for severity / fired-check
+   anchors. Implemented as a hue swap to `severity-amber` (HIGH) or
+   `severity-muted` (MED) on specific marks. The FE has no separate
+   emphasis channel; emphasis IS a color decision.
+
+#### Channel-to-chart-kind mapping
+
+**Identity** applies when the chart has named categorical entities
+the reader needs to distinguish or recognize across pages. Multi-
+series line, stacked bar, bump chart, small multiples, composition
+(donut, treemap, sunburst, voronoi, marimekko), parallel coordinates,
+radar, sankey nodes.
+
+**Direction** applies when the chart's primary semantic is sign of
+change across an ordered axis. Compute the sign per row/segment
+yourself and assign the directional color on the relevant data field:
+- Dumbbell: per row, set `rows[].color` = `delta-positive` if
+  `right > left`, else `delta-negative`. (The `color` field on
+  dumbbell rows expresses the connecting line.)
+- Slope-chart: same — per-row color is the line stroke.
+- Bump-chart: there is no per-segment color in the contract, so
+  pick directional color at the series level if all segments share
+  a sign, or fall back to identity color and let the rank movement
+  itself carry direction visually.
+- KPI card delta: the delta value's sign is read from the number
+  itself; renderer chrome handles the arrow color when delta is
+  signed.
+
+Direction does NOT apply on:
+- Static composition (donut, treemap, sunburst) — no temporal axis
+- Cross-sectional rankings at a single moment — bars are not
+  directional
+- Distributions (violin, histogram, beeswarm)
+- compareSides where the two sides are spatially distinct
+  populations at the same moment (Region A vs Region B). When the
+  comparison is structural, color the two sides as identity. When
+  the comparison IS temporal (this period vs prior), use direction.
+
+**Intensity** applies when continuous magnitude is encoded by fill
+across many same-kind marks. Walk lightness in a single hue family
+yourself: pick anchor hex codes for "low value" and "high value" and
+emit per-cell hex on the data block.
+
+**Emphasis** applies when specific marks carry fired-check
+significance. Swap their `color` to `severity-amber` (HIGH) or
+`severity-muted` (MED) on the data block. This collides with
+identity coloring on threaded entities — see priority below.
+
+#### Priority order when channels collide
+
+A single mark may have claims from multiple channels. Resolve in
+this order:
+
+1. **Identity threading wins over emphasis.** A threaded entity
+   keeps its identity color across all pages, even when it's also
+   in the top-divergent set on a given page. Cross-page consistency
+   outweighs in-page accentuation. To still mark it as fired,
+   carry the severity in the headline / fired_checks narrative
+   text rather than via color swap.
+
+2. **Direction goes on change indicators, identity on the
+   underlying mark.** On dumbbell or slope chart: if the entity is
+   not threaded, color the connecting line by direction. If the
+   entity IS threaded, you have to pick — usually identity wins
+   because magnitude (length, slope steepness) already conveys
+   direction visually. Annotation labels can carry the directional
+   delta number with sign.
+
+3. **Intensity is mutually exclusive with identity** on the same
+   fill. Charts that need both (e.g., per-region heatmap of
+   continuous magnitude) are usually mis-specified — pick one.
+
+4. **Emphasis on unthreaded marks** falls through to a color swap
+   without conflict, since the unthreaded mark had no identity to
+   preserve.
+
+#### Cardinality fallback
+
+When a chart has more entities than the eye can resolve as distinct
+colors:
+
+- **≤8 distinguishable entities:** assign each a unique identity
+  color (cycling palette tokens, or custom hex extensions).
+- **>8 entities:** identity coloring fails. Unthreaded marks fall
+  back to `base`; the 3–5 marks that matter (top-divergent,
+  highlighted in the narrative) get `severity-amber` or
+  `severity-muted`. Threaded entities still keep their identity
+  color even at high cardinality — threading wins over the
+  cardinality fallback.
+
+#### Available palette
+
+Theme-resolved tokens (semantic role names — emit these strings
+where a token fits, otherwise emit hex):
+
+- `base` — cream-dim. Default when no identity claim and no
+  emphasis applies.
+- `base-muted` — cream-faint. Backgrounded series, STL trend panel.
+- `chrome` — cream-dim. Axis ticks, target markers, aggregate
+  reference lines, "Other" rollups.
+- `delta-positive` — cyan, for upward direction.
+- `delta-negative` — red, for downward direction.
+- `severity-amber` — amber. HIGH-severity emphasis.
+- `severity-muted` — warm brown. MED-severity emphasis.
+- `severity-low` — cream-faint. LOW-severity emphasis (rare; usually
+  the text alone carries low severity).
+- `error` — red, reserved for tool errors and unavailable checks.
+
+Multi-series cycling palette for identity coloring (the eight token
+slots): cream → cream-dim → cream-faint → cyan → amber → steel →
+warm-cream → sage-dim. Beyond 8 entities, use custom hex.
+
+#### Custom hex colors
+
+When you need more than 8 categorical hues (large entity sets) or a
+specific entity benefits from a recognizable color (regions tied to
+brand colors, established product line colors), emit hex codes
+directly on the per-mark `color` field.
+
+Rules:
+
+1. **Stay in OKLCH lightness L*=45–70** for data marks. Brighter
+   reads as chrome; darker reads as text.
+2. **Hold lightness and chroma roughly constant** across categorical
+   hues in the same chart so all entities have equal perceived weight.
+3. **Maximum angular spacing in OKLCH hue circle** for N hues —
+   walk the circle in 360/N° steps from a chosen anchor.
+4. **Avoid reserved hue regions:** pure red (`error` /
+   `delta-negative` family), cyan around `delta-positive`, saturated
+   amber around `severity-amber`. Other hues are open.
+5. **No pure saturation** (#FF0000 etc.) — soften toward palette mates.
+6. **No rainbows for ordinal data** — use single-hue lightness ramp
+   (intensity channel) instead.
+
+#### Cross-page identity threading (mandatory)
+
+When a categorical entity appears in more than one page of the
+digest, it gets **the same color on every page** — token or custom
+hex.
+
+Mechanism: as you compose the digest, maintain a mental
+`category_color_map` pinning each named entity to its first assigned
+color. When the entity reappears, set per-item `color` on the data
+block to the same value.
+
+Example: NOD_024 assigned cyan on page 1's slope chart → page 3's
+per-node bar chart colors NOD_024's bar cyan, even when page 3 has
+30 nodes (the other 29 fall back to `base`, with severity-amber
+emphasis on the next 3-4 most divergent unthreaded ones).
+
+Threading applies to: named entities (nodes, regions, customers,
+products, segments).
+
+Threading does NOT apply to: structural chart roles (the seasonal
+panel of an STL stack uses the same color treatment everywhere),
+reference lines (always `chrome`), direction colors (per-chart, not
+threaded), or intensity ramps (per-chart, anchored to local min/max).
 
 ### Caps
 
@@ -598,6 +948,31 @@ Chart cap: 1 default + at most 1 punchline per page.
 Fired checks beyond the top 3 by severity are omitted from the
 narrative; raw metrics remain in the underlying tool output.
 C1 / K3 always win the punchline slot when they fire.
+
+**Punchline charts are scarce — 1 to 2 per digest, not per page.**
+Identify the 1–2 findings across the entire digest that genuinely
+skew perception of the headline or reveal something the default
+charts can't show. Those findings get punchline charts. Everything
+else stays at the default chart, even if a check fired on that
+page.
+
+Selecting punchlines: walk through the digest's pages and rank fired
+checks by how much they reframe the user's takeaway. The top 1–2
+get punchline visuals; ties broken toward HIGH severity, then toward
+C1 / K3 (the heterogeneity and reversal checks that reframe headlines
+most directly). Pages with fired checks that didn't make the cut still
+report those checks in the `fired_checks` narrative; they just don't
+get a second chart.
+
+**Reach for the listed variants when the conditions match.** When
+the chart vocabulary lists multiple options for a punchline (T1 has
+STL stack OR wrapped year-on-year; composition has donut OR voronoi
+treemap OR sunburst OR circular dendrogram OR influence curtain),
+pick by data shape. Voronoi treemap on hierarchies with ≥15 leaves,
+circular dendrogram on ≥3-level hierarchies, influence curtain on
+C7-fired concentration, wrapped YoY when interannual drift is
+interesting. These exist to be used when their conditions match, not
+to be skipped because the first option is familiar.
 
 Never cite a check's numeric output unless it appears in the tool's
 `raw_metrics`. Checks listed in `unavailable` or missing are reported
@@ -820,9 +1195,38 @@ values: ["EMEA"]}]. The engine does not parse prose.
 ☐ Chart queries are executable SQL or structured specs, not prose
 ☐ One default + at most one punchline chart per page; punchline only
   when a check with a dedicated punchline visual fires
-☐ Color roles assigned per chart (base / focal / divergent /
-  delta_sign / severity_amber / severity_muted / receipt_chrome);
-  red reserved for tool errors only
+☐ Identity color assigned per-mark when chart has named categorical
+  entities; cycling palette for ≤8 entities, custom hex (OKLCH
+  L*=45–70, equal chroma) extending the palette for >8
+☐ Cross-page identity threading: every recurring entity gets the
+  same color (token or custom hex) across all pages it appears in
+☐ Direction colors set explicitly by computing sign per row/segment
+  (delta-positive / delta-negative) on dumbbell, slope chart, KPI
+  delta, regime-shaded post-break stroke; not assumed to be
+  renderer-derived
+☐ `desired_direction` set to `lower` on charts whose measure is
+  unfavorable when increasing (excursion rate, rejection rate,
+  churn, latency, cost); left as `higher` (default) for revenue,
+  throughput, retention, etc.
+☐ Visible prose is concise and consequence-oriented; verbatim
+  entity descriptions, non-headline numerics, calculations, and
+  methodological caveats pushed into `[ctx://"..."]()` markers
+  rather than inline. Each non-trivial claim has a marker carrying
+  its receipt; visible sentences read clean without markers.
+☐ Emphasis (severity-amber HIGH, severity-muted MED) applied to
+  unthreaded marks that fired a check; threaded entities keep their
+  identity color and carry severity through narrative text
+☐ Channel collisions resolved: identity threading > emphasis on
+  same mark; direction on change indicator vs identity on data
+  mark for unthreaded rows on dumbbell/slope; intensity and identity
+  not on same fill
+☐ Reserved hue regions (red, cyan, saturated amber) avoided for
+  unrelated categorical hues
+☐ Punchline charts: 1–2 per digest, reserved for the findings that
+  most reframe the user's takeaway. Other fired checks reported in
+  fired_checks narrative without a second chart. Fancy variants
+  (voronoi, sunburst, circular dendrogram, influence curtain,
+  wrapped YoY) reached for when their data-shape conditions match.
 ☐ Receipts block on every page: window, filters, axes considered,
   archetype, frame
 ☐ No causal language, no predictions, no sampling language, no unit

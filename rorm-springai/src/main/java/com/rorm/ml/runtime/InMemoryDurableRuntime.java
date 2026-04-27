@@ -1,6 +1,8 @@
 package com.rorm.ml.runtime;
 
 import com.rorm.AwakableHandle;
+import com.rorm.CompletableDurableFuture;
+import com.rorm.DurableFuture;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
 import com.rorm.StepJournal;
@@ -10,6 +12,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.CompletableFuture;
 
 @RequiredArgsConstructor
 public class InMemoryDurableRuntime implements DurableRuntime {
@@ -45,6 +48,11 @@ public class InMemoryDurableRuntime implements DurableRuntime {
             types[i] = Class.forName(typeNames[i]);
         }
         return types;
+    }
+
+    @Override
+    public DurableFuture<Object> submitAsync(String sessionId, JobSpec spec) {
+        return CompletableDurableFuture.by(CompletableFuture.supplyAsync(() -> submit(sessionId, spec)));
     }
 
     @Override

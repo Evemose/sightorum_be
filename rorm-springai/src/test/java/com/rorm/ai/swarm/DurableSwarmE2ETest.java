@@ -279,13 +279,11 @@ class DurableSwarmE2ETest {
 
         @Bean
         DurableSwarm durableSwarm(com.rorm.ai.swarm.phase.ReconPhase recon,
-                                  com.rorm.ai.swarm.phase.GenPhase gen,
-                                  com.rorm.ai.swarm.phase.CompilePhase compile,
-                                  com.rorm.ai.swarm.phase.NullPhase nullPhase,
-                                  com.rorm.ai.swarm.phase.StandoffPhase standoff,
                                   com.rorm.ai.swarm.phase.JudgePhase judge,
-                                  SwarmEventBus bus) {
-            return new DurableSwarm(recon, gen, compile, nullPhase, standoff, judge, bus);
+                                  SwarmEventBus bus,
+                                  DurableRuntime runtime,
+                                  com.fasterxml.jackson.databind.ObjectMapper mapper) {
+            return new DurableSwarm(recon, judge, bus, runtime, mapper);
         }
     }
 }

@@ -2,9 +2,9 @@ package com.rorm.ai.swarm.phase;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rorm.DurableFuture;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
-import com.rorm.StepJournal;
 import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.dto.StandoffArgumentDTO;
 import com.rorm.ai.swarm.executor.StepExecutionInput;
@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 
 /**
  * Advocate vs prosecutor standoff phase. Submits two independent durable
@@ -66,17 +65,21 @@ public class StandoffPhase {
 
         log.info("[swarm] Standoff for {}", hypoCtx.hypothesisId());
         try {
-            var results = StepJournal.current().fanout("swarm:standoff", Object.class, List.of(
-                submit("advocateExecutor", advocateInput),
-                gated(firstAdvocateToken, () -> runtime.submit(
-                    "prosecutorExecutor-" + prosecutorId.token(),
-                    new JobSpec("prosecutorExecutor", "execute",
-                        new Object[]{prosecutorInput},
-                        new String[]{StepExecutionInput.class.getName()})))
-            ));
+            var advocateFuture = runtime.submitAsync(
+                "advocateExecutor-" + advocateId.token(),
+                new JobSpec("advocateExecutor", "execute",
+                    new Object[]{advocateInput},
+                    new String[]{StepExecutionInput.class.getName()}));
+            awaitFirstAdvocateToken(firstAdvocateToken);
+            var prosecutorFuture = runtime.submitAsync(
+                "prosecutorExecutor-" + prosecutorId.token(),
+                new JobSpec("prosecutorExecutor", "execute",
+                    new Object[]{prosecutorInput},
+                    new String[]{StepExecutionInput.class.getName()}));
+            DurableFuture.all(advocateFuture, prosecutorFuture).await();
             return new Output(
-                mapper.convertValue(results.get(0), ARG_REF),
-                mapper.convertValue(results.get(1), ARG_REF)
+                mapper.convertValue(advocateFuture.await(), ARG_REF),
+                mapper.convertValue(prosecutorFuture.await(), ARG_REF)
             );
         } finally {
             subscription.dispose();
@@ -102,7 +105,7 @@ public class StandoffPhase {
         var anchor = pipeCtx.hypothesis().anchor();
         var renderedSystem = renderSystemPrompt(systemPromptTemplate, pipeCtx);
         return new StepExecutionInput(id, userPrompt,
-            anchor.swarm().schema(), anchor.swarm().modelSpace(),
+            anchor.swarm().schema(),
             PhaseScope.runId(), null, null, null, renderedSystem);
     }
 
@@ -114,31 +117,19 @@ public class StandoffPhase {
                 err -> gate.completeExceptionally(err));
     }
 
-    private Supplier<Object> submit(String beanName, StepExecutionInput stepInput) {
-        var sessionId = beanName + "-" + stepInput.eventId().token();
-        return () -> runtime.submit(sessionId, new JobSpec(
-            beanName, "execute",
-            new Object[]{stepInput},
-            new String[]{StepExecutionInput.class.getName()}
-        ));
-    }
-
-    private Supplier<Object> gated(CompletableFuture<Void> gate, Supplier<Object> delegate) {
-        return () -> {
-            try {
-                gate.get(FIRST_TOKEN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            } catch (TimeoutException e) {
-                throw new IllegalStateException(
-                    "Advocate did not emit a first token within " + FIRST_TOKEN_TIMEOUT
-                    + " — prosecutor gating cannot release without breaking cache-reuse guarantee", e);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while waiting for advocate first token", e);
-            } catch (Exception e) {
-                throw new IllegalStateException("Failed waiting for advocate first token", e);
-            }
-            return delegate.get();
-        };
+    private static void awaitFirstAdvocateToken(CompletableFuture<Void> gate) {
+        try {
+            gate.get(FIRST_TOKEN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            throw new IllegalStateException(
+                "Advocate did not emit a first token within " + FIRST_TOKEN_TIMEOUT
+                + " — prosecutor gating cannot release without breaking cache-reuse guarantee", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for advocate first token", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed waiting for advocate first token", e);
+        }
     }
 
     private String writeJson(Object value) {

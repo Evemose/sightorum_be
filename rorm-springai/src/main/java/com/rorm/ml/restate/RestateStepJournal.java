@@ -39,6 +39,10 @@ public class RestateStepJournal implements StepJournal {
         this.callOrdinal = new AtomicInteger(0);
     }
 
+    public ObjectContext context() {
+        return ctx;
+    }
+
     @Override
     public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
         var qualifiedName = qualifiedName(stepName);
@@ -109,27 +113,17 @@ public class RestateStepJournal implements StepJournal {
     }
 
     /**
-     * Restate fanout: executes each action sequentially on the handler thread.
-     * Each action's body contains its own {@code ctx.run()} calls (LLM calls,
-     * nested fanout) which are individually journaled and recoverable.
+     * Restate Supplier-fanout: runs each branch inline on the handler thread
+     * with its own scoped prefix/ordinal. Branches DO NOT run in parallel —
+     * wrapping each branch in {@code ctx.runAsync} would make the closure a
+     * Run side-effect, which is incompatible with branches that journal their
+     * own work (nested {@code ctx.run}, awakeable {@code await}, etc.).
      * <p>
-     * Each branch is executed inside a {@link ScopedValue} scope that binds
-     * a fresh ordinal counter and a scoped prefix ({@code stepPrefix:i}).
-     * Nested {@code run}/{@code runAsync} calls within the branch pick up
-     * the scoped values via {@link #currentOrdinal()} and
-     * {@link #currentPrefix()}, producing journal entry names like
-     * {@code fanout:0/3:llm-call} — fully deterministic for replay.
-     * <p>
-     * The fanout itself does NOT wrap actions in {@code ctx.run()} — that would
-     * nest journal operations inside a side-effect, which is illegal in Restate
-     * ({@code ctx.run()} closures must not call {@code ctx.run()} again).
-     * <p>
-     * On replay, Restate replays the individual journal entries inside each
-     * action (returning cached results for completed steps), then continues
-     * live execution from the point of failure.
+     * For real parallel sub-invocation fanout under Restate, use
+     * {@link com.rorm.DurableRuntime#fanout} which dispatches each branch as
+     * its own Restate invocation with its own journal.
      */
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> List<T> fanout(String stepPrefix, Class<T> resultType, List<Supplier<T>> actions) {
         if (actions.isEmpty()) {
             return List.of();
@@ -137,18 +131,16 @@ public class RestateStepJournal implements StepJournal {
         var parentPrefix = currentPrefix();
         var scopedBase = parentPrefix.isEmpty() ? stepPrefix : parentPrefix + "/" + stepPrefix;
 
-        var results = new ArrayList<dev.restate.sdk.DurableFuture<T>>(actions.size());
+        var results = new ArrayList<T>(actions.size());
         for (var i = 0; i < actions.size(); i++) {
             var branchPrefix = scopedBase + ":" + i;
             var branchOrdinal = new AtomicInteger(0);
             final var action = actions.get(i);
-            results.add(ctx.runAsync(branchPrefix, resultType,
-                () -> ScopedValue.where(StepJournal.CURRENT, this)
-                    .where(SCOPED_ORDINAL, branchOrdinal)
-                    .where(SCOPED_PREFIX, branchPrefix)
-                    .call(action::get)));
+            results.add(ScopedValue.where(StepJournal.CURRENT, this)
+                .where(SCOPED_ORDINAL, branchOrdinal)
+                .where(SCOPED_PREFIX, branchPrefix)
+                .call(action::get));
         }
-        dev.restate.sdk.DurableFuture.all((List) results).await();
-        return results.stream().map(dev.restate.sdk.DurableFuture::await).toList();
+        return results;
     }
 }

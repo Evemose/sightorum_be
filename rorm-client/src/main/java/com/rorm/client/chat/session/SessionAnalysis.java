@@ -1,7 +1,10 @@
 package com.rorm.client.chat.session;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -43,6 +46,21 @@ public class SessionAnalysis {
     @Nullable
     private Instant completedAt;
 
+    /**
+     * Pre-serialized event log as a JsonNode tree. The conversion to/from
+     * {@code List<SwarmStreamEvent>} happens in {@link SessionService} via the
+     * application {@code ObjectMapper} with an explicit {@code TypeReference},
+     * so the polymorphic discriminator survives type erasure on write.
+     */
+    @Nullable
+    @Type(JsonType.class)
+    @Column(name = "result", columnDefinition = "jsonb")
+    private JsonNode events;
+
+    @Nullable
+    @Column(columnDefinition = "text")
+    private String errorMessage;
+
     public SessionAnalysis(String runId, String sessionId, AnalysisKind kind, @Nullable String query) {
         this.runId = runId;
         this.sessionId = sessionId;
@@ -51,13 +69,16 @@ public class SessionAnalysis {
         this.status = AnalysisStatus.RUNNING;
     }
 
-    public void markSucceeded() {
+    public void markSucceeded(@Nullable JsonNode events) {
         this.status = AnalysisStatus.SUCCEEDED;
+        this.events = events;
         this.completedAt = Instant.now();
     }
 
-    public void markFailed() {
+    public void markFailed(String errorMessage, @Nullable JsonNode events) {
         this.status = AnalysisStatus.FAILED;
+        this.errorMessage = errorMessage;
+        this.events = events;
         this.completedAt = Instant.now();
     }
 }

@@ -4,12 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
-import com.rorm.ai.swarm.ContentHash;
-import com.rorm.ai.swarm.DurableSwarmConfig;
-import com.rorm.ai.swarm.EventId;
-import com.rorm.ai.swarm.PhaseScope;
-import com.rorm.ai.swarm.StepOutput;
-import com.rorm.ai.swarm.SwarmInput;
+import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.executor.StepExecutionInput;
 import com.rorm.viz.dto.Digest;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +35,12 @@ public class DescPhase {
     }
 
     private Output doRun(SwarmInput input) {
+        if (input.userQuery() == null || input.userQuery().isBlank()) {
+            throw new IllegalArgumentException("DescPhase requires a non-blank userQuery");
+        }
+        if (input.schema() == null || input.schema().isBlank()) {
+            throw new IllegalArgumentException("DescPhase requires a non-blank schema");
+        }
         var id = EventId.root("descriptive-agent", ContentHash.of(Map.of(
             "kind", "descriptive-agent",
             "schema", input.schema(),
@@ -47,7 +48,7 @@ public class DescPhase {
         var prompt = config.descriptiveAgent().userPromptTemplate()
             .replace("{{USER_QUERY}}", input.userQuery());
         var stepInput = new StepExecutionInput(id, prompt, input.schema(),
-            input.modelSpace(), PhaseScope.runId());
+            PhaseScope.runId());
 
         log.info("[swarm] Descriptive agent for query: {}", input.userQuery());
         var sessionId = "descriptiveAgentExecutor-" + id.token();
