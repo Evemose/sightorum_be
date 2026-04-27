@@ -69,8 +69,25 @@ def mediation(data, spec, confounders, estimation_results, refined_edges):
             W_med = enc[confounders + [med.mediator]].values
 
             treatment_col = spec.original_treatment or spec.treatment
+            treatment_fallback = False
             if treatment_col not in enc.columns:
-                treatment_col = spec.treatment
+                if spec.treatment in enc.columns:
+                    logger.warning(
+                        "Mediation refit: original_treatment '%s' not in data, "
+                        "falling back to spec.treatment '%s' (results may not "
+                        "match original treatment scale)",
+                        treatment_col, spec.treatment)
+                    treatment_col = spec.treatment
+                    treatment_fallback = True
+                else:
+                    results.append({
+                        "mediator": med.mediator,
+                        "error": (
+                            f"neither original_treatment '{spec.original_treatment}' "
+                            f"nor spec.treatment '{spec.treatment}' is in the data"
+                        ),
+                    })
+                    continue
 
             try:
                 model_t = LGBMClassifier(**LGBM_DEFAULTS) if discrete else LGBMRegressor(**LGBM_DEFAULTS)
@@ -83,14 +100,20 @@ def mediation(data, spec, confounders, estimation_results, refined_edges):
                 direct_fit = float(dml.effect().mean())
                 mediated = total_effect - direct_fit
                 fraction = mediated / total_effect if total_effect != 0 else 0
-                results.append({
+                refit_entry = {
                     "mediator": med.mediator,
                     "pathway": med.pathway,
                     "direct_effect": direct_fit,
                     "mediated_effect": mediated,
                     "fraction": fraction,
                     "source": "refit",
-                })
+                    "refit_treatment_column": treatment_col,
+                }
+                if treatment_fallback:
+                    refit_entry["treatment_fallback"] = (
+                        f"original_treatment unavailable; refit on '{treatment_col}'"
+                    )
+                results.append(refit_entry)
             except Exception as e:
                 results.append({"mediator": med.mediator, "error": str(e)})
     return results

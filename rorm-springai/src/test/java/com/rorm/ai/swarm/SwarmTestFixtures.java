@@ -3,7 +3,6 @@ package com.rorm.ai.swarm;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.rorm.ai.chat.ThinkingLevel;
-import com.rorm.metamodel.ModelSpace;
 import com.rorm.ml.stream.JobEventType;
 
 import java.util.List;
@@ -200,7 +199,6 @@ public final class SwarmTestFixtures {
         return new SwarmInput(
             "How can I decrease excursion rates",
             "cold_chain",
-            new ModelSpace(Set.of()),
             List.of(ANCHOR_CONTAINERS, ANCHOR_VEHICLES)
         );
     }

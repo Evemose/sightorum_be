@@ -1,5 +1,6 @@
 package com.rorm.ai.swarm.executor;
 
+import com.rorm.ai.ModelSpaceResolver;
 import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.MemoryInclude;
@@ -7,6 +8,7 @@ import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.agents.FirstLevelSwarmAgent;
 import com.rorm.ai.swarm.agents.SecondarySwarmAgent;
+import com.rorm.metamodel.ModelSpace;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +29,7 @@ public class StepExecutorSupport {
     private final PromptPlaceholders promptPlaceholders;
     private final DurableSwarmConfig config;
     private final SwarmEventBus eventBus;
+    private final ModelSpaceResolver modelSpaceResolver;
 
     public <T> StepOutput<T> execute(StepExecutionInput input, AgentModelConfig agentConfig,
                                      Class<T> responseType) {
@@ -35,15 +38,16 @@ public class StepExecutorSupport {
         var effectiveConfig = input.systemPromptOverride() != null
             ? agentConfig.withSystemPrompt(input.systemPromptOverride())
             : agentConfig;
-        var raw = streamRaw(input, effectiveConfig);
-        var dto = summarize(input, raw, responseType);
-        eventBus.publish(input.runId(), new SwarmStreamEvent.AgentFinished(input.eventId(), kind, raw));
+        var modelSpace = modelSpaceResolver.resolve(input.schema());
+        var raw = streamRaw(input, effectiveConfig, modelSpace);
+        var dto = summarize(input, raw, modelSpace, responseType);
+        eventBus.publish(input.runId(), new SwarmStreamEvent.AgentFinished(input.eventId(), kind, raw, dto));
         return new StepOutput<>(input.eventId(), dto, raw);
     }
 
-    private String streamRaw(StepExecutionInput input, AgentModelConfig agentConfig) {
+    private String streamRaw(StepExecutionInput input, AgentModelConfig agentConfig, ModelSpace modelSpace) {
         var agent = new FirstLevelSwarmAgent(
-            agentConfig, chatService, input.schema(), input.modelSpace(), promptPlaceholders);
+            agentConfig, chatService, input.schema(), modelSpace, promptPlaceholders);
         var runId = input.runId();
         var eventId = input.eventId();
         return agent.streamTokens(input.userPrompt(), customizerFrom(input))
@@ -53,9 +57,9 @@ public class StepExecutorSupport {
             .block();
     }
 
-    private <T> T summarize(StepExecutionInput input, String raw, Class<T> responseType) {
+    private <T> T summarize(StepExecutionInput input, String raw, ModelSpace modelSpace, Class<T> responseType) {
         var summarizer = new SecondarySwarmAgent(
-            config.summarizer(), chatService, input.schema(), input.modelSpace(), promptPlaceholders);
+            config.summarizer(), chatService, input.schema(), modelSpace, promptPlaceholders);
         return summarizer.call(raw, null, responseType);
     }
 

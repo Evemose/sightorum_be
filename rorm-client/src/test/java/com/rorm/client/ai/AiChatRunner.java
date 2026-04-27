@@ -21,9 +21,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.rorm.client.ai.SampleRunLog.*;
 import static com.rorm.client.ai.SwarmPrompts.*;
@@ -148,6 +146,8 @@ class AiChatRunner {
         private org.springframework.core.io.ResourceLoader resourceLoader;
         @Autowired
         private SwarmEventBus eventBus;
+        @Autowired
+        private DurableRuntime durableRuntime;
 
         public void runGenerator() {
             var modelSpace = metamodelService.getModelSpace(SCHEMA);
@@ -367,10 +367,14 @@ class AiChatRunner {
             }
         }
 
-        private SwarmInput buildInput() {
-            var modelSpace = metamodelService.getModelSpace(SCHEMA);
-            return new SwarmInput(
-                "How can I decrease excursion rates", SCHEMA, modelSpace, List.of(SAMPLE_ANCHOR));
+        private GenPhase.Output buildFakeGen() {
+            var journal = StepJournal.current();
+            var rebuttalId = EventId.root("rebuttal", journal.randomUUID());
+            return new GenPhase.Output(
+                "fake-chat-id",
+                new StepOutput<>(EventId.root("generator", journal.randomUUID()), null, ""),
+                new StepOutput<>(EventId.root("sceptic", journal.randomUUID()), null, ""),
+                new StepOutput<>(rebuttalId, null, SAMPLE_GENERATOR_REVISED));
         }
 
         private String newRunId() {
@@ -414,26 +418,30 @@ class AiChatRunner {
                 new StepOutput<>(EventId.root("domain-researcher", StepJournal.current().randomUUID()), null, SAMPLE_DOMAIN_RESEARCH));
         }
 
-        private GenPhase.Output buildFakeGen() {
-            var rebuttalId = EventId.root("rebuttal", UUID.randomUUID());
-            return new GenPhase.Output(
-                "fake-chat-id",
-                new StepOutput<>(EventId.root("generator", UUID.randomUUID()), null, ""),
-                new StepOutput<>(EventId.root("sceptic", UUID.randomUUID()), null, ""),
-                new StepOutput<>(rebuttalId, null, SAMPLE_GENERATOR_REVISED));
-        }
-
         public List<CompilePhase.Output> runCompilePipelineFromGen(GenPhase.Output gen) {
             return withFormatter(runId -> {
                 var anchor = new AnchorContext(buildInput(), SAMPLE_ANCHOR, "containers", buildFakeRecon());
-                return StepJournal.current().fanout(
-                    "compile-phase-fanout",
-                    CompilePhase.Output.class,
-                    gen.rebuttal().dto().hypotheses().stream()
-                        .<Supplier<CompilePhase.Output>>map(h -> () -> compilePhase.run(
-                            new HypothesisContext(anchor, gen, h.title()), runId))
-                        .toList());
+                var invocations = gen.rebuttal().dto().hypotheses().stream()
+                    .map(h -> {
+                        var hypoCtx = new HypothesisContext(anchor, gen, h.title());
+                        var input = new com.rorm.ai.swarm.executor.CompilePhaseExecutionInput(hypoCtx, runId);
+                        var sessionId = "compilePhaseExecutor-" + runId + "-" + h.title();
+                        return new com.rorm.JobInvocation(sessionId, new JobSpec(
+                            "compilePhaseExecutor", "execute",
+                            new Object[]{input},
+                            new String[]{com.rorm.ai.swarm.executor.CompilePhaseExecutionInput.class.getName()}
+                        ));
+                    })
+                    .toList();
+                return durableRuntime.fanout(invocations).stream()
+                    .map(o -> objectMapper.convertValue(o, CompilePhase.Output.class))
+                    .toList();
             });
+        }
+
+        private SwarmInput buildInput() {
+            return new SwarmInput(
+                "How can I decrease excursion rates", SCHEMA, List.of(SAMPLE_ANCHOR));
         }
 
         public GenPhase.Output runGenPhase() {

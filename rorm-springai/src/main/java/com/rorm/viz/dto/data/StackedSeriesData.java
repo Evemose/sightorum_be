@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -36,7 +35,7 @@ public record StackedSeriesData(
         String name,
 
         @JsonPropertyDescription("Optional color role for this series. Falls back to chart default.")
-        @Nullable ColorRole color,
+        @Nullable String color,
 
         @JsonPropertyDescription("Per-category values. Length MUST equal categories.length.")
         @JsonProperty(required = true)

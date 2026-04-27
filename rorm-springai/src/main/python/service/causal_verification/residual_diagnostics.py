@@ -51,12 +51,18 @@ def residual_diagnostics(data, spec, confounders, refined_edges, effect,
 
     fc = spec.residual_checks.field_correlation
     correlations = []
+    skipped_field_cols = []
     for col in fc.check_columns:
         if col not in data.columns:
+            skipped_field_cols.append({"column": col, "reason": "not in data"})
             continue
         vals = data.encoded[col].values.astype(float)
         valid = ~np.isnan(vals)
         if valid.sum() < 100:
+            skipped_field_cols.append({
+                "column": col,
+                "reason": f"only {int(valid.sum())} non-null values (need ≥100)",
+            })
             continue
         r, _ = pearsonr(final_res[valid], vals[valid])
         if abs(r) > fc.threshold:
@@ -68,6 +74,10 @@ def residual_diagnostics(data, spec, confounders, refined_edges, effect,
             })
     correlations.sort(key=lambda x: (-x.get("is_metadata", False), -abs(x["correlation"])))
     result["field_correlations"] = correlations
+    if skipped_field_cols:
+        result["field_correlations_skipped"] = skipped_field_cols
+        logger.warning("Residual diagnostics: %d field correlation columns skipped: %s",
+                       len(skipped_field_cols), skipped_field_cols)
 
     # FIX E3: build exclusion set using protected_columns + DAG-derived sets
     mediator_cols = {m.column for m in spec.mediators_excluded}
@@ -155,12 +165,18 @@ def residual_diagnostics(data, spec, confounders, refined_edges, effect,
         c.get("aborted") for c in corrections) else None
 
     meta_results = []
+    skipped_meta = []
     for mc in spec.residual_checks.metadata_correlation:
         if mc.column not in data.columns:
+            skipped_meta.append({"column": mc.column, "reason": "not in data"})
             continue
         vals = data.encoded[mc.column].values.astype(float)
         valid = ~np.isnan(vals)
         if valid.sum() < 100:
+            skipped_meta.append({
+                "column": mc.column,
+                "reason": f"only {int(valid.sum())} non-null values (need ≥100)",
+            })
             continue
         r, _ = pearsonr(final_res[valid], vals[valid])
         meta_results.append({
@@ -171,5 +187,9 @@ def residual_diagnostics(data, spec, confounders, refined_edges, effect,
             "alert_type": mc.alert_type,
         })
     result["metadata_correlations"] = meta_results
+    if skipped_meta:
+        result["metadata_correlations_skipped"] = skipped_meta
+        logger.warning("Residual diagnostics: %d metadata columns skipped: %s",
+                       len(skipped_meta), skipped_meta)
 
     return result

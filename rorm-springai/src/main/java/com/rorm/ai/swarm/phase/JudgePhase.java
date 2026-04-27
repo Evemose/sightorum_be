@@ -53,7 +53,7 @@ public class JudgePhase {
 
         var id = judgeId(input, anchors);
         var stepInput = new StepExecutionInput(id, userPrompt,
-            input.schema(), input.modelSpace(), PhaseScope.runId());
+            input.schema(), PhaseScope.runId());
 
         log.info("[swarm] Judge synthesizing {} anchor(s) across {} hypothesis result(s)",
             anchors.size(), anchors.stream().mapToInt(a -> a.hypothesisResults().size()).sum());

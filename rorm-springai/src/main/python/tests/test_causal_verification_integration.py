@@ -1982,6 +1982,336 @@ class TestCaseInsensitiveEnumParsing:
         assert oc.response_strategy == OverlapStrategy.TRIM
 
 
+class TestFilterApplicationStrictness:
+    """Filter eval must error loudly, never silently no-op."""
+
+    def test_missing_column_raises(self):
+        from service.causal_verification.pipeline_utils import eval_filter
+        df = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+        f = VariantFilter(column="nonexistent",
+                          operator=FilterOperator.EQ, values=[1])
+        with pytest.raises(ValueError, match="not in data"):
+            eval_filter(df, f)
+
+    def test_unknown_operator_raises(self):
+        from service.causal_verification.pipeline_utils import eval_filter
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        f = VariantFilter(column="x", operator=None, values=[1])
+        with pytest.raises(ValueError):
+            eval_filter(df, f)
+
+    def test_empty_in_values_raises(self):
+        from service.causal_verification.pipeline_utils import eval_filter
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        f = VariantFilter(column="x", operator=FilterOperator.IN, values=[])
+        with pytest.raises(ValueError, match="empty values"):
+            eval_filter(df, f)
+
+    def test_empty_and_raises(self):
+        from service.causal_verification.pipeline_utils import eval_filter
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        f = VariantFilter(and_filters=[])
+        with pytest.raises(ValueError, match="no sub-filters"):
+            eval_filter(df, f)
+
+    def test_apply_filter_includes_variant_id_in_error(self, causal_data):
+        from service.causal_verification.pipeline_utils import apply_variant_filter
+        data, _ = causal_data
+        variant = EstimationVariant(
+            id="v_bad_filter", treatment_column="treatment",
+            treatment_form=TreatmentForm.CONTINUOUS,
+            model_type="LinearDML", w_columns=["conf"],
+            filter=VariantFilter(column="nonexistent_col",
+                                 operator=FilterOperator.EQ, values=["x"]),
+        )
+        with pytest.raises(ValueError, match="v_bad_filter"):
+            apply_variant_filter(data, variant)
+
+    def test_filter_actually_reduces_rows(self, causal_data):
+        from service.causal_verification.pipeline_utils import apply_variant_filter
+        data, _ = causal_data
+        variant = EstimationVariant(
+            id="v_real_filter", treatment_column="treatment",
+            treatment_form=TreatmentForm.CONTINUOUS,
+            model_type="LinearDML", w_columns=["conf"],
+            filter=VariantFilter(column="noise",
+                                 operator=FilterOperator.GT, values=[0.0]),
+        )
+        n_before = len(data)
+        filtered = apply_variant_filter(data, variant)
+        assert 0 < len(filtered) < n_before, \
+            f"filter should reduce rows; before={n_before}, after={len(filtered)}"
+
+    def test_run_estimation_variant_propagates_filter_error(self, causal_data):
+        data, _ = causal_data
+        variant = EstimationVariant(
+            id="v_bad", treatment_column="treatment",
+            treatment_form=TreatmentForm.CONTINUOUS,
+            model_type="LinearDML", w_columns=["conf"],
+            filter=VariantFilter(column="missing_col",
+                                 operator=FilterOperator.EQ, values=["x"]),
+        )
+        with pytest.raises(ValueError, match="missing_col|v_bad"):
+            run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                   edges_to_nx(CAUSAL_EDGES), "outcome")
+
+
+class TestRefutationsCategoricalTreatment:
+    """Refutations must not crash on string-valued categorical treatment."""
+
+    def test_dowhy_receives_numeric_treatment_column(self):
+        """Categorical string treatment is encoded to numeric before dowhy."""
+        from service.causal_verification.refutations import refutations_parallel
+        from concurrent.futures import Future
+        rng = np.random.default_rng(42)
+        n = 500
+        df = pd.DataFrame({
+            "treatment": rng.choice(["A", "B", "C"], n),
+            "outcome": rng.binomial(1, 0.3, n).astype(float),
+            "conf": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            treatment="treatment",
+            treatment_form=TreatmentForm.CATEGORICAL,
+            confounders=["conf"],
+            refutations=[RefutationConfig(type=RefutationType.PLACEBO)],
+        )
+        dag = edges_to_nx([("conf", "treatment"), ("treatment", "outcome"), ("conf", "outcome")])
+        budget = MagicMock()
+        budget.lgbm_defaults.return_value = dict(n_estimators=10, max_depth=3,
+                                                 learning_rate=0.1, verbose=-1)
+        budget.param.return_value = 3
+        budget.container_mb = 32000
+        budget.check_and_reclaim = MagicMock()
+
+        with patch("service.causal_verification.refutations.dowhy") as mock_dowhy:
+            mock_model = MagicMock()
+            mock_dowhy.CausalModel.return_value = mock_model
+            mock_model.identify_effect.return_value = MagicMock()
+            mock_model.estimate_effect.return_value = MagicMock()
+            mock_refute = MagicMock(new_effect=0.01)
+            mock_model.refute_estimate.return_value = mock_refute
+
+            refutations_parallel(data, spec, dag, 0.5, budget)
+
+            call_args = mock_dowhy.CausalModel.call_args
+            passed_data = call_args.kwargs["data"]
+            t_col = passed_data["treatment"]
+            assert pd.api.types.is_numeric_dtype(t_col), \
+                f"treatment column should be numeric for dowhy isnan compat, " \
+                f"got dtype={t_col.dtype}"
+            o_col = passed_data["outcome"]
+            assert pd.api.types.is_numeric_dtype(o_col)
+            assert "conf" in passed_data.columns
+            assert pd.api.types.is_numeric_dtype(passed_data["conf"])
+
+    def test_continuous_treatment_path_unchanged(self, causal_data):
+        """Continuous treatment still passes raw numeric column."""
+        from service.causal_verification.refutations import refutations_parallel
+        data, _ = causal_data
+        spec = make_spec(
+            treatment="treatment",
+            treatment_form=TreatmentForm.CONTINUOUS,
+            confounders=["conf"],
+            refutations=[RefutationConfig(type=RefutationType.PLACEBO)],
+        )
+        dag = edges_to_nx(CAUSAL_EDGES)
+        budget = MagicMock()
+        budget.lgbm_defaults.return_value = dict(n_estimators=10, verbose=-1)
+        budget.param.return_value = 3
+        budget.container_mb = 32000
+        budget.check_and_reclaim = MagicMock()
+
+        with patch("service.causal_verification.refutations.dowhy") as mock_dowhy:
+            mock_model = MagicMock()
+            mock_dowhy.CausalModel.return_value = mock_model
+            mock_model.identify_effect.return_value = MagicMock()
+            mock_model.estimate_effect.return_value = MagicMock()
+            mock_model.refute_estimate.return_value = MagicMock(new_effect=0.01)
+
+            refutations_parallel(data, spec, dag, 0.5, budget)
+
+            call_args = mock_dowhy.CausalModel.call_args
+            passed_data = call_args.kwargs["data"]
+            assert pd.api.types.is_numeric_dtype(passed_data["treatment"])
+
+
+class TestSilentSkipReporting:
+    """Silent skips must surface in output for visibility."""
+
+    def test_residual_field_correlations_reports_skipped_columns(self):
+        from service.causal_verification.residual_diagnostics import residual_diagnostics
+        rng = np.random.default_rng(42)
+        n = 500
+        df = pd.DataFrame({
+            "treatment": rng.normal(0, 1, n),
+            "outcome": rng.normal(0, 1, n),
+            "conf": rng.normal(0, 1, n),
+            "low_n_col": [1.0] * 50 + [None] * 450,
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            confounders=["conf"],
+            residual_checks=ResidualChecks(
+                autocorrelation=[],
+                field_correlation=FieldCorrelationCheck(
+                    threshold=0.05,
+                    check_columns=["conf", "low_n_col", "missing_col"]),
+                auto_correction=AutoCorrectionConfig(max_iterations=1, stop_criterion_ci_pct=5.0),
+                metadata_correlation=[],
+            ),
+        )
+        edges = [("conf", "treatment"), ("treatment", "outcome"), ("conf", "outcome")]
+        r = residual_diagnostics(data, spec, ["conf"], edges, 0.5)
+        assert "field_correlations_skipped" in r
+        skipped_cols = [s["column"] for s in r["field_correlations_skipped"]]
+        assert "missing_col" in skipped_cols
+        assert "low_n_col" in skipped_cols
+        for s in r["field_correlations_skipped"]:
+            assert "reason" in s
+            if s["column"] == "missing_col":
+                assert "not in data" in s["reason"]
+            elif s["column"] == "low_n_col":
+                assert "non-null" in s["reason"]
+
+    def test_residual_metadata_correlations_reports_skipped(self):
+        from service.causal_verification.residual_diagnostics import residual_diagnostics
+        data = make_pipeline_df(n=200)
+        spec = make_spec(
+            confounders=["conf_a"],
+            residual_checks=ResidualChecks(
+                autocorrelation=[],
+                field_correlation=FieldCorrelationCheck(threshold=0.5, check_columns=[]),
+                auto_correction=AutoCorrectionConfig(max_iterations=1, stop_criterion_ci_pct=5.0),
+                metadata_correlation=[
+                    MetadataCorrelation(column="missing_meta", threshold=0.1, alert_type="HIGH"),
+                ],
+            ),
+        )
+        edges = [("treatment", "outcome"), ("conf_a", "outcome")]
+        r = residual_diagnostics(data, spec, ["conf_a"], edges, 0.5)
+        assert "metadata_correlations_skipped" in r
+        assert r["metadata_correlations_skipped"][0]["column"] == "missing_meta"
+        assert "not in data" in r["metadata_correlations_skipped"][0]["reason"]
+
+    def test_structural_breaks_reports_skipped_entities(self, h3_data):
+        from service.causal_verification.structural_breaks import structural_breaks
+        from dataclasses import replace as dc_replace
+        df = h3_data.raw.copy()
+        df["shipmentDate"] = pd.date_range("2024-01-01", periods=len(df), freq="h")
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_h3_spec(include_node_id=False, positivity=False)
+        spec = dc_replace(spec, structural_breaks=[
+            StructuralBreakConfig(
+                id="sb_strict",
+                entity_column="region",
+                temporal_column="shipmentDate",
+                temporal_grain="M",
+                pelt_penalty=4.79,
+                min_obs_per_period=10000,
+                known_events_tables=None,
+                entity_count=7,
+                temporal_points=10,
+            ),
+        ])
+        r = structural_breaks(data, spec, -0.007, (-0.01, -0.003))
+        assert len(r) == 1
+        entry = r[0]
+        if "error" not in entry:
+            assert "n_entities_processed" in entry
+            assert "n_entities_skipped" in entry
+            assert entry["n_entities_skipped"] >= 1
+            assert "skipped_entities" in entry
+            for s in entry["skipped_entities"]:
+                assert "entity" in s
+                assert "reason" in s
+
+    def test_refutations_unknown_type_produces_error_future(self):
+        from service.causal_verification.refutations import refutations_parallel
+        from dto.causal_verification_request import RefutationConfig as RC, RefutationType as RT
+        rng = np.random.default_rng(42)
+        df = pd.DataFrame({
+            "treatment": rng.normal(0, 1, 200),
+            "outcome": rng.normal(0, 1, 200),
+            "conf": rng.normal(0, 1, 200),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        bogus_type = MagicMock()
+        bogus_type.value = "BOGUS_TYPE"
+        bogus_cfg = MagicMock()
+        bogus_cfg.type = bogus_type
+        spec = make_spec(refutations=[bogus_cfg])
+        dag = edges_to_nx(CAUSAL_EDGES)
+        budget = MagicMock()
+        budget.lgbm_defaults.return_value = dict(n_estimators=10, verbose=-1)
+        budget.param.return_value = 3
+        budget.container_mb = 32000
+        budget.check_and_reclaim = MagicMock()
+        futures = refutations_parallel(data, spec, dag, 0.5, budget)
+        assert "bogus_type" in futures
+        f = futures["bogus_type"]
+        with pytest.raises(ValueError, match="no dispatch handler"):
+            f.result()
+
+    def test_mediation_errors_when_neither_treatment_in_data(self):
+        rng = np.random.default_rng(42)
+        n = 200
+        df = pd.DataFrame({
+            "outcome": rng.normal(0, 1, n),
+            "conf": rng.normal(0, 1, n),
+            "mediator": rng.normal(0, 1, n),
+            "actual_treatment": rng.normal(0, 1, n),
+        })
+        data = PipelineDataFrame.from_dataframe(df)
+        spec = make_spec(
+            treatment="missing_treatment",
+            original_treatment="also_missing",
+            confounders=["conf"],
+            mediation=[MediationConfig(
+                mediator="mediator", pathway="T->M->Y",
+                total_variant_id="v_total",
+                direct_variant_id="v_direct_missing",
+            )],
+        )
+        results = mediation(data, spec, ["conf"],
+                            {"v_total": {"effect": 0.5}}, [])
+        assert len(results) == 1
+        assert "error" in results[0]
+        assert "missing_treatment" in results[0]["error"]
+        assert "also_missing" in results[0]["error"]
+
+    def test_mediation_logs_treatment_fallback(self):
+        rng = np.random.default_rng(42)
+        n = 500
+        conf = rng.normal(0, 1, n)
+        treatment = conf + rng.normal(0, 1, n)
+        med = 0.6 * treatment + rng.normal(0, 1, n)
+        outcome = 0.2 * treatment + 0.5 * med + conf + rng.normal(0, 1, n)
+        df = pd.DataFrame({"treatment": treatment, "outcome": outcome,
+                           "conf": conf, "mediator": med})
+        data = PipelineDataFrame.from_dataframe(df)
+        total = 0.2 + 0.6 * 0.5
+        spec = make_spec(
+            confounders=["conf"],
+            original_treatment="missing_original",
+            mediation=[MediationConfig(
+                mediator="mediator", pathway="T->M->Y",
+                total_variant_id="v_total",
+                direct_variant_id="v_direct_missing",
+            )],
+        )
+        edges = [("conf", "treatment"), ("treatment", "mediator"),
+                 ("mediator", "outcome"), ("treatment", "outcome")]
+        r = mediation(data, spec, ["conf"],
+                      {"v_total": {"effect": total}}, edges)
+        assert len(r) == 1
+        if "error" not in r[0]:
+            assert r[0]["source"] == "refit"
+            assert r[0].get("refit_treatment_column") == "treatment"
+            assert "treatment_fallback" in r[0]
+
+
 class TestBackwardCompat:
 
     def test_imports(self):

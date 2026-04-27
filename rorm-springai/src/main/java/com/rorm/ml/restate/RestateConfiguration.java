@@ -40,13 +40,18 @@ public class RestateConfiguration {
 
     @Bean
     RestateServiceConfigurator durableJobConfig() {
-        return sd -> sd.invocationRetryPolicy(
-            InvocationRetryPolicy.builder()
-                .maxAttempts(1)
-                .onMaxAttempts(InvocationRetryPolicy.OnMaxAttempts.PAUSE)
-                .initialInterval(Duration.ofMillis(1))
-                .build()
-        );
+        return sd -> sd
+            .inactivityTimeout(Duration.ofHours(5))
+            .abortTimeout(Duration.ofHours(5))
+            .invocationRetryPolicy(
+                InvocationRetryPolicy.builder()
+                    .maxAttempts(10)
+                    .onMaxAttempts(InvocationRetryPolicy.OnMaxAttempts.PAUSE)
+                    .initialInterval(Duration.ofSeconds(1))
+                    .exponentiationFactor(2.0)
+                    .maxInterval(Duration.ofSeconds(30))
+                    .build()
+            );
     }
 
     @RestateAdminClient

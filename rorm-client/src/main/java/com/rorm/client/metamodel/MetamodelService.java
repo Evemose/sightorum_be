@@ -1,5 +1,6 @@
 package com.rorm.client.metamodel;
 
+import com.rorm.ai.ModelSpaceResolver;
 import com.rorm.client.metamodel.dto.ModelSpaceResponse;
 import com.rorm.dto.MetamodelDTO.RootDTO;
 import com.rorm.mapper.MetamodelMapper;
@@ -13,7 +14,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class MetamodelService {
+public class MetamodelService implements ModelSpaceResolver {
 
     private final MetamodelRepository repository;
     private final MetamodelMapper metamodelMapper;
@@ -56,6 +57,14 @@ public class MetamodelService {
     public ModelSpace getModelSpace(String schemaName) {
         var metamodel = repository.findBySchemaName(schemaName)
             .orElseThrow(() -> new EntityNotFoundException("Metamodel not found: " + schemaName));
+        return metamodel.getModelSpace();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ModelSpace resolve(String schema) {
+        var metamodel = repository.findBySchemaName(schema)
+            .orElseThrow(() -> new EntityNotFoundException("Metamodel not found: " + schema));
         return metamodel.getModelSpace();
     }
 

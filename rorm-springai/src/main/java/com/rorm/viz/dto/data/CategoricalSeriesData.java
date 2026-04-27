@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -40,7 +39,7 @@ public record CategoricalSeriesData(
         double value,
 
         @JsonPropertyDescription("Optional per-item color role overriding the chart default.")
-        @Nullable ColorRole color,
+        @Nullable String color,
 
         @JsonPropertyDescription("Optional display-only label. Falls back to `key` when omitted.")
         @Nullable String label

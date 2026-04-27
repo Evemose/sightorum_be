@@ -55,8 +55,8 @@ final class SwarmEventFormatterSmoke {
         scoutThread.join();
         domainThread.join();
 
-        events.tryEmitNext(new SwarmStreamEvent.AgentFinished(scoutId, "scout", "scout raw output"));
-        events.tryEmitNext(new SwarmStreamEvent.AgentFinished(domainId, "domain-researcher", "domain raw output"));
+        events.tryEmitNext(new SwarmStreamEvent.AgentFinished(scoutId, "scout", "scout raw output", null));
+        events.tryEmitNext(new SwarmStreamEvent.AgentFinished(domainId, "domain-researcher", "domain raw output", null));
     }
 
     private static void runGen(Sinks.Many<SwarmStreamEvent> events) throws InterruptedException {
@@ -79,7 +79,7 @@ final class SwarmEventFormatterSmoke {
         });
         t.join();
 
-        events.tryEmitNext(new SwarmStreamEvent.AgentFinished(genId, "generator", "gen raw output"));
+        events.tryEmitNext(new SwarmStreamEvent.AgentFinished(genId, "generator", "gen raw output", null));
     }
 
     private static void runParallelCompile(Sinks.Many<SwarmStreamEvent> events) throws InterruptedException {
@@ -112,7 +112,7 @@ final class SwarmEventFormatterSmoke {
         }
 
         for (var c : compilers) {
-            events.tryEmitNext(new SwarmStreamEvent.AgentFinished(c.id, "compiler", "compiler raw output"));
+            events.tryEmitNext(new SwarmStreamEvent.AgentFinished(c.id, "compiler", "compiler raw output", null));
         }
     }
 

@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface SessionAnalysisRepository extends JpaRepository<SessionAnalysis, String> {
     List<SessionAnalysis> findBySessionIdOrderByStartedAtDesc(String sessionId);
+
+    List<SessionAnalysis> findByStatus(AnalysisStatus status);
 }

@@ -4,14 +4,9 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import com.rorm.viz.dto.Section;
 import com.rorm.viz.dto.SharedChartProps;
-import com.rorm.viz.dto.data.CategoricalSeriesData;
-import com.rorm.viz.dto.data.StackedSeriesData;
-import com.rorm.viz.dto.data.TableInlineBarData;
-import com.rorm.viz.dto.data.TimeSeriesData;
-import com.rorm.viz.dto.data.TornadoData;
+import com.rorm.viz.dto.data.*;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -46,7 +41,7 @@ public final class BarChartBlocks {
         @Nullable List<Object> highlightedKeys,
 
         @JsonPropertyDescription("Color role used for highlighted entries.")
-        @Nullable ColorRole highlightColor
+        @Nullable String highlightColor
     ) implements ChartBlock {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

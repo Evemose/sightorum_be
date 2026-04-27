@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import org.jspecify.annotations.Nullable;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -23,7 +22,7 @@ public record RegimeDef(
     TimeCoord to,
 
     @JsonPropertyDescription("Optional background color role for the regime band.")
-    @Nullable ColorRole color,
+    @Nullable String color,
 
     @JsonPropertyDescription("Optional label rendered within the regime band.")
     @Nullable String label

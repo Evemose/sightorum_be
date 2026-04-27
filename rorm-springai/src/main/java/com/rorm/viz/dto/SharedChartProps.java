@@ -25,8 +25,8 @@ public record SharedChartProps(
     @JsonPropertyDescription("Chart subtitle rendered under the title (e.g. '8 weeks, daily rollup').")
     @Nullable String subtitle,
 
-    @JsonPropertyDescription("Overall tint role for the chart. Per-datum colors still override this.")
-    @Nullable ColorRole colorRole,
+    @JsonPropertyDescription("Overall tint for the chart. Any CSS color value (hex, rgb(), hsl(), named color) or a semantic token (base, base-muted, chrome, severity-amber, severity-muted, severity-low, focal, divergent, delta-positive, delta-negative, error). Per-datum colors still override this.")
+    @Nullable String colorRole,
 
     @JsonPropertyDescription("Optional text annotations anchored to the chart frame or data coordinates.")
     @Nullable List<AnnotationDef> annotations,
@@ -35,5 +35,8 @@ public record SharedChartProps(
     @Nullable List<ReferenceLineDef> referenceLines,
 
     @JsonPropertyDescription("Optional pixel-height hint. The frontend may clamp to layout-appropriate bounds.")
-    @Nullable Integer height
+    @Nullable Integer height,
+
+    @JsonPropertyDescription("Polarity hint: which numeric direction is favorable. Drives cyan/red mapping on sign-encoded charts and structural extremes on sorted bar/column charts. Defaults to 'higher' when omitted. Ignored by charts without a sign-encoded dimension.")
+    @Nullable DesiredDirection desiredDirection
 ) {}

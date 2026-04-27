@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -29,7 +28,7 @@ public record DistributionPointGroupData(
         String name,
 
         @JsonPropertyDescription("Optional per-group default color role.")
-        @Nullable ColorRole color,
+        @Nullable String color,
 
         @JsonPropertyDescription("Individual points belonging to this group.")
         @JsonProperty(required = true)
@@ -53,6 +52,6 @@ public record DistributionPointGroupData(
         @Nullable Double size,
 
         @JsonPropertyDescription("Optional per-point color role overriding the group color.")
-        @Nullable ColorRole color
+        @Nullable String color
     ) {}
 }

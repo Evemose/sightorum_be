@@ -17,7 +17,7 @@ public sealed interface SwarmStreamEvent {
 
     record AgentToken(EventId eventId, StreamToken token) implements SwarmStreamEvent {}
 
-    record AgentFinished(EventId eventId, String kind, String rawResponse) implements SwarmStreamEvent {}
+    record AgentFinished(EventId eventId, String kind, String rawResponse, Object output) implements SwarmStreamEvent {}
 
     record RunCompleted() implements SwarmStreamEvent {}
 }

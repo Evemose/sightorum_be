@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -41,7 +40,7 @@ public record HierarchyData(
         @Nullable Double value,
 
         @JsonPropertyDescription("Optional node color role.")
-        @Nullable ColorRole color,
+        @Nullable String color,
 
         @JsonPropertyDescription("Child nodes. Null or empty when this node is a leaf.")
         @Nullable List<HierarchyNode> children

@@ -4,11 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableRuntime;
 import com.rorm.JobSpec;
-import com.rorm.ai.swarm.ContentHash;
-import com.rorm.ai.swarm.DurableSwarmConfig;
-import com.rorm.ai.swarm.EventId;
-import com.rorm.ai.swarm.PhaseScope;
-import com.rorm.ai.swarm.StepOutput;
+import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.dto.ForensicDiagnosisDTO;
 import com.rorm.ai.swarm.executor.StepExecutionInput;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +38,7 @@ public class NullPhase {
         var id = forensicId(pipeCtx);
         var input = new StepExecutionInput(id, buildPrompt(pipeCtx),
             hypoCtx.anchor().swarm().schema(),
-            hypoCtx.anchor().swarm().modelSpace(), PhaseScope.runId());
+            PhaseScope.runId());
 
         log.info("[swarm] Forensic pathologist for {}", hypoCtx.hypothesisId());
         var sessionId = "forensicPathologistExecutor-" + id.token();

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -49,7 +48,7 @@ public record ParallelData(
         @Nullable String name,
 
         @JsonPropertyDescription("Optional line color role.")
-        @Nullable ColorRole color,
+        @Nullable String color,
 
         @JsonPropertyDescription("Values on each axis, in axis order. Length MUST equal axes.length.")
         @JsonProperty(required = true)

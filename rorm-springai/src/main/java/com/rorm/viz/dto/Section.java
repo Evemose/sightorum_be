@@ -23,7 +23,7 @@ public record Section(
     @JsonProperty(required = true)
     int end,
 
-    @JsonPropertyDescription("Color role used to shade the section.")
+    @JsonPropertyDescription("Color used to shade the section. Any CSS color value (hex, rgb(), hsl(), named color) or a semantic token (base, base-muted, chrome, severity-amber, severity-muted, severity-low, focal, divergent, delta-positive, delta-negative, error).")
     @JsonProperty(required = true)
-    ColorRole color
+    String color
 ) {}

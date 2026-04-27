@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.rorm.viz.dto.ColorRole;
 import com.rorm.viz.dto.SharedChartProps;
 import com.rorm.viz.dto.data.CalendarHeatmapData;
 import com.rorm.viz.dto.data.CalendarMultiYearData;
@@ -60,7 +59,7 @@ public final class TimeChartBlocks {
         @JsonPropertyDescription("""
             Optional 3-tuple of colors, one per panel in order:
             [trend, seasonal, remainder]. Length MUST be exactly 3.""")
-        @Nullable List<ColorRole> panelColors
+        @Nullable List<String> panelColors
     ) implements ChartBlock {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -77,6 +76,6 @@ public final class TimeChartBlocks {
         WrappedYoYData data,
 
         @JsonPropertyDescription("Optional per-series color overrides aligned to data.series[i].")
-        @Nullable List<ColorRole> seriesColors
+        @Nullable List<String> seriesColors
     ) implements ChartBlock {}
 }
