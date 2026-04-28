@@ -123,40 +123,58 @@ class VariantFilter:
                 f"VariantFilter.from_dict expected dict, got {type(d).__name__}: {d!r}"
             )
 
-        def _composite(*keys):
+        def _first_present(*keys):
             for k in keys:
-                v = d.get(k)
-                if v is not None and (not isinstance(v, list) or len(v) > 0):
-                    return k, v
-            return None, None
+                if k in d and d[k] is not None:
+                    return d[k]
+            return None
 
-        and_key, and_val = _composite("AND", "and", "and_filters")
-        or_key, or_val = _composite("OR", "or", "or_filters")
-        not_key, not_val = None, None
-        for k in ("NOT", "not", "not_filter"):
-            if d.get(k) is not None:
-                not_key, not_val = k, d[k]
-                break
+        and_val = _first_present("AND", "and", "and_filters")
+        or_val = _first_present("OR", "or", "or_filters")
+        not_val = _first_present("NOT", "not", "not_filter")
 
         column = d.get("column")
         operator = d.get("operator")
         values = d.get("values")
         has_leaf_fields = column is not None or operator is not None or values is not None
 
-        composites = [(k, v) for k, v in (
-            ("AND", and_val), ("OR", or_val), ("NOT", not_val)) if v is not None]
+        # An empty list composite (e.g. 'and': []) is LLM-noise alongside a leaf;
+        # ignore them when leaf fields are present so the leaf wins. A non-empty
+        # composite alongside a leaf is genuinely ambiguous and must raise.
+        nonempty_composites = []
+        if isinstance(and_val, list) and len(and_val) > 0:
+            nonempty_composites.append("AND")
+        if isinstance(or_val, list) and len(or_val) > 0:
+            nonempty_composites.append("OR")
+        if not_val is not None:
+            nonempty_composites.append("NOT")
 
-        # Ambiguity check: both leaf fields AND non-empty composite is malformed
-        if has_leaf_fields and composites:
+        if has_leaf_fields and nonempty_composites:
             raise ValueError(
                 f"VariantFilter is ambiguous: has leaf fields "
                 f"(column={column!r}, operator={operator!r}, values={values!r}) "
-                f"AND composite branches {[k for k, _ in composites]}. "
+                f"AND non-empty composite branches {nonempty_composites}. "
                 f"A filter must be either a leaf OR a composite, not both. "
-                f"If the leaf is what you intended, remove the composite keys "
-                f"(or set them to []). Dict: {d!r}"
+                f"Dict: {d!r}"
             )
 
+        # Leaf wins over empty composites (LLM-noise tolerance)
+        if has_leaf_fields:
+            missing = [k for k, v in
+                       (("column", column), ("operator", operator), ("values", values))
+                       if v is None]
+            if missing:
+                raise ValueError(
+                    f"VariantFilter leaf is partial: missing or null {missing}. "
+                    f"Got dict: {d!r}"
+                )
+            return cls(
+                column=column,
+                operator=_parse_enum(FilterOperator, operator),
+                values=values,
+            )
+
+        # Pure composite (possibly empty — empty AND/OR is vacuously true/false)
         if and_val is not None:
             return cls(and_filters=[cls.from_dict(sub) for sub in and_val])
         if or_val is not None:
@@ -164,27 +182,12 @@ class VariantFilter:
         if not_val is not None:
             return cls(not_filter=cls.from_dict(not_val))
 
-        if column is None and operator is None and values is None:
-            raise ValueError(
-                f"VariantFilter is empty: no AND/OR/NOT branches and no leaf "
-                f"fields (column/operator/values). Got keys {sorted(d.keys())}. "
-                f"Note: empty composite arrays (e.g. 'and': []) are ignored. "
-                f"Expected leaf {{'column','operator','values'}} OR composite "
-                f"{{'AND':[...]}} / {{'OR':[...]}} / {{'NOT':{{...}}}}. "
-                f"Dict: {d!r}"
-            )
-        missing = [k for k, v in
-                   (("column", column), ("operator", operator), ("values", values))
-                   if v is None]
-        if missing:
-            raise ValueError(
-                f"VariantFilter leaf is partial: missing or null {missing}. "
-                f"Got dict: {d!r}"
-            )
-        return cls(
-            column=column,
-            operator=_parse_enum(FilterOperator, operator),
-            values=values,
+        raise ValueError(
+            f"VariantFilter is empty: no AND/OR/NOT branches and no leaf "
+            f"fields (column/operator/values). Got keys {sorted(d.keys())}. "
+            f"Expected leaf {{'column','operator','values'}} OR composite "
+            f"{{'AND':[...]}} / {{'OR':[...]}} / {{'NOT':{{...}}}}. "
+            f"Dict: {d!r}"
         )
 
 

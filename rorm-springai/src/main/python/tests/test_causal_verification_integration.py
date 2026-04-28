@@ -2043,12 +2043,39 @@ class TestFilterApplicationStrictness:
         with pytest.raises(ValueError, match="empty values"):
             eval_filter(df, f)
 
-    def test_empty_and_raises(self):
+    def test_empty_and_is_vacuously_true(self):
+        """Empty AND is the identity for conjunction — all rows pass."""
         from service.causal_verification.pipeline_utils import eval_filter
         df = pd.DataFrame({"x": [1, 2, 3]})
         f = VariantFilter(and_filters=[])
-        with pytest.raises(ValueError, match="no sub-filters"):
-            eval_filter(df, f)
+        mask = eval_filter(df, f)
+        assert mask.all()
+        assert len(mask) == 3
+
+    def test_empty_or_is_vacuously_false(self):
+        """Empty OR is the identity for disjunction — no rows pass."""
+        from service.causal_verification.pipeline_utils import eval_filter
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        f = VariantFilter(or_filters=[])
+        mask = eval_filter(df, f)
+        assert not mask.any()
+        assert len(mask) == 3
+
+    def test_parser_accepts_lone_empty_and(self):
+        """`{"and": []}` parses cleanly and evaluates to all-true."""
+        from service.causal_verification.pipeline_utils import eval_filter
+        f = VariantFilter.from_dict({"and": []})
+        assert f.and_filters == []
+        mask = eval_filter(pd.DataFrame({"x": [1, 2, 3]}), f)
+        assert mask.all()
+
+    def test_parser_accepts_lone_empty_or(self):
+        """`{"or": []}` parses cleanly and evaluates to all-false."""
+        from service.causal_verification.pipeline_utils import eval_filter
+        f = VariantFilter.from_dict({"or": []})
+        assert f.or_filters == []
+        mask = eval_filter(pd.DataFrame({"x": [1, 2, 3]}), f)
+        assert not mask.any()
 
     def test_apply_filter_includes_variant_id_in_error(self, causal_data):
         from service.causal_verification.pipeline_utils import apply_variant_filter

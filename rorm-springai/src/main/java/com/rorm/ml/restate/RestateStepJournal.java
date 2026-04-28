@@ -106,33 +106,6 @@ public class RestateStepJournal implements StepJournal {
         return result;
     }
 
-    @SneakyThrows
-    @Override
-    public <T> T runOrRerun(String stepName, Class<T> resultType, RerunFn<T> action) {
-        var qualifiedName = qualifiedName(stepName);
-        var stateKey = StateKey.of(qualifiedName, resultType);
-        var cached = ctx.get(stateKey);
-        var result = ctx.run(qualifiedName, resultType, () -> action.apply(
-            cached.orElse(null),
-            new RerunCtx() {
-                @Override
-                public <R> R get(String key, Class<R> type) {
-                    var k = StateKey.of(qualifiedName + "/" + key, type);
-                    var v = ctx.get(k);
-                    return v.orElse(null);
-                }
-
-                @Override
-                @SuppressWarnings("unchecked")
-                public void set(String key, Object value) {
-                    ctx.set(StateKey.of(qualifiedName + "/" + key, (Class<Object>) value.getClass()), value);
-                }
-            }
-        ));
-        ctx.set(stateKey, result);
-        return result;
-    }
-
     @Override
     public <T> DurableFuture<T> awakeable(Class<T> type) {
         var awakeable = ctx.awakeable(type);
