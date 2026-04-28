@@ -1734,6 +1734,42 @@ class TestFilterDeserialization:
         assert f.operator == FilterOperator.IN
         assert f.values == ["A", "B"]
 
+    def test_leaf_with_empty_composite_arrays_is_leaf(self):
+        """LLM-generated specs sometimes emit `and: []` and `or: []` alongside
+        leaf fields as schema noise. Empty composites must not steal precedence."""
+        f = VariantFilter.from_dict({
+            "column": "vehicleRefrigModel",
+            "operator": "IN",
+            "values": ["Thermo_King_Advancer_A400", "Daikin_RKN"],
+            "and": [],
+            "or": [],
+        })
+        assert f.column == "vehicleRefrigModel"
+        assert f.operator == FilterOperator.IN
+        assert f.values == ["Thermo_King_Advancer_A400", "Daikin_RKN"]
+        assert f.and_filters is None
+        assert f.or_filters is None
+        assert f.is_leaf
+
+    def test_ambiguous_leaf_plus_nonempty_composite_rejected(self):
+        """Both leaf fields AND non-empty composite is malformed — must reject."""
+        with pytest.raises(ValueError, match="ambiguous"):
+            VariantFilter.from_dict({
+                "column": "x",
+                "operator": "IN",
+                "values": ["a"],
+                "and": [{"column": "y", "operator": "EQ", "values": [1]}],
+            })
+
+    def test_partial_leaf_with_empty_composite_rejected(self):
+        """Partial leaf (column only) plus empty composites is still partial."""
+        with pytest.raises(ValueError, match="partial|empty"):
+            VariantFilter.from_dict({
+                "column": "x",
+                "and": [],
+                "or": [],
+            })
+
     def test_and_lowercase_jsonconvention(self):
         """Compiler-generated specs use lowercase 'and'/'or'/'not'."""
         f = VariantFilter.from_dict({

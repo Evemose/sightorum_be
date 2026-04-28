@@ -34,13 +34,13 @@ class FileStepJournal implements StepJournal {
 
     @SneakyThrows
     @Override
-    public <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
+    public <T> T runOrRerun(String stepName, Class<T> resultType, RerunFn<T> action) {
         var idx = stepIndex++;
         var file = dir.resolve(idx + ".json");
         if (Files.exists(file)) {
             return mapper.readValue(file.toFile(), resultType);
         }
-        var result = action.get();
+        var result = action.apply(null, null);
         mapper.writeValue(file.toFile(), result);
         return result;
     }
@@ -75,6 +75,11 @@ class FileStepJournal implements StepJournal {
     }
 
     @Override
+    public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
+        return CompletableDurableFuture.by(CompletableFuture.supplyAsync(action));
+    }
+
+    @Override
     public <T> DurableFuture<T> runAsync(String stepName, Supplier<T> action) {
         return CompletableDurableFuture.by(CompletableFuture.supplyAsync(action));
     }
@@ -87,11 +92,6 @@ class FileStepJournal implements StepJournal {
     @Override
     public UUID randomUUID() {
         return UUID.randomUUID();
-    }
-
-    @Override
-    public <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action) {
-        return CompletableDurableFuture.by(CompletableFuture.supplyAsync(action));
     }
 
     @SneakyThrows
