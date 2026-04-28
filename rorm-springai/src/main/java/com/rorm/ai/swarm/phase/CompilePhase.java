@@ -83,7 +83,12 @@ public class CompilePhase {
         var modelSpace = modelSpaceResolver.resolve(swarm.schema());
         var request = pipelineSpecConverter.convert(
             spec, hypoCtx.hypothesisId() + " causal verification", modelSpace, swarm.schema());
-        return mlService.submit(request).await();
+        try {
+            return mlService.submit(request).await();
+        } catch (Exception e) {
+            log.error("Failed to submit pipeline for hypothesis {}, error: {}", hypoCtx.hypothesisId(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     @SneakyThrows

@@ -26,12 +26,7 @@ public class RestateJobCompletionHandler implements JobCompletionHandler {
     }
 
     private void dispatch(String awakeableId, JobEvent event) {
-        if (event.isSuccess()) {
-            restateClient.awakeableHandle(awakeableId).resolve(JobEvent.class, event);
-        } else {
-            restateClient.awakeableHandle(awakeableId)
-                .reject(event.error() != null ? event.error() : "Job failed");
-        }
+        restateClient.awakeableHandle(awakeableId).resolve(JobEvent.class, event);
     }
 
     @Override

@@ -122,35 +122,53 @@ class VariantFilter:
             raise ValueError(
                 f"VariantFilter.from_dict expected dict, got {type(d).__name__}: {d!r}"
             )
-        # Composite branches — accept uppercase ('AND'), lowercase ('and'),
-        # and asdict form ('and_filters') so specs from compilers, tests,
-        # and round-tripped checkpoints all work.
-        if d.get("AND") is not None:
-            return cls(and_filters=[cls.from_dict(sub) for sub in d["AND"]])
-        if d.get("and") is not None:
-            return cls(and_filters=[cls.from_dict(sub) for sub in d["and"]])
-        if d.get("and_filters") is not None:
-            return cls(and_filters=[cls.from_dict(sub) for sub in d["and_filters"]])
-        if d.get("OR") is not None:
-            return cls(or_filters=[cls.from_dict(sub) for sub in d["OR"]])
-        if d.get("or") is not None:
-            return cls(or_filters=[cls.from_dict(sub) for sub in d["or"]])
-        if d.get("or_filters") is not None:
-            return cls(or_filters=[cls.from_dict(sub) for sub in d["or_filters"]])
-        if d.get("NOT") is not None:
-            return cls(not_filter=cls.from_dict(d["NOT"]))
-        if d.get("not") is not None:
-            return cls(not_filter=cls.from_dict(d["not"]))
-        if d.get("not_filter") is not None:
-            return cls(not_filter=cls.from_dict(d["not_filter"]))
+
+        def _composite(*keys):
+            for k in keys:
+                v = d.get(k)
+                if v is not None and (not isinstance(v, list) or len(v) > 0):
+                    return k, v
+            return None, None
+
+        and_key, and_val = _composite("AND", "and", "and_filters")
+        or_key, or_val = _composite("OR", "or", "or_filters")
+        not_key, not_val = None, None
+        for k in ("NOT", "not", "not_filter"):
+            if d.get(k) is not None:
+                not_key, not_val = k, d[k]
+                break
 
         column = d.get("column")
         operator = d.get("operator")
         values = d.get("values")
+        has_leaf_fields = column is not None or operator is not None or values is not None
+
+        composites = [(k, v) for k, v in (
+            ("AND", and_val), ("OR", or_val), ("NOT", not_val)) if v is not None]
+
+        # Ambiguity check: both leaf fields AND non-empty composite is malformed
+        if has_leaf_fields and composites:
+            raise ValueError(
+                f"VariantFilter is ambiguous: has leaf fields "
+                f"(column={column!r}, operator={operator!r}, values={values!r}) "
+                f"AND composite branches {[k for k, _ in composites]}. "
+                f"A filter must be either a leaf OR a composite, not both. "
+                f"If the leaf is what you intended, remove the composite keys "
+                f"(or set them to []). Dict: {d!r}"
+            )
+
+        if and_val is not None:
+            return cls(and_filters=[cls.from_dict(sub) for sub in and_val])
+        if or_val is not None:
+            return cls(or_filters=[cls.from_dict(sub) for sub in or_val])
+        if not_val is not None:
+            return cls(not_filter=cls.from_dict(not_val))
+
         if column is None and operator is None and values is None:
             raise ValueError(
                 f"VariantFilter is empty: no AND/OR/NOT branches and no leaf "
                 f"fields (column/operator/values). Got keys {sorted(d.keys())}. "
+                f"Note: empty composite arrays (e.g. 'and': []) are ignored. "
                 f"Expected leaf {{'column','operator','values'}} OR composite "
                 f"{{'AND':[...]}} / {{'OR':[...]}} / {{'NOT':{{...}}}}. "
                 f"Dict: {d!r}"
