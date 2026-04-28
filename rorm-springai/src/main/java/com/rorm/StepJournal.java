@@ -1,9 +1,6 @@
 package com.rorm;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -39,11 +36,7 @@ public interface StepJournal {
     }
 
     /// Runs and caches result of computation
-    default <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
-        return runOrRerun(stepName, resultType, (_, _) -> action.get());
-    }
-
-    <T> T runOrRerun(String stepName, Class<T> resultType, RerunFn<T> action);
+    <T> T run(String stepName, Class<T> resultType, Supplier<T> action);
 
     /// Runs and caches a result of computation asynchronously
     <T> DurableFuture<T> runAsync(String stepName, Class<T> resultType, Supplier<T> action);
@@ -84,37 +77,13 @@ public interface StepJournal {
 
     UUID randomUUID();
 
-    @FunctionalInterface
-    interface RerunFn<T> {
-        T apply(@Nullable T prev, RerunCtx ctx);
-    }
-
-    interface RerunCtx {
-        <T> T get(String key, Class<T> type);
-
-        void set(String key, Object value);
-    }
-
     class InMemory implements StepJournal {
 
         private final ConcurrentMap<String, AwakableHandle<?>> awakableHandles = new ConcurrentHashMap<>();
 
         @Override
-        public <T> T runOrRerun(String stepName, Class<T> resultType, RerunFn<T> action) {
-            return action.apply(null, new RerunCtx() {
-                private final Map<String, Object> state = new ConcurrentHashMap<>();
-
-                @Override
-                public <R> R get(String key, Class<R> type) {
-                    //noinspection unchecked
-                    return (R) state.get(key);
-                }
-
-                @Override
-                public void set(String key, Object value) {
-                    state.put(key, value);
-                }
-            });
+        public <T> T run(String stepName, Class<T> resultType, Supplier<T> action) {
+            return action.get();
         }
 
         @Override

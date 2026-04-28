@@ -82,6 +82,32 @@ class CausalVerificationService:
                 "_score": datetime.utcnow().timestamp(),
             })
 
+        try:
+            return self._run_pipeline_body(spec, datasource, progress_callback, checkpoint)
+        except BaseException as e:
+            if checkpoint:
+                try:
+                    checkpoint.save_run_meta({
+                        "spec": spec.to_dict(),
+                        "status": "failed",
+                        "failed_at": datetime.utcnow().isoformat(),
+                        "_score": datetime.utcnow().timestamp(),
+                        "error": f"{type(e).__name__}: {e}",
+                    })
+                except Exception as meta_err:
+                    logger.error("Failed to record failure status for run: %s", meta_err)
+            raise
+
+    def _run_pipeline_body(
+            self,
+            spec,
+            datasource,
+            progress_callback: Optional[Callable] = None,
+            checkpoint=None,
+    ) -> dict[str, Any]:
+        from datetime import datetime
+        from service.pipeline_checkpoint import PipelineCheckpoint
+
         result: dict[str, Any] = {"hypothesis_id": spec.hypothesis_id, "steps": {}}
 
         def report(pct: float, msg: str = ""):

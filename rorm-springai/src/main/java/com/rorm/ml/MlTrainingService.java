@@ -39,7 +39,7 @@ public class MlTrainingService {
     public DurableFuture<JobEvent> submit(AsyncJobRequest request) {
         var journal = StepJournal.current();
 
-        var effectiveJobId = journal.runOrRerun("ml:submit:" + request.jobType(), UUID.class, (_, ctx) ->
+        var jobId = journal.run("ml:submit:" + request.jobType(), UUID.class, () ->
             switch (request) {
                 case TrainingJobRequest r -> {
                     var resp = submitTraining(r);
@@ -70,10 +70,7 @@ public class MlTrainingService {
                     yield resp.analysisId();
                 }
                 case CausalVerificationJobRequest r -> {
-                    var causalVerificationJobId = "causalVerificationJobId";
-                    var inFlightOrPrev = ctx.get(causalVerificationJobId, UUID.class);
-                    var resp = submitCausalVerification(r, inFlightOrPrev.toString());
-                    ctx.set(causalVerificationJobId, resp.analysisId());
+                    var resp = submitCausalVerification(r);
                     if (resp.isNotAccepted()) {
                         throw new MlServiceException("Causal verification not accepted: " + resp.message());
                     }
@@ -83,7 +80,7 @@ public class MlTrainingService {
         );
 
         var future = journal.awakeable(JobEvent.class);
-        completionHandler.register(effectiveJobId, future);
+        completionHandler.register(jobId, future);
         return future;
     }
 
@@ -110,58 +107,6 @@ public class MlTrainingService {
                 .body(TrainingJobResponse.class);
         } catch (RestClientException e) {
             throw new MlServiceException("Failed to submit tuning job", e);
-        }
-    }
-
-    public AsyncJobResponse submitStabilitySelection(StabilitySelectionJobRequest request) {
-        try {
-            return restClient.post()
-                .uri("/analysis/stability-selection/async")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(AsyncJobResponse.class);
-        } catch (RestClientException e) {
-            throw new MlServiceException("Failed to submit stability selection", e);
-        }
-    }
-
-    public AsyncJobResponse submitShapCurvesAsync(ShapJobRequest request) {
-        try {
-            var uriBuilder = new StringBuilder("/analysis/stability-selection/")
-                .append(request.runId())
-                .append("/shap-curves/async?n_bins=").append(request.nBins())
-                .append("&n_breakpoints=").append(request.nBreakpoints());
-
-            if (request.features() != null && !request.features().isEmpty()) {
-                uriBuilder.append("&features=").append(String.join(",", request.features()));
-            }
-
-            return restClient.post()
-                .uri(uriBuilder.toString())
-                .retrieve()
-                .body(AsyncJobResponse.class);
-        } catch (RestClientException e) {
-            throw new MlServiceException("Failed to submit async SHAP computation", e);
-        }
-    }
-
-    public AsyncJobResponse submitCausalVerification(CausalVerificationJobRequest request,
-                                                     @Nullable String runId) {
-        try {
-            var uri = runId != null
-                ? "/analysis/causal-verification/async?run_id={runId}"
-                : "/analysis/causal-verification/async";
-            var spec = runId != null
-                ? restClient.post().uri(uri, runId)
-                : restClient.post().uri(uri);
-            return spec
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(AsyncJobResponse.class);
-        } catch (RestClientException e) {
-            throw new MlServiceException("Failed to submit causal verification", e);
         }
     }
 
@@ -224,6 +169,19 @@ public class MlTrainingService {
         }
     }
 
+    public AsyncJobResponse submitStabilitySelection(StabilitySelectionJobRequest request) {
+        try {
+            return restClient.post()
+                .uri("/analysis/stability-selection/async")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(AsyncJobResponse.class);
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to submit stability selection", e);
+        }
+    }
+
     public List<Map<String, Object>> listStabilityRuns() {
         try {
             return restClient.get()
@@ -254,6 +212,45 @@ public class MlTrainingService {
             return Optional.ofNullable(response);
         } catch (RestClientException e) {
             return Optional.empty();
+        }
+    }
+
+    public AsyncJobResponse submitShapCurvesAsync(ShapJobRequest request) {
+        try {
+            var uriBuilder = new StringBuilder("/analysis/stability-selection/")
+                .append(request.runId())
+                .append("/shap-curves/async?n_bins=").append(request.nBins())
+                .append("&n_breakpoints=").append(request.nBreakpoints());
+
+            if (request.features() != null && !request.features().isEmpty()) {
+                uriBuilder.append("&features=").append(String.join(",", request.features()));
+            }
+
+            return restClient.post()
+                .uri(uriBuilder.toString())
+                .retrieve()
+                .body(AsyncJobResponse.class);
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to submit async SHAP computation", e);
+        }
+    }
+
+    public AsyncJobResponse submitCausalVerification(CausalVerificationJobRequest request,
+                                                     @Nullable String runId) {
+        try {
+            var uri = runId != null
+                ? "/analysis/causal-verification/async?run_id={runId}"
+                : "/analysis/causal-verification/async";
+            var spec = runId != null
+                ? restClient.post().uri(uri, runId)
+                : restClient.post().uri(uri);
+            return spec
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(AsyncJobResponse.class);
+        } catch (RestClientException e) {
+            throw new MlServiceException("Failed to submit causal verification", e);
         }
     }
 

@@ -183,10 +183,27 @@ class ReexecutionEngine:
         base_meta = base_cp.load_run_meta()
         if base_meta is None:
             raise ValueError(f"Run '{base_run_id}' not found")
-        if base_meta.get("status") != "completed":
+        base_status = base_meta.get("status")
+        if base_status != "completed":
+            if base_status == "failed":
+                err = base_meta.get("error", "unknown")
+                raise ValueError(
+                    f"Run '{base_run_id}' failed and cannot be re-executed "
+                    f"(error: {err}). Submit a fresh pipeline run with "
+                    f"corrected spec instead."
+                )
+            if base_status == "running":
+                started = base_meta.get("started_at", "unknown")
+                raise ValueError(
+                    f"Run '{base_run_id}' is still running "
+                    f"(started_at={started}); wait for completion before "
+                    f"re-executing. Note: a stuck 'running' status may indicate "
+                    f"a crashed pipeline that did not record a 'failed' transition — "
+                    f"check pipeline logs for fatal errors."
+                )
             raise ValueError(
-                f"Run '{base_run_id}' is not frozen "
-                f"(status={base_meta.get('status')})"
+                f"Run '{base_run_id}' is not frozen (status={base_status!r}); "
+                f"re-execution requires status='completed'"
             )
         base_spec_dict: dict = base_meta["spec"]
 

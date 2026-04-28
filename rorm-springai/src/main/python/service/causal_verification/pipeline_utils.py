@@ -60,15 +60,17 @@ def apply_variant_filter(
 
 def eval_filter(df: pd.DataFrame, f: VariantFilter) -> "pd.Series[bool]":
     if f.and_filters is not None:
+        # Empty AND is vacuously true (identity element for conjunction)
         if not f.and_filters:
-            raise ValueError("AND filter has no sub-filters")
+            return pd.Series(True, index=df.index)
         mask = pd.Series(True, index=df.index)
         for sub in f.and_filters:
             mask = mask & eval_filter(df, sub)
         return mask
     if f.or_filters is not None:
+        # Empty OR is vacuously false (identity element for disjunction)
         if not f.or_filters:
-            raise ValueError("OR filter has no sub-filters")
+            return pd.Series(False, index=df.index)
         mask = pd.Series(False, index=df.index)
         for sub in f.or_filters:
             mask = mask | eval_filter(df, sub)
