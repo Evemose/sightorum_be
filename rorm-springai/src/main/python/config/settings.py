@@ -45,8 +45,7 @@ class StorageConfig:
     models_directory: str = "./trained_models"
     create_if_missing: bool = True
     backend: str = "file"
-    bucket_name: str = ""
-    aws_region: str = ""
+    bucket: str = ""
 
 
 @dataclass
