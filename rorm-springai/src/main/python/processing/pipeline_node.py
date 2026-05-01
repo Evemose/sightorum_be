@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import psutil
 import redis.asyncio as redis
 from abc import ABC, abstractmethod
 from core import ModelTrainingError, ValidationError
@@ -175,28 +176,23 @@ class PipelineNode(ABC):
 
     async def _process_batch(self):
         """Process a batch of messages from input streams."""
-        if self._worker_pool and self._backpressure and self._backpressure.enabled:
-            m = self._worker_pool.metrics
-            if (m.worker_utilization >= self._backpressure.worker_threshold
-                    or m.memory_utilization >= self._backpressure.memory_threshold):
+        if self._backpressure and self._backpressure.enabled:
+            cpu_frac = psutil.cpu_percent(interval=None) / 100.0
+            mem_frac = psutil.virtual_memory().percent / 100.0
+            if (cpu_frac >= self._backpressure.cpu_threshold
+                    or mem_frac >= self._backpressure.memory_threshold):
                 self._backpressure_count += 1
                 if self._backpressure_count == 1 or self._backpressure_count % 300 == 0:
                     logger.info(
                         f"[{self.consumer_name}] backpressure SKIP (x{self._backpressure_count}): "
-                        f"workers={m.active_workers}/{m.total_workers} "
-                        f"({m.worker_utilization:.0%}), "
-                        f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
-                        f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB "
-                        f"({m.memory_utilization:.0%})"
+                        f"cpu={cpu_frac:.0%}, mem={mem_frac:.0%}"
                     )
                 await asyncio.sleep(self._backpressure.pause_seconds)
                 return
             elif self._batch_count % 12 == 0:
                 logger.info(
                     f"[{self.consumer_name}] backpressure OK, pulling: "
-                    f"workers={m.active_workers}/{m.total_workers}, "
-                    f"memory={m.reserved_memory_bytes / (1024 ** 3):.1f}/"
-                    f"{m.memory_budget_bytes / (1024 ** 3):.1f} GB"
+                    f"cpu={cpu_frac:.0%}, mem={mem_frac:.0%}"
                 )
 
         # Build streams dict for xreadgroup

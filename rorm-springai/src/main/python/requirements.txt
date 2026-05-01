@@ -55,3 +55,6 @@ ruptures>=1.1.10
 # System memory detection
 psutil>=7.2.2
 
+# AWS SDK for S3 model storage
+boto3>=1.34
+

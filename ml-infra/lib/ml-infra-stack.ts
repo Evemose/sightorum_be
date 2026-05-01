@@ -9,14 +9,21 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as appscaling from 'aws-cdk-lib/aws-applicationautoscaling';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 
-export class MlInfraStack extends cdk.Stack {
-    constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
+export interface MlGlobalsStackProps extends cdk.StackProps {
+    readonly entrypointRegion: string;
+    readonly computeRegions: string[];
+}
+
+export class MlGlobalsStack extends cdk.Stack {
+    public readonly modelsBucketName: string;
+    public readonly imageUri: string;
+    public readonly entrypointRegion: string;
+
+    constructor(scope: cdk.App, id: string, props: MlGlobalsStackProps) {
         super(scope, id, props);
 
-        // ========================
-        // Parameters
-        // ========================
         const valkeyHost = new cdk.CfnParameter(this, 'ValkeyHost', {
             type: 'String',
             description: 'Elastic IP of your EC2 running compose (Valkey, Restate, Postgres)',
@@ -28,9 +35,6 @@ export class MlInfraStack extends cdk.Stack {
             noEcho: true,
         });
 
-        // ========================
-        // Networking
-        // ========================
         const vpc = ec2.Vpc.fromLookup(this, 'Vpc', {isDefault: true});
 
         const mlSg = new ec2.SecurityGroup(this, 'MlWorkerSg', {
@@ -39,19 +43,26 @@ export class MlInfraStack extends cdk.Stack {
             allowAllOutbound: true,
         });
 
-        // ========================
-        // ECR Repository
-        // ========================
         const repo = new ecr.Repository(this, 'MlRepo', {
-            repositoryName: 'ml-worker',
+            repositoryName: 'ml-worker-v2',
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             emptyOnDelete: true,
             lifecycleRules: [{maxImageCount: 5}],
         });
 
-        // ========================
-        // ECS Cluster + Task Definition
-        // ========================
+        const modelsBucket = new s3.Bucket(this, 'MlModelsBucket', {
+            bucketName: 'rorm-ml-models',
+            versioned: true,
+            encryption: s3.BucketEncryption.S3_MANAGED,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            autoDeleteObjects: true,
+            blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+        });
+
+        this.modelsBucketName = modelsBucket.bucketName;
+        this.imageUri = repo.repositoryUri + ':latest';
+        this.entrypointRegion = props.entrypointRegion;
+
         const cluster = new ecs.Cluster(this, 'MlCluster', {vpc});
 
         const taskDef = new ecs.FargateTaskDefinition(this, 'MlTask', {
@@ -68,13 +79,14 @@ export class MlInfraStack extends cdk.Stack {
                 DATABASE_PASSWORD: 'mypassword',
                 REDIS_URL: cdk.Fn.join('', ['redis://:', valkeyPassword.valueAsString, '@', valkeyHost.valueAsString, ':6379']),
                 REDIS_PASSWORD: valkeyPassword.valueAsString,
+                STORAGE_BACKEND: 's3',
+                STORAGE_BUCKET_NAME: modelsBucket.bucketName,
             },
             logging: ecs.LogDrivers.awsLogs({streamPrefix: 'ml-worker'}),
         });
 
-        // ========================
-        // ALB
-        // ========================
+        modelsBucket.grantReadWrite(taskDef.taskRole);
+
         const alb = new elbv2.ApplicationLoadBalancer(this, 'MlAlb', {
             vpc,
             internetFacing: true,
@@ -83,13 +95,10 @@ export class MlInfraStack extends cdk.Stack {
 
         const listener = alb.addListener('Http', {port: 80});
 
-        // ========================
-        // ECS Service (scale-to-zero)
-        // ========================
         const service = new ecs.FargateService(this, 'MlService', {
             cluster,
             taskDefinition: taskDef,
-            desiredCount: 0,          // start empty, autoscaling takes over
+            desiredCount: 0,
             assignPublicIp: true,
             securityGroups: [mlSg],
             minHealthyPercent: 100,
@@ -107,9 +116,6 @@ export class MlInfraStack extends cdk.Stack {
             deregistrationDelay: cdk.Duration.seconds(300),
         });
 
-        // ========================
-        // Autoscaling
-        // ========================
         const scaling = service.autoScaleTaskCount({
             minCapacity: 0,
             maxCapacity: 5,
@@ -121,6 +127,7 @@ export class MlInfraStack extends cdk.Stack {
                 metricName: 'MlWorkerDemand',
                 statistic: 'Average',
                 period: cdk.Duration.seconds(60),
+                dimensionsMap: {Region: props.entrypointRegion},
             }),
             scalingSteps: [
                 {lower: 2, change: +1},
@@ -143,6 +150,7 @@ export class MlInfraStack extends cdk.Stack {
                 metricName: 'MlWorkerDemand',
                 statistic: 'Average',
                 period: cdk.Duration.minutes(1),
+                dimensionsMap: {Region: props.entrypointRegion},
             }),
             threshold: 0.05,
             comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
@@ -153,23 +161,26 @@ export class MlInfraStack extends cdk.Stack {
 
         scaleDownAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.ApplicationScalingAction(scaleDownPolicy));
 
-        // ========================
-        // Metric Publisher Lambda
-        // Checks both Valkey backpressure AND recent ALB HTTP traffic.
-        // Publishes a single "demand" metric that autoscaling reacts to.
-        // ========================
+        const ecsServices = [
+            {region: props.entrypointRegion, cluster: cluster.clusterName, service: service.serviceName},
+            ...props.computeRegions.map(r => ({
+                region: r,
+                cluster: `MlComputeCluster-${r}`,
+                service: `MlComputeService-${r}`,
+            })),
+        ];
 
         const metricFn = new lambda.Function(this, 'MetricPublisher', {
             runtime: lambda.Runtime.PYTHON_3_12,
             handler: 'index.handler',
-            timeout: cdk.Duration.seconds(15),
+            timeout: cdk.Duration.seconds(30),
             environment: {
                 VALKEY_HOST: valkeyHost.valueAsString,
                 VALKEY_PORT: '6379',
                 VALKEY_PASSWORD: valkeyPassword.valueAsString,
-                ECS_CLUSTER: cluster.clusterName,
-                ECS_SERVICE: service.serviceName,
+                ENTRYPOINT_REGION: props.entrypointRegion,
                 ALB_ARN_SUFFIX: alb.loadBalancerFullName,
+                ECS_SERVICES: JSON.stringify(ecsServices),
                 STREAM_GROUPS: JSON.stringify([
                     ["ml_training:training_requests", "training_workers"],
                     ["ml_training:tuning_requests", "tuning_workers"],
@@ -180,47 +191,53 @@ export class MlInfraStack extends cdk.Stack {
 import boto3, os, socket, json
 from datetime import datetime, timedelta, timezone
 
-cw = boto3.client('cloudwatch')
+cw_local = boto3.client('cloudwatch')
+_ecs_clients = {}
+_cw_clients = {}
 
-ecs_client = boto3.client('ecs')
+
+def _ecs(region):
+    if region not in _ecs_clients:
+        _ecs_clients[region] = boto3.client('ecs', region_name=region)
+    return _ecs_clients[region]
+
+
+def _cw(region):
+    if region not in _cw_clients:
+        _cw_clients[region] = boto3.client('cloudwatch', region_name=region)
+    return _cw_clients[region]
+
 
 def handler(event, context):
     pending = get_total_pending()
+    entrypoint_region = os.environ['ENTRYPOINT_REGION']
     recent_http = get_recent_request_count()
-    ecs_pending = get_pending_tasks()
+    services = json.loads(os.environ['ECS_SERVICES'])
 
-    if pending > 0:
-        value = float(pending)
-    elif ecs_pending > 0:
-        value = 1.0   # tasks still spinning up, don't interfere
-    elif recent_http > 0:
-        value = 1.0
-    else:
-        value = 0.0
+    results = []
+    for svc in services:
+        region = svc['region']
+        cluster = svc['cluster']
+        service = svc['service']
+        avg_cpu = get_cpu_utilization(region, cluster, service)
+        cpu_norm = max(0.0, (avg_cpu - 60.0) / 20.0) if avg_cpu is not None else 0.0
+        http_signal = 1.0 if (region == entrypoint_region and recent_http > 0) else 0.0
+        value = max(float(pending), http_signal, cpu_norm)
 
-    cw.put_metric_data(
-        Namespace='Custom/ML',
-        MetricData=[{
-            'MetricName': 'MlWorkerDemand',
-            'Value': value,
-            'Unit': 'Count',
-        }]
-    )
-    print(f"pending={pending} http={recent_http} ecs_pending={ecs_pending} published={value}")
-    return {'pending': pending, 'recent_http': recent_http, 'pending': ecs_pending, 'published': value}
-
-
-def get_pending_tasks():
-    try:
-        resp = ecs_client.describe_services(
-            cluster=os.environ['ECS_CLUSTER'],
-            services=[os.environ['ECS_SERVICE']]
+        _cw(region).put_metric_data(
+            Namespace='Custom/ML',
+            MetricData=[{
+                'MetricName': 'MlWorkerDemand',
+                'Dimensions': [{'Name': 'Region', 'Value': region}],
+                'Value': value,
+                'Unit': 'Count',
+            }]
         )
-        svc = resp['services'][0]
-        return svc['pendingCount'] + max(0, svc['desiredCount'] - svc['runningCount'])
-    except Exception as e:
-        print(f"ECS query error: {e}")
-    return 0
+        results.append({'region': region, 'pending': pending, 'http': http_signal, 'cpu': avg_cpu, 'value': value})
+        print(f"region={region} pending={pending} http={http_signal} cpu={avg_cpu} published={value}")
+
+    return {'results': results}
+
 
 def get_total_pending():
     stream_groups = json.loads(os.environ['STREAM_GROUPS'])
@@ -230,8 +247,30 @@ def get_total_pending():
     return total
 
 
+def get_cpu_utilization(region, cluster, service):
+    try:
+        resp = _cw(region).get_metric_statistics(
+            Namespace='AWS/ECS',
+            MetricName='CPUUtilization',
+            Dimensions=[
+                {'Name': 'ClusterName', 'Value': cluster},
+                {'Name': 'ServiceName', 'Value': service},
+            ],
+            StartTime=datetime.now(timezone.utc) - timedelta(minutes=5),
+            EndTime=datetime.now(timezone.utc),
+            Period=300,
+            Statistics=['Average'],
+        )
+        points = resp.get('Datapoints', [])
+        if not points:
+            return None
+        return float(points[-1]['Average'])
+    except Exception as e:
+        print(f"CPU query error ({region}/{cluster}/{service}): {e}")
+        return None
+
+
 def _resp_cmd(*args):
-    """Build a RESP protocol command."""
     parts = [f"*{len(args)}\\r\\n"]
     for a in args:
         a = str(a)
@@ -240,7 +279,6 @@ def _resp_cmd(*args):
 
 
 def _valkey_connect():
-    """Open socket and authenticate."""
     host = os.environ['VALKEY_HOST']
     port = int(os.environ['VALKEY_PORT'])
     password = os.environ.get('VALKEY_PASSWORD', '')
@@ -272,7 +310,7 @@ def get_valkey_pending(stream, group):
 
 def get_recent_request_count():
     try:
-        resp = cw.get_metric_statistics(
+        resp = cw_local.get_metric_statistics(
             Namespace='AWS/ApplicationELB',
             MetricName='RequestCount',
             Dimensions=[{
@@ -292,21 +330,16 @@ def get_recent_request_count():
 `),
         });
 
-        // Lambda permissions
         metricFn.addToRolePolicy(new iam.PolicyStatement({
             actions: ['cloudwatch:PutMetricData', 'cloudwatch:GetMetricStatistics', 'ecs:DescribeServices'],
             resources: ['*'],
         }));
 
-        // Run every minute
         new events.Rule(this, 'MetricSchedule', {
             schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
             targets: [new targets.LambdaFunction(metricFn)],
         });
 
-        // ========================
-        // Outputs
-        // ========================
         new cdk.CfnOutput(this, 'AlbUrl', {
             value: `http://${alb.loadBalancerDnsName}`,
             description: 'ML service endpoint (pass to Spring Boot as ml.alb-url)',
@@ -326,6 +359,10 @@ def get_recent_request_count():
         new cdk.CfnOutput(this, 'AlbArnSuffix', {
             value: alb.loadBalancerFullName,
             description: 'ALB ARN suffix (used by metric publisher)',
+        });
+        new cdk.CfnOutput(this, 'ModelsBucketName', {
+            value: modelsBucket.bucketName,
+            description: 'S3 bucket for shared model artifacts',
         });
     }
 }
