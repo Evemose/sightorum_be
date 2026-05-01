@@ -54,7 +54,7 @@ export class MlComputeOnlyRegionStack extends cdk.Stack {
                 REDIS_URL: cdk.Fn.join('', ['redis://:', valkeyPassword.valueAsString, '@', valkeyHost.valueAsString, ':6379']),
                 REDIS_PASSWORD: valkeyPassword.valueAsString,
                 STORAGE_BACKEND: 's3',
-                STORAGE_BUCKET_NAME: props.modelsBucketName,
+                STORAGE_BUCKET: props.modelsBucketName,
             },
             logging: ecs.LogDrivers.awsLogs({streamPrefix: 'ml-worker'}),
         });
