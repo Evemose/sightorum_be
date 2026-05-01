@@ -1,0 +1,20 @@
+rorm:
+  ml:
+    enabled: true
+    durable-execution: false
+    service-base-url: http://localhost:8001
+    valkey-url: redis://localhost:6379
+    valkey-password: ""
+    event-stream-name: ml_training:training_results
+    consumer-group: spring_consumers
+
+spring:
+  data:
+    redis:
+      url: ${rorm.ml.valkey-url}
+      password: ${rorm.ml.valkey-password:}
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.batch.BatchAutoConfiguration

@@ -44,6 +44,9 @@ class DatasourceConfig:
 class StorageConfig:
     models_directory: str = "./trained_models"
     create_if_missing: bool = True
+    backend: str = "file"
+    bucket_name: str = ""
+    aws_region: str = ""
 
 
 @dataclass
@@ -68,7 +71,7 @@ class WorkerPoolConfig:
 @dataclass
 class BackpressureConfig:
     enabled: bool = True
-    worker_threshold: float = 0.8
+    cpu_threshold: float = 0.8
     memory_threshold: float = 0.8
     pause_seconds: float = 1.0
 

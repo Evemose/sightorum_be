@@ -8,6 +8,7 @@ No manual instantiation or global state.
 import asyncio
 import json
 import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -47,6 +48,11 @@ async def lifespan(_: FastAPI):
     stability_selection_node = container.stability_selection_node()
     shap_node = container.shap_node()
     causal_verification_node = container.causal_verification_node()
+
+    region = os.environ.get("AWS_REGION", "local")
+    task_id = os.environ.get("ECS_TASK_ID") or str(uuid.uuid4())[:8]
+    for node in (training_node, tuning_node, stability_selection_node, shap_node, causal_verification_node):
+        node.consumer_name = f"{node.consumer_group}-{region}-{task_id}"
 
     training_task = asyncio.create_task(training_node.start())
     tuning_task = asyncio.create_task(tuning_node.start())

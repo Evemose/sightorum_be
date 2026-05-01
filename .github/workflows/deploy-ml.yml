@@ -6,12 +6,14 @@ on:
 
 env:
   AWS_REGION: eu-central-1
-  ECR_REPO: ml-worker
-  ECS_CLUSTER: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS    # from cdk output
-  ECS_SERVICE: MlInfraStack-MlServiceAC8BC53F-R1WsD6iG3HoP    # from cdk output
+  ECR_REPO: ml-worker-v2
+  MLINFRA_CLUSTER_EU_CENTRAL_1: MlGlobalsStack-MlCluster87EBA3AE-ak89dYX1YaU0
+  MLINFRA_SERVICE_EU_CENTRAL_1: MlGlobalsStack-MlServiceAC8BC53F-HntyJKD3jSRK
+  MLINFRA_CLUSTER_EU_WEST_1: MlComputeCluster-eu-west-1
+  MLINFRA_SERVICE_EU_WEST_1: MlComputeService-eu-west-1
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -37,9 +39,42 @@ jobs:
           docker build -t $IMAGE -f rorm-springai/src/main/python/Dockerfile rorm-springai/src/main/python
           docker push $IMAGE
 
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        region: [ eu-central-1, eu-west-1 ]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Resolve cluster and service for region
+        id: resolve
+        run: |
+          case "${{ matrix.region }}" in
+            eu-central-1)
+              echo "cluster=${{ env.MLINFRA_CLUSTER_EU_CENTRAL_1 }}" >> $GITHUB_OUTPUT
+              echo "service=${{ env.MLINFRA_SERVICE_EU_CENTRAL_1 }}" >> $GITHUB_OUTPUT
+              ;;
+            eu-west-1)
+              echo "cluster=${{ env.MLINFRA_CLUSTER_EU_WEST_1 }}" >> $GITHUB_OUTPUT
+              echo "service=${{ env.MLINFRA_SERVICE_EU_WEST_1 }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: Force new deployment
         run: |
           aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
-            --force-new-deployment
+            --cluster ${{ steps.resolve.outputs.cluster }} \
+            --service ${{ steps.resolve.outputs.service }} \
+            --force-new-deployment \
+            --region ${{ matrix.region }}

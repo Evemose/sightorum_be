@@ -370,7 +370,13 @@ def _create_model_registry_from_di(
 
 
 def _create_file_storage(cfg: Settings):
-    """Create file-based model storage."""
+    """Create model storage backend (file or s3) based on settings.storage.backend."""
+    if cfg.storage.backend == "s3":
+        from storage.s3_storage import S3ModelStorage
+        return S3ModelStorage(
+            bucket_name=cfg.storage.bucket_name,
+            region_name=cfg.storage.aws_region or None,
+        )
     from storage.file_storage import FileModelStorage
     return FileModelStorage(
         base_directory=cfg.storage.models_directory,
