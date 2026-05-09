@@ -3,6 +3,7 @@ package com.rorm.client.chat;
 import com.rorm.client.chat.dto.AnalysisDetailDTO;
 import com.rorm.client.chat.dto.AnalysisRequest;
 import com.rorm.client.chat.dto.AnalysisResponse;
+import com.rorm.client.chat.dto.NudgeResponse;
 import com.rorm.client.chat.session.SessionService;
 import com.rorm.client.utils.WithSchema;
 import jakarta.validation.Valid;
@@ -43,6 +44,13 @@ public class AnalysisController {
     ) {
         log.info("Research SSE connect: runId={}, lastEventId={}", runId, lastEventId);
         return analysisService.streamEvents(runId, lastEventId);
+    }
+
+    @PostMapping("/{runId}/nudge")
+    public NudgeResponse nudge(@PathVariable String runId) {
+        var resumed = analysisService.nudge(runId);
+        log.info("Research nudge: runId={}, resumed={}", runId, resumed);
+        return new NudgeResponse(runId, resumed);
     }
 
     @GetMapping("/{runId}")

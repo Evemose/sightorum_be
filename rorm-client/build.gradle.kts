@@ -66,6 +66,8 @@ dependencies {
 
     implementation(platform("software.amazon.awssdk:bom:2.29.45"))
     implementation("software.amazon.awssdk:ecs")
+    implementation("software.amazon.awssdk:sts")
+    implementation("software.amazon.awssdk:iam")
     implementation("software.amazon.awssdk:auth")         // picks up ~/.aws/credentials
 
     implementation("org.mapstruct:mapstruct:$mapstructVersion")

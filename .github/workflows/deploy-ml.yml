@@ -11,6 +11,12 @@ env:
   MLINFRA_SERVICE_EU_CENTRAL_1: MlGlobalsStack-MlServiceAC8BC53F-HntyJKD3jSRK
   MLINFRA_CLUSTER_EU_WEST_1: MlComputeCluster-eu-west-1
   MLINFRA_SERVICE_EU_WEST_1: MlComputeService-eu-west-1
+  MLINFRA_CLUSTER_AP_EAST_1: MlComputeCluster-ap-east-1
+  MLINFRA_SERVICE_AP_EAST_1: MlComputeService-ap-east-1
+  MLINFRA_CLUSTER_AP_SOUTHEAST_3: MlComputeCluster-ap-southeast-3
+  MLINFRA_SERVICE_AP_SOUTHEAST_3: MlComputeService-ap-southeast-3
+  MLINFRA_CLUSTER_AP_SOUTHEAST_5: MlComputeCluster-ap-southeast-5
+  MLINFRA_SERVICE_AP_SOUTHEAST_5: MlComputeService-ap-southeast-5
 
 jobs:
   build-and-push:
@@ -47,7 +53,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        region: [ eu-central-1, eu-west-1 ]
+        region: [ eu-central-1, eu-west-1, ap-east-1, ap-southeast-3, ap-southeast-5 ]
 
     steps:
       - name: Configure AWS credentials
@@ -69,6 +75,18 @@ jobs:
               echo "cluster=${{ env.MLINFRA_CLUSTER_EU_WEST_1 }}" >> $GITHUB_OUTPUT
               echo "service=${{ env.MLINFRA_SERVICE_EU_WEST_1 }}" >> $GITHUB_OUTPUT
               ;;
+            ap-east-1)
+              echo "cluster=${{ env.MLINFRA_CLUSTER_AP_EAST_1 }}" >> $GITHUB_OUTPUT
+              echo "service=${{ env.MLINFRA_SERVICE_AP_EAST_1 }}" >> $GITHUB_OUTPUT
+              ;;
+            ap-southeast-3)
+              echo "cluster=${{ env.MLINFRA_CLUSTER_AP_SOUTHEAST_3 }}" >> $GITHUB_OUTPUT
+              echo "service=${{ env.MLINFRA_SERVICE_AP_SOUTHEAST_3 }}" >> $GITHUB_OUTPUT
+              ;;
+            ap-southeast-5)
+              echo "cluster=${{ env.MLINFRA_CLUSTER_AP_SOUTHEAST_5 }}" >> $GITHUB_OUTPUT
+              echo "service=${{ env.MLINFRA_SERVICE_AP_SOUTHEAST_5 }}" >> $GITHUB_OUTPUT
+              ;;
           esac
 
       - name: Force new deployment
@@ -76,5 +94,4 @@ jobs:
           aws ecs update-service \
             --cluster ${{ steps.resolve.outputs.cluster }} \
             --service ${{ steps.resolve.outputs.service }} \
-            --force-new-deployment \
             --region ${{ matrix.region }}

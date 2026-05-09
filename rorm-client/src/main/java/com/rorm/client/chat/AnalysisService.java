@@ -5,19 +5,19 @@ import com.rorm.JobSpec;
 import com.rorm.ai.swarm.SwarmEventBus;
 import com.rorm.ai.swarm.SwarmInput;
 import com.rorm.ai.swarm.SwarmStreamEvent;
+import com.rorm.ai.swarm.SwarmStreamEvent.AgentProgress;
 import com.rorm.client.chat.dto.AnalysisRequest;
 import com.rorm.client.chat.session.AnalysisStatus;
 import com.rorm.client.chat.session.SessionAnalysis;
 import com.rorm.client.chat.session.SessionService;
-import com.rorm.client.metamodel.MetamodelService;
 import com.rorm.client.stream.SseEmitterRegistry;
-import com.rorm.metamodel.ModelSpace;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.util.List;
@@ -45,18 +45,15 @@ public class AnalysisService {
     private static final Duration LIVE_BATCH_INTERVAL = Duration.ofMillis(100);
 
     private final DurableRuntime durableRuntime;
-    private final MetamodelService metamodelService;
     private final SwarmEventBus swarmEventBus;
     private final SseEmitterRegistry sseRegistry;
     private final SessionService sessionService;
 
     public String startAnalysis(String schema, AnalysisRequest request) {
-        return startAnalysis(schema, metamodelService.getModelSpace(schema),
-            request.query(), request.anchors());
+        return startAnalysis(schema, request.query(), request.anchors());
     }
 
-    public String startAnalysis(String schema, ModelSpace modelSpace,
-                                String query, List<String> anchors) {
+    public String startAnalysis(String schema, String query, List<String> anchors) {
         var input = new SwarmInput(query, schema, anchors);
         var runId = "analysis-" + UUID.randomUUID();
         runDurable(runId, new JobSpec(
@@ -109,7 +106,18 @@ public class AnalysisService {
         }
     }
 
-    public String startDescriptiveAnalysis(String schema, ModelSpace modelSpace, String query) {
+    /**
+     * Nudge a research run forward by resuming its top-level Restate
+     * invocation if it is paused or suspended. Idempotent: a no-op when the
+     * invocation is already running. Returns true when a resume was issued.
+     */
+    public boolean nudge(String runId) {
+        var resumed = durableRuntime.nudge(runId);
+        log.info("Nudge: runId={} resumed={}", runId, resumed);
+        return resumed;
+    }
+
+    public String startDescriptiveAnalysis(String schema, String query) {
         var input = new SwarmInput(query, schema, List.of());
         var runId = "desc-" + UUID.randomUUID();
         runDurable(runId, new JobSpec(
@@ -170,7 +178,7 @@ public class AnalysisService {
         var disposable = swarmEventBus.subscribe(runId)
             .bufferTimeout(LIVE_BATCH_MAX, LIVE_BATCH_INTERVAL)
             .filter(batch -> !batch.isEmpty())
-            .concatMap(batch -> reactor.core.publisher.Flux.fromIterable(
+            .concatMap(batch -> Flux.fromIterable(
                 TokenAggregator.aggregate(batch, MAX_TOKEN_BYTES)))
             .index()
             .subscribe(
@@ -206,7 +214,10 @@ public class AnalysisService {
             case SwarmStreamEvent.AgentStarted _ -> "agent_started";
             case SwarmStreamEvent.AgentToken _ -> "agent_token";
             case SwarmStreamEvent.AgentFinished _ -> "agent_finished";
+            case SwarmStreamEvent.AgentQuestion _ -> "agent_question";
+            case SwarmStreamEvent.AgentAnswer _ -> "agent_answer";
             case SwarmStreamEvent.RunCompleted _ -> "run_completed";
+            case AgentProgress _ -> "agent_progress";
         };
     }
 }

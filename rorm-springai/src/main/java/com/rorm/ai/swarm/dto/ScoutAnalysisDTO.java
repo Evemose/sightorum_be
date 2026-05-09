@@ -8,272 +8,144 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 @JsonClassDescription("""
-    Tier 1 data landscape map: a breadth-first reconnaissance of the
-    dataset described by the metamodel. Records what exists, what is
-    missing, and what is dangerous. Does NOT interpret, hypothesize, or
-    recommend.
+    Headless descriptive exploration of a dataset described by the metamodel.
+    Surfaces load-bearing patterns, segmentations, divergences, and hazards
+    that downstream causal-investigation agents (hypothesis generators,
+    judges, advocates, prosecutors) consume as their shared data overview.
+    Operates in a CENSUS frame: computed values are facts about the full
+    population, not estimates. Does NOT explain why patterns exist, predict
+    future values, or make causal claims.
     
     Numeric conventions:
-    - Row and attribute counts: integer counts, no unit suffix.
-    - Fan-out ratios: dimensionless (child rows / parent rows); never a
-      fraction.
-    - Rates and proportions: decimal fraction in [0, 1]. A 5% null rate
-      is stored as 0.05, NOT 5. Percentages like '5%' must be divided by
-      100 on extraction.""")
+    - Counts (rows, attributes, samples, segments): plain integers, no unit suffix.
+    - Rates and proportions: decimal fraction in [0, 1]. A 5% null rate is
+      0.05, NOT 5. Percentages from tool output must be divided by 100.
+    - Fan-out ratios: dimensionless (child rows / parent rows).
+    - Dates: ISO-8601 strings.""")
 public record ScoutAnalysisDTO(
 
     @JsonPropertyDescription("""
-        Per-entity census: name, row count, attribute count, summary flags
-        (has_temporal, high_null_rate, high_cardinality_categorical, small_table, wide_table),
-        key fields, brief description. EVERY entity in the metamodel must be listed.""")
+        2-3 sentence summary capturing the most load-bearing pattern across
+        the exploration: what the dataset is, what the headline measure
+        looks like, and the single biggest finding (or 'no divergence
+        detected' when everything is uniform). Numbers stay in the insights
+        below; the survey states the structural takeaway.""")
     @JsonProperty(required = true)
-    List<EntityCensusEntry> entityCensus,
+    String headlineSurvey,
 
     @JsonPropertyDescription("""
-        Complete FK adjacency list: every relationship edge with cardinality
-        (1:1, 1:N, N:M) and the foreign key field name.""")
+        Exploration findings, one per archetype call. Each insight is a
+        single descriptive fact about the data, never a causal claim. Order
+        is significant — most load-bearing first.""")
     @JsonProperty(required = true)
-    List<RelationshipEdge> relationshipTopology,
+    List<DataInsight> insights,
 
     @JsonPropertyDescription("""
-        Geospatial anchor hierarchy (e.g. region(8) -> zone(45) -> location(450)) with
-        cardinality per level. Null if no geospatial hierarchy is detected.""")
-    @Nullable GeospatialAnchors geospatialAnchors,
+        Data hazards downstream agents must know about: intrinsic columns
+        (leakage), fan-out risks on 1:N relationships, data quality issues
+        with quantified impact. Severity reflects whether the hazard blocks
+        analysis or is informational.""")
+    @JsonProperty(required = true)
+    List<DataHazard> hazards,
 
     @JsonPropertyDescription("""
-        Per-field classification as measurement_of_subject vs measurement_process_metadata,
-        with reasoning for ambiguous cases. Only fields that look instrument-related need
-        classification.""")
+        Compact ~200-token landscape overview, one line per entity in the
+        metamodel: entity_name(row_count, attribute_count, [flags]) with
+        key fields, target annotations, FK relationship graph, and
+        geospatial hierarchy when present. The bird's-eye orientation
+        downstream agents read first.""")
     @JsonProperty(required = true)
-    List<MeasurementMetadataAnnotation> measurementMetadataAnnotations,
+    String schemaSummary,
 
     @JsonPropertyDescription("""
-        Fields that appear to expose information a real-world analyst wouldn't have
-        (actual_*, *_true, *_bias, *_fault, simulated_*, *_ground_truth). Empty list if
-        none detected.""")
+        Proposed anchor entities for downstream hypothesis fanout. Each
+        anchor nominates one entity-level perspective the swarm will
+        explore in its own parallel generator-compiler-sceptic pipeline.
+        Typically 2-4 anchors based on the strongest divergences or
+        operational lenses surfaced in the survey; one minimum, more
+        allowed only when the survey shows multiple distinct
+        high-divergence axes that cannot be unified.""")
     @JsonProperty(required = true)
-    List<IntrinsicColumnFlag> intrinsicColumnFlags,
-
-    @JsonPropertyDescription("""
-        Data quality red flags: >20% null rates in important fields, very small tables,
-        duplicate indicators, referential integrity issues, temporal gaps. Each with
-        severity and quantified impact.""")
-    @JsonProperty(required = true)
-    List<DataQualityFlag> dataQualityRedFlags,
-
-    @JsonPropertyDescription("""
-        1:N cardinality warnings with fan-out ratio > 5. Flags 'N-side table has avg X rows
-        per parent - aggregation required before joining to avoid row inflation.'""")
-    @JsonProperty(required = true)
-    List<CardinalityWarning> cardinalityWarnings,
-
-    @JsonPropertyDescription("""
-        Compressed Tier 1 schema summary (~200 tokens): entity names + row counts +
-        relationship graph + flags, one line per entity. The scout's most important output.""")
-    @JsonProperty(required = true)
-    String schemaSummary
+    List<ProposedAnchor> proposedAnchors
 ) {
 
-    @JsonClassDescription("Census entry for a single entity in the metamodel")
-    public record EntityCensusEntry(
+    @JsonClassDescription("Single descriptive exploration finding produced by one archetype tool call")
+    public record DataInsight(
 
-        @JsonPropertyDescription("Entity name exactly as it appears in the metamodel")
+        @JsonPropertyDescription("Short topic the insight is about (e.g. 'fleet excursion rate', 'container age distribution')")
         @JsonProperty(required = true)
-        String name,
-
-        @JsonPropertyDescription("Row count (exact, from COUNT(*)). Unit: rows.")
-        @JsonProperty(required = true)
-        long rowCount,
-
-        @JsonPropertyDescription("Total number of columns on this entity. Unit: columns.")
-        @JsonProperty(required = true)
-        int attributeCount,
+        String topic,
 
         @JsonPropertyDescription("""
-            Summary flags: subset of [has_temporal, high_null_rate,
-            high_cardinality_categorical, small_table, wide_table]. Each flag is a
-            boolean marker - include the flag name only when the condition holds.""")
+            Archetype tool that produced the insight. One of:
+            summaryStatistic | trendSeries | rankedList | compareSides |
+            crossTabulation | stratifiedGradient | deploymentDistribution.""")
         @JsonProperty(required = true)
-        List<String> summaryFlags,
+        String archetype,
 
         @JsonPropertyDescription("""
-            Key fields on this entity: primary key, foreign keys, target variable
-            (if the outcome lives here), and critical operational columns. When the
-            entity holds the target, annotate the target column inline with its
-            base rate as a decimal fraction in [0, 1] (e.g. 'outcomeCol (TARGET:
-            0.065)').""")
+            One descriptive sentence stating what is in the data. No causal
+            language ('drives', 'causes', 'explains', 'due to', 'because').
+            No predictions ('expected to', 'on track to'). Co-variation,
+            divergence, entanglement are fine.""")
         @JsonProperty(required = true)
-        List<String> keyFields,
+        String finding,
 
-        @JsonPropertyDescription("Brief description of what the entity represents")
+        @JsonPropertyDescription("""
+            Load-bearing values: the measure, sample sizes, denominators,
+            segment counts. Numbers as plain numerals; rates as decimal
+            fractions in [0, 1].""")
         @JsonProperty(required = true)
-        String description
+        String supportingMetrics,
+
+        @JsonPropertyDescription("""
+            Fired check codes (e.g. C1, R2, T1, T4, K2, K3) with one-clause
+            consequence each, window choices when T3-sensitive, frame
+            caveats, heterogeneity warnings. 'None fired' when nothing
+            fired.""")
+        @JsonProperty(required = true)
+        String caveats,
+
+        @JsonPropertyDescription("""
+            Axes, segments, or windows downstream agents may want to
+            investigate further. Anchor points for hypothesis generation,
+            not commitments. Empty list when nothing notable surfaced.""")
+        @JsonProperty(required = true)
+        List<String> explorationHandles
     ) {}
 
-    @JsonClassDescription("Foreign-key relationship between two entities")
-    public record RelationshipEdge(
-
-        @JsonPropertyDescription("Source (child) entity name")
-        @JsonProperty(required = true)
-        String fromEntity,
-
-        @JsonPropertyDescription("Target (parent) entity name")
-        @JsonProperty(required = true)
-        String toEntity,
-
-        @JsonPropertyDescription("Cardinality: 1:1, 1:N, or N:M")
-        @JsonProperty(required = true)
-        String cardinality,
-
-        @JsonPropertyDescription("Foreign key field carrying the relationship")
-        @JsonProperty(required = true)
-        String foreignKeyField
-    ) {}
-
-    @JsonClassDescription("Location hierarchy identified by pattern matching on field names and cardinality ratios")
-    public record GeospatialAnchors(
+    @JsonClassDescription("A data hazard downstream agents must account for, with quantified impact and severity")
+    public record DataHazard(
 
         @JsonPropertyDescription("""
-            Per-level breakdown of the geospatial hierarchy from coarsest to finest.
-            Each level carries its fully qualified fields, a distinct-value count,
-            and (when small enough) an enumeration of the values.""")
+            Hazard type, one of the canonical tokens: intrinsic_column |
+            high_null_rate | small_table | duplicate_rows | orphaned_fk |
+            temporal_gap | referential_integrity | dead_field |
+            impossible_value | parallel_tables | sparse_coverage |
+            fanout_risk.""")
         @JsonProperty(required = true)
-        List<HierarchyLevel> levels,
+        String kind,
 
-        @JsonPropertyDescription("""
-            Cardinality ratios between adjacent levels as human-readable text.
-            Format: '<child_count>/<parent_name>' joined with commas, one entry
-            per adjacent level pair. Null when there is only one level.""")
-        @Nullable String ratios,
-
-        @JsonPropertyDescription("""
-            Short narrative describing which entities participate in the hierarchy
-            and how the hierarchy was detected (field-name matching, cardinality
-            ratios, shared coordinate fields, etc.).""")
-        @Nullable String narrative
-    ) {
-
-        @JsonClassDescription("One level in the geospatial hierarchy")
-        public record HierarchyLevel(
-
-            @JsonPropertyDescription("Human-readable level name, coarsest at the top of the hierarchy.")
-            @JsonProperty(required = true)
-            String name,
-
-            @JsonPropertyDescription("""
-                Fully qualified <entity>.<column> fields at this level. Multiple
-                fields allowed when the same level is denormalized across entities.""")
-            @JsonProperty(required = true)
-            List<String> fields,
-
-            @JsonPropertyDescription("""
-                Distinct value count at this level (integer count, not a fraction).""")
-            @JsonProperty(required = true)
-            long cardinality,
-
-            @JsonPropertyDescription("""
-                Optional enumeration of values when cardinality is small enough to
-                list. Null when too many values to enumerate.""")
-            @Nullable List<String> values
-        ) {}
-    }
-
-    @JsonClassDescription("Classification of a single field as subject-of-measurement or measurement-process metadata")
-    public record MeasurementMetadataAnnotation(
-
-        @JsonPropertyDescription("Entity that owns this field")
+        @JsonPropertyDescription("Entity where the hazard occurs (or the parent entity for fanout_risk)")
         @JsonProperty(required = true)
         String entity,
 
-        @JsonPropertyDescription("Field name")
-        @JsonProperty(required = true)
-        String field,
-
-        @JsonPropertyDescription("Classification: measurement_of_subject or measurement_process_metadata")
-        @JsonProperty(required = true)
-        String classification,
-
-        @JsonPropertyDescription("""
-            Reasoning for the classification, especially for ambiguous cases. Apply the test:
-            'Would replacing this instrument with a different one change the VALUE of this field?'
-            If yes -> process metadata; if no -> measurement of subject.""")
-        @Nullable String reasoning
-    ) {}
-
-    @JsonClassDescription("Field that appears to expose information a real-world analyst wouldn't have")
-    public record IntrinsicColumnFlag(
-
-        @JsonPropertyDescription("Entity that owns the suspicious field")
-        @JsonProperty(required = true)
-        String entity,
-
-        @JsonPropertyDescription("Field name")
-        @JsonProperty(required = true)
-        String field,
-
-        @JsonPropertyDescription("Reasoning for the flag (e.g. name pattern 'actual_*', model-derived, ground truth label)")
-        @JsonProperty(required = true)
-        String reasoning
-    ) {}
-
-    @JsonClassDescription("A data quality issue with quantified impact and severity")
-    public record DataQualityFlag(
-
-        @JsonPropertyDescription("Entity where the issue occurs")
-        @JsonProperty(required = true)
-        String entity,
-
-        @JsonPropertyDescription("Field where the issue occurs (null if entity-level issue such as small table)")
+        @JsonPropertyDescription("Field where the hazard occurs; null for entity-level hazards (small_table) or relationship-level (fanout_risk)")
         @Nullable String field,
 
-        @JsonPropertyDescription("""
-            Issue type, one of the canonical tokens: high_null_rate | small_table |
-            orphaned_fk | duplicate_rows | temporal_gap | referential_integrity |
-            dead_field | impossible_value | parallel_tables | sparse_coverage.""")
-        @JsonProperty(required = true)
-        String issueType,
-
-        @JsonPropertyDescription("Severity of the issue: LOW | MEDIUM | HIGH")
+        @JsonPropertyDescription("Severity of the hazard: LOW | MEDIUM | HIGH")
         @JsonProperty(required = true)
         String severity,
 
         @JsonPropertyDescription("""
-            Quantified impact as a short human-readable string. Must carry both a
-            magnitude (count or proportion) and a unit. When proportions are included
-            inside the text, write them as percent with the '%' suffix for readability;
-            this field is a String so no numeric conversion is enforced.""")
+            What was found, with quantified impact: counts, rates, ratios.
+            Rates as decimal fractions in [0, 1]. For fanout_risk, include
+            both the child entity name and the fan-out ratio.""")
         @JsonProperty(required = true)
-        String quantifiedImpact,
+        String description,
 
-        @JsonPropertyDescription("True when the issue blocks analysis; false when it is informational but non-blocking.")
+        @JsonPropertyDescription("True when the hazard blocks analysis; false when it is informational but non-blocking")
         @JsonProperty(required = true)
         boolean blocksAnalysis
-    ) {}
-
-    @JsonClassDescription("1:N relationship with fan-out ratio exceeding 5, requiring aggregation before joining.")
-    public record CardinalityWarning(
-
-        @JsonPropertyDescription("Parent (1-side) entity")
-        @JsonProperty(required = true)
-        String parentEntity,
-
-        @JsonPropertyDescription("Child (N-side) entity")
-        @JsonProperty(required = true)
-        String childEntity,
-
-        @JsonPropertyDescription("""
-            Fan-out ratio: average number of child rows per parent row, computed as
-            (child row count) / (parent row count). Dimensionless, always >= 1 for
-            1:N relationships, flagged when > 5. Store as a plain number (e.g.
-            2667.0), not a percentage, not a fraction.""")
-        @JsonProperty(required = true)
-        double ratio,
-
-        @JsonPropertyDescription("""
-            Aggregation requirement text explaining which grain must be
-            produced before the join so joined queries do not inflate row
-            counts.""")
-        @JsonProperty(required = true)
-        String aggregationRequirement
     ) {}
 }

@@ -75,9 +75,12 @@ class AnthropicClientConfiguration {
         @DirectApi AnthropicClient directClient,
         @BedrockApi AnthropicClient bedrockClient,
         AnthropicParamsBuilder paramsBuilder,
-        TokenThrottle throttle
+        TokenThrottle throttle,
+        ModelFallbackPolicy fallbackPolicy
     ) {
-        return new JournaledAnthropicChatModel(directClient, bedrockClient, paramsBuilder, throttle, ObservationRegistry.NOOP);
+        return new JournaledAnthropicChatModel(
+            directClient, bedrockClient, paramsBuilder, throttle,
+            ObservationRegistry.NOOP, fallbackPolicy);
     }
 
     @Bean

@@ -7,6 +7,7 @@ import com.rorm.JobSpec;
 import com.rorm.ai.swarm.*;
 import com.rorm.ai.swarm.SwarmResult.AnchorResult;
 import com.rorm.ai.swarm.SwarmResult.HypothesisResult;
+import com.rorm.ai.swarm.dto.ForensicDiagnosisDTO;
 import com.rorm.ai.swarm.dto.HypothesisGenerationDTO;
 import com.rorm.ai.swarm.dto.JudgeVerdictDTO;
 import com.rorm.ai.swarm.dto.StandoffArgumentDTO;
@@ -101,6 +102,7 @@ public class JudgePhase {
             <hypothesis id="%s">
               <statement>%s</statement>
               <key_metrics>%s</key_metrics>
+              <forensic_diagnosis>%s</forensic_diagnosis>
               <advocate_argument>%s</advocate_argument>
               <prosecutor_argument>%s</prosecutor_argument>
             </hypothesis>
@@ -108,6 +110,7 @@ public class JudgePhase {
             escape(id),
             statement,
             writeJson(hypo.pipelineResult() == null ? Map.of() : hypo.pipelineResult().metrics()),
+            renderDiagnosis(hypo.diagnosis()),
             renderArgument(hypo.advocate()),
             renderArgument(hypo.prosecutor())
         );
@@ -136,9 +139,16 @@ public class JudgePhase {
         }
     }
 
+    private String renderDiagnosis(@Nullable ForensicDiagnosisDTO diagnosis) {
+        if (diagnosis == null) {
+            return "(no forensic diagnosis — hypothesis was not null)";
+        }
+        return writeJson(diagnosis);
+    }
+
     private String renderArgument(@Nullable StandoffArgumentDTO arg) {
         if (arg == null) {
-            return "(no argument produced)";
+            return "(no argument produced — hypothesis routed to forensic diagnosis instead)";
         }
         return arg.argument();
     }

@@ -54,3 +54,5 @@ Hard rules:
   - When a tool kicks off a long-running job, emit one ref node with the
     runId and stop. Do not narrate status — the client's live stream does
     that.
+  - If a user asks for a causal question, do not try to answer it directly, use causal analysis tool instead.
+  - If a user asks a broad or multi-axis descriptive question, do not try to answer it directly, use descriptive analysis tool instead.

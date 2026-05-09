@@ -125,8 +125,15 @@ class DurableSwarmE2ETest {
         }
 
         @Bean
-        ChatModel chatModel(AnthropicClient c, AnthropicParamsBuilder p, TokenThrottle t) {
-            return new JournaledAnthropicChatModel(c, c, p, t, ObservationRegistry.NOOP);
+        com.rorm.ai.anthropic.ModelFallbackPolicy modelFallbackPolicy() {
+            return (currentModel, error) -> java.util.Optional.empty();
+        }
+
+        @Bean
+        ChatModel chatModel(AnthropicClient c, AnthropicParamsBuilder p, TokenThrottle t,
+                            com.rorm.ai.anthropic.ModelFallbackPolicy fallbackPolicy) {
+            return new JournaledAnthropicChatModel(
+                c, c, p, t, ObservationRegistry.NOOP, fallbackPolicy);
         }
 
         @Bean
@@ -177,9 +184,10 @@ class DurableSwarmE2ETest {
         }
 
         @Bean
-        ToolGroupResolver toolGroupResolver() {
+        ToolGroupResolver toolGroupResolver(
+            org.springframework.beans.factory.ObjectProvider<com.rorm.ai.tools.SwarmKnowledgeTool> knowledgeToolProvider) {
             return new ToolGroupResolver(null, null, null, null, null, null, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null, knowledgeToolProvider);
         }
 
         @Bean
@@ -275,6 +283,25 @@ class DurableSwarmE2ETest {
         @Bean
         SwarmEventBus swarmEventBus() {
             return new InMemorySwarmEventBus();
+        }
+
+        @Bean
+        com.rorm.ai.ModelSpaceResolver modelSpaceResolver() {
+            return _ -> null;
+        }
+
+        @Bean
+        com.rorm.ai.swarm.communication.SwarmContext swarmContext() {
+            return new com.rorm.ai.swarm.communication.InMemorySwarmContext();
+        }
+
+        @Bean
+        com.rorm.ai.swarm.communication.SwarmCommunicationBuffer swarmCommunicationBuffer(
+            com.rorm.ai.swarm.communication.SwarmContext context,
+            org.springframework.beans.factory.ObjectProvider<AiChatService> chatServiceProvider,
+            com.rorm.ai.ModelSpaceResolver modelSpaceResolver) {
+            return new com.rorm.ai.swarm.communication.SwarmCommunicationBufferImpl(
+                context, chatServiceProvider, modelSpaceResolver);
         }
 
         @Bean

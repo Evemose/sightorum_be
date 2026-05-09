@@ -136,7 +136,16 @@ class VariantFilter:
         column = d.get("column")
         operator = d.get("operator")
         values = d.get("values")
-        has_leaf_fields = column is not None or operator is not None or values is not None
+        # An empty `values: []` alongside null column/operator is LLM schema-noise
+        # (same as `and: []`/`or: []`), not a real leaf — ignore it. A non-empty
+        # `values` without column/operator is a different shape and gets caught
+        # below as a partial leaf.
+        values_is_meaningful = values is not None and not (
+                isinstance(values, list) and len(values) == 0
+        )
+        has_leaf_fields = (
+                column is not None or operator is not None or values_is_meaningful
+        )
 
         # An empty list composite (e.g. 'and': []) is LLM-noise alongside a leaf;
         # ignore them when leaf fields are present so the leaf wins. A non-empty

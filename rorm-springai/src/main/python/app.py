@@ -553,8 +553,15 @@ def _add_causal_verification_routes(app: FastAPI):
         import asyncio
         from dto.causal_verification_request import CausalVerificationRequest
         from service.pipeline_checkpoint import PipelineCheckpoint
+        from fastapi import HTTPException
 
-        spec = CausalVerificationRequest.from_dict(request)
+        try:
+            spec = CausalVerificationRequest.from_dict(request)
+        except (ValueError, KeyError, TypeError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"spec deserialization failed: {e}",
+            )
         run_id = spec.hypothesis_id
         checkpoint = PipelineCheckpoint(run_id=run_id, redis_url=config.redis.get_url())
 
@@ -627,7 +634,10 @@ def _add_causal_verification_routes(app: FastAPI):
         import asyncio
         from dto.causal_verification_request import CausalVerificationRequest
 
-        spec = CausalVerificationRequest.from_dict(request)
+        try:
+            spec = CausalVerificationRequest.from_dict(request)
+        except (ValueError, KeyError, TypeError) as e:
+            return {"valid": False, "errors": [f"spec deserialization failed: {e}"]}
 
         def _validate():
             data = causal_verification_service._load_data(spec, datasource)

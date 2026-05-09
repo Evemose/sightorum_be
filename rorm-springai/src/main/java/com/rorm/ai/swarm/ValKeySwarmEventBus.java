@@ -36,6 +36,7 @@ import java.util.concurrent.locks.LockSupport;
 public class ValKeySwarmEventBus implements SwarmEventBus, DisposableBean {
 
     private static final String STREAM_PREFIX = "swarm:events:";
+    private static final String DEDUP_PREFIX = "swarm:events:seen:";
     private static final String PAYLOAD_FIELD = "payload";
 
     private final StringRedisTemplate redisTemplate;
@@ -109,13 +110,18 @@ public class ValKeySwarmEventBus implements SwarmEventBus, DisposableBean {
 
     @Override
     public void publish(String runId, SwarmStreamEvent event) {
+        var dedupKey = DEDUP_PREFIX + runId;
+        var added = redisTemplate.opsForSet().add(dedupKey, event.dedupKey());
+        if (added == null || added == 0) {
+            return;
+        }
         try {
             var json = objectMapper.writeValueAsString(event);
             var streamKey = STREAM_PREFIX + runId;
             redisTemplate.opsForStream().add(MapRecord.create(streamKey, Map.of(PAYLOAD_FIELD, json)));
-            redisTemplate.expire(streamKey, streamTtl);
         } catch (JsonProcessingException e) {
             log.error("[swarm-bus] Failed to serialize event for run {}", runId, e);
+            redisTemplate.opsForSet().remove(dedupKey, event.dedupKey());
         }
     }
 

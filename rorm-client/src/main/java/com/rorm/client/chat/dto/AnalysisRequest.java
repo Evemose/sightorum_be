@@ -1,11 +1,11 @@
 package com.rorm.client.chat.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
 public record AnalysisRequest(
     @NotBlank String query,
-    @NotEmpty List<String> anchors
+    @Nullable List<String> anchors
 ) {}

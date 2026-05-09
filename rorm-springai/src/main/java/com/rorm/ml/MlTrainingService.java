@@ -1,5 +1,6 @@
 package com.rorm.ml;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.DurableFuture;
 import com.rorm.StepJournal;
 import com.rorm.ml.dto.*;
@@ -27,6 +28,7 @@ public class MlTrainingService {
     @Qualifier("mlRestClient")
     private final RestClient restClient;
     private final JobCompletionHandler completionHandler;
+    private final ObjectMapper objectMapper;
 
     /**
      * Submit an async job and return a {@link DurableFuture} that completes
@@ -260,15 +262,35 @@ public class MlTrainingService {
 
     public ValidationResult validatePipelineSpec(CausalVerificationJobRequest request) {
         try {
-            return restClient.post()
+            var bytes = restClient.post()
                 .uri("/analysis/causal-verification/validate")
                 .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM)
                 .body(request)
                 .retrieve()
-                .body(ValidationResult.class);
-        } catch (RestClientException e) {
+                .onStatus(_ -> true, (_, _) -> { /* no-op, swallow errors so 4xx body still parses */ })
+                .body(byte[].class);
+            if (bytes == null || bytes.length == 0) {
+                throw new MlServiceException("Empty response from pipeline spec validation");
+            }
+            var firstNonWs = firstNonWhitespace(bytes);
+            if (firstNonWs != '{' && firstNonWs != '[') {
+                throw new MlServiceException("Pipeline spec validation returned non-JSON body: "
+                                             + new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            }
+            return objectMapper.readValue(bytes, ValidationResult.class);
+        } catch (RestClientException | java.io.IOException e) {
             throw new MlServiceException("Failed to validate pipeline spec", e);
         }
+    }
+
+    private static int firstNonWhitespace(byte[] bytes) {
+        for (var b : bytes) {
+            if (b != ' ' && b != '\t' && b != '\r' && b != '\n') {
+                return b;
+            }
+        }
+        return -1;
     }
 
     public AsyncJobResponse reexecutePipeline(String runId, PipelineSpecPatch specPatch) {

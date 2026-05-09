@@ -24,12 +24,13 @@ public final class TokenAggregator {
         StringBuilder buf = null;
         Kind bufKind = null;
         EventId bufEventId = null;
+        int bufSequence = 0;
 
         for (var event : input) {
             var fragment = textFragment(event);
             if (fragment == null) {
                 if (buf != null) {
-                    out.add(flush(bufKind, bufEventId, buf));
+                    out.add(flush(bufKind, bufEventId, bufSequence, buf));
                     buf = null;
                 }
                 out.add(event);
@@ -45,26 +46,27 @@ public final class TokenAggregator {
             }
 
             if (buf != null) {
-                out.add(flush(bufKind, bufEventId, buf));
+                out.add(flush(bufKind, bufEventId, bufSequence, buf));
             }
             buf = new StringBuilder(fragment.text());
             bufKind = fragment.kind();
             bufEventId = fragment.eventId();
+            bufSequence = fragment.sequence();
         }
 
         if (buf != null) {
-            out.add(flush(bufKind, bufEventId, buf));
+            out.add(flush(bufKind, bufEventId, bufSequence, buf));
         }
         return out;
     }
 
     private static Fragment textFragment(SwarmStreamEvent event) {
-        if (!(event instanceof SwarmStreamEvent.AgentToken(EventId eventId, StreamToken token1))) {
+        if (!(event instanceof SwarmStreamEvent.AgentToken(EventId eventId, int sequence, StreamToken token1))) {
             return null;
         }
         return switch (token1) {
-            case StreamToken.Text t -> new Fragment(eventId, Kind.TEXT, t.content());
-            case StreamToken.Thinking t -> new Fragment(eventId, Kind.THINKING, t.content());
+            case StreamToken.Text t -> new Fragment(eventId, sequence, Kind.TEXT, t.content());
+            case StreamToken.Thinking t -> new Fragment(eventId, sequence, Kind.THINKING, t.content());
             case StreamToken.ToolCall _,
                  StreamToken.ServerTool _,
                  StreamToken.SearchResult _,
@@ -72,15 +74,16 @@ public final class TokenAggregator {
         };
     }
 
-    private static SwarmStreamEvent.AgentToken flush(Kind kind, EventId eventId, StringBuilder buf) {
+    private static SwarmStreamEvent.AgentToken flush(Kind kind, EventId eventId, int sequence,
+                                                     StringBuilder buf) {
         var text = buf.toString();
         StreamToken token = kind == Kind.THINKING
             ? new StreamToken.Thinking(text)
             : new StreamToken.Text(text);
-        return new SwarmStreamEvent.AgentToken(eventId, token);
+        return new SwarmStreamEvent.AgentToken(eventId, sequence, token);
     }
 
     private enum Kind {TEXT, THINKING}
 
-    private record Fragment(EventId eventId, Kind kind, String text) {}
+    private record Fragment(EventId eventId, int sequence, Kind kind, String text) {}
 }

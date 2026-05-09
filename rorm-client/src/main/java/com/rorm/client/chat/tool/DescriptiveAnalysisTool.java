@@ -39,7 +39,7 @@ public class DescriptiveAnalysisTool {
         }
         var ctx = RormToolContext.from(toolContext);
         var sessionId = (String) toolContext.getContext().get("sessionId");
-        var runId = analysisService.startDescriptiveAnalysis(ctx.schema(), ctx.modelSpace(), query);
+        var runId = analysisService.startDescriptiveAnalysis(ctx.schema(), query);
         if (sessionId != null) {
             sessionService.registerAnalysis(sessionId, runId, AnalysisKind.DESCRIPTIVE, query);
         }

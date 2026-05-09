@@ -103,7 +103,7 @@ export class MlComputeOnlyRegionStack extends cdk.Stack {
                 dimensionsMap: {Region: props.regionName},
             }),
             scalingSteps: [
-                {lower: 2, change: +1},
+                {lower: 1, change: +1},
                 {lower: 4, change: +2},
             ],
             cooldown: cdk.Duration.seconds(60),

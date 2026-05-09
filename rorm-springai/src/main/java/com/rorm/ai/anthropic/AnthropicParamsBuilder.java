@@ -98,7 +98,9 @@ public class AnthropicParamsBuilder {
         var hasSchema = ao != null && ao.getResponseSchema() != null;
 
         if (hasThinking) {
-            builder.thinking(ThinkingConfigAdaptive.builder().build());
+            builder.thinking(ThinkingConfigAdaptive.builder()
+                .putAdditionalProperty("display", JsonValue.from("summarized"))
+                .build());
         }
 
         if (hasThinking || hasSchema) {

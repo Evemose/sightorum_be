@@ -22,6 +22,7 @@ import java.util.*;
 public class JooqFetcher implements Fetcher {
 
     private static final ScopedValue<String> CURRENT_SCHEMA = ScopedValue.newInstance();
+    private static final int QUERY_TIMEOUT_SECONDS = 600;
     private final DSLContext dsl;
     private final QueryTransformer queryTransformer;
 
@@ -33,6 +34,7 @@ public class JooqFetcher implements Fetcher {
     @Override
     public <T> List<T> query(Query query, RowConverter<T> converter) {
         var jooqQuery = queryTransformer.transform(query, CURRENT_SCHEMA.get());
+        jooqQuery.queryTimeout(QUERY_TIMEOUT_SECONDS);
 
         @SuppressWarnings("unchecked")
         var results = (Result<Record>) dsl.fetch(jooqQuery);

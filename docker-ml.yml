@@ -8,7 +8,7 @@ services:
       - valkey-data:/data
     command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-***REMOVED-VALKEY-PASSWORD***}
     healthcheck:
-      test: [ "CMD", "valkey-cli", "-a", "${VALKEY_PASSWORD:***REMOVED-VALKEY-PASSWORD***}", "ping" ]
+      test: [ "CMD", "valkey-cli", "-a", "${VALKEY_PASSWORD:-***REMOVED-VALKEY-PASSWORD***}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
