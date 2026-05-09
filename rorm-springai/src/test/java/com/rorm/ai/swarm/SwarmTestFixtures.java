@@ -20,17 +20,29 @@ import static org.assertj.core.api.Assertions.tuple;
 public final class SwarmTestFixtures {
 
     public static final String SCOUT_RESPONSE = """
-        ## Entity Census
-        - shipments (500000, 30 attrs) [has_temporal, wide_table]
-        - cold_nodes (28, 12 attrs) [small_table]
-        - containers (200, 8 attrs) [small_table]
-        - vehicles (150, 10 attrs) [small_table]
-        ## Relationship Topology
-        cold_nodes → shipments (1:N via nodeId)
-        containers → shipments (1:N via containerId)
-        vehicles → shipments (1:N via vehicleId)
+        ## Headline Survey
+        Cold-chain shipments dataset spans 500K shipments across 28 nodes, 200 containers,
+        and 150 vehicles. Fleet-wide excursion rate sits at 0.12 with material divergence
+        across container insulation classes.
+        
+        ## Insights
+        INSIGHT 1: fleet excursion rate
+          archetype: summaryStatistic
+          finding: Excursion rate is uniform around 0.12 at the fleet level but diverges across container insulation classes.
+          supporting_metrics: rate=0.12, n=500000
+          caveats: C1 within-strata heterogeneity fired on containerInsulationType
+          exploration_handles: containerInsulationType, nodeId, containerAgeMonths
+        
+        ## Hazards
+        HAZARD: fanout_risk
+          entity: cold_nodes
+          field: -
+          severity: MEDIUM
+          description: 17857 shipments per node — aggregation required before joining
+          blocks_analysis: false
+        
         ## Schema Summary
-        shipments(500K, TARGET:excursionFlag=12%) → cold_nodes(28) → containers(200) → vehicles(150)
+        shipments(500K, TARGET:excursionFlag=0.12) → cold_nodes(28) → containers(200) → vehicles(150)
         """;
 
     // ── Canned responses ─────────────────────────────────────────────────
@@ -138,6 +150,17 @@ public final class SwarmTestFixtures {
         MECHANISM ASSESSMENT:
         The passive insulation mechanism is real but overwhelmed by active cooling.
         """;
+    public static final String SUPERVISOR_RESPONSE = """
+        DECISION: PASS_THROUGH
+        REASON: WELL_FORMED
+        Pipeline ran clean, sceptic produced no material findings, gates green —
+        ready for downstream adjudication.
+        """;
+    public static final String SUPERVISOR_VERDICT_JSON = """
+        {"decision":"PASS_THROUGH","passReason":"WELL_FORMED",\
+        "explanation":"Pipeline ran clean, sceptic produced no material findings, gates green.",\
+        "focusRequest":null,"refinementRequest":null,\
+        "supervisorNotes":"First iteration; well-formed; no further loops needed."}""";
     public static final String SPEC_EXTRACTION_RESPONSE = """
         {"hypothesisId":"H1","treatment":"containerInsulationType","outcome":"excursionFlag",\
         "treatmentForm":"CATEGORICAL","dataQuery":{"from":"shipments","selector":{"@type":"root"}},\
@@ -208,7 +231,7 @@ public final class SwarmTestFixtures {
     public static DurableSwarmConfig testConfig() {
         return new DurableSwarmConfig(
             new AgentModelConfig("claude-sonnet-4-6",
-                "You are a data scout. Map the data landscape.",
+                "You are the swarm's headless data exploration scout.",
                 "<query>{{USER_QUERY}}</query>",
                 ThinkingLevel.NONE, Set.of(), null),
             new AgentModelConfig("claude-sonnet-4-6",
@@ -237,6 +260,10 @@ public final class SwarmTestFixtures {
                 "<hypothesis>{{HYPOTHESIS_SPEC}}</hypothesis>\n<domain>{{DOMAIN_KNOWLEDGE}}</domain>\n<pipeline>{{PIPELINE_OUTPUT}}</pipeline>",
                 ThinkingLevel.NONE, Set.of(), null),
             new AgentModelConfig("claude-opus-4-6",
+                "You are the supervisor of the hypothesis evaluation loop.",
+                "Iter {{ITERATION}}/{{MAX_ITERATIONS}}\n<hypothesis>{{HYPOTHESIS_SPEC}}</hypothesis>\n<spec>{{COMPILER_SPEC}}</spec>\n<output>{{PIPELINE_OUTPUT}}</output>\n<sceptic>{{SCEPTIC_REVIEW}}</sceptic>",
+                ThinkingLevel.NONE, Set.of(), null),
+            new AgentModelConfig("claude-opus-4-6",
                 "You are the advocate.",
                 "Make the advocate case.",
                 ThinkingLevel.NONE, Set.of(), null),
@@ -254,7 +281,8 @@ public final class SwarmTestFixtures {
                 ThinkingLevel.NONE, Set.of(), null),
             new AgentModelConfig("claude-haiku-4-5-20251001",
                 "You are a summarizer. Extract a structured {{DTO_TYPE}} from: {{RAW_OUTPUT}}",
-                "", ThinkingLevel.NONE, Set.of(), null)
+                "", ThinkingLevel.NONE, Set.of(), null),
+            ""
         );
     }
 
@@ -262,7 +290,7 @@ public final class SwarmTestFixtures {
 
     public static void registerAllStubs() {
         stubFor(post(urlEqualTo("/v1/messages"))
-            .withRequestBody(containing("data scout"))
+            .withRequestBody(containing("headless data exploration scout"))
             .willReturn(anthropicResponse(SCOUT_RESPONSE)));
 
         stubFor(post(urlEqualTo("/v1/messages"))
@@ -303,6 +331,15 @@ public final class SwarmTestFixtures {
         stubFor(post(urlEqualTo("/v1/messages"))
             .withRequestBody(containing("null hypothesis post-mortem"))
             .willReturn(anthropicResponse(FP_RESPONSE)));
+
+        stubFor(post(urlEqualTo("/v1/messages"))
+            .atPriority(1)
+            .withRequestBody(containing("Extract a SupervisorVerdictDTO JSON"))
+            .willReturn(anthropicResponse(SUPERVISOR_VERDICT_JSON)));
+
+        stubFor(post(urlEqualTo("/v1/messages"))
+            .withRequestBody(containing("supervisor of the hypothesis evaluation loop"))
+            .willReturn(anthropicResponse(SUPERVISOR_RESPONSE)));
 
         stubFor(post(urlPathMatching("/analysis/causal-verification/async.*"))
             .willReturn(okJson("""
@@ -398,7 +435,7 @@ public final class SwarmTestFixtures {
 
     public static void verifyWireMockDataFlow(WireMock client) {
         client.verifyThat(1, postRequestedFor(urlEqualTo("/v1/messages"))
-            .withRequestBody(containing("data scout")));
+            .withRequestBody(containing("headless data exploration scout")));
         client.verifyThat(1, postRequestedFor(urlEqualTo("/v1/messages"))
             .withRequestBody(containing("domain researcher")));
         // 4 calls with generator system prompt (2 generator + 2 rebuttal share same prompt)

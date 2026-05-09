@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.rorm.*;
 import com.rorm.ml.restate.RestateDurableFuture.Delegated;
 import dev.restate.client.Client;
+import dev.restate.client.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -12,7 +13,6 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Runtime that dispatches jobs to Restate and polls for completion. Uses
@@ -32,33 +32,28 @@ public class RestateDurableRuntime implements DurableRuntime {
     private final Duration initialPollInterval;
     private final Duration maxPollInterval;
 
-    /**
-     * Non-blocking dispatch: returns a {@link DurableFuture} backed by a
-     * Restate {@code ctx.serviceClient(...).execute(...)} call. Must be
-     * invoked from inside a Restate handler (i.e. a {@link RestateStepJournal}
-     * is bound as the current journal); the resulting future participates in
-     * the parent invocation's journal and can be combined via
-     * {@link DurableFuture#all} for parallel sub-invocations.
-     */
     @Override
     public DurableFuture<Object> submitAsync(String sessionId, JobSpec spec) {
         var journal = StepJournal.current();
-        if (!(journal instanceof RestateStepJournal restate)) {
-            throw new IllegalStateException(
-                "submitAsync requires a RestateStepJournal in scope; got "
-                + journal.getClass().getName());
+        if (journal instanceof RestateStepJournal restate) {
+            findPausedInvocation(sessionId).ifPresent(id -> resumeExisting(id, sessionId));
+            return new Delegated<>(DurableJobServiceClient.fromContext(restate.context(), sessionId)
+                .execute(spec), restate.randomUUID().toString());
         }
-        var future = DurableJobServiceClient.fromContext(restate.context(), sessionId).execute(spec);
-        return new Delegated<>(future, UUID.randomUUID().toString());
+        var invId = findPausedInvocation(sessionId)
+            .map(id -> resumeExisting(id, sessionId))
+            .orElseGet(() -> submitNew(sessionId, spec));
+        return CompletableDurableFuture.by(
+            restateClient.invocationHandle(invId, Object.class).attachAsync()
+                .thenApply(Response::response)
+        );
     }
 
     @Override
     public Object submit(String sessionId, JobSpec spec) {
         var journal = StepJournal.current();
         if (journal instanceof RestateStepJournal restate) {
-            // Inside a Restate handler: use ctx-bound client so the sub-invocation
-            // is journaled. On parent replay/resume we get the same DurableFuture
-            // back instead of submitting a duplicate child.
+            findPausedInvocation(sessionId).ifPresent(id -> resumeExisting(id, sessionId));
             return DurableJobServiceClient.fromContext(restate.context(), sessionId)
                 .execute(spec)
                 .await();
@@ -162,10 +157,30 @@ public class RestateDurableRuntime implements DurableRuntime {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
+    public boolean nudge(String sessionId) {
+        var paused = findPausedInvocation(sessionId);
+        if (paused.isEmpty()) {
+            log.info("[durable] nudge: no paused invocation for session {}", sessionId);
+            return false;
+        }
+        var invocationId = paused.get();
+        try {
+            resumeInvocation(invocationId);
+            log.info("[durable] nudge: resumed invocation {} for session {}", invocationId, sessionId);
+            return true;
+        } catch (Exception e) {
+            log.warn("[durable] nudge: resume failed for invocation {} (session {}): {}",
+                invocationId, sessionId, e.getMessage());
+            throw new IllegalStateException(
+                "Restate resume failed for invocation " + invocationId
+                + " (session " + sessionId + ")", e);
+        }
+    }
+
+    @Override
     public <T> AwakableHandle<T> handle(String awakableId, Class<T> resultType) {
         var handle = restateClient.awakeableHandle(awakableId);
-        return new AwakableHandle<T>() {
+        return new AwakableHandle<>() {
             @Override
             public void resolve(T result) {
                 handle.resolve(resultType, result);

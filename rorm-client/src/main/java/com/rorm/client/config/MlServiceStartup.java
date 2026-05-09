@@ -7,6 +7,8 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import software.amazon.awssdk.services.ecs.EcsClient;
+import software.amazon.awssdk.services.iam.IamClient;
+import software.amazon.awssdk.services.sts.StsClient;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -17,6 +19,8 @@ import java.time.Instant;
 public class MlServiceStartup implements SmartLifecycle {
 
     private final EcsClient ecs;
+    private final StsClient sts;
+    private final IamClient iam;
     private final RestClient rest = RestClient.create();
     @Value("${rorm.ml.cluster}")
     private String cluster;
@@ -49,6 +53,7 @@ public class MlServiceStartup implements SmartLifecycle {
             return;
         }
 
+        logIdentityAndPermissions();
         log.info("Ensuring ML service is running...");
         ensureRunning();
         log.info("ML service is healthy");
@@ -66,6 +71,60 @@ public class MlServiceStartup implements SmartLifecycle {
                 }
             }
         });
+    }
+
+    private void logIdentityAndPermissions() {
+        try {
+            var caller = sts.getCallerIdentity();
+            log.info("AWS identity: arn={} account={} userId={}",
+                caller.arn(), caller.account(), caller.userId());
+
+            var serviceArn = "arn:aws:ecs:eu-central-1:%s:service/%s/%s".formatted(
+                caller.account(), cluster, service);
+            try {
+                var sim = iam.simulatePrincipalPolicy(r -> r
+                    .policySourceArn(caller.arn())
+                    .actionNames("ecs:DescribeServices", "ecs:UpdateService")
+                    .resourceArns(serviceArn));
+                for (var result : sim.evaluationResults()) {
+                    log.info("permission {} on {} = {}",
+                        result.evalActionName(),
+                        result.evalResourceName(),
+                        result.evalDecisionAsString());
+                }
+            } catch (Exception e) {
+                log.warn("simulate-principal-policy failed (likely missing iam:SimulatePrincipalPolicy on caller): {}",
+                    e.getMessage());
+                logAttachedPolicies(caller.arn());
+            }
+        } catch (Exception e) {
+            log.error("Failed to query AWS identity (STS unreachable or no credentials): {}", e.getMessage());
+        }
+    }
+
+    private void logAttachedPolicies(String callerArn) {
+        try {
+            if (callerArn.contains(":user/")) {
+                var userName = callerArn.substring(callerArn.indexOf(":user/") + ":user/".length());
+                var attached = iam.listAttachedUserPolicies(r -> r.userName(userName));
+                var inline = iam.listUserPolicies(r -> r.userName(userName));
+                log.info("user {} attached={} inline={}", userName,
+                    attached.attachedPolicies().stream().map(p -> p.policyName()).toList(),
+                    inline.policyNames());
+            } else if (callerArn.contains(":assumed-role/")) {
+                var roleName = callerArn.substring(callerArn.indexOf(":assumed-role/") + ":assumed-role/".length())
+                    .split("/")[0];
+                var attached = iam.listAttachedRolePolicies(r -> r.roleName(roleName));
+                var inline = iam.listRolePolicies(r -> r.roleName(roleName));
+                log.info("role {} attached={} inline={}", roleName,
+                    attached.attachedPolicies().stream().map(p -> p.policyName()).toList(),
+                    inline.policyNames());
+            } else {
+                log.info("caller {} is neither user nor assumed-role; skipping policy enumeration", callerArn);
+            }
+        } catch (Exception e) {
+            log.warn("Could not enumerate attached policies (likely missing iam:List*): {}", e.getMessage());
+        }
     }
 
     private void ensureRunning() {

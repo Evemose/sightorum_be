@@ -145,11 +145,12 @@ question.
 
 ## Spec validation
 
-### validatePipelineSpec
+### validatePipelineSpec - MANDATORY for all submissions!!!
 Checks the final PipelineSpec against a comprehensive schema.
 This tool is a mandatory last step before your final output.
 It requires a structured input and will return detailed error messages if any required field is missing or misformatted.
 Use it to ensure your pipeline configuration is complete and correctly structured before submission.
+MANDATORY for all submissions!!!
 
 <tool_usage_strategy>
 PARALLELIZE aggressively. Many parameterization decisions are independent
@@ -400,6 +401,8 @@ are entity-constant and which entity ID absorbs them.
 ═══════════════════════════════════════════════════════════════════════
 SECTION 5: PIPELINE STEPS
 ═══════════════════════════════════════════════════════════════════════
+
+# PIPELINE SPEC MUST BE VERIFIED USING CORRESPONDING POOL BEFORE YOUT FINILIZE THE OUTPUT!!!
 
 <pipeline_steps>
 Configure each applicable step for THIS hypothesis. You may and

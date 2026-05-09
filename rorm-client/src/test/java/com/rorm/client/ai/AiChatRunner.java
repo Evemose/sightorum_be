@@ -6,6 +6,8 @@ import com.rorm.JobSpec;
 import com.rorm.StepJournal;
 import com.rorm.ai.chat.*;
 import com.rorm.ai.swarm.*;
+import com.rorm.ai.swarm.executor.HypothesisExecutionInput;
+import com.rorm.ai.swarm.executor.HypothesisExecutor;
 import com.rorm.ai.swarm.phase.*;
 import com.rorm.client.ai.AiChatRunner.AgentJP;
 import com.rorm.client.metamodel.MetamodelService;
@@ -69,7 +71,7 @@ class AiChatRunner {
     void h3() throws Exception {
         //noinspection ConstantValue
         if (true) { // guard from accidental execution
-            var res = durableRuntime.submit("runner-h3-pipeline", new JobSpec(
+            var res = durableRuntime.submit("runner-h3-pipeline-2", new JobSpec(
                 "agentJp",
                 "runH3Pipeline"
             ));
@@ -102,12 +104,48 @@ class AiChatRunner {
     }
 
     @Test
+    void supervisorH3() throws Exception {
+        //noinspection ConstantValue
+        if (true) { // guard from accidental execution
+            var res = durableRuntime.submit("runner-supervisor-h3-1", new JobSpec(
+                "agentJp",
+                "runSupervisorH3"
+            ));
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(System.out, res);
+        }
+    }
+
+    @Test
+    void hypothesisH3() throws Exception {
+        //noinspection ConstantValue
+        if (true) { // guard from accidental execution
+            var res = durableRuntime.submit("runner-hypothesis-h3-2boba", new JobSpec(
+                "agentJp",
+                "runHypothesisH3"
+            ));
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(System.out, res);
+        }
+    }
+
+    @Test
     void descPhase() throws Exception {
         //noinspection ConstantValue
-        if (false) { // guard from accidental execution
-            var res = durableRuntime.submit("runner-descphase-2", new JobSpec(
+        if (true) { // guard from accidental execution
+            var res = durableRuntime.submit("runner-descphase-3", new JobSpec(
                 "agentJp",
                 "runDescPhase"
+            ));
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(System.out, res);
+        }
+    }
+
+    @Test
+    void reconPhase() throws Exception {
+        //noinspection ConstantValue
+        if (true) { // guard from accidental execution
+            var res = durableRuntime.submit("runner-reconphase-2.1", new JobSpec(
+                "agentJp",
+                "runReconPhase"
             ));
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(System.out, res);
         }
@@ -142,6 +180,10 @@ class AiChatRunner {
         private DescPhase descPhase;
         @Autowired
         private StandoffPhase standoffPhase;
+        @Autowired
+        private SupervisorPhase supervisorPhase;
+        @Autowired
+        private HypothesisExecutor hypothesisExecutor;
         @Autowired
         private org.springframework.core.io.ResourceLoader resourceLoader;
         @Autowired
@@ -352,8 +394,8 @@ class AiChatRunner {
                 .blockLast();
         }
 
-        public void runReconPhase() {
-            withFormatter(runId -> reconPhase.run(buildInput(), runId));
+        public ReconPhase.Output runReconPhase() {
+            return withFormatter(runId -> reconPhase.run(buildInput(), runId));
         }
 
         private <T> T withFormatter(Function<String, T> phase) {
@@ -460,6 +502,30 @@ class AiChatRunner {
             var hypoCtx = new HypothesisContext(anchor, gen, "H3");
             var pipeCtx = new PipelineContext(hypoCtx, compile);
             return withFormatter(runId -> standoffPhase.run(pipeCtx, runId));
+        }
+
+        @SneakyThrows
+        public StepOutput<com.rorm.ai.swarm.dto.SupervisorVerdictDTO> runSupervisorH3() {
+            var resource = resourceLoader.getResource(H3_WITH_SCEPTIC_LATEST_FILE_PATH);
+            CompilePhase.Output compile;
+            try (var in = resource.getInputStream()) {
+                compile = objectMapper.readValue(in, CompilePhase.Output.class);
+            }
+            var anchor = new AnchorContext(buildInput(), SAMPLE_ANCHOR, "containers", buildFakeRecon());
+            var gen = buildFakeGen();
+            var hypoCtx = new HypothesisContext(anchor, gen, "H3");
+            var supervisorChatId = "runner-supervisor-h3-chat";
+            return withFormatter(runId -> supervisorPhase.run(
+                new SupervisorPhase.Input(hypoCtx, compile, supervisorChatId, 0, 3),
+                runId));
+        }
+
+        public SwarmResult.HypothesisResult runHypothesisH3() {
+            return withFormatter(runId -> {
+                var anchor = new AnchorContext(buildInput(), SAMPLE_ANCHOR, "containers", buildFakeRecon());
+                var gen = buildFakeGen();
+                return hypothesisExecutor.execute(new HypothesisExecutionInput(anchor, gen, "H3", runId));
+            });
         }
 
     }

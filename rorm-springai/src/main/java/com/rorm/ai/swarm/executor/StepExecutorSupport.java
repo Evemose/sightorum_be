@@ -1,25 +1,46 @@
 package com.rorm.ai.swarm.executor;
 
+import com.rorm.DurableRuntime;
 import com.rorm.ai.ModelSpaceResolver;
 import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
 import com.rorm.ai.chat.MemoryInclude;
 import com.rorm.ai.prompt.PromptPlaceholders;
 import com.rorm.ai.swarm.*;
-import com.rorm.ai.swarm.agents.FirstLevelSwarmAgent;
-import com.rorm.ai.swarm.agents.SecondarySwarmAgent;
+import com.rorm.ai.swarm.agents.*;
+import com.rorm.ai.swarm.communication.*;
 import com.rorm.metamodel.ModelSpace;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.UnaryOperator;
 
 /**
- * Shared execution logic for all step executor beans: streams LLM tokens,
- * publishes them to the {@link SwarmEventBus}, accumulates raw text, and
- * structurizes the final DTO. Agent kind for event publishing is taken from
- * {@link StepExecutionInput#eventId()} — phases assign it when creating the
- * EventId, so support does not need it as a separate parameter.
+ * Shared execution logic for all first-level executor beans: streams
+ * tokens, publishes them to the {@link SwarmEventBus}, accumulates raw
+ * text, and hands the result to a {@link SecondarySwarmAgent} that
+ * produces the typed DTO. The default secondary agent is a
+ * {@link SummarizingSecondaryAgent} backed by the configured summarizer;
+ * callers (e.g. the compiler executor) may pass a custom strategy that
+ * reads from a tool-populated holder and re-streams the first-level
+ * agent through {@link StreamPrimitive} when the contract is unmet.
+ * <p>
+ * Two cross-cutting concerns are wired here so every step inherits them:
+ * <ul>
+ *   <li>{@link SwarmContext} registration: each step picks a stable
+ *       {@code chatId} (the input's, or one derived from its event
+ *       token), registers itself in the context with its role and agent
+ *       config, and attaches a {@link SwarmContextStreamAdvisor} to the
+ *       streaming chat call so the context's at-the-moment state is
+ *       populated as tokens flow.</li>
+ *   <li>Tool-context entries ({@code swarmRunId},
+ *       {@code swarmAskerChatId}, {@code swarmAskerRole},
+ *       {@code swarmPipelineSpecHolder}) so swarm tools can locate the
+ *       run, self-exclude, and deposit step-scoped artifacts.</li>
+ * </ul>
  */
 @Component
 @RequiredArgsConstructor
@@ -30,53 +51,112 @@ public class StepExecutorSupport {
     private final DurableSwarmConfig config;
     private final SwarmEventBus eventBus;
     private final ModelSpaceResolver modelSpaceResolver;
+    private final SwarmContext swarmContext;
+    private final DurableRuntime runtime;
 
     public <T> StepOutput<T> execute(StepExecutionInput input, AgentModelConfig agentConfig,
                                      Class<T> responseType) {
-        var kind = input.eventId().kind();
-        eventBus.publish(input.runId(), new SwarmStreamEvent.AgentStarted(input.eventId(), kind));
-        var effectiveConfig = input.systemPromptOverride() != null
-            ? agentConfig.withSystemPrompt(input.systemPromptOverride())
-            : agentConfig;
         var modelSpace = modelSpaceResolver.resolve(input.schema());
-        var raw = streamRaw(input, effectiveConfig, modelSpace);
-        var dto = summarize(input, raw, modelSpace, responseType);
-        eventBus.publish(input.runId(), new SwarmStreamEvent.AgentFinished(input.eventId(), kind, raw, dto));
-        return new StepOutput<>(input.eventId(), dto, raw);
+        return execute(input, agentConfig,
+            new SummarizingSecondaryAgent<>(
+                config.summarizer(), chatService, promptPlaceholders, modelSpace, responseType));
     }
 
-    private String streamRaw(StepExecutionInput input, AgentModelConfig agentConfig, ModelSpace modelSpace) {
+    public <T> StepOutput<T> execute(StepExecutionInput input, AgentModelConfig agentConfig,
+                                     SecondarySwarmAgent<T> secondaryAgent) {
+        var kind = input.eventId().kind();
+        eventBus.publish(input.runId(), new SwarmStreamEvent.AgentStarted(input.eventId(), kind));
+        var effective = input.systemPromptOverride() != null
+            ? agentConfig.withSystemPrompt(input.systemPromptOverride())
+            : agentConfig;
+        var chatId = chatIdFor(input);
+        swarmContext.register(new AgentRegistration(
+            input.runId(), chatId,
+            input.eventId().token(),
+            input.eventId().parents().stream().map(EventId::token).toList(),
+            kind, input.schema(), effective, input.userPrompt()));
+        return runAndPublish(input, effective, chatId, secondaryAgent);
+    }
+
+    private static String chatIdFor(StepExecutionInput input) {
+        return input.chatId() != null ? input.chatId() : "swarm-step-" + input.eventId().token();
+    }
+
+    private <T> StepOutput<T> runAndPublish(StepExecutionInput input, AgentModelConfig effective,
+                                            String chatId, SecondarySwarmAgent<T> secondaryAgent) {
+        var modelSpace = modelSpaceResolver.resolve(input.schema());
+        var pipelineHolder = new PipelineSpecHolder();
+        var seq = new AtomicInteger();
+        var streamPrimitive = streamPrimitiveFor(input, effective, modelSpace, chatId,
+            pipelineHolder, seq);
+        var raw = streamPrimitive.stream(input.userPrompt());
+        var result = secondaryAgent.produce(new SecondaryAgentContext(
+            input, chatId, raw, modelSpace, effective, streamPrimitive, pipelineHolder));
+        eventBus.publish(input.runId(), new SwarmStreamEvent.AgentFinished(
+            input.eventId(), input.eventId().kind(), result.raw(), result.dto()));
+        return new StepOutput<>(input.eventId(), result.dto(), result.raw());
+    }
+
+    private StreamPrimitive streamPrimitiveFor(StepExecutionInput input, AgentModelConfig agentConfig,
+                                               ModelSpace modelSpace, String chatId,
+                                               PipelineSpecHolder pipelineHolder,
+                                               AtomicInteger seq) {
         var agent = new FirstLevelSwarmAgent(
             agentConfig, chatService, input.schema(), modelSpace, promptPlaceholders);
+        var advisors = buildStreamAdvisors(input, chatId);
+        return userPrompt -> streamRaw(input, agent, advisors, chatId, pipelineHolder, seq, userPrompt);
+    }
+
+    private List<Advisor> buildStreamAdvisors(StepExecutionInput input, String chatId) {
+        return List.of(
+            new SwarmContextStreamAdvisor(swarmContext, input.runId(), chatId),
+            new ProgressReportAdvisor(
+                runtime, input.runId(), input.eventId(), input.schema(), config.progressCharacter())
+        );
+    }
+
+    private String streamRaw(StepExecutionInput input, FirstLevelSwarmAgent agent,
+                             List<Advisor> advisors, String chatId,
+                             PipelineSpecHolder pipelineHolder, AtomicInteger seq,
+                             String userPrompt) {
         var runId = input.runId();
         var eventId = input.eventId();
-        return agent.streamTokens(input.userPrompt(), customizerFrom(input))
-            .doOnNext(token -> eventBus.publish(runId, new SwarmStreamEvent.AgentToken(eventId, token)))
+        return agent.streamTokens(userPrompt, customizerFor(input, chatId, pipelineHolder, advisors))
+            .doOnNext(token -> eventBus.publish(runId,
+                new SwarmStreamEvent.AgentToken(eventId, seq.getAndIncrement(), token)))
             .reduce(new StringBuilder(), (sb, token) -> sb.append(token.toText()))
             .map(StringBuilder::toString)
             .block();
     }
 
-    private <T> T summarize(StepExecutionInput input, String raw, ModelSpace modelSpace, Class<T> responseType) {
-        var summarizer = new SecondarySwarmAgent(
-            config.summarizer(), chatService, input.schema(), modelSpace, promptPlaceholders);
-        return summarizer.call(raw, null, responseType);
-    }
-
-    private static UnaryOperator<ChatRequest.Builder> customizerFrom(StepExecutionInput input) {
+    private static UnaryOperator<ChatRequest.Builder> customizerFor(
+        StepExecutionInput input, String chatId, PipelineSpecHolder pipelineHolder,
+        List<Advisor> advisors
+    ) {
         return b -> {
-            if (input.chatId() != null) {
-                b = b.withChatId(input.chatId());
+            b = b.withChatId(chatId)
+                .withToolContextEntry(SwarmToolContext.RUN_ID_KEY, input.runId())
+                .withToolContextEntry(SwarmToolContext.ASKER_CHAT_ID_KEY, chatId)
+                .withToolContextEntry(SwarmToolContext.ASKER_ROLE_KEY, input.eventId().kind())
+                .withToolContextEntry(SwarmToolContext.PIPELINE_SPEC_HOLDER_KEY, pipelineHolder);
+            for (var advisor : advisors) {
+                b = b.withAdvisor(advisor);
             }
             if (input.memoryIncludes() != null && !input.memoryIncludes().isEmpty()) {
                 b = b.withMemoryIncludes(input.memoryIncludes().toArray(MemoryInclude[]::new));
             }
-            if (input.toolContextEntries() != null) {
-                for (var entry : input.toolContextEntries().entrySet()) {
-                    b = b.withToolContextEntry(entry.getKey(), entry.getValue());
-                }
-            }
-            return b;
+            return applyToolContextEntries(b, input);
         };
+    }
+
+    private static ChatRequest.Builder applyToolContextEntries(ChatRequest.Builder b,
+                                                               StepExecutionInput input) {
+        if (input.toolContextEntries() == null) {
+            return b;
+        }
+        for (var entry : input.toolContextEntries().entrySet()) {
+            b = b.withToolContextEntry(entry.getKey(), entry.getValue());
+        }
+        return b;
     }
 }

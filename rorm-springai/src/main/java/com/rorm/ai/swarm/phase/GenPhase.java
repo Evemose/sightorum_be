@@ -41,6 +41,37 @@ public class GenPhase {
         return ScopedValue.where(PhaseScope.RUN_ID, runId).call(() -> doRun(anchor));
     }
 
+    public StepOutput<HypothesisGenerationDTO> runSupervisorRefinement(RefinementInput input, String runId) {
+        return ScopedValue.where(PhaseScope.RUN_ID, runId).call(() -> doRunRefinement(input));
+    }
+
+    private StepOutput<HypothesisGenerationDTO> doRunRefinement(RefinementInput input) {
+        var hypoCtx = input.hypoCtx();
+        var anchor = hypoCtx.anchor();
+        var id = supervisorRefinementId(input);
+        var stepInput = new StepExecutionInput(
+            id, input.refinementRequest(), anchor.swarm().schema(), PhaseScope.runId(),
+            hypoCtx.gen().chatId(), REBUTTAL_MEMORY);
+        log.info("[swarm] Generator supervisor-refinement iter={} hypothesis={}",
+            input.iteration(), hypoCtx.hypothesisId());
+        return mapper.convertValue(submit("generatorExecutor", stepInput), HYPOTHESIS_REF);
+    }
+
+    private EventId supervisorRefinementId(RefinementInput input) {
+        var hypoCtx = input.hypoCtx();
+        return EventId.child("supervisor-refinement",
+            ContentHash.of(Map.of(
+                "kind", "supervisor-refinement",
+                "schema", hypoCtx.anchor().swarm().schema(),
+                "iteration", Integer.toString(input.iteration()),
+                "hypothesisTitle", hypoCtx.hypothesisId(),
+                "refinement", input.refinementRequest())),
+            List.of(hypoCtx.gen().rebuttal().id()),
+            Map.of("anchor", hypoCtx.anchor().anchorTag(),
+                "hypothesis", hypoCtx.hypothesisId(),
+                "iteration", Integer.toString(input.iteration())));
+    }
+
     private Output doRun(AnchorContext anchor) {
         var tags = Map.of("anchor", anchor.anchorTag());
 
@@ -134,5 +165,11 @@ public class GenPhase {
         StepOutput<HypothesisGenerationDTO> generator,
         StepOutput<ScepticReviewDTO> sceptic,
         StepOutput<HypothesisGenerationDTO> rebuttal
+    ) {}
+
+    public record RefinementInput(
+        HypothesisContext hypoCtx,
+        String refinementRequest,
+        int iteration
     ) {}
 }

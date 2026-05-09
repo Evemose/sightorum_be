@@ -2,6 +2,18 @@
 {{METAMODEL}}
 </metamodel>
 
-<query>
+<user_query>
 {{USER_QUERY}}
-</query>
+</user_query>
+
+<task>
+Run a depth-first descriptive exploration of the dataset. Surface the
+headline measure, its temporal trajectory, the strongest segmentations,
+composition checks, and any naturally-falling two-side comparisons.
+Walk the metamodel for hazards (intrinsic columns, fan-out risk, data
+quality, temporal gaps). Compose the report exactly as defined in your
+system prompt's `<output_structure>` — Headline Survey, Insights,
+Hazards, Schema Summary. Downstream agents (hypothesis generators,
+judges, advocates, prosecutors) will splice this report into their own
+prompts as the shared data overview.
+</task>

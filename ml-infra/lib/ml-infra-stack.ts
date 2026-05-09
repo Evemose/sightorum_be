@@ -93,6 +93,15 @@ export class MlGlobalsStack extends cdk.Stack {
             idleTimeout: cdk.Duration.seconds(4000)
         });
 
+        const accessLogsBucket = new s3.Bucket(this, 'MlAlbAccessLogs', {
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            autoDeleteObjects: true,
+            encryption: s3.BucketEncryption.S3_MANAGED,
+            blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+            lifecycleRules: [{expiration: cdk.Duration.days(7)}],
+        });
+        alb.logAccessLogs(accessLogsBucket);
+
         const listener = alb.addListener('Http', {port: 80});
 
         const service = new ecs.FargateService(this, 'MlService', {
@@ -130,7 +139,7 @@ export class MlGlobalsStack extends cdk.Stack {
                 dimensionsMap: {Region: props.entrypointRegion},
             }),
             scalingSteps: [
-                {lower: 2, change: +1},
+                {lower: 1, change: +1},
                 {lower: 4, change: +2},
             ],
             cooldown: cdk.Duration.seconds(60),
@@ -221,7 +230,7 @@ def handler(event, context):
         service = svc['service']
         avg_cpu = get_cpu_utilization(region, cluster, service)
         cpu_norm = max(0.0, (avg_cpu - 60.0) / 20.0) if avg_cpu is not None else 0.0
-        http_signal = 1.0 if (region == entrypoint_region and recent_http > 0) else 0.0
+        http_signal = 0.2 if (region == entrypoint_region and recent_http > 0) else 0.0
         value = max(float(pending), http_signal, cpu_norm)
 
         _cw(region).put_metric_data(
@@ -309,24 +318,27 @@ def get_valkey_pending(stream, group):
 
 
 def get_recent_request_count():
-    try:
-        resp = cw_local.get_metric_statistics(
-            Namespace='AWS/ApplicationELB',
-            MetricName='RequestCount',
-            Dimensions=[{
-                'Name': 'LoadBalancer',
-                'Value': os.environ['ALB_ARN_SUFFIX']
-            }],
-            StartTime=datetime.now(timezone.utc) - timedelta(minutes=10),
-            EndTime=datetime.now(timezone.utc),
-            Period=600,
-            Statistics=['Sum'],
-        )
-        points = resp.get('Datapoints', [])
-        return int(points[0]['Sum']) if points else 0
-    except Exception as e:
-        print(f"CloudWatch query error: {e}")
-    return 0
+    total = 0
+    for metric in ('NewConnectionCount', 'RequestCount', 'HTTPCode_ELB_5XX_Count'):
+        try:
+            resp = cw_local.get_metric_statistics(
+                Namespace='AWS/ApplicationELB',
+                MetricName=metric,
+                Dimensions=[{
+                    'Name': 'LoadBalancer',
+                    'Value': os.environ['ALB_ARN_SUFFIX']
+                }],
+                StartTime=datetime.now(timezone.utc) - timedelta(minutes=10),
+                EndTime=datetime.now(timezone.utc),
+                Period=600,
+                Statistics=['Sum'],
+            )
+            points = resp.get('Datapoints', [])
+            if points:
+                total += int(points[0]['Sum'])
+        except Exception as e:
+            print(f"CloudWatch query error ({metric}): {e}")
+    return total
 `),
         });
 

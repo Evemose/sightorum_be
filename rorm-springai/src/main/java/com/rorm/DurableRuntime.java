@@ -41,4 +41,16 @@ public interface DurableRuntime {
     DurableFuture<Object> submitAsync(String sessionId, JobSpec spec);
 
     <T> AwakableHandle<T> handle(String awakableId, Class<T> resultType);
+
+    /**
+     * Nudge a top-level invocation forward by sessionId. If a paused or
+     * suspended invocation matching the sessionId is found, it is resumed
+     * via the runtime's pause/resume primitive. Returns true if a paused
+     * invocation was found and a resume was issued, false otherwise (no
+     * invocation present, or the invocation is already running cleanly).
+     * Default no-op for runtimes without a pause/resume notion.
+     */
+    default boolean nudge(String sessionId) {
+        return false;
+    }
 }

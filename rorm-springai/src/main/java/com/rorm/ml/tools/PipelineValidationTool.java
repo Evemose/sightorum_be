@@ -3,7 +3,7 @@ package com.rorm.ml.tools;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.JournaledTool;
-import com.rorm.ai.RormToolContext;
+import com.rorm.ai.swarm.communication.SwarmToolContext;
 import com.rorm.ml.MlTrainingService;
 import com.rorm.ml.PipelineSpecConverter;
 import com.rorm.ml.dto.PipelineSpecRequest;
@@ -59,19 +59,21 @@ public class PipelineValidationTool {
 
     ) {
         try {
-            var context = RormToolContext.from(toolContext);
+            var context = SwarmToolContext.from(toolContext);
+            var base = context.base();
             var request = pipelineSpecConverter.convert(
-                spec, "validation-only", context.modelSpace(), context.schema());
+                spec, "validation-only", base.modelSpace(), base.schema());
 
             var result = mlService.validatePipelineSpec(request);
             var errors = result.errors() != null ? result.errors() : List.<String>of();
 
             if (result.valid()) {
+                depositValidatedSpec(context, spec);
                 log.info("Pipeline spec '{}' validated successfully", spec.hypothesisId());
                 return writeJson(Map.of(
                     "valid", true,
                     "hypothesis_id", spec.hypothesisId(),
-                    "message", "Spec is valid — all columns, variant references, and constraints check out."
+                    "message", "Spec is valid — all columns, variant references, and constraints check out. The engine has captured this spec; finish your reply with a brief confirmation."
                 ));
             } else {
                 log.warn("Pipeline spec '{}' validation failed with {} error(s)",
@@ -87,6 +89,17 @@ public class PipelineValidationTool {
             log.error("Pipeline spec validation failed", e);
             return errorResponse("Validation failed: " + e.getMessage());
         }
+    }
+
+    private void depositValidatedSpec(SwarmToolContext context, PipelineSpecRequest spec) {
+        var holder = context.pipelineSpecHolder();
+        if (holder == null) {
+            throw new IllegalStateException(
+                "validatePipelineSpec called from a swarm step that did not install a PipelineSpecHolder; "
+                + "askerRole=" + context.askerRole() + ", askerChatId=" + context.askerChatId()
+                + ". The compiler step must run through StepExecutorSupport which provisions the holder.");
+        }
+        holder.set(spec);
     }
 
     private String writeJson(Object value) {

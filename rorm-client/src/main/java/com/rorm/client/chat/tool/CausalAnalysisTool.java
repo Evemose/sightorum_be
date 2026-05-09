@@ -34,13 +34,23 @@ public class CausalAnalysisTool {
     public String startCausalAnalysis(
         @ToolParam(description = "The causal research question to investigate")
         String query,
-        @ToolParam(description = "Anchor entity names from the schema to focus the analysis on (e.g. root table names)")
+        @ToolParam(
+            description = """
+                Optional explicit anchor entity names from the schema to focus the analysis on.
+                Pass null or omit to let the swarm propose anchors automatically by merging the scout's
+                data-driven proposals with the domain researcher's literature-driven proposals.
+                You should only specify the anchors if user specified their specific areas of interest,
+                otherwise let the swarm propose anchors automatically, as it is usually more robust.
+                DO NOT make up anchors unless user explicitly asks for it, you are NOT smarter then the swarm when it comes to proposing anchors,
+                the swarm has access to the data and scientific literature and can propose much better anchors then you can.
+                """,
+            required = false)
         List<String> anchors,
         ToolContext toolContext
     ) {
         var ctx = RormToolContext.from(toolContext);
         var sessionId = (String) toolContext.getContext().get("sessionId");
-        var runId = analysisService.startAnalysis(ctx.schema(), ctx.modelSpace(), query, anchors);
+        var runId = analysisService.startAnalysis(ctx.schema(), query, anchors);
         if (sessionId != null) {
             sessionService.registerAnalysis(sessionId, runId, AnalysisKind.CAUSAL, query);
         }

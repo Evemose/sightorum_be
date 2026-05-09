@@ -7,6 +7,9 @@ import reactor.core.publisher.Sinks;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Runnable smoke check for {@link SwarmEventFormatter}. Feeds a deterministic
@@ -22,6 +25,14 @@ final class SwarmEventFormatterSmoke {
 
     private static final long TOKEN_DELAY_MS = 40;
     private static final long PAUSE_MS = 800;
+    private static final ConcurrentMap<UUID, AtomicInteger> SEQS = new ConcurrentHashMap<>();
+
+    private static void streamThinking(Sinks.Many<SwarmStreamEvent> events, EventId id, String text) {
+        for (var word : splitForStream(text)) {
+            sleep();
+            events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, nextSeq(id), new StreamToken.Thinking(word)));
+        }
+    }
 
     private static void runRecon(Sinks.Many<SwarmStreamEvent> events) throws InterruptedException {
         log("INFO Starting recon phase");
@@ -124,29 +135,26 @@ final class SwarmEventFormatterSmoke {
         return new CompilerHandle(id, hypothesisId);
     }
 
-    private static void streamThinking(Sinks.Many<SwarmStreamEvent> events, EventId id, String text) {
-        for (var word : splitForStream(text)) {
-            sleep();
-            events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, new StreamToken.Thinking(word)));
-        }
+    private static int nextSeq(EventId id) {
+        return SEQS.computeIfAbsent(id.token(), _ -> new AtomicInteger()).getAndIncrement();
     }
 
     private static void streamText(Sinks.Many<SwarmStreamEvent> events, EventId id, String text) {
         for (var word : splitForStream(text)) {
             sleep();
-            events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, new StreamToken.Text(word)));
+            events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, nextSeq(id), new StreamToken.Text(word)));
         }
     }
 
     private static void streamTool(Sinks.Many<SwarmStreamEvent> events, EventId id, String name) {
         sleep();
-        events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, new StreamToken.ToolCall(name)));
+        events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, nextSeq(id), new StreamToken.ToolCall(name)));
     }
 
     private static void streamServerTool(Sinks.Many<SwarmStreamEvent> events, EventId id,
                                          String name, String query) {
         sleep();
-        events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, new StreamToken.ServerTool(name, query)));
+        events.tryEmitNext(new SwarmStreamEvent.AgentToken(id, nextSeq(id), new StreamToken.ServerTool(name, query)));
     }
 
     private static String[] splitForStream(String text) {

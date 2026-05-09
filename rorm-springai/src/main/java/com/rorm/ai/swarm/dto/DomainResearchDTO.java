@@ -64,7 +64,18 @@ public record DomainResearchDTO(
         Reference class limitations: how well the reference class matches this specific
         dataset, and sparse research areas where forecasting is unreliable.""")
     @JsonProperty(required = true)
-    List<String> referenceClassLimitations
+    List<String> referenceClassLimitations,
+
+    @JsonPropertyDescription("""
+        Proposed anchor entities for downstream hypothesis fanout, framed
+        from the domain literature's perspective. Each anchor names an
+        established causal frame in the reference class (e.g. equipment
+        durability, route exposure, customer-tenure cohorts) and lists the
+        metamodel entities it touches. Typically 2-4 anchors covering the
+        well-established lenses in the domain. Merged with the scout's
+        proposals via Jaccard overlap before fanout.""")
+    @JsonProperty(required = true)
+    List<ProposedAnchor> proposedAnchors
 ) {
 
     @JsonClassDescription("Identification of the domain being researched")

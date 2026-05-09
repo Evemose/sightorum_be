@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(./gradlew compileJava:*)",
@@ -119,7 +122,12 @@
       "WebFetch(domain:www.softwareatscale.dev)",
       "WebFetch(domain:repost.aws)",
       "WebFetch(domain:central.sonatype.com)",
-      "WebFetch(domain:aws.amazon.com)"
+      "WebFetch(domain:aws.amazon.com)",
+      "Bash(mkdir -p /tmp/alb-logs)",
+      "Bash(rm -f /tmp/alb-logs/*)",
+      "Bash(aws s3 *)",
+      "Read(//tmp/**)",
+      "Bash(gunzip)"
     ]
   },
   "hooks": {
@@ -134,8 +142,5 @@
         ]
       }
     ]
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   }
 }

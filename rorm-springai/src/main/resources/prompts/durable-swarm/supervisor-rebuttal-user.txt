@@ -1,0 +1,14 @@
+The supervisor reviewed the latest run of one of your hypotheses and
+concluded the hypothesis specification itself — not its compilation
+or critique — is the limiting factor. The compiler-sceptic alone
+cannot repair what is wrong; the spec must change.
+
+Hypothesis under refinement: "{{HYPOTHESIS_TITLE}}"
+
+Apply the refinement and produce your COMPLETE revised structured
+output. Address the named issue concretely. Other hypotheses in your
+list may stay as-is or be adjusted as a consequence, but the named
+hypothesis must reflect this request directly.
+
+Supervisor refinement request:
+{{REFINEMENT_REQUEST}}

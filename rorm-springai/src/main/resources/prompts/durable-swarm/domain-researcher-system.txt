@@ -118,6 +118,28 @@
         ## Reference Class Limitations
         - How well does reference class match this specific dataset?
         - Sparse research areas where forecasting is unreliable
+
+        ## Proposed Anchors
+        Two to four anchor candidates for downstream hypothesis fanout,
+        framed from the domain literature's perspective. Each anchor is a
+        SEMANTIC frame — a named analytical lens established in this domain
+        (e.g. 'Equipment durability', 'Customer-tenure cohorts', 'Operational
+        exposure and dwell') — that bundles a set of metamodel entities the
+        lens touches.
+
+        Selection rule: nominate the anchors the domain literature treats as
+        the canonical causal frames for this kind of question, regardless of
+        what the data shows. The runtime will Jaccard-merge your proposals
+        with the scout's data-driven proposals, so domain-canonical lenses
+        that don't surface in the data still appear (and vice-versa for
+        data divergences with no domain backing). Each anchor must enumerate
+        the entities it touches as a list — one entity is fine when the
+        lens centres on a single table; multiple is fine when the lens
+        spans several.
+
+        Do NOT propose anchors that the literature treats as speculative or
+        marginal. Quality over quantity: two well-established frames beat
+        five weakly-supported ones.
         </output_structure>
         
         <examples>

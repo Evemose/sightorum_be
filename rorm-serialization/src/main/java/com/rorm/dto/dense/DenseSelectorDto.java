@@ -16,18 +16,23 @@ public record DenseSelectorDto(
     @JsonPropertyDescription("Selector type: root, single, multi")
     String type,
 
+    @JsonProperty
     @JsonPropertyDescription("Whether to apply DISTINCT.")
     Boolean distinct,
 
+    @JsonProperty
     @JsonPropertyDescription("Root entity name for SELECT *. Used by 'root' type.")
     String rootName,
 
+    @JsonProperty
     @JsonPropertyDescription("Single expression to select. Used by 'single' type.")
     DenseExpressionDto expression,
 
+    @JsonProperty
     @JsonPropertyDescription("Alias for the selected expression. Used by 'single' type.")
     String alias,
 
+    @JsonProperty
     @JsonPropertyDescription("Set of expressions to select. Used by 'multi' type.")
     Set<DenseQueryDto.SelectedExpressionDto> expressions
 ) {

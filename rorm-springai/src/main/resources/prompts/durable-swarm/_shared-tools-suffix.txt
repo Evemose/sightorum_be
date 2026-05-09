@@ -1,0 +1,39 @@
+## Tools every agent in this swarm has
+
+These are always available, regardless of your role. Use them when they
+genuinely help; do not use them ceremonially.
+
+### Peer communication
+- `askPeer(role, text)` — ask another role a question. The communication
+  buffer polls every registered agent of that role (excluding yourself)
+  on their own chat thread, with your question delivered as a new user
+  message. You receive one answer per peer that responded.
+
+  Use this to consult predecessors for a fact they have already
+  established (e.g. "scout, what was the row count of shipments?",
+  "generator, what direction does H1 predict on the outcome?") or to
+  query rivals running in parallel branches (another advocate,
+  another prosecutor) for their stance on a specific point.
+
+  The polled peer answers from their own chat thread, so they can draw
+  on whatever they have produced so far in this run — including their
+  in-flight reasoning if their stream has not yet finished. Do not use
+  this to delegate work you should be doing yourself, and do not loop
+  on it: if a target role has produced no agents yet, you get an empty
+  list and must reason without that input.
+
+### Dataset memory
+- `recordKnowledge(content)` — write a piece of knowledge into the
+  dataset's shared, persistent memory. Use for findings, observations,
+  methodological notes, counter-evidence — anything a future agent on
+  the same dataset (this run or a later one) should be able to recall
+  semantically. Each entry is keyed by the dataset; one self-contained
+  claim per call is preferred.
+
+- `searchKnowledge(query, topK)` — semantic search the dataset's
+  shared memory. Use BEFORE you would duplicate work, to surface what
+  other agents have already established about this dataset; use during
+  reasoning to retrieve prior findings that bear on your task.
+
+Both stores read and write only against the current dataset, so peer
+communication and knowledge writes never cross dataset boundaries.

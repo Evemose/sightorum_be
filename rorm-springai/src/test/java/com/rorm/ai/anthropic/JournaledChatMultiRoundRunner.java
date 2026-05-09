@@ -20,7 +20,7 @@ public class JournaledChatMultiRoundRunner {
             var filePathA = System.getProperty("blackbox.file.path.a");
             var filePathB = System.getProperty("blackbox.file.path.b");
             var client = ScriptedAnthropicClient.multiRoundClient(llmCallCount);
-            var model = new JournaledAnthropicChatModel(client, client, new AnthropicParamsBuilder(new ObjectMapper()), null, null);
+            var model = new JournaledAnthropicChatModel(client, client, new AnthropicParamsBuilder(new ObjectMapper()), null, null, (m, e) -> java.util.Optional.empty());
             var journal = new FileStepJournal(Path.of(journalDir));
 
             var options = AnthropicChatOptions.builder()

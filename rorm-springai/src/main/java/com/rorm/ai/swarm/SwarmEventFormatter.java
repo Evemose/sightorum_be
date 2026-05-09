@@ -187,7 +187,40 @@ public class SwarmEventFormatter implements AutoCloseable {
             case SwarmStreamEvent.AgentStarted start -> onStart(start);
             case SwarmStreamEvent.AgentToken tok -> onToken(tok);
             case SwarmStreamEvent.AgentFinished end -> onEnd(end);
+            case SwarmStreamEvent.AgentQuestion q -> onQuestion(q);
+            case SwarmStreamEvent.AgentAnswer a -> onAnswer(a);
+            case SwarmStreamEvent.AgentProgress p -> onProgress(p);
             case SwarmStreamEvent.RunCompleted _ -> { /* terminal; Flux should complete */ }
+        }
+    }
+
+    private void onProgress(SwarmStreamEvent.AgentProgress p) {
+        synchronized (lock) {
+            flushAllActive();
+            out.printf("%n%s[~] %s(%s):%s %s%n%n",
+                BOLD + GREEN, p.eventId().kind(), p.eventId().shortToken(),
+                RESET, p.message());
+            out.flush();
+        }
+    }
+
+    private void onQuestion(SwarmStreamEvent.AgentQuestion q) {
+        synchronized (lock) {
+            flushAllActive();
+            out.printf("%n[Q] %s → %s : %s%n", q.fromRole(), q.toRole(), q.text());
+        }
+    }
+
+    private void onAnswer(SwarmStreamEvent.AgentAnswer a) {
+        synchronized (lock) {
+            flushAllActive();
+            out.printf("[A] %s → %s : %s%n%n", a.fromRole(), a.toRole(), a.text());
+        }
+    }
+
+    private void flushAllActive() {
+        for (var state : active.values()) {
+            flushBlock(state);
         }
     }
 

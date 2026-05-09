@@ -1734,6 +1734,37 @@ class TestFilterDeserialization:
         assert f.operator == FilterOperator.IN
         assert f.values == ["A", "B"]
 
+    def test_composite_with_empty_values_array_is_composite(self):
+        """LLM-generated specs propagate union-arm fields at every node level.
+        A composite node carrying `values: []` alongside null column/operator
+        is schema-noise, NOT a partial leaf. The composite branch must win."""
+        f = VariantFilter.from_dict({
+            "values": [],
+            "and": [
+                {"column": "ambientTempAtArrivalC", "operator": "GT",
+                 "values": [25], "and": [], "or": []},
+                {"column": "isAfterHoursArrival", "operator": "EQ",
+                 "values": [False], "and": [], "or": []},
+                {"column": "receivingDockTempControlled", "operator": "EQ",
+                 "values": [False], "and": [], "or": []},
+                {"column": "disposition", "operator": "EQ",
+                 "values": ["accepted"], "and": [], "or": []},
+            ],
+            "or": [],
+        })
+        assert f.and_filters is not None
+        assert len(f.and_filters) == 4
+        assert f.column is None
+        assert f.values is None
+        assert f.and_filters[0].column == "ambientTempAtArrivalC"
+        assert f.and_filters[0].operator == FilterOperator.GT
+
+    def test_partial_leaf_with_real_values_still_rejected(self):
+        """A non-empty `values` without column/operator IS a partial leaf and
+        must still raise — only empty-values noise is tolerated."""
+        with pytest.raises(ValueError, match="partial|missing"):
+            VariantFilter.from_dict({"values": [1, 2, 3]})
+
     def test_leaf_with_empty_composite_arrays_is_leaf(self):
         """LLM-generated specs sometimes emit `and: []` and `or: []` alongside
         leaf fields as schema noise. Empty composites must not steal precedence."""

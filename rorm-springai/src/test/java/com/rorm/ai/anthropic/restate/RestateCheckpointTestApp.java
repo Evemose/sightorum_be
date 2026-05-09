@@ -39,7 +39,7 @@ public class RestateCheckpointTestApp {
 
     @Bean
     ChatModel chatModel(AnthropicClient client, ObjectMapper mapper) {
-        return new JournaledAnthropicChatModel(client, client, new AnthropicParamsBuilder(mapper), null, null);
+        return new JournaledAnthropicChatModel(client, client, new AnthropicParamsBuilder(mapper), null, null, (m, e) -> java.util.Optional.empty());
     }
 
     @EventListener(ApplicationReadyEvent.class)

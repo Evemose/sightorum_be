@@ -128,6 +128,7 @@ public class RestateConfiguration {
             streamTtl, batchSize, sinkCapacity, xreadBlock, backpressurePark);
     }
 
+
     @Bean
     public RestateDeploymentRegistrar restateDeploymentRegistrar(
         @RestateAdminClient RestClient restateAdminClient,

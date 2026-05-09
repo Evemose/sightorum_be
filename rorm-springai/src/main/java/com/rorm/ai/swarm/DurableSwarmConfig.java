@@ -24,47 +24,42 @@ public record DurableSwarmConfig(
     AgentModelConfig executorCompiler,
     AgentModelConfig compilerSceptic,
     AgentModelConfig forensicPathologist,
+    AgentModelConfig supervisor,
     AgentModelConfig advocate,
     AgentModelConfig prosecutor,
     AgentModelConfig judge,
     AgentModelConfig descriptiveAgent,
-    AgentModelConfig summarizer
+    AgentModelConfig summarizer,
+    String progressCharacter
 ) {
 
     private static final String PROMPT_ROOT = "prompts/durable-swarm/";
 
     private static final CacheStrategy SHORT_CACHE = _ -> CacheTTL.SHORT;
     private static final CacheStrategy NO_CACHE = _ -> CacheTTL.NONE;
-    private static final CacheStrategy FIRST_ROUND_SHORT = ctx ->
-        ctx.previousRounds().isEmpty() ? CacheTTL.SHORT : CacheTTL.NONE;
 
     public DurableSwarmConfig {
         scout = withDefaults(scout, "scout", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE).withModel("claude-sonnet-4-6");
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE);
         domainResearcher = withDefaults(domainResearcher, "domain-researcher", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.WEB_ACCESS), NO_CACHE);
+            Set.of(ToolGroup.WEB_ACCESS), NO_CACHE).withModel("claude-opus-4-7");
         generator = withDefaults(generator, "generator", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.DATA_RELATIONS), FIRST_ROUND_SHORT);
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.DATA_RELATIONS), SHORT_CACHE);
         if (!hasText(rebuttalPromptTemplate)) {
             rebuttalPromptTemplate = loadResourceIfExists(PROMPT_ROOT + "rebuttal-user.txt");
         }
         mechanicalSceptic = withDefaults(mechanicalSceptic, "mechanical-sceptic", ThinkingLevel.HIGH,
             Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.VERIFICATION), SHORT_CACHE);
         executorCompiler = withDefaults(executorCompiler, "executor-compiler", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE);
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.PIPELINE_VALIDATION), SHORT_CACHE);
         compilerSceptic = withDefaults(compilerSceptic, "compiler-sceptic", ThinkingLevel.HIGH,
             Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.CAUSAL_REEXECUTION),
-            ctx -> {
-                var toolRoundInfos = ctx.previousRounds();
-                if (toolRoundInfos.isEmpty()) {
-                    return CacheTTL.SHORT;
-                }
-                return toolRoundInfos.getLast().toolNames().contains("reexecuteCausalPipeline") ?
-                    CacheTTL.NONE : CacheTTL.SHORT;
-            }
+            compilerScepticCacheStrategy()
         );
         forensicPathologist = withDefaults(forensicPathologist, "forensic-pathologist", ThinkingLevel.HIGH,
             Set.of(), NO_CACHE);
+        supervisor = withDefaults(supervisor, "supervisor", ThinkingLevel.HIGH,
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.VERIFICATION), SHORT_CACHE);
         advocate = withDefaults(advocate, "advocate", ThinkingLevel.HIGH,
             Set.of(), SHORT_CACHE);
         prosecutor = withDefaults(prosecutor, "prosecutor", ThinkingLevel.HIGH,
@@ -103,9 +98,20 @@ public record DurableSwarmConfig(
             config = config.withCacheStrategy(defaultCacheStrategy);
         }
         if (config.model() == null) {
-            config = config.withModel("claude-opus-4-6");
+            config = config.withModel("claude-opus-4-7");
         }
         return config;
+    }
+
+    private static CacheStrategy compilerScepticCacheStrategy() {
+        return ctx -> {
+            var toolRoundInfos = ctx.previousRounds();
+            if (toolRoundInfos.isEmpty()) {
+                return CacheTTL.SHORT;
+            }
+            return toolRoundInfos.getLast().toolNames().contains("reexecuteCausalPipeline")
+                ? CacheTTL.NONE : CacheTTL.SHORT;
+        };
     }
 
     private static String loadResourceIfExists(String path) {

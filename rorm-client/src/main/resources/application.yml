@@ -5,6 +5,10 @@ server:
     async:
       timeout: 3600000  # 1 hour for long-lived SSE connections
 
+logging:
+  file:
+    name: logs/rorm-client.log
+
 spring:
   docker:
     compose:

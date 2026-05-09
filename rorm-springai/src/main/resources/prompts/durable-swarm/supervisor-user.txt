@@ -1,0 +1,16 @@
+ITERATION: {{ITERATION}} of max {{MAX_ITERATIONS}}
+
+HYPOTHESIS_SPEC (current generator rebuttal output):
+{{HYPOTHESIS_SPEC}}
+
+COMPILER_SPEC (PipelineSpec compiled this iteration):
+{{COMPILER_SPEC}}
+
+PIPELINE_OUTPUT (engine metrics this iteration):
+{{PIPELINE_OUTPUT}}
+
+SCEPTIC_REVIEW (compiler-sceptic findings this iteration):
+{{SCEPTIC_REVIEW}}
+
+PRIOR_NOTES (your own notes from previous iterations on this hypothesis):
+{{PRIOR_NOTES}}

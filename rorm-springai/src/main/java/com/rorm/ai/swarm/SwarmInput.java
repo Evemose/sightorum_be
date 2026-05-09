@@ -1,5 +1,7 @@
 package com.rorm.ai.swarm;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -13,11 +15,14 @@ import java.util.List;
  *
  * @param userQuery the research question
  * @param schema    database schema name
- * @param anchors   one anchor assignment per generator (drives fanout)
+ * @param anchors   explicit anchor assignments (one per generator). When
+ *                  null or empty, the swarm derives anchors itself by
+ *                  Jaccard-merging proposals from the scout and the
+ *                  domain researcher.
  */
 public record SwarmInput(
     String userQuery,
     String schema,
-    List<String> anchors
+    @Nullable List<String> anchors
 ) {
 }

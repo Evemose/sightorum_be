@@ -9,7 +9,9 @@ import java.util.List;
 
 /**
  * Complete result of a durable swarm run. Each agent output is structured
- * via {@link com.rorm.ai.swarm.agents.SecondarySwarmAgent} into a typed DTO.
+ * via a {@link com.rorm.ai.swarm.agents.SecondarySwarmAgent} into a typed DTO —
+ * by default the summarizing impl, with the compiler step reading the
+ * pipeline spec straight from its tool-populated holder.
  */
 public record SwarmResult(
     ScoutAnalysisDTO scoutOutput,
@@ -42,7 +44,8 @@ public record SwarmResult(
         @Nullable CompilerCorrectionDTO compilerScepticReview,
         @Nullable ForensicDiagnosisDTO diagnosis,
         @Nullable StandoffArgumentDTO advocate,
-        @Nullable StandoffArgumentDTO prosecutor
+        @Nullable StandoffArgumentDTO prosecutor,
+        @Nullable SupervisorVerdictDTO supervisorVerdict
     ) {
     }
 }
