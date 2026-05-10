@@ -181,12 +181,42 @@ public class JournaledAnthropicChatModel implements ChatModel {
         });
     }
 
-    private AnthropicClient resolveClient(@Nullable ChatOptions options) {
-//        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
-//            return directClient;
-//        }
-//        return bedrockClient;
-        return directClient;
+    private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
+        var callbackMap = resolveToolCallbackMap(prompt.getOptions());
+        var toolCtx = resolveToolContext(prompt.getOptions());
+        var journal = resolveJournal(prompt.getOptions());
+        var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
+        var client = resolveClient(prompt.getOptions());
+        var unmappedModel = unmappedModel(prompt.getOptions());
+        var rounds = new ArrayList<ToolRound>();
+
+        for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+            var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
+            var budget = new AnthropicParamsBuilder.CacheBreakpointBudget();
+            var builder = paramsBuilder.toBuilder(prompt, strategy, budget);
+            addToolRounds(builder, rounds, strategy, budget);
+            resolveModelForClient(builder, client, prompt.getOptions());
+            var params = builder.build();
+            log.info("Calling {} with model={}", client == bedrockClient ? "bedrock" : "direct", params.model());
+            var executed = new boolean[]{false};
+            var message = journal.run("llm-stream-" + round, Message.class, () -> {
+                executed[0] = true;
+                return fixMissingToolInputs(attemptWithFallback(
+                    params, client, unmappedModel,
+                    p -> streamRound(p, sink, client)));
+            });
+            if (!executed[0]) {
+                emitCachedRound(message, sink);
+            }
+            if (!hasToolCalls(message, callbackMap)) {
+                emitCustomGenerations(message, rounds, sink);
+                sink.complete();
+                return;
+            }
+            var toolRound = buildToolRound(message, callbackMap, toolCtx);
+            rounds.add(toolRound);
+        }
+        sink.error(toolLoopExceeded());
     }
 
     private static String unmappedModel(@Nullable ChatOptions options) {
@@ -789,46 +819,16 @@ public class JournaledAnthropicChatModel implements ChatModel {
         return null;
     }
 
-    private void doStream(Prompt prompt, FluxSink<ChatResponse> sink) {
-        var callbackMap = resolveToolCallbackMap(prompt.getOptions());
-        var toolCtx = resolveToolContext(prompt.getOptions());
-        var journal = resolveJournal(prompt.getOptions());
-        var cachingStrategyFn = resolveCachingStrategyFunction(prompt.getOptions());
-        var client = resolveClient(prompt.getOptions());
-        var unmappedModel = unmappedModel(prompt.getOptions());
-        var rounds = new ArrayList<ToolRound>();
-
-        for (var round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-            var strategy = computeCachingStrategy(rounds, round, cachingStrategyFn);
-            var budget = new AnthropicParamsBuilder.CacheBreakpointBudget();
-            var builder = paramsBuilder.toBuilder(prompt, strategy, budget);
-            addToolRounds(builder, rounds, strategy, budget);
-            resolveModelForClient(builder, client, prompt.getOptions());
-            var params = builder.build();
-            log.info("Calling {} with model={}", client == bedrockClient ? "bedrock" : "direct", params.model());
-            var executed = new boolean[]{false};
-            var message = journal.run("llm-stream-" + round, Message.class, () -> {
-                executed[0] = true;
-                return fixMissingToolInputs(attemptWithFallback(
-                    params, client, unmappedModel,
-                    p -> streamRound(p, sink, client, prompt)));
-            });
-            if (!executed[0]) {
-                emitCachedRound(message, sink);
-            }
-            if (!hasToolCalls(message, callbackMap)) {
-                emitCustomGenerations(message, rounds, sink);
-                sink.complete();
-                return;
-            }
-            var toolRound = buildToolRound(message, callbackMap, toolCtx);
-            rounds.add(toolRound);
+    private AnthropicClient resolveClient(@Nullable ChatOptions options) {
+        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
+            return directClient;
         }
-        sink.error(toolLoopExceeded());
+        return bedrockClient;
+//        return directClient;
     }
 
     @SneakyThrows
-    private Message streamRound(MessageCreateParams params, FluxSink<ChatResponse> sink, AnthropicClient client, Prompt prompt) {
+    private Message streamRound(MessageCreateParams params, FluxSink<ChatResponse> sink, AnthropicClient client) {
         var accumulator = MessageAccumulator.create();
         try (var stream = client.messages().createStreaming(params)) {
             stream.stream().peek(event -> {

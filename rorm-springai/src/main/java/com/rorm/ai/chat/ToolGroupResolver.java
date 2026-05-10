@@ -1,10 +1,10 @@
 package com.rorm.ai.chat;
 
 import com.rorm.ai.tools.*;
-import com.rorm.ml.tools.CausalReexecutionTool;
 import com.rorm.ml.tools.DataRelationsTool;
 import com.rorm.ml.tools.MlTrainingTool;
-import com.rorm.ml.tools.PipelineValidationTool;
+import com.rorm.ml.tools.PipelineExecutionTool;
+import com.rorm.ml.tools.RunQueryTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -20,8 +20,8 @@ public class ToolGroupResolver {
     private final DataOverviewTool dataOverviewTool;
     private final MlTrainingTool mlTrainingTool;
     private final DataRelationsTool dataRelationsTool;
-    private final CausalReexecutionTool causalReexecutionTool;
-    private final PipelineValidationTool pipelineValidationTool;
+    private final PipelineExecutionTool pipelineExecutionTool;
+    private final RunQueryTool runQueryTool;
     private final FeatureEngineeringTool featureEngineeringTool;
     private final HypothesisVerificationTool hypothesisVerificationTool;
     private final DataExplorationTool explorationTool;
@@ -60,8 +60,11 @@ public class ToolGroupResolver {
                 tools.add(dataRelationsTool);
                 tools.add(featureEngineeringTool);
             }
-            case CAUSAL_REEXECUTION -> tools.add(causalReexecutionTool);
-            case PIPELINE_VALIDATION -> tools.add(pipelineValidationTool);
+            case PIPELINE_EXECUTION -> {
+                tools.add(pipelineExecutionTool);
+                tools.add(runQueryTool);
+            }
+            case RUN_QUERY -> tools.add(runQueryTool);
             case PEER_QUERY -> tools.add(peerQueryTool);
             case KNOWLEDGE_STORE -> tools.add(requireKnowledgeTool());
             case WEB_ACCESS -> {

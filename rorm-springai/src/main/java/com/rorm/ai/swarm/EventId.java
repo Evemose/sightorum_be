@@ -1,8 +1,6 @@
 package com.rorm.ai.swarm;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Identity of a single swarm event instance. Carries explicit parent links
@@ -33,7 +31,15 @@ public record EventId(
 
     public EventId {
         parents = List.copyOf(parents);
-        tags = Map.copyOf(tags);
+        // Sort tags by key into a TreeMap to guarantee deterministic JSON
+        // serialization order. {@code Map.of(...)} and {@code Map.copyOf(...)} both
+        // return ImmutableCollections.MapN whose iteration order depends on a
+        // hash perturbation seed re-randomized at every JVM startup — that
+        // non-determinism propagates into Jackson-emitted JSON bytes for the
+        // tags field and breaks Restate's deterministic-replay contract whenever
+        // the recording and replay JVMs differ. TreeMap-by-key serialization
+        // makes the on-the-wire form stable regardless of how the input was built.
+        tags = Collections.unmodifiableSortedMap(new TreeMap<>(tags));
     }
 
     public static EventId root(String kind, UUID token) {

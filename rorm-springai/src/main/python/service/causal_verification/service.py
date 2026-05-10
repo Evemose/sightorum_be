@@ -71,32 +71,11 @@ class CausalVerificationService:
             progress_callback: Optional[Callable] = None,
             checkpoint=None,
     ) -> dict[str, Any]:
-        from datetime import datetime
-        from service.pipeline_checkpoint import PipelineCheckpoint
-
-        if checkpoint:
-            checkpoint.save_run_meta({
-                "spec": spec.to_dict(),
-                "status": "running",
-                "started_at": datetime.utcnow().isoformat(),
-                "_score": datetime.utcnow().timestamp(),
-            })
-
-        try:
-            return self._run_pipeline_body(spec, datasource, progress_callback, checkpoint)
-        except BaseException as e:
-            if checkpoint:
-                try:
-                    checkpoint.save_run_meta({
-                        "spec": spec.to_dict(),
-                        "status": "failed",
-                        "failed_at": datetime.utcnow().isoformat(),
-                        "_score": datetime.utcnow().timestamp(),
-                        "error": f"{type(e).__name__}: {e}",
-                    })
-                except Exception as meta_err:
-                    logger.error("Failed to record failure status for run: %s", meta_err)
-            raise
+        # Run metadata (spec / status / result) is no longer persisted in
+        # Valkey — the swarm holds it in memory via its ToolCallRegistry.
+        # Only per-step pipeline checkpoints persist server-side, and only
+        # to enable reexecuteCausalPipeline step reuse.
+        return self._run_pipeline_body(spec, datasource, progress_callback, checkpoint)
 
     def _run_pipeline_body(
             self,
@@ -485,16 +464,6 @@ class CausalVerificationService:
                 f"{refutation_error_count} refutation(s) failed — "
                 f"robustness assessment is incomplete"
             )
-
-        if checkpoint:
-            from datetime import datetime
-            checkpoint.save_run_meta({
-                "spec": spec.to_dict(),
-                "status": "completed",
-                "completed_at": datetime.utcnow().isoformat(),
-                "_score": datetime.utcnow().timestamp(),
-                "result": result,
-            })
 
         report(1.0, "Pipeline complete")
         return result

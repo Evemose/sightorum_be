@@ -660,17 +660,39 @@ def _add_causal_verification_routes(app: FastAPI):
     @inject
     async def reexecute_async(
             run_id: str,
-            spec_patch: dict,
+            body: dict,
             event_publisher=Depends(Provide[ApplicationContainer.event_publisher]),
             config: Settings = Depends(Provide[ApplicationContainer.config]),
     ):
         """
-        Re-execute a completed run with a partial spec change.
+        Re-execute a base run with a partial spec change.
 
-        Only the steps affected by the changed fields are re-computed.
-        Queues the reexecution asynchronously — returns analysis_id immediately.
-        Monitor progress via event channels.
+        The caller supplies the full base spec in the request body
+        (the swarm holds it in memory via its ToolCallRegistry); this
+        service no longer persists run metadata in Valkey. Only the
+        per-step pipeline checkpoints under causal_cp:{run_id}:{step}
+        are reused server-side to skip steps the patch does not
+        invalidate.
+
+        Request body schema::
+
+            {
+              "base_spec": <full PipelineSpec / CausalVerificationJobRequest>,
+              "spec_patch": <partial spec — only fields that changed>
+            }
+
+        Queues the reexecution asynchronously — returns analysis_id
+        immediately. Monitor progress via event channels.
         """
+        base_spec = body.get("base_spec")
+        spec_patch = body.get("spec_patch")
+        if base_spec is None or spec_patch is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Body must include 'base_spec' (full base PipelineSpec) "
+                       "and 'spec_patch' (partial spec with changed fields).",
+            )
+
         analysis_id = str(uuid.uuid4())
 
         await event_publisher.add_to_stream(
@@ -680,6 +702,7 @@ def _add_causal_verification_routes(app: FastAPI):
                 "payload": json.dumps({
                     "analysis_id": analysis_id,
                     "base_run_id": run_id,
+                    "base_spec": base_spec,
                     "spec_patch": spec_patch,
                 }),
                 "metadata": json.dumps({}),
@@ -694,39 +717,6 @@ def _add_causal_verification_routes(app: FastAPI):
             "base_run_id": run_id,
             "message": "Causal reexecution request queued successfully",
         }
-
-    @app.get(
-        "/analysis/causal-verification/runs",
-        response_model=list,
-        tags=["Causal Verification"],
-    )
-    @inject
-    async def list_causal_runs(
-            limit: int = Query(50, ge=1, le=500),
-            config: Settings = Depends(Provide[ApplicationContainer.config]),
-    ):
-        """List completed causal verification runs (most recent first)."""
-        from service.pipeline_checkpoint import PipelineCheckpoint
-        return PipelineCheckpoint.list_runs(config.redis.get_url(), limit=limit)
-
-    @app.get(
-        "/analysis/causal-verification/runs/{run_id}",
-        response_model=dict,
-        tags=["Causal Verification"],
-    )
-    @inject
-    async def get_causal_run(
-            run_id: str,
-            config: Settings = Depends(Provide[ApplicationContainer.config]),
-    ):
-        """Get metadata and result for a specific run."""
-        from service.pipeline_checkpoint import PipelineCheckpoint
-        cp = PipelineCheckpoint(run_id, config.redis.get_url())
-        meta = cp.load_run_meta()
-        if meta is None:
-            raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-        meta["run_id"] = run_id
-        return meta
 
     @app.get(
         "/analysis/causal-verification/dag",

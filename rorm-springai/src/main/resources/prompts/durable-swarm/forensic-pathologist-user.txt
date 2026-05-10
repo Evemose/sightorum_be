@@ -10,6 +10,10 @@
 {{DOMAIN_KNOWLEDGE}}
 </domain_knowledge>
 
-<pipeline_output>
-{{PIPELINE_OUTPUT}}
-</pipeline_output>
+<compiler_output>
+{{COMPILER_OUTPUT}}
+</compiler_output>
+
+Drill into any run referenced in the compiler's runBriefs via
+queryRunSpec(runId, jsonPath) and queryRunResult(runId, jsonPath) —
+request specific JSONPath slices, do not pull full dumps.

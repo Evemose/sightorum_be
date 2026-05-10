@@ -47,8 +47,9 @@ public class DescPhase {
             "query", input.userQuery())));
         var prompt = config.descriptiveAgent().userPromptTemplate()
             .replace("{{USER_QUERY}}", input.userQuery());
-        var stepInput = new StepExecutionInput(id, prompt, input.schema(),
-            PhaseScope.runId());
+        var stepInput = StepExecutionInput.builder()
+            .eventId(id).userPrompt(prompt).schema(input.schema()).runId(PhaseScope.runId())
+            .build();
 
         log.info("[swarm] Descriptive agent for query: {}", input.userQuery());
         var sessionId = "descriptiveAgentExecutor-" + id.token();

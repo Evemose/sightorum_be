@@ -13,14 +13,15 @@ public record SupervisorVerdictDTO(
 
     @JsonPropertyDescription("""
         The routing decision. Exactly one of:
-        PASS_THROUGH — terminate the loop; accept the latest pipeline
-            result and compiler-sceptic review as final.
-        LOOP_TO_SCEPTIC — re-run only the compiler-sceptic on the
-            unchanged compile and pipeline output, with focusRequest as
-            additional guidance. No re-compilation, no re-execution.
+        PASS_THROUGH — terminate the loop; accept the latest compiler runs
+            and sceptic review as final.
+        LOOP_TO_COMPILER — re-run the compiler in its existing chat with
+            compilerFocus as additional guidance. The compiler may execute
+            additional pipelines via the executePipeline tool. Cheap-ish:
+            no re-generation, but pipeline executions cost what they cost.
         LOOP_TO_GENERATOR — re-run the generator rebuttal (which then
-            forces a re-compile, re-execution, and re-sceptic) with
-            refinementRequest as additional guidance. Full new round.""")
+            forces a re-compile and re-sceptic) with refinementRequest as
+            additional guidance. Full new round.""")
     @JsonProperty(required = true)
     Decision decision,
 
@@ -42,10 +43,12 @@ public record SupervisorVerdictDTO(
     String explanation,
 
     @JsonPropertyDescription("""
-        Concrete, named instruction for the compiler-sceptic when
-        decision is LOOP_TO_SCEPTIC. Null otherwise. Names a specific
-        pattern, column, value, or claim — never abstract guidance.""")
-    @Nullable String focusRequest,
+        Concrete, named instruction for the compiler when decision is
+        LOOP_TO_COMPILER. Null otherwise. Names a specific defect in the
+        compiler's spec or execution choice — e.g. a missing confounder,
+        a binary cutoff that needs revision, a refutation gate that
+        should be enabled. Never abstract guidance.""")
+    @Nullable String compilerFocus,
 
     @JsonPropertyDescription("""
         Concrete, named instruction for the generator rebuttal when
@@ -63,7 +66,7 @@ public record SupervisorVerdictDTO(
     String supervisorNotes
 ) {
 
-    public enum Decision {PASS_THROUGH, LOOP_TO_SCEPTIC, LOOP_TO_GENERATOR}
+    public enum Decision {PASS_THROUGH, LOOP_TO_COMPILER, LOOP_TO_GENERATOR}
 
     public enum PassThroughReason {HYPOTHESIS_DEAD, MARGINAL_RETURNS, WELL_FORMED}
 }

@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -34,6 +36,7 @@ public record DenseSelectorDto(
 
     @JsonProperty
     @JsonPropertyDescription("Set of expressions to select. Used by 'multi' type.")
+    @JsonDeserialize(as = LinkedHashSet.class)
     Set<DenseQueryDto.SelectedExpressionDto> expressions
 ) {
 

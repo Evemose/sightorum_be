@@ -193,7 +193,9 @@ export class MlGlobalsStack extends cdk.Stack {
                 STREAM_GROUPS: JSON.stringify([
                     ["ml_training:training_requests", "training_workers"],
                     ["ml_training:tuning_requests", "tuning_workers"],
-                    ["ml_training:stability_selection_requests", "analysis_workers"]
+                    ["ml_training:stability_selection_requests", "analysis_workers"],
+                    ["ml_training:shap_requests", "shap_workers"],
+                    ["ml_training:causal_verification_requests", "causal_verification_workers"]
                 ]),
             },
             code: lambda.Code.fromInline(`

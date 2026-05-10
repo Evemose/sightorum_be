@@ -58,7 +58,9 @@ public class ReconPhase {
             "schema", input.schema(),
             "query", input.userQuery())));
         var prompt = template.replace("{{USER_QUERY}}", input.userQuery());
-        return new StepExecutionInput(id, prompt, input.schema(), PhaseScope.runId());
+        return StepExecutionInput.builder()
+            .eventId(id).userPrompt(prompt).schema(input.schema()).runId(PhaseScope.runId())
+            .build();
     }
 
     private JobInvocation invocation(String beanName, StepExecutionInput stepInput) {

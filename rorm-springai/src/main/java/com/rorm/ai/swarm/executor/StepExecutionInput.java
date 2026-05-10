@@ -2,6 +2,7 @@ package com.rorm.ai.swarm.executor;
 
 import com.rorm.ai.chat.MemoryInclude;
 import com.rorm.ai.swarm.EventId;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Map;
@@ -10,7 +11,9 @@ import java.util.Set;
 /**
  * Serializable input envelope for all step executor beans. Carries
  * per-invocation data across the durable boundary; Spring beans (chat
- * service, event bus, config) are injected into the executor itself.
+ * service, event bus, config, swarm-wide
+ * {@link com.rorm.ai.swarm.communication.ToolCallRegistry}) are
+ * injected into the executor itself.
  * <p>
  * The {@code ModelSpace} is intentionally absent — the executor re-resolves
  * it from {@link #schema} on receipt via
@@ -31,6 +34,7 @@ import java.util.Set;
  *                             already rendered for per-invocation placeholders that the
  *                             agent-level renderer does not know about (e.g. {@code {{HYPOTHESIS}}})
  */
+@Builder
 public record StepExecutionInput(
     EventId eventId,
     String userPrompt,
@@ -41,19 +45,4 @@ public record StepExecutionInput(
     @Nullable Map<String, Object> toolContextEntries,
     @Nullable String systemPromptOverride
 ) {
-
-    public StepExecutionInput(EventId eventId, String userPrompt, String schema, String runId) {
-        this(eventId, userPrompt, schema, runId, null, null, null, null);
-    }
-
-    public StepExecutionInput(EventId eventId, String userPrompt, String schema, String runId,
-                              @Nullable String chatId, @Nullable Set<MemoryInclude> memoryIncludes) {
-        this(eventId, userPrompt, schema, runId, chatId, memoryIncludes, null, null);
-    }
-
-    public StepExecutionInput(EventId eventId, String userPrompt, String schema, String runId,
-                              @Nullable String chatId, @Nullable Set<MemoryInclude> memoryIncludes,
-                              @Nullable Map<String, Object> toolContextEntries) {
-        this(eventId, userPrompt, schema, runId, chatId, memoryIncludes, toolContextEntries, null);
-    }
 }

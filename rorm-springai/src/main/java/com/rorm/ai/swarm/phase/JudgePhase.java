@@ -53,8 +53,9 @@ public class JudgePhase {
             .replace("{{HYPOTHESES}}", hypothesesBlock);
 
         var id = judgeId(input, anchors);
-        var stepInput = new StepExecutionInput(id, userPrompt,
-            input.schema(), PhaseScope.runId());
+        var stepInput = StepExecutionInput.builder()
+            .eventId(id).userPrompt(userPrompt).schema(input.schema()).runId(PhaseScope.runId())
+            .build();
 
         log.info("[swarm] Judge synthesizing {} anchor(s) across {} hypothesis result(s)",
             anchors.size(), anchors.stream().mapToInt(a -> a.hypothesisResults().size()).sum());
@@ -101,7 +102,7 @@ public class JudgePhase {
         return """
             <hypothesis id="%s">
               <statement>%s</statement>
-              <key_metrics>%s</key_metrics>
+              <compiler_output>%s</compiler_output>
               <forensic_diagnosis>%s</forensic_diagnosis>
               <advocate_argument>%s</advocate_argument>
               <prosecutor_argument>%s</prosecutor_argument>
@@ -109,7 +110,7 @@ public class JudgePhase {
             """.formatted(
             escape(id),
             statement,
-            writeJson(hypo.pipelineResult() == null ? Map.of() : hypo.pipelineResult().metrics()),
+            hypo.compilerRaw(),
             renderDiagnosis(hypo.diagnosis()),
             renderArgument(hypo.advocate()),
             renderArgument(hypo.prosecutor())
