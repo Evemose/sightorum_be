@@ -36,9 +36,10 @@ public class NullPhase {
     private Output doRun(PipelineContext pipeCtx) {
         var hypoCtx = pipeCtx.hypothesis();
         var id = forensicId(pipeCtx);
-        var input = new StepExecutionInput(id, buildPrompt(pipeCtx),
-            hypoCtx.anchor().swarm().schema(),
-            PhaseScope.runId());
+        var input = StepExecutionInput.builder()
+            .eventId(id).userPrompt(buildPrompt(pipeCtx)).schema(hypoCtx.anchor().swarm().schema())
+            .runId(PhaseScope.runId())
+            .build();
 
         log.info("[swarm] Forensic pathologist for {}", hypoCtx.hypothesisId());
         var sessionId = "forensicPathologistExecutor-" + id.token();
@@ -59,7 +60,7 @@ public class NullPhase {
                 "schema", hypoCtx.anchor().swarm().schema(),
                 "hypothesisSpec", hypoCtx.gen().rebuttal().rawResponse(),
                 "domainKnowledge", hypoCtx.anchor().recon().domain().rawResponse(),
-                "pipelineOutput", writeJson(pipeCtx.compile().pipelineResult()))),
+                "compilerOutput", pipeCtx.compile().compiler().rawResponse())),
             List.of(pipeCtx.compile().compiler().id()),
             Map.of("anchor", hypoCtx.anchor().anchorTag(), "hypothesis", hypoCtx.hypothesisId()));
     }
@@ -69,7 +70,7 @@ public class NullPhase {
         return config.forensicPathologist().userPromptTemplate()
             .replace("{{HYPOTHESIS_SPEC}}", hypoCtx.gen().rebuttal().rawResponse())
             .replace("{{DOMAIN_KNOWLEDGE}}", hypoCtx.anchor().recon().domain().rawResponse())
-            .replace("{{PIPELINE_OUTPUT}}", writeJson(pipeCtx.compile().pipelineResult()));
+            .replace("{{COMPILER_OUTPUT}}", pipeCtx.compile().compiler().rawResponse());
     }
 
     private String writeJson(Object value) {

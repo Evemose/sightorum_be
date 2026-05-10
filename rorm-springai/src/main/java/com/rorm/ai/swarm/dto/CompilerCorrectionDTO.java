@@ -8,18 +8,34 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 @JsonClassDescription("""
-    Mutation-driven verification of a compiled PipelineSpec against its
-    engine output. Each verification traces a compiler decision to a
-    measured delta from one or more replay rounds. Verdicts are grounded
-    in observed stage-level changes, not static readings.""")
+    Guardrail review of the compiler's exploration. The sceptic emits
+    per-spec-decision verifications (potentially backed by guardrail
+    re-runs the sceptic itself executed) and a per-run brief for every
+    pipeline run the sceptic submitted via executePipeline /
+    reexecuteCausalPipeline. The compiler's runs are NOT re-described
+    here — those briefs live on CompilerResultDTO.runBriefs; the
+    sceptic only narrates runs IT executed. Downstream agents drill
+    into individual run fields via queryRunSpec / queryRunResult by
+    runId rather than receiving full JSON dumps.""")
 public record CompilerCorrectionDTO(
 
     @JsonPropertyDescription("""
         Per-field verification blocks. Every block traces a compiler
-        decision to a measured delta via replay. Ordered by material
-        impact (material findings first).""")
+        decision to a measured delta (via guardrail re-execution
+        the sceptic ran) or to a cross-reference against generator/
+        schema. Ordered by material impact (material findings first).""")
     @JsonProperty(required = true)
     List<Verification> verifications,
+
+    @JsonPropertyDescription("""
+        Per-run briefs for runs the SCEPTIC executed during its
+        guardrail review (executePipeline or reexecuteCausalPipeline).
+        Empty when the sceptic ran no executions — typical for clean
+        compiler outputs where verification needed only static
+        cross-reference. Every runId must match a JobEvent.jobId from
+        a run the sceptic actually executed in this step.""")
+    @JsonProperty(required = true)
+    List<RunBrief> runBriefs,
 
     @JsonPropertyDescription("""
         End-of-output coverage summary listing every plan item and its

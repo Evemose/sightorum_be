@@ -1,8 +1,11 @@
 Hypothesis specification:
 {{HYPOTHESIS_SPEC}}
 
-Pipeline specification (compiled by the executor-compiler):
-{{PIPELINE_SPEC}}
+Compiler output (the compiler's CompilerResultDTO — runBriefs naming
+each run by id with what changed and what surfaced, selectedRunIds
+the compiler endorses, and a convergence summary):
+{{COMPILER_OUTPUT}}
 
-Pipeline execution results:
-{{PIPELINE_OUTPUT}}
+Drill into any run by its runId via queryRunSpec(runId, jsonPath) for
+spec fields and queryRunResult(runId, jsonPath) for result fields —
+do not request full run dumps; query the specific paths you need.

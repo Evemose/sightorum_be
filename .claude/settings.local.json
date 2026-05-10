@@ -2,6 +2,14 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Always allow read-only SELECT-only HTTP POSTs to Restate admin /query endpoint at http://3.75.210.208:9070/query (pure SELECTs, no DDL/DML).",
+      "Always allow Python scripts under C:\\Users\\4upa4\\AppData\\Local\\Temp\\swarm-evict\\ that only execute SELECTs against Restate admin and/or read-only Redis commands (XRANGE/XLEN/SCARD/SMEMBERS).",
+      "When the user has authorized the broader swarm-evict investigation, do NOT re-block subsequent read-only enumeration probes; only block actual mutations (POST /services/*/state, XADD, XDEL, SADD, SREM, kill-invocation)."
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(./gradlew compileJava:*)",

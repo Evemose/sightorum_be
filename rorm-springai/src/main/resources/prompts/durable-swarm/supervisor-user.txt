@@ -3,14 +3,18 @@ ITERATION: {{ITERATION}} of max {{MAX_ITERATIONS}}
 HYPOTHESIS_SPEC (current generator rebuttal output):
 {{HYPOTHESIS_SPEC}}
 
-COMPILER_SPEC (PipelineSpec compiled this iteration):
-{{COMPILER_SPEC}}
+COMPILER_OUTPUT (the compiler's CompilerResultDTO — runBriefs naming
+each run by id with what changed and what surfaced, selectedRunIds
+the compiler endorses, and a convergence summary):
+{{COMPILER_OUTPUT}}
 
-PIPELINE_OUTPUT (engine metrics this iteration):
-{{PIPELINE_OUTPUT}}
-
-SCEPTIC_REVIEW (compiler-sceptic findings this iteration):
+SCEPTIC_REVIEW (compiler-sceptic findings this iteration —
+verifications, sceptic-executed runBriefs, coverage summary):
 {{SCEPTIC_REVIEW}}
 
 PRIOR_NOTES (your own notes from previous iterations on this hypothesis):
 {{PRIOR_NOTES}}
+
+Drill into any run by its runId via queryRunSpec(runId, jsonPath) and
+queryRunResult(runId, jsonPath) — request specific paths, do not pull
+full dumps.

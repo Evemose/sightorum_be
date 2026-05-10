@@ -2,6 +2,7 @@ package com.rorm.ai.swarm.agents;
 
 import com.rorm.ai.swarm.AgentModelConfig;
 import com.rorm.ai.swarm.communication.PipelineSpecHolder;
+import com.rorm.ai.swarm.communication.ToolCallRegistry;
 import com.rorm.ai.swarm.executor.StepExecutionInput;
 import com.rorm.metamodel.ModelSpace;
 
@@ -27,9 +28,14 @@ import com.rorm.metamodel.ModelSpace;
  * @param streamPrimitive    re-stream the first-level agent with a new
  *                           user prompt; tokens flow to the event bus
  *                           and the accumulated raw text is returned
- * @param pipelineSpecHolder the same per-step holder installed in the
- *                           tool context — read it after streaming to
- *                           pick up artifacts deposited by tools
+ * @param pipelineSpecHolder per-step holder installed in the tool
+ *                           context — read it after streaming to pick
+ *                           up artifacts deposited by tools
+ * @param toolCallRegistry   the per-step {@link ToolCallRegistry} —
+ *                           secondary agents that need to inspect what
+ *                           pipeline runs the agent produced (e.g. to
+ *                           enforce executePipeline-was-called
+ *                           contracts) read it here.
  */
 public record SecondaryAgentContext(
     StepExecutionInput input,
@@ -38,5 +44,6 @@ public record SecondaryAgentContext(
     ModelSpace modelSpace,
     AgentModelConfig firstLevelConfig,
     StreamPrimitive streamPrimitive,
-    PipelineSpecHolder pipelineSpecHolder
+    PipelineSpecHolder pipelineSpecHolder,
+    ToolCallRegistry toolCallRegistry
 ) {}

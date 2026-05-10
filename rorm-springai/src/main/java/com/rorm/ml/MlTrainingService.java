@@ -29,6 +29,7 @@ public class MlTrainingService {
     private final RestClient restClient;
     private final JobCompletionHandler completionHandler;
     private final ObjectMapper objectMapper;
+    private final PipelineSpecConverter pipelineSpecConverter;
 
     /**
      * Submit an async job and return a {@link DurableFuture} that completes
@@ -293,39 +294,46 @@ public class MlTrainingService {
         return -1;
     }
 
-    public AsyncJobResponse reexecutePipeline(String runId, PipelineSpecPatch specPatch) {
-        try {
-            return restClient.post()
-                .uri("/analysis/causal-verification/runs/{runId}/reexecute", runId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(specPatch)
-                .retrieve()
-                .body(AsyncJobResponse.class);
-        } catch (RestClientException e) {
-            throw new MlServiceException("Failed to re-execute pipeline run " + runId, e);
-        }
-    }
-
-    public List<CausalRunMeta> listCausalRuns(int limit) {
-        try {
-            return restClient.get()
-                .uri("/analysis/causal-verification/runs?limit={limit}", limit)
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
-        } catch (RestClientException e) {
-            throw new MlServiceException("Failed to list causal runs", e);
-        }
-    }
-
-    public CausalRunMeta getCausalRun(String runId) {
-        try {
-            return restClient.get()
-                .uri("/analysis/causal-verification/runs/{runId}", runId)
-                .retrieve()
-                .body(CausalRunMeta.class);
-        } catch (RestClientException e) {
-            throw new MlServiceException("Failed to get causal run " + runId, e);
-        }
+    /**
+     * Re-execute a base run with a partial spec change. The base spec
+     * is supplied by the caller (no longer loaded from Valkey on the
+     * Python side); only step-level pipeline checkpoints are reused
+     * server-side under {@code causal_cp:{baseRunId}:{step}}.
+     */
+    public DurableFuture<JobEvent> reexecuteWithBase(String baseRunId,
+                                                     com.rorm.ml.dto.PipelineSpecRequest baseSpec,
+                                                     PipelineSpecPatch specPatch,
+                                                     com.rorm.metamodel.ModelSpace modelSpace,
+                                                     String schema) {
+        var journal = StepJournal.current();
+        var baseRequest = pipelineSpecConverter.convert(
+            baseSpec, baseSpec.hypothesisId() + " causal verification reexec",
+            modelSpace, schema);
+        var body = Map.of(
+            "base_spec", baseRequest,
+            "spec_patch", specPatch
+        );
+        var jobId = journal.run("ml:reexec:" + baseRunId, UUID.class, () -> {
+            try {
+                var resp = restClient.post()
+                    .uri("/analysis/causal-verification/runs/{runId}/reexecute", baseRunId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(AsyncJobResponse.class);
+                if (resp == null || resp.isNotAccepted()) {
+                    throw new MlServiceException(
+                        "Reexecute not accepted for base run " + baseRunId
+                        + ": " + (resp == null ? "null response" : resp.message()));
+                }
+                return resp.analysisId();
+            } catch (RestClientException e) {
+                throw new MlServiceException("Failed to reexecute base run " + baseRunId, e);
+            }
+        });
+        var future = journal.awakeable(JobEvent.class);
+        completionHandler.register(jobId, future);
+        return future;
     }
 
     public boolean isHealthy() {

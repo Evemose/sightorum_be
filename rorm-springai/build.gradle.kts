@@ -52,6 +52,7 @@ dependencies {
     implementation("com.anthropic:anthropic-java:2.15.0")
     implementation("com.anthropic:anthropic-java-bedrock:2.15.0")
     implementation("com.bucket4j:bucket4j-core:8.10.1")
+    implementation("com.jayway.jsonpath:json-path")
 
     // Restate durable execution (conditional via rorm.ml.durable-execution=true)
     implementation("dev.restate:sdk-spring-boot-starter:$restateVersion")

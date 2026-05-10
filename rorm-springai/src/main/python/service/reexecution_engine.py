@@ -153,6 +153,7 @@ class ReexecutionEngine:
     def reexecute(
             self,
             base_run_id: str,
+            base_spec: dict[str, Any],
             spec_patch: dict[str, Any],
             datasource,
             progress_callback=None,
@@ -160,13 +161,21 @@ class ReexecutionEngine:
         """
         Re-execute the pipeline with a partial spec change.
 
+        The base spec is supplied by the caller (the swarm holds it in
+        memory via its ToolCallRegistry) — this engine no longer reads
+        run metadata from Valkey. Only step-level checkpoints under
+        ``causal_cp:{base_run_id}:{step}`` are reused server-side.
+
         Parameters
         ----------
         base_run_id : str
-            A completed run to diff against.
+            The base run whose step checkpoints will be reused.
+        base_spec : dict
+            The full PipelineSpec the base run was launched with (sent
+            by the caller; not loaded from storage).
         spec_patch : dict
             Partial PipelineSpec — only the fields that changed.
-            Deep-merged into the base spec.
+            Deep-merged into ``base_spec``.
         datasource
             SQL datasource for data loading.
         progress_callback
@@ -178,41 +187,17 @@ class ReexecutionEngine:
         ``reexecuted_steps``, ``skipped_steps``, ``diffs``, and the
         full pipeline ``result``.
         """
-        # 1. Load & validate base run
         base_cp = PipelineCheckpoint(base_run_id, self._redis_url)
-        base_meta = base_cp.load_run_meta()
-        if base_meta is None:
-            raise ValueError(f"Run '{base_run_id}' not found")
-        base_status = base_meta.get("status")
-        if base_status != "completed":
-            if base_status == "failed":
-                err = base_meta.get("error", "unknown")
-                raise ValueError(
-                    f"Run '{base_run_id}' failed and cannot be re-executed "
-                    f"(error: {err}). Submit a fresh pipeline run with "
-                    f"corrected spec instead."
-                )
-            if base_status == "running":
-                started = base_meta.get("started_at", "unknown")
-                raise ValueError(
-                    f"Run '{base_run_id}' is still running "
-                    f"(started_at={started}); wait for completion before "
-                    f"re-executing. Note: a stuck 'running' status may indicate "
-                    f"a crashed pipeline that did not record a 'failed' transition — "
-                    f"check pipeline logs for fatal errors."
-                )
-            raise ValueError(
-                f"Run '{base_run_id}' is not frozen (status={base_status!r}); "
-                f"re-execution requires status='completed'"
-            )
-        base_spec_dict: dict = base_meta["spec"]
 
-        # 2. Merge patch → new full spec
-        merged = deep_merge(base_spec_dict, spec_patch)
+        # 1. Merge patch → new full spec
+        merged = deep_merge(base_spec, spec_patch)
 
-        # 3. Determine which top-level fields actually changed
-        changed_fields = find_changed_fields(base_spec_dict, merged)
+        # 2. Determine which top-level fields actually changed
+        changed_fields = find_changed_fields(base_spec, merged)
         if not changed_fields:
+            # Nothing changed — return a no-op result. We do NOT have the
+            # prior run's final result here (the swarm holds it); caller
+            # already has it indexed by base_run_id.
             return {
                 "run_id": None,
                 "parent_run_id": base_run_id,
@@ -220,21 +205,21 @@ class ReexecutionEngine:
                 "reexecuted_steps": [],
                 "skipped_steps": list(STEP_ORDER),
                 "diffs": {},
-                "result": base_meta.get("result"),
+                "result": None,
             }
 
-        # 4. Walk DAG to find invalidated steps
+        # 3. Walk DAG to find invalidated steps
         invalidated = find_invalidated_steps(changed_fields)
         logger.info(
             f"Re-execution: changed={sorted(changed_fields)}, "
             f"invalidated={sorted(invalidated)}"
         )
 
-        # 5. New run
+        # 4. New run
         new_run_id = str(uuid.uuid4())
         new_cp = PipelineCheckpoint(new_run_id, self._redis_url)
 
-        # 6. Copy checkpoints for non-invalidated steps
+        # 5. Copy checkpoints for non-invalidated steps
         for step in STEP_ORDER:
             if step in invalidated or step == "load_data":
                 continue
@@ -242,7 +227,7 @@ class ReexecutionEngine:
             if cached is not None:
                 new_cp.save(step, cached)
 
-        # 7. Execute pipeline (cached steps are skipped automatically)
+        # 6. Execute pipeline (cached steps are skipped automatically)
         spec = CausalVerificationRequest.from_dict(merged)
         result = self._service.run_pipeline(
             spec, datasource,
@@ -250,20 +235,8 @@ class ReexecutionEngine:
             checkpoint=new_cp,
         )
 
-        # 8. Compute diffs between base and new for invalidated steps
+        # 7. Compute diffs between base and new for invalidated steps
         diffs = _compute_diffs(base_cp, new_cp, invalidated)
-
-        # 9. Freeze new run
-        new_cp.save_run_meta({
-            "parent_run_id": base_run_id,
-            "spec": merged,
-            "spec_patch": spec_patch,
-            "changed_fields": sorted(changed_fields),
-            "invalidated_steps": sorted(invalidated),
-            "status": "completed",
-            "created_at": datetime.utcnow().isoformat(),
-            "result": result,
-        })
 
         skipped = [s for s in STEP_ORDER if s not in invalidated]
         return {

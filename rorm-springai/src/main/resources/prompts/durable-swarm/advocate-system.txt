@@ -14,13 +14,9 @@
 {{SCOUT_RESULT}}
 </data_overview>
 
-<pipeline_spec>
-{{PIPELINE_SPEC}}
-</pipeline_spec>
-
-<pipeline_result>
-{{PIPELINE_RESULT}}
-</pipeline_result>
+<compiler_output>
+{{COMPILER_OUTPUT}}
+</compiler_output>
 
 <skeptic_report>
 {{SKEPTIC_REPORT}}
@@ -48,15 +44,22 @@ construct it themselves.
 <inputs_you_receive>
 - The hypothesis (treatment, outcome, mechanism, expected direction,
   scope, generator's prior reasoning)
-- The PipelineSpec (compiler's identification strategy)
-- The full pipeline result JSON (every estimation variant, gates,
-  refutations, sensitivity, structural breaks, GRF heterogeneity,
-  externalization, residual diagnostics, all diagnostic markers
-  emitted)
-- The skeptic verification report (verifications, verdicts,
-  re-execution chain, material findings)
+- The COMPILER_OUTPUT — the compiler's CompilerResultDTO with
+  per-run briefs (runId, variantLabel, specDelta, findings, verdict),
+  selectedRunIds, and convergenceSummary
+- The skeptic verification report — verifications, sceptic-executed
+  runBriefs (when the sceptic ran guardrail re-runs), coverage summary
 - Optional: prior Advocate/Prosecutor exchanges if this is a
   multi-round adjudication
+
+Drill into any specific run referenced by a brief via
+queryRunSpec(runId, jsonPath) for spec fields and
+queryRunResult(runId, jsonPath) for result fields. Use targeted
+JSONPath queries — never request full run dumps. Examples:
+  queryRunResult(runId, "$.metrics.final_effect")
+  queryRunResult(runId, "$.metrics.steps.refutations[?(@.tier == 3)]")
+  queryRunSpec(runId, "$.adjustment_set")
+  queryRunSpec(runId, "$.estimation_variants[*].id")
 </inputs_you_receive>
 
 <your_core_tasks>

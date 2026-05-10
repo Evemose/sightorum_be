@@ -93,8 +93,7 @@ public class StandoffPhase {
                 "kind", kind,
                 "schema", hypoCtx.anchor().swarm().schema(),
                 "hypothesisSpec", hypoCtx.gen().rebuttal().rawResponse(),
-                "pipelineSpec", writeJson(pipeCtx.compile().compiler().dto()),
-                "pipelineResult", writeJson(pipeCtx.compile().pipelineResult().metrics()),
+                "compilerOutput", pipeCtx.compile().compiler().rawResponse(),
                 "skepticReport", pipeCtx.compile().scepticReview().rawResponse())),
             List.of(pipeCtx.compile().scepticReview().id()),
             Map.of("anchor", hypoCtx.anchor().anchorTag(), "hypothesis", hypoCtx.hypothesisId()));
@@ -104,9 +103,10 @@ public class StandoffPhase {
                                         String systemPromptTemplate, String userPrompt) {
         var anchor = pipeCtx.hypothesis().anchor();
         var renderedSystem = renderSystemPrompt(systemPromptTemplate, pipeCtx);
-        return new StepExecutionInput(id, userPrompt,
-            anchor.swarm().schema(),
-            PhaseScope.runId(), null, null, null, renderedSystem);
+        return StepExecutionInput.builder()
+            .eventId(id).userPrompt(userPrompt).schema(anchor.swarm().schema())
+            .runId(PhaseScope.runId()).systemPromptOverride(renderedSystem)
+            .build();
     }
 
     private Disposable subscribeForFirstToken(String runId, EventId advocateId, CompletableFuture<Void> gate) {
@@ -146,8 +146,7 @@ public class StandoffPhase {
             .replace("{{HYPOTHESIS}}", hypoCtx.gen().rebuttal().rawResponse())
             .replace("{{DOMAIN_RESEARCH}}", hypoCtx.anchor().recon().domain().rawResponse())
             .replace("{{SCOUT_RESULT}}", hypoCtx.anchor().recon().scout().rawResponse())
-            .replace("{{PIPELINE_SPEC}}", writeJson(pipeCtx.compile().compiler().dto()))
-            .replace("{{PIPELINE_RESULT}}", writeJson(pipeCtx.compile().pipelineResult().metrics()))
+            .replace("{{COMPILER_OUTPUT}}", pipeCtx.compile().compiler().rawResponse())
             .replace("{{SKEPTIC_REPORT}}", pipeCtx.compile().scepticReview().rawResponse());
     }
 

@@ -52,6 +52,7 @@ public class StepExecutorSupport {
     private final SwarmEventBus eventBus;
     private final ModelSpaceResolver modelSpaceResolver;
     private final SwarmContext swarmContext;
+    private final ToolCallRegistry toolCallRegistry;
     private final DurableRuntime runtime;
 
     public <T> StepOutput<T> execute(StepExecutionInput input, AgentModelConfig agentConfig,
@@ -91,7 +92,8 @@ public class StepExecutorSupport {
             pipelineHolder, seq);
         var raw = streamPrimitive.stream(input.userPrompt());
         var result = secondaryAgent.produce(new SecondaryAgentContext(
-            input, chatId, raw, modelSpace, effective, streamPrimitive, pipelineHolder));
+            input, chatId, raw, modelSpace, effective, streamPrimitive, pipelineHolder,
+            toolCallRegistry));
         eventBus.publish(input.runId(), new SwarmStreamEvent.AgentFinished(
             input.eventId(), input.eventId().kind(), result.raw(), result.dto()));
         return new StepOutput<>(input.eventId(), result.dto(), result.raw());
@@ -104,7 +106,8 @@ public class StepExecutorSupport {
         var agent = new FirstLevelSwarmAgent(
             agentConfig, chatService, input.schema(), modelSpace, promptPlaceholders);
         var advisors = buildStreamAdvisors(input, chatId);
-        return userPrompt -> streamRaw(input, agent, advisors, chatId, pipelineHolder, seq, userPrompt);
+        return userPrompt -> streamRaw(input, agent, advisors, chatId,
+            pipelineHolder, seq, userPrompt);
     }
 
     private List<Advisor> buildStreamAdvisors(StepExecutionInput input, String chatId) {
@@ -117,11 +120,12 @@ public class StepExecutorSupport {
 
     private String streamRaw(StepExecutionInput input, FirstLevelSwarmAgent agent,
                              List<Advisor> advisors, String chatId,
-                             PipelineSpecHolder pipelineHolder, AtomicInteger seq,
-                             String userPrompt) {
+                             PipelineSpecHolder pipelineHolder,
+                             AtomicInteger seq, String userPrompt) {
         var runId = input.runId();
         var eventId = input.eventId();
-        return agent.streamTokens(userPrompt, customizerFor(input, chatId, pipelineHolder, advisors))
+        return agent.streamTokens(userPrompt,
+                customizerFor(input, chatId, pipelineHolder, advisors))
             .doOnNext(token -> eventBus.publish(runId,
                 new SwarmStreamEvent.AgentToken(eventId, seq.getAndIncrement(), token)))
             .reduce(new StringBuilder(), (sb, token) -> sb.append(token.toText()))
@@ -129,16 +133,17 @@ public class StepExecutorSupport {
             .block();
     }
 
-    private static UnaryOperator<ChatRequest.Builder> customizerFor(
+    private UnaryOperator<ChatRequest.Builder> customizerFor(
         StepExecutionInput input, String chatId, PipelineSpecHolder pipelineHolder,
         List<Advisor> advisors
     ) {
         return b -> {
             b = b.withChatId(chatId)
                 .withToolContextEntry(SwarmToolContext.RUN_ID_KEY, input.runId())
+                .withToolContextEntry(SwarmToolContext.ASKER_EVENT_ID_KEY, input.eventId())
                 .withToolContextEntry(SwarmToolContext.ASKER_CHAT_ID_KEY, chatId)
-                .withToolContextEntry(SwarmToolContext.ASKER_ROLE_KEY, input.eventId().kind())
-                .withToolContextEntry(SwarmToolContext.PIPELINE_SPEC_HOLDER_KEY, pipelineHolder);
+                .withToolContextEntry(SwarmToolContext.PIPELINE_SPEC_HOLDER_KEY, pipelineHolder)
+                .withToolContextEntry(SwarmToolContext.TOOL_CALL_REGISTRY_KEY, toolCallRegistry);
             for (var advisor : advisors) {
                 b = b.withAdvisor(advisor);
             }

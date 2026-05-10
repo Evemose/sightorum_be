@@ -2,10 +2,17 @@
 Checkpoint store for long-running pipeline runs.
 
 Persists each step's output variables to Redis so that a pipeline
-can resume from the last completed step after a crash or retry.
+can resume from the last completed step after a crash or retry,
+and so that reexecuteCausalPipeline can skip steps unaffected by
+a spec patch.
 
 DataFrames and other large in-memory objects are NOT checkpointed —
 the caller must re-derive them (e.g., re-run the data-loading query).
+
+Run-level metadata (spec, status, final result) is NOT persisted
+here — the swarm carries it in memory via its ToolCallRegistry.
+Only per-step pipeline checkpoints (causal_cp:{run_id}:{step}) live
+in Valkey, and only to enable step reuse during reexecution.
 """
 
 import json
@@ -95,58 +102,6 @@ class PipelineCheckpoint:
             logger.info(f"Checkpoints cleared  (run={self._run_id})")
         except Exception as e:
             logger.warning(f"Checkpoint clear failed: {e}")
-
-    # -- run-level metadata -----------------------------------------------
-
-    def save_run_meta(self, metadata: dict[str, Any]) -> None:
-        """Persist run-level metadata (spec, status, lineage)."""
-        if not self._available:
-            return
-        key = f"causal_run:{self._run_id}:meta"
-        try:
-            self._client.set(
-                key, json.dumps(metadata, default=_json_fallback),
-                ex=30 * 24 * 3600,  # 30-day TTL for run metadata
-            )
-            # Add to global run index for listing
-            self._client.zadd(
-                "causal_runs:index",
-                {self._run_id: metadata.get("_score", 0)},
-                nx=True,
-            )
-        except Exception as e:
-            logger.warning(f"Run metadata save failed: {e}")
-
-    def load_run_meta(self) -> Optional[dict[str, Any]]:
-        """Load run-level metadata, or ``None`` if the run is unknown."""
-        if not self._available:
-            return None
-        key = f"causal_run:{self._run_id}:meta"
-        try:
-            raw = self._client.get(key)
-            return json.loads(raw) if raw else None
-        except Exception:
-            return None
-
-    @classmethod
-    def list_runs(cls, redis_url: str, limit: int = 50) -> list[dict[str, Any]]:
-        """List recent runs with their metadata (most recent first)."""
-        try:
-            client = redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
-            run_ids = client.zrevrange("causal_runs:index", 0, limit - 1)
-            runs = []
-            for rid in run_ids:
-                raw = client.get(f"causal_run:{rid}:meta")
-                if raw:
-                    meta = json.loads(raw)
-                    meta["run_id"] = rid
-                    # Strip full result/spec to keep listing small
-                    meta.pop("result", None)
-                    meta.pop("spec", None)
-                    runs.append(meta)
-            return runs
-        except Exception:
-            return []
 
     # -- internals --------------------------------------------------------
 

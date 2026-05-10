@@ -37,11 +37,25 @@ def run_estimation_variant(data, variant, refined_edges, dag_nx, outcome_col,
         }
         treatment_col = bin_col
     elif discrete and treatment_col in df.columns:
-        raw_vals = sorted(filtered.raw[treatment_col].dropna().unique())
-        df[treatment_col] = df[treatment_col].astype("category").cat.codes
-        codes = sorted(df[treatment_col].dropna().unique())
-        for code, label in zip(codes, raw_vals):
-            code_to_label[int(code)] = str(label)
+        raw_unique = list(filtered.raw[treatment_col].dropna().unique())
+        raw_alpha = sorted(raw_unique)
+        # Honor user-specified reference_category by placing it at code 0.
+        # EconML's LinearDML(discrete_treatment=True) treats the lowest code
+        # as the reference; without explicit ordering the engine would silently
+        # use the alphabetically-first category instead of the user's choice.
+        ref = variant.reference_category
+        if ref is not None and ref in raw_unique:
+            ordered = [ref] + [v for v in raw_alpha if v != ref]
+        else:
+            if ref is not None:
+                logger.warning(
+                    "Variant %s: reference_category %r not in filtered data "
+                    "values %s — falling back to alphabetically-first reference",
+                    variant.id, ref, raw_alpha)
+            ordered = raw_alpha
+        val_to_code = {v: i for i, v in enumerate(ordered)}
+        df[treatment_col] = filtered.raw[treatment_col].map(val_to_code).astype("Int64")
+        code_to_label = {i: str(v) for i, v in enumerate(ordered)}
 
     return estimate_dml(
         df, variant, W_cols, treatment_col, discrete, refined_edges, outcome_col,
@@ -105,6 +119,9 @@ def estimate_dml(df, variant, w_cols, treatment_col, discrete, refined_edges,
         ci_raw = (ci_lo, ci_hi)
 
         category_effects = None
+        category_effects_raw = None
+        category_effects_warning = None
+        category_effects_degenerate = False
         if discrete and code_to_label:
             cme = dml.const_marginal_effect()
             if cme.ndim == 1:
@@ -116,13 +133,44 @@ def estimate_dml(df, variant, w_cols, treatment_col, discrete, refined_edges,
             is_binary_threshold = (variant.treatment_form == TreatmentForm.BINARY_THRESHOLD)
             col_name = variant.treatment_column
             category_effects = {}
+            category_effects_raw = {}
             for i, code in enumerate(non_ref_codes):
                 if i < cme.shape[1]:
                     label = code_to_label.get(code, str(code))
                     key = label if is_binary_threshold else f"{col_name}={label}"
-                    category_effects[key] = float(cme[:, i].mean())
+                    eff_raw = float(cme[:, i].mean())
+                    category_effects_raw[key] = eff_raw
+                    category_effects[key] = eff_raw
             ref_key = ref_label if is_binary_threshold else f"{col_name}={ref_label}"
             category_effects[ref_key] = 0.0
+            category_effects_raw[ref_key] = 0.0
+
+            # Physical-feasibility check for binary outcomes.
+            # |E[Y|do(T=k)] - E[Y|do(T=ref)]| ≤ 1 by definition (Y ∈ {0,1});
+            # values outside [-1, 1] indicate numerical degeneracy in the DML
+            # final stage (rank-deficient W, quasi-deterministic propensity,
+            # or extreme treatment imbalance). Clamp + flag.
+            if binary_outcome:
+                out_of_bounds = {
+                    k: v for k, v in category_effects_raw.items()
+                    if abs(v) > 1.0
+                }
+                if out_of_bounds:
+                    category_effects_degenerate = True
+                    category_effects_warning = (
+                        f"{len(out_of_bounds)}/{len(category_effects_raw)} "
+                        f"category effects outside [-1, 1] physical bound for "
+                        f"binary outcome — DML final stage is numerically "
+                        f"degenerate (likely rank-deficient W or quasi-"
+                        f"deterministic propensity). Worst: "
+                        f"{max(out_of_bounds.items(), key=lambda kv: abs(kv[1]))}. "
+                        f"Clamping; do NOT interpret per-category contrasts."
+                    )
+                    logger.warning("Variant %s: %s", variant.id, category_effects_warning)
+                    category_effects = {
+                        k: max(-1.0, min(1.0, v))
+                        for k, v in category_effects_raw.items()
+                    }
 
     except Exception as e:
         logger.warning(f"Variant {variant.id} estimation failed: {e}")
@@ -143,4 +191,13 @@ def estimate_dml(df, variant, w_cols, treatment_col, discrete, refined_edges,
         result["ci_warning"] = ci_warning
     if category_effects is not None:
         result["category_effects"] = category_effects
+        if category_effects_raw is not None and category_effects_raw != category_effects:
+            result["category_effects_raw"] = category_effects_raw
+        if category_effects_warning:
+            result["category_effects_warning"] = category_effects_warning
+        if category_effects_degenerate:
+            result["category_effects_degenerate"] = True
+        # Surface the actual reference category used (after honoring user spec)
+        if code_to_label:
+            result["reference_category"] = code_to_label.get(0)
     return result

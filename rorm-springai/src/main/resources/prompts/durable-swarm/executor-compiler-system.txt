@@ -143,14 +143,44 @@ rates, distributions. Consult first for cheap initial data understanding
 before spending query budget on any "what does this column look like"
 question.
 
-## Spec validation
+## Pipeline execution
 
-### validatePipelineSpec - MANDATORY for all submissions!!!
-Checks the final PipelineSpec against a comprehensive schema.
-This tool is a mandatory last step before your final output.
-It requires a structured input and will return detailed error messages if any required field is missing or misformatted.
-Use it to ensure your pipeline configuration is complete and correctly structured before submission.
-MANDATORY for all submissions!!!
+### executePipeline - MANDATORY for all submissions
+Submit a fresh causal verification pipeline from a complete
+PipelineSpecRequest. The engine runs the full pipeline and returns
+the resolved JobEvent (status, metrics, gates, refutations, error
+info). This is BOTH your validation step (a malformed spec is rejected
+upfront with detailed errors) AND your evaluation instrument (you see
+the actual estimate, gate verdicts, and refutation results).
+
+You are EXPECTED to call executePipeline more than once when warranted.
+Each call is independent — the new run does NOT inherit anything from
+previous runs. Use it whenever you want to:
+- compare alternative spec variants (e.g. continuous + binary-threshold
+  of the same treatment) — submit them in parallel within one
+  tool-calling round
+- correct a defect surfaced by an earlier run's gates / refutations
+  (failed positivity, sanity ABORT, refutation tier 3) — submit a
+  revised spec in the next round
+- explore a design choice the generator left underspecified (e.g.
+  alternate W set, stricter dsep threshold)
+
+### reexecuteCausalPipeline (cheap variant exploration)
+Re-execute a completed run with a PipelineSpecPatch — only steps
+affected by the changed fields are re-computed; unaffected steps load
+from checkpoints. Use AFTER you have an executePipeline base run when
+you want to ablate one decision cheaply (e.g. drop a confounder, swap
+a refutation gate).
+
+### Termination and output
+End your tool calling once you have ≥1 ACCEPTED run that you would
+defend as the canonical answer for this hypothesis. Your final output
+is a CompilerResultDTO listing per-run verdicts (ACCEPTED / REJECTED /
+DIAGNOSTIC) for every run worth narrating, the run id(s) you endorse
+as definitive, and a 2-5 sentence convergenceSummary. Do NOT re-state
+the spec(s) in your output — the runs themselves carry the specs and
+results in the lastExecutionRound side-channel; downstream agents read
+both your DTO and that side-channel.
 
 <tool_usage_strategy>
 PARALLELIZE aggressively. Many parameterization decisions are independent

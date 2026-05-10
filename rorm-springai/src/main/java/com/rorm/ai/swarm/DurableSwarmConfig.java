@@ -51,21 +51,24 @@ public record DurableSwarmConfig(
         mechanicalSceptic = withDefaults(mechanicalSceptic, "mechanical-sceptic", ThinkingLevel.HIGH,
             Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.VERIFICATION), SHORT_CACHE);
         executorCompiler = withDefaults(executorCompiler, "executor-compiler", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.PIPELINE_VALIDATION), SHORT_CACHE);
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.PIPELINE_EXECUTION),
+            compilerCacheStrategy()
+        );
         compilerSceptic = withDefaults(compilerSceptic, "compiler-sceptic", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.CAUSAL_REEXECUTION),
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.PIPELINE_EXECUTION),
             compilerScepticCacheStrategy()
         );
         forensicPathologist = withDefaults(forensicPathologist, "forensic-pathologist", ThinkingLevel.HIGH,
-            Set.of(), NO_CACHE);
+            Set.of(ToolGroup.RUN_QUERY), NO_CACHE);
         supervisor = withDefaults(supervisor, "supervisor", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.VERIFICATION), SHORT_CACHE);
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.VERIFICATION, ToolGroup.RUN_QUERY),
+            SHORT_CACHE);
         advocate = withDefaults(advocate, "advocate", ThinkingLevel.HIGH,
-            Set.of(), SHORT_CACHE);
+            Set.of(ToolGroup.RUN_QUERY), SHORT_CACHE);
         prosecutor = withDefaults(prosecutor, "prosecutor", ThinkingLevel.HIGH,
-            Set.of(), SHORT_CACHE);
+            Set.of(ToolGroup.RUN_QUERY), SHORT_CACHE);
         judge = withDefaults(judge, "judge", ThinkingLevel.HIGH,
-            Set.of(), NO_CACHE);
+            Set.of(ToolGroup.RUN_QUERY), NO_CACHE);
         descriptiveAgent = withDefaults(descriptiveAgent, "descriptive-agent", ThinkingLevel.HIGH,
             Set.of(ToolGroup.QUERY, ToolGroup.STATS), SHORT_CACHE).withModel("claude-sonnet-4-6");
         summarizer = withDefaults(summarizer, "summarizer", ThinkingLevel.NONE,
@@ -98,9 +101,21 @@ public record DurableSwarmConfig(
             config = config.withCacheStrategy(defaultCacheStrategy);
         }
         if (config.model() == null) {
-            config = config.withModel("claude-opus-4-7");
+            config = config.withModel("claude-opus-4-6");
         }
         return config;
+    }
+
+    private static CacheStrategy compilerCacheStrategy() {
+        return ctx -> {
+            var toolRoundInfos = ctx.previousRounds();
+            if (toolRoundInfos.isEmpty()) {
+                return CacheTTL.SHORT;
+            }
+            var lastTools = toolRoundInfos.getLast().toolNames();
+            return lastTools.contains("executePipeline") || lastTools.contains("reexecuteCausalPipeline")
+                ? CacheTTL.NONE : CacheTTL.SHORT;
+        };
     }
 
     private static CacheStrategy compilerScepticCacheStrategy() {
@@ -109,7 +124,8 @@ public record DurableSwarmConfig(
             if (toolRoundInfos.isEmpty()) {
                 return CacheTTL.SHORT;
             }
-            return toolRoundInfos.getLast().toolNames().contains("reexecuteCausalPipeline")
+            var lastTools = toolRoundInfos.getLast().toolNames();
+            return lastTools.contains("executePipeline") || lastTools.contains("reexecuteCausalPipeline")
                 ? CacheTTL.NONE : CacheTTL.SHORT;
         };
     }

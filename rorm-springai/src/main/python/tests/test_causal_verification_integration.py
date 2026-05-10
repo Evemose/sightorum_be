@@ -2049,6 +2049,173 @@ class TestCaseInsensitiveEnumParsing:
         assert oc.response_strategy == OverlapStrategy.TRIM
 
 
+class TestCategoricalReferenceCategory:
+    """reference_category must be honored — the engine cannot silently use
+    the alphabetically-first category as the implicit DML reference."""
+
+    def _make_three_level_categorical(self, seed=42, n=5000):
+        rng = np.random.default_rng(seed)
+        conf = rng.normal(0, 1, n)
+        # Three levels chosen so alphabetical order != user-likely reference.
+        # Alphabetical: "Carrier_A" < "Daikin_X" < "ThermoKing_T"
+        treat = rng.choice(["Carrier_A", "Daikin_X", "ThermoKing_T"], n)
+        # ATE per level vs Daikin_X (user-chosen reference):
+        #   Daikin_X = 0 (ref), Carrier_A = +0.4, ThermoKing_T = -0.3
+        effect = np.where(treat == "Carrier_A", 0.4,
+                          np.where(treat == "ThermoKing_T", -0.3, 0.0))
+        outcome = effect + 0.5 * conf + rng.normal(0, 0.5, n)
+        df = pd.DataFrame({"treatment": treat, "outcome": outcome, "conf": conf})
+        return PipelineDataFrame.from_dataframe(df)
+
+    def test_reference_category_honored_when_set(self):
+        data = self._make_three_level_categorical()
+        variant = EstimationVariant(
+            id="v_ref_set", treatment_column="treatment",
+            treatment_form=TreatmentForm.CATEGORICAL,
+            model_type="LinearDML", w_columns=["conf"],
+            reference_category="Daikin_X",
+        )
+        r = run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                   edges_to_nx(CAUSAL_EDGES), "outcome")
+        # Engine must surface the actual reference used and it must equal
+        # the user-specified one (not the alphabetically-first 'Carrier_A').
+        assert r["reference_category"] == "Daikin_X", (
+            f"Expected user-specified reference 'Daikin_X', got "
+            f"{r['reference_category']!r}"
+        )
+        cats = r["category_effects"]
+        # The reference's coefficient is 0 by construction
+        assert cats["treatment=Daikin_X"] == 0.0
+        # Carrier_A should be positive (~0.4); ThermoKing_T should be negative (~-0.3)
+        assert cats["treatment=Carrier_A"] > 0.1
+        assert cats["treatment=ThermoKing_T"] < -0.1
+
+    def test_reference_category_falls_back_when_unset(self):
+        data = self._make_three_level_categorical()
+        variant = EstimationVariant(
+            id="v_ref_unset", treatment_column="treatment",
+            treatment_form=TreatmentForm.CATEGORICAL,
+            model_type="LinearDML", w_columns=["conf"],
+            reference_category=None,
+        )
+        r = run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                   edges_to_nx(CAUSAL_EDGES), "outcome")
+        # No user spec → alphabetically-first wins (Carrier_A)
+        assert r["reference_category"] == "Carrier_A"
+        cats = r["category_effects"]
+        assert cats["treatment=Carrier_A"] == 0.0
+
+    def test_reference_category_invalid_warns_and_falls_back(self, caplog):
+        import logging
+        data = self._make_three_level_categorical()
+        variant = EstimationVariant(
+            id="v_ref_bad", treatment_column="treatment",
+            treatment_form=TreatmentForm.CATEGORICAL,
+            model_type="LinearDML", w_columns=["conf"],
+            reference_category="NotInData_XYZ",
+        )
+        with caplog.at_level(logging.WARNING):
+            r = run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                       edges_to_nx(CAUSAL_EDGES), "outcome")
+        # Falls back to alphabetical
+        assert r["reference_category"] == "Carrier_A"
+        # Warning records the user's invalid choice
+        assert any("NotInData_XYZ" in rec.message for rec in caplog.records), \
+            f"Expected warning naming the invalid reference; got {caplog.records}"
+
+
+class TestCategoricalEffectsBoundCheck:
+    """Per-category effects on a binary outcome must be in [-1, 1] —
+    flag and clamp when DML produces physically impossible values."""
+
+    def test_in_bounds_effects_unchanged_no_warning(self):
+        # Realistic DGP — effects stay within [-1, 1]
+        rng = np.random.default_rng(42)
+        n = 5000
+        conf = rng.normal(0, 1, n)
+        treat = rng.choice(["A", "B", "C"], n)
+        # Linear probability model with effects in [-0.3, +0.3]
+        p = 0.4 + np.where(treat == "B", 0.1, np.where(treat == "C", -0.1, 0.0)) \
+            + 0.1 * conf
+        p = np.clip(p, 0.05, 0.95)
+        outcome = (rng.uniform(0, 1, n) < p).astype(float)
+        df = pd.DataFrame({"treatment": treat, "outcome": outcome, "conf": conf})
+        data = PipelineDataFrame.from_dataframe(df)
+        variant = EstimationVariant(
+            id="v_ok", treatment_column="treatment",
+            treatment_form=TreatmentForm.CATEGORICAL,
+            model_type="LinearDML", w_columns=["conf"],
+            reference_category="A",
+        )
+        r = run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                   edges_to_nx(CAUSAL_EDGES), "outcome")
+        assert r.get("category_effects_degenerate") is not True
+        assert "category_effects_warning" not in r
+        # No raw shadow when nothing was clamped
+        assert "category_effects_raw" not in r
+        for label, eff in r["category_effects"].items():
+            assert -1.0 <= eff <= 1.0, f"{label}={eff} out of bounds"
+
+    def test_out_of_bounds_effects_clamped_and_flagged(self):
+        # Construct a degenerate scenario: rank-deficient W (perfect duplicate)
+        # plus tiny near-deterministic-treatment subset to force DML instability.
+        # We patch the DML output directly to simulate a numerically-degenerate
+        # inner stage, since we can't rely on producing real |eff|>1 from a
+        # well-behaved DGP.
+        from unittest.mock import patch
+        rng = np.random.default_rng(42)
+        n = 1000
+        conf = rng.normal(0, 1, n)
+        treat = rng.choice(["A", "B", "C"], n)
+        outcome = rng.binomial(1, 0.065, n).astype(float)
+        df = pd.DataFrame({"treatment": treat, "outcome": outcome, "conf": conf})
+        data = PipelineDataFrame.from_dataframe(df)
+        variant = EstimationVariant(
+            id="v_degen", treatment_column="treatment",
+            treatment_form=TreatmentForm.CATEGORICAL,
+            model_type="LinearDML", w_columns=["conf"],
+            reference_category="A",
+        )
+
+        # Patch const_marginal_effect to return physically impossible values
+        # (mirroring the production failure: -122, +190 for binary outcome)
+        bad_cme = np.tile(np.array([[-122.0, 190.0]]), (n, 1))
+        with patch("econml.dml.LinearDML.const_marginal_effect",
+                   return_value=bad_cme):
+            r = run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                       edges_to_nx(CAUSAL_EDGES), "outcome")
+
+        assert r.get("category_effects_degenerate") is True
+        warn = r.get("category_effects_warning", "")
+        assert "outside [-1, 1]" in warn
+        assert "degenerate" in warn.lower()
+        # Clamped values are within bounds
+        for label, eff in r["category_effects"].items():
+            assert -1.0 <= eff <= 1.0, f"clamped {label}={eff} still out of bounds"
+        # Raw shadow preserved
+        raw = r["category_effects_raw"]
+        assert raw["treatment=B"] == -122.0
+        assert raw["treatment=C"] == 190.0
+        # Reference is still 0.0 in both raw and clamped
+        assert raw["treatment=A"] == 0.0
+        assert r["category_effects"]["treatment=A"] == 0.0
+
+    def test_continuous_outcome_does_not_clamp(self, causal_data):
+        # Continuous outcome — bound check should not apply
+        data, _ = causal_data
+        variant = EstimationVariant(
+            id="v_cont", treatment_column="treatment",
+            treatment_form=TreatmentForm.CONTINUOUS,
+            model_type="LinearDML", w_columns=["conf"],
+        )
+        r = run_estimation_variant(data, variant, CAUSAL_EDGES,
+                                   edges_to_nx(CAUSAL_EDGES), "outcome")
+        # Continuous variant produces no category_effects
+        assert "category_effects" not in r
+        assert "category_effects_warning" not in r
+        assert r.get("category_effects_degenerate") is not True
+
+
 class TestFilterApplicationStrictness:
     """Filter eval must error loudly, never silently no-op."""
 

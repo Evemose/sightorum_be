@@ -49,9 +49,10 @@ public class GenPhase {
         var hypoCtx = input.hypoCtx();
         var anchor = hypoCtx.anchor();
         var id = supervisorRefinementId(input);
-        var stepInput = new StepExecutionInput(
-            id, input.refinementRequest(), anchor.swarm().schema(), PhaseScope.runId(),
-            hypoCtx.gen().chatId(), REBUTTAL_MEMORY);
+        var stepInput = StepExecutionInput.builder()
+            .eventId(id).userPrompt(input.refinementRequest()).schema(anchor.swarm().schema())
+            .runId(PhaseScope.runId()).chatId(hypoCtx.gen().chatId()).memoryIncludes(REBUTTAL_MEMORY)
+            .build();
         log.info("[swarm] Generator supervisor-refinement iter={} hypothesis={}",
             input.iteration(), hypoCtx.hypothesisId());
         return mapper.convertValue(submit("generatorExecutor", stepInput), HYPOTHESIS_REF);
@@ -66,7 +67,7 @@ public class GenPhase {
                 "iteration", Integer.toString(input.iteration()),
                 "hypothesisTitle", hypoCtx.hypothesisId(),
                 "refinement", input.refinementRequest())),
-            List.of(hypoCtx.gen().rebuttal().id()),
+            List.of(hypoCtx.gen().rebuttal().id(), input.supervisorId()),
             Map.of("anchor", hypoCtx.anchor().anchorTag(),
                 "hypothesis", hypoCtx.hypothesisId(),
                 "iteration", Integer.toString(input.iteration())));
@@ -109,28 +110,29 @@ public class GenPhase {
     private StepOutput<HypothesisGenerationDTO> runGenerator(AnchorContext anchor, EventId id, String chatId) {
         log.info("[swarm] Generator for anchor: {}",
             anchor.anchor().lines().findFirst().orElse(anchor.anchor()));
-        var input = new StepExecutionInput(
-            id, generatorPrompt(anchor),
-            anchor.swarm().schema(),
-            PhaseScope.runId(), chatId, null);
+        var input = StepExecutionInput.builder()
+            .eventId(id).userPrompt(generatorPrompt(anchor)).schema(anchor.swarm().schema())
+            .runId(PhaseScope.runId()).chatId(chatId)
+            .build();
         return mapper.convertValue(submit("generatorExecutor", input), HYPOTHESIS_REF);
     }
 
     private StepOutput<ScepticReviewDTO> runSceptic(AnchorContext anchor, EventId id, String generatorRaw) {
         log.info("[swarm] Mechanical sceptic");
-        var input = new StepExecutionInput(
-            id, scepticPrompt(generatorRaw),
-            anchor.swarm().schema(), PhaseScope.runId());
+        var input = StepExecutionInput.builder()
+            .eventId(id).userPrompt(scepticPrompt(generatorRaw)).schema(anchor.swarm().schema())
+            .runId(PhaseScope.runId())
+            .build();
         return mapper.convertValue(submit("scepticExecutor", input), SCEPTIC_REF);
     }
 
     private StepOutput<HypothesisGenerationDTO> runRebuttal(AnchorContext anchor, EventId id,
                                                             String scepticRaw, String chatId) {
         log.info("[swarm] Generator rebuttal");
-        var input = new StepExecutionInput(
-            id, rebuttalPrompt(scepticRaw),
-            anchor.swarm().schema(),
-            PhaseScope.runId(), chatId, REBUTTAL_MEMORY);
+        var input = StepExecutionInput.builder()
+            .eventId(id).userPrompt(rebuttalPrompt(scepticRaw)).schema(anchor.swarm().schema())
+            .runId(PhaseScope.runId()).chatId(chatId).memoryIncludes(REBUTTAL_MEMORY)
+            .build();
         return mapper.convertValue(submit("generatorExecutor", input), HYPOTHESIS_REF);
     }
 
@@ -160,6 +162,16 @@ public class GenPhase {
         return config.rebuttalPromptTemplate().replace("{{SCEPTIC_FINDINGS}}", scepticRaw);
     }
 
+    /**
+     * Generator-phase outputs for a hypothesis. {@code rebuttal}
+     * carries the conversation's latest DTO; its {@code rawResponse}
+     * is built by appending each supervisor-driven refinement onto the
+     * prior raw with an iteration marker so downstream agents see the
+     * full textual history without any schema change. For a
+     * single-iteration hypothesis the raw is identical to the
+     * agent's response — byte-for-byte unchanged from the pre-loop
+     * implementation.
+     */
     public record Output(
         String chatId,
         StepOutput<HypothesisGenerationDTO> generator,
@@ -170,6 +182,7 @@ public class GenPhase {
     public record RefinementInput(
         HypothesisContext hypoCtx,
         String refinementRequest,
-        int iteration
+        int iteration,
+        EventId supervisorId
     ) {}
 }

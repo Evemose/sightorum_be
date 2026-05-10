@@ -16,10 +16,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Routes the next step of the per-hypothesis loop. Reads one trio iteration's
- * outputs (compile, pipeline, sceptic review) plus the supervisor's running
- * notes and returns a verdict: pass through, loop back to the sceptic with a
+ * Routes the next step of the per-hypothesis loop. Reads one trio
+ * iteration's outputs (the compiler's CompilerResultDTO with per-run
+ * briefs, the sceptic's CompilerCorrectionDTO with verifications and
+ * its own per-run briefs, plus the supervisor's running notes) and
+ * returns a verdict: pass through, loop back to the compiler with a
  * focus, or loop back to the generator with a refinement.
+ * <p>
+ * Run-level data (specs and JobEvent results) is NOT dumped in the
+ * supervisor's prompt — the supervisor reads briefs and drills into
+ * specific run fields via queryRunSpec / queryRunResult tools when
+ * needed.
  */
 @Slf4j
 @Component
@@ -38,11 +45,15 @@ public class SupervisorPhase {
 
     @SneakyThrows
     private StepOutput<SupervisorVerdictDTO> doRun(Input input) {
-        var serialized = serialize(input.compile());
-        var id = supervisorId(input, serialized);
-        var prompt = buildPrompt(input, serialized);
-        var stepInput = new StepExecutionInput(id, prompt,
-            input.hypoCtx().anchor().swarm().schema(), PhaseScope.runId());
+        var compile = input.compile();
+        var compilerOutput = compile.compiler().rawResponse();
+        var scepticRaw = compile.scepticReview().rawResponse();
+        var id = supervisorId(input, compilerOutput, scepticRaw);
+        var prompt = buildPrompt(input, compilerOutput, scepticRaw);
+        var stepInput = StepExecutionInput.builder()
+            .eventId(id).userPrompt(prompt).schema(input.hypoCtx().anchor().swarm().schema())
+            .runId(PhaseScope.runId())
+            .build();
 
         log.info("[swarm] Supervisor iter={} hypothesis={}",
             input.iteration(), input.hypoCtx().hypothesisId());
@@ -55,15 +66,7 @@ public class SupervisorPhase {
             )), REF);
     }
 
-    @SneakyThrows
-    private Serialized serialize(CompilePhase.Output compile) {
-        return new Serialized(
-            mapper.writeValueAsString(compile.pipelineResult().metrics()),
-            mapper.writeValueAsString(compile.compiler().dto()),
-            compile.scepticReview().rawResponse());
-    }
-
-    private EventId supervisorId(Input input, Serialized s) {
+    private EventId supervisorId(Input input, String compilerOutput, String scepticRaw) {
         var hypoCtx = input.hypoCtx();
         return EventId.child("supervisor",
             ContentHash.of(Map.of(
@@ -71,9 +74,8 @@ public class SupervisorPhase {
                 "schema", hypoCtx.anchor().swarm().schema(),
                 "iteration", Integer.toString(input.iteration()),
                 "hypothesisSpec", hypoCtx.gen().rebuttal().rawResponse(),
-                "pipelineOutput", s.pipelineJson(),
-                "compilerSpec", s.specJson(),
-                "scepticReview", s.scepticRaw(),
+                "compilerOutput", compilerOutput,
+                "scepticReview", scepticRaw,
                 "priorNotes", input.priorNotes())),
             List.of(input.compile().scepticReview().id()),
             Map.of("anchor", hypoCtx.anchor().anchorTag(),
@@ -81,14 +83,13 @@ public class SupervisorPhase {
                 "iteration", Integer.toString(input.iteration())));
     }
 
-    private String buildPrompt(Input input, Serialized s) {
+    private String buildPrompt(Input input, String compilerOutput, String scepticRaw) {
         var hypoCtx = input.hypoCtx();
         var notes = input.priorNotes().isBlank() ? "(none — first iteration)" : input.priorNotes();
         return config.supervisor().userPromptTemplate()
             .replace("{{HYPOTHESIS_SPEC}}", hypoCtx.gen().rebuttal().rawResponse())
-            .replace("{{COMPILER_SPEC}}", s.specJson())
-            .replace("{{PIPELINE_OUTPUT}}", s.pipelineJson())
-            .replace("{{SCEPTIC_REVIEW}}", s.scepticRaw())
+            .replace("{{COMPILER_OUTPUT}}", compilerOutput)
+            .replace("{{SCEPTIC_REVIEW}}", scepticRaw)
             .replace("{{PRIOR_NOTES}}", notes)
             .replace("{{ITERATION}}", Integer.toString(input.iteration()))
             .replace("{{MAX_ITERATIONS}}", Integer.toString(input.maxIterations()));
@@ -101,6 +102,4 @@ public class SupervisorPhase {
         int iteration,
         int maxIterations
     ) {}
-
-    private record Serialized(String pipelineJson, String specJson, String scepticRaw) {}
 }
