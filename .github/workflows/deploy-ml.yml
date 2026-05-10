@@ -94,5 +94,5 @@ jobs:
           aws ecs update-service \
             --cluster ${{ steps.resolve.outputs.cluster }} \
             --service ${{ steps.resolve.outputs.service }} \
-            --force-new-deploymen
+            --force-new-deployment \
             --region ${{ matrix.region }}
