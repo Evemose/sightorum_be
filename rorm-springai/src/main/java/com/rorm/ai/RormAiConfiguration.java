@@ -6,6 +6,7 @@ import com.rorm.ai.swarm.InMemorySwarmEventBus;
 import com.rorm.ai.swarm.SwarmEventBus;
 import com.rorm.ai.swarm.communication.InMemorySwarmContext;
 import com.rorm.ai.swarm.communication.SwarmContext;
+import com.rorm.ai.swarm.executor.CoalescingProperties;
 import com.rorm.ai.swarm.knowledge.SwarmKnowledgeStore;
 import com.rorm.ai.swarm.knowledge.VectorStoreSwarmKnowledgeStore;
 import com.rorm.ai.tools.SwarmKnowledgeTool;
@@ -23,7 +24,8 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 @Configuration
 @EnableConfigurationProperties({
     RormAiProperties.class,
-    DurableSwarmConfig.class
+    DurableSwarmConfig.class,
+    CoalescingProperties.class
 })
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 @YamlPropertySource("classpath:application-ai.yaml")

@@ -40,6 +40,10 @@ public class CompilePhase {
         return ScopedValue.where(PhaseScope.RUN_ID, runId).call(() -> doContinueCompiler(cont));
     }
 
+    private static String scepticChatIdFor(StepOutput<CompilerResultDTO> compilerResult) {
+        return "swarm-csceptic-" + compilerResult.id().token();
+    }
+
     private Output doContinueCompiler(ContinueInput cont) {
         var hypoCtx = cont.hypoCtx();
         var prior = cont.prior();
@@ -47,7 +51,7 @@ public class CompilePhase {
         var stepInput = StepExecutionInput.builder()
             .eventId(id).userPrompt(cont.supervisorFocus())
             .schema(hypoCtx.anchor().swarm().schema()).runId(PhaseScope.runId())
-            .chatId(compilerChatIdFor(prior.compiler())).memoryIncludes(COMPILER_REROUTE_MEMORY)
+            .chatId(compilerChatId(hypoCtx)).memoryIncludes(COMPILER_REROUTE_MEMORY)
             .build();
         log.info("[swarm] Compiler continuation iter={} hypothesis={}",
             cont.iteration(), hypoCtx.hypothesisId());
@@ -73,21 +77,13 @@ public class CompilePhase {
             ContentHash.of(Map.of(
                 "kind", "compiler-continuation",
                 "schema", hypoCtx.anchor().swarm().schema(),
-                "compilerChatId", compilerChatIdFor(cont.prior().compiler()),
+                "compilerChatId", compilerChatId(hypoCtx),
                 "iteration", Integer.toString(cont.iteration()),
                 "supervisorFocus", cont.supervisorFocus())),
             List.of(cont.prior().compiler().id(), cont.supervisorId()),
             Map.of("anchor", hypoCtx.anchor().anchorTag(),
                 "hypothesis", hypoCtx.hypothesisId(),
                 "iteration", Integer.toString(cont.iteration())));
-    }
-
-    private static String compilerChatIdFor(StepOutput<CompilerResultDTO> compilerResult) {
-        return "swarm-compiler-" + compilerResult.id().token();
-    }
-
-    private static String scepticChatIdFor(StepOutput<CompilerResultDTO> compilerResult) {
-        return "swarm-csceptic-" + compilerResult.id().token();
     }
 
     @SneakyThrows
@@ -99,6 +95,7 @@ public class CompilePhase {
         var dto = compilerResult.dto();
         var primaryRunId = dto.selectedRunIds().isEmpty() ? null : dto.selectedRunIds().getFirst();
         var prompt = config.compilerSceptic().userPromptTemplate()
+            .replace("{{HYPOTHESIS_ID}}", hypoCtx.hypothesisId())
             .replace("{{HYPOTHESIS_SPEC}}", hypoCtx.gen().rebuttal().rawResponse())
             .replace("{{COMPILER_OUTPUT}}", compilerOutput);
         var pipelineRunIdContext = primaryRunId != null
@@ -117,6 +114,25 @@ public class CompilePhase {
                 new Object[]{input},
                 new String[]{StepExecutionInput.class.getName()}
             )), SCEPTIC_REF);
+    }
+
+    private StepOutput<CompilerResultDTO> runCompiler(HypothesisContext hypoCtx) {
+        var anchor = hypoCtx.anchor();
+        var id = compilerId(hypoCtx);
+        var input = StepExecutionInput.builder()
+            .eventId(id).userPrompt(compilerPrompt(hypoCtx)).schema(anchor.swarm().schema())
+            .runId(PhaseScope.runId()).chatId(compilerChatId(hypoCtx))
+            .memoryIncludes(COMPILER_REROUTE_MEMORY)
+            .build();
+
+        log.info("[swarm] Compiling hypothesis {}", hypoCtx.hypothesisId());
+        var sessionId = "compilerExecutor-" + id.token();
+        return mapper.convertValue(
+            runtime.submit(sessionId, new JobSpec(
+                "compilerExecutor", "execute",
+                new Object[]{input},
+                new String[]{StepExecutionInput.class.getName()}
+            )), COMPILER_REF);
     }
 
     private EventId scepticId(HypothesisContext hypoCtx, StepOutput<CompilerResultDTO> compiler) {
@@ -151,26 +167,13 @@ public class CompilePhase {
 
     private String compilerPrompt(HypothesisContext hypoCtx) {
         return config.executorCompiler().userPromptTemplate()
+            .replace("{{HYPOTHESIS_ID}}", hypoCtx.hypothesisId())
             .replace("{{HYPOTHESIS_SPEC}}", hypoCtx.gen().rebuttal().rawResponse())
             .replace("{{DOMAIN_KNOWLEDGE}}", hypoCtx.anchor().recon().domain().rawResponse());
     }
 
-    private StepOutput<CompilerResultDTO> runCompiler(HypothesisContext hypoCtx) {
-        var anchor = hypoCtx.anchor();
-        var id = compilerId(hypoCtx);
-        var input = StepExecutionInput.builder()
-            .eventId(id).userPrompt(compilerPrompt(hypoCtx)).schema(anchor.swarm().schema())
-            .runId(PhaseScope.runId()).memoryIncludes(COMPILER_REROUTE_MEMORY)
-            .build();
-
-        log.info("[swarm] Compiling hypothesis {}", hypoCtx.hypothesisId());
-        var sessionId = "compilerExecutor-" + id.token();
-        return mapper.convertValue(
-            runtime.submit(sessionId, new JobSpec(
-                "compilerExecutor", "execute",
-                new Object[]{input},
-                new String[]{StepExecutionInput.class.getName()}
-            )), COMPILER_REF);
+    private String compilerChatId(HypothesisContext hypoCtx) {
+        return "swarm-compiler-" + compilerId(hypoCtx).token();
     }
 
     /**

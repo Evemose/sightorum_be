@@ -53,6 +53,7 @@ public class StepExecutorSupport {
     private final ModelSpaceResolver modelSpaceResolver;
     private final SwarmContext swarmContext;
     private final ToolCallRegistry toolCallRegistry;
+    private final AgentCoalescingGate coalescingGate;
     private final DurableRuntime runtime;
 
     public <T> StepOutput<T> execute(StepExecutionInput input, AgentModelConfig agentConfig,
@@ -76,7 +77,8 @@ public class StepExecutorSupport {
             input.eventId().token(),
             input.eventId().parents().stream().map(EventId::token).toList(),
             kind, input.schema(), effective, input.userPrompt()));
-        return runAndPublish(input, effective, chatId, secondaryAgent);
+        return coalescingGate.gate(kind, firstTokenSignal ->
+            runAndPublish(input, effective, chatId, secondaryAgent, firstTokenSignal));
     }
 
     private static String chatIdFor(StepExecutionInput input) {
@@ -84,12 +86,12 @@ public class StepExecutorSupport {
     }
 
     private <T> StepOutput<T> runAndPublish(StepExecutionInput input, AgentModelConfig effective,
-                                            String chatId, SecondarySwarmAgent<T> secondaryAgent) {
+                                            String chatId, SecondarySwarmAgent<T> secondaryAgent,
+                                            Runnable firstTokenSignal) {
         var modelSpace = modelSpaceResolver.resolve(input.schema());
         var pipelineHolder = new PipelineSpecHolder();
-        var seq = new AtomicInteger();
-        var streamPrimitive = streamPrimitiveFor(input, effective, modelSpace, chatId,
-            pipelineHolder, seq);
+        var streamPrimitive = streamPrimitiveFor(
+            new StreamSetup(input, effective, modelSpace, chatId, pipelineHolder, firstTokenSignal));
         var raw = streamPrimitive.stream(input.userPrompt());
         var result = secondaryAgent.produce(new SecondaryAgentContext(
             input, chatId, raw, modelSpace, effective, streamPrimitive, pipelineHolder,
@@ -99,16 +101,44 @@ public class StepExecutorSupport {
         return new StepOutput<>(input.eventId(), result.dto(), result.raw());
     }
 
-    private StreamPrimitive streamPrimitiveFor(StepExecutionInput input, AgentModelConfig agentConfig,
-                                               ModelSpace modelSpace, String chatId,
-                                               PipelineSpecHolder pipelineHolder,
-                                               AtomicInteger seq) {
+    private StreamPrimitive streamPrimitiveFor(StreamSetup setup) {
         var agent = new FirstLevelSwarmAgent(
-            agentConfig, chatService, input.schema(), modelSpace, promptPlaceholders);
-        var advisors = buildStreamAdvisors(input, chatId);
-        return userPrompt -> streamRaw(input, agent, advisors, chatId,
-            pipelineHolder, seq, userPrompt);
+            setup.agentConfig(), chatService, setup.input().schema(), setup.modelSpace(),
+            promptPlaceholders);
+        var advisors = buildStreamAdvisors(setup.input(), setup.chatId());
+        var seq = new AtomicInteger();
+        var firstSignaled = new java.util.concurrent.atomic.AtomicBoolean();
+        var rt = new StreamRuntime(setup, agent, advisors, seq, firstSignaled);
+        return userPrompt -> streamRaw(rt, userPrompt);
     }
+
+    private String streamRaw(StreamRuntime rt, String userPrompt) {
+        var input = rt.setup().input();
+        var runId = input.runId();
+        var eventId = input.eventId();
+        return rt.agent().streamTokens(userPrompt,
+                customizerFor(input, rt.setup().chatId(),
+                    rt.setup().pipelineHolder(), rt.advisors()))
+            .doOnNext(token -> {
+                if (rt.firstSignaled().compareAndSet(false, true)) {
+                    rt.setup().firstTokenSignal().run();
+                }
+                eventBus.publish(runId,
+                    new SwarmStreamEvent.AgentToken(eventId, rt.seq().getAndIncrement(), token));
+            })
+            .reduce(new StringBuilder(), (sb, token) -> sb.append(token.toText()))
+            .map(StringBuilder::toString)
+            .block();
+    }
+
+    private record StreamSetup(
+        StepExecutionInput input,
+        AgentModelConfig agentConfig,
+        ModelSpace modelSpace,
+        String chatId,
+        PipelineSpecHolder pipelineHolder,
+        Runnable firstTokenSignal
+    ) {}
 
     private List<Advisor> buildStreamAdvisors(StepExecutionInput input, String chatId) {
         return List.of(
@@ -118,20 +148,13 @@ public class StepExecutorSupport {
         );
     }
 
-    private String streamRaw(StepExecutionInput input, FirstLevelSwarmAgent agent,
-                             List<Advisor> advisors, String chatId,
-                             PipelineSpecHolder pipelineHolder,
-                             AtomicInteger seq, String userPrompt) {
-        var runId = input.runId();
-        var eventId = input.eventId();
-        return agent.streamTokens(userPrompt,
-                customizerFor(input, chatId, pipelineHolder, advisors))
-            .doOnNext(token -> eventBus.publish(runId,
-                new SwarmStreamEvent.AgentToken(eventId, seq.getAndIncrement(), token)))
-            .reduce(new StringBuilder(), (sb, token) -> sb.append(token.toText()))
-            .map(StringBuilder::toString)
-            .block();
-    }
+    private record StreamRuntime(
+        StreamSetup setup,
+        FirstLevelSwarmAgent agent,
+        List<Advisor> advisors,
+        AtomicInteger seq,
+        java.util.concurrent.atomic.AtomicBoolean firstSignaled
+    ) {}
 
     private UnaryOperator<ChatRequest.Builder> customizerFor(
         StepExecutionInput input, String chatId, PipelineSpecHolder pipelineHolder,

@@ -126,7 +126,7 @@ export class MlGlobalsStack extends cdk.Stack {
         });
 
         const scaling = service.autoScaleTaskCount({
-            minCapacity: 0,
+            minCapacity: 1,
             maxCapacity: 5,
         });
 
@@ -161,7 +161,7 @@ export class MlGlobalsStack extends cdk.Stack {
                 period: cdk.Duration.minutes(1),
                 dimensionsMap: {Region: props.entrypointRegion},
             }),
-            threshold: 0.05,
+            threshold: 0.5,
             comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
             evaluationPeriods: 15,
             datapointsToAlarm: 15,

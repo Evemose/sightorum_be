@@ -1,3 +1,10 @@
+<target_hypothesis_id>{{HYPOTHESIS_ID}}</target_hypothesis_id>
+
+The hypothesis-spec block below lists ALL hypotheses the generator
+produced for this anchor. You diagnose EXACTLY the one whose id matches
+`<target_hypothesis_id>` — the COMPILER_OUTPUT below corresponds to
+that hypothesis. Sibling forensic invocations diagnose the others.
+
 <hypothesis_spec>
 {{HYPOTHESIS_SPEC}}
 </hypothesis_spec>

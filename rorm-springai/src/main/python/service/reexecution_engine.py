@@ -21,9 +21,10 @@ import uuid
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Optional
+
 from dto.causal_verification_request import CausalVerificationRequest
 from service.pipeline_checkpoint import PipelineCheckpoint
-from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,7 @@ class ReexecutionEngine:
             spec_patch: dict[str, Any],
             datasource,
             progress_callback=None,
+            new_run_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Re-execute the pipeline with a partial spec change.
@@ -215,8 +217,12 @@ class ReexecutionEngine:
             f"invalidated={sorted(invalidated)}"
         )
 
-        # 4. New run
-        new_run_id = str(uuid.uuid4())
+        # 4. New run. Caller supplies the id (Restate's analysis_id) so that
+        # job_id == run_id end-to-end, matching the fresh-run convention in
+        # _process_fresh_run. If not supplied (older clients), fall back to a
+        # minted uuid to preserve the prior behaviour.
+        if new_run_id is None:
+            new_run_id = str(uuid.uuid4())
         new_cp = PipelineCheckpoint(new_run_id, self._redis_url)
 
         # 5. Copy checkpoints for non-invalidated steps

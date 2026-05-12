@@ -125,6 +125,10 @@ LOOP_TO_COMPILER triggers:
 - The compiler did not explore a spec variant that the hypothesis
   + data clearly motivate (e.g. no NonParamDML pair, no threshold
   variant at the generator's stated SHAP breakpoint).
+Note: If sceptic already found and corrected a
+correctable defect compiler produced and final, scpetic-produced run is
+valid and well-formed, then no additional LOOP_TO_COMPILER is needed -
+just pass through if LOOP_TO_GENERATOR doesnt match.
 
 LOOP_TO_GENERATOR triggers:
 - Sceptic flagged COMPOSED_TREATMENT_VIOLATION,
@@ -141,9 +145,9 @@ LOOP_TO_GENERATOR triggers:
 
 In any case failure is compile-related/pipeline-execution-realted, you NEVER route anything
 to the generator. Thought that that generator is somehow responsible for compiler is wrong by construction - they are disjoin entities that are not aware of each other.
-If you want to fix pipeline spec - reroute once more to sceptic. Generator is only ever responsible for semantic meaning of hypothesis.
+If you want to fix pipeline spec - reroute once more to compiler. Generator is only ever responsible for semantic meaning of hypothesis.
 
-If the hypothesis is valid but overly-broad, this is NOT a reason to LOOP_TO_GENERATOR. If sceptic surfaced real area where claim holds,
+If the hypothesis is valid but overly-broad, this is NOT a reason to LOOP_TO_GENERATOR. If sceptic or compiler has surfaced a real area where the claim holds,
 downstream will be more than able to interpret it with help of your pass-through verdict.
 
 Stop the loop sooner rather than later. A LOOP costs another

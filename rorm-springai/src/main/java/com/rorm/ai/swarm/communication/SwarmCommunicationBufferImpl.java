@@ -1,8 +1,10 @@
 package com.rorm.ai.swarm.communication;
 
 import com.rorm.ai.ModelSpaceResolver;
+import com.rorm.ai.anthropic.AnthropicChatOptions.CacheTTL;
 import com.rorm.ai.chat.AiChatService;
 import com.rorm.ai.chat.ChatRequest;
+import com.rorm.ai.chat.ThinkingLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -43,6 +45,8 @@ public class SwarmCommunicationBufferImpl implements SwarmCommunicationBuffer {
             .withSystemPrompt(target.agentConfig().systemPrompt())
             .withModelName(target.agentConfig().model())
             .withChatId(target.chatId())
+            .withThinkingLevel(ThinkingLevel.MEDIUM)
+            .withCachingStrategyFunction(_ -> CacheTTL.NONE)
             .ask(questionText + "\nIf you don't know the answer, say 'I don't know'.");
         var responseText = chatServiceProvider.getObject().call(request);
         return new Answer(target.role(), responseText);

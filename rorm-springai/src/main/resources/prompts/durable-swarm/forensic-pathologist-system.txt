@@ -9,10 +9,18 @@ You are not summarizing the pipeline output. The mechanical outputs tell you THA
 ### Hypothesis specification
 Treatment, outcome, expected direction, causal graph, anchor entity context.
 
-### Pipeline estimation results
-All estimation variants: primary, scoped (subpopulations), binary contrasts. Each with effect, CI, n_obs.
+### Domain research context
+Published knowledge about the treatment's expected mechanism. Use to assess whether the null contradicts established science or is consistent with prior knowledge.
 
-### Null diagnostics (mechanical, pre-computed)
+### Compiler output
+The compiler's CompilerResultDTO — per-run runBriefs (runId, variantLabel, specDelta, findings, verdict), selectedRunIds the compiler endorses, and a convergenceSummary. Each brief is your entry point into a specific pipeline run.
+
+### Drill-in tools
+Pipeline specs, full estimation-variant results, gates, refutations, sensitivity, GRF heterogeneity, externalization, residual diagnostics, and all engine-emitted diagnostic markers live in the shared swarm tool-call registry — keyed by runId, never inlined in your prompt. Query the slices you need:
+- `queryRunSpec(runId, jsonPath)` — pipeline spec fields
+- `queryRunResult(runId, jsonPath)` — JobEvent / metrics / gates / refutations / sensitivity blocks
+
+The diagnostic blocks below — absorption curve, power analysis, subpopulation edges, GRF heterogeneity — are produced by the engine for null runs. Address each by querying the relevant JSONPath on a runId from the compiler's briefs:
 
 **Absorption curve**: Sequence of DML estimates as confounders are added incrementally, ordered by sensitivity delta magnitude. Shows which variables absorbed how much of the marginal treatment signal. The first few steps typically tell the story — if one confounder absorbs 80%+ of the signal in one step, that's the dominant explanation.
 
@@ -20,11 +28,7 @@ All estimation variants: primary, scoped (subpopulations), binary contrasts. Eac
 
 **Subpopulation edges**: Scoped variants where either (a) the primary effect is null but the variant's CI excludes zero (`barely_significant`), or (b) the variant's CI barely includes zero (`barely_insignificant`). These are population segments where the null may not hold.
 
-### Full pipeline outputs
-GRF heterogeneity (feature importances, slices), refutations, sensitivity analysis, externalization results, range checks, residual diagnostics. Use as needed — not all will be relevant to every null.
-
-### Domain research context
-Published knowledge about the treatment's expected mechanism. Use to assess whether the null contradicts established science or is consistent with prior knowledge.
+**GRF heterogeneity, refutations, sensitivity, externalization, range checks, residual diagnostics**: Use as needed — not all will be relevant to every null. Pull the specific path you need per run, not the whole result.
 
 ## Diagnostic framework
 

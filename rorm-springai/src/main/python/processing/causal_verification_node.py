@@ -2,13 +2,13 @@
 
 import asyncio
 import logging
+from typing import Optional
+
 from datasource.throttler import AsyncThrottlerWrapper
 from dto.causal_verification_request import CausalVerificationRequest
 from events.publisher import EventPublisher
 from service.causal_verification_service import CausalVerificationService
 from service.pipeline_checkpoint import PipelineCheckpoint
-from typing import Optional
-
 from .pipeline_node import PipelineNode, StreamMessage
 
 logger = logging.getLogger(__name__)
@@ -161,6 +161,7 @@ class CausalVerificationPipelineNode(PipelineNode):
                     spec_patch=spec_patch,
                     datasource=datasource,
                     progress_callback=sync_progress,
+                    new_run_id=analysis_id,
                 ),
             )
 

@@ -5,6 +5,7 @@ import com.rorm.ai.swarm.EventId;
 import com.rorm.ai.swarm.SwarmEventBus;
 import com.rorm.ai.swarm.SwarmStreamEvent;
 import com.rorm.ai.swarm.dto.SupervisorVerdictDTO;
+import com.rorm.ai.swarm.dto.SupervisorVerdictDTO.Decision;
 import lombok.SneakyThrows;
 
 import java.util.*;
@@ -49,7 +50,7 @@ class MockSwarmScript {
     private static String supervisorProgress(SupervisorVerdictDTO output, String hyp, int iteration) {
         var label = switch (output.decision()) {
             case PASS_THROUGH -> "passing " + hyp + " through to the downstream phases";
-            case LOOP_TO_SCEPTIC -> "routing " + hyp + " back to the compiler-sceptic with a focused request";
+            case LOOP_TO_COMPILER -> "routing " + hyp + " back to the compiler with a focused request";
             case LOOP_TO_GENERATOR -> "routing " + hyp + " back to the generator with a refinement request";
         };
         return "Iteration " + iteration + " — " + label + ".";
@@ -320,7 +321,7 @@ class MockSwarmScript {
         var compile = runCompiler(rebuttal, tags0, c.compilerText());
         var sceptic0 = runCompilerSceptic(compile, tags0, c.firstScepticText(), c.peerExchange());
         var sup0 = runSupervisor(sceptic0, hyp, anchor, 0,
-            verdict(SupervisorVerdictDTO.Decision.LOOP_TO_SCEPTIC, null,
+            verdict(Decision.LOOP_TO_COMPILER, null,
                 c.supervisorExplanation0(), c.focusRequest(), null, c.supervisorNotes0()),
             c.supervisorThinking0());
         var tags1 = hypTags(hyp, anchor, 1);

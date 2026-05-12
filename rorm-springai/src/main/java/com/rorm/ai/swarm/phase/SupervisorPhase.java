@@ -87,6 +87,7 @@ public class SupervisorPhase {
         var hypoCtx = input.hypoCtx();
         var notes = input.priorNotes().isBlank() ? "(none — first iteration)" : input.priorNotes();
         return config.supervisor().userPromptTemplate()
+            .replace("{{HYPOTHESIS_ID}}", hypoCtx.hypothesisId())
             .replace("{{HYPOTHESIS_SPEC}}", hypoCtx.gen().rebuttal().rawResponse())
             .replace("{{COMPILER_OUTPUT}}", compilerOutput)
             .replace("{{SCEPTIC_REVIEW}}", scepticRaw)
