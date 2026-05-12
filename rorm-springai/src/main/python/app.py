@@ -60,6 +60,9 @@ async def lifespan(_: FastAPI):
     shap_task = asyncio.create_task(shap_node.start())
     causal_verification_task = asyncio.create_task(causal_verification_node.start())
 
+    from core.task_protection import run_task_protection_loop
+    task_protection_task = asyncio.create_task(run_task_protection_loop())
+
     logger.info("Pipeline nodes started")
 
     try:
@@ -79,6 +82,7 @@ async def lifespan(_: FastAPI):
         stability_selection_task.cancel()
         shap_task.cancel()
         causal_verification_task.cancel()
+        task_protection_task.cancel()
 
         try:
             await asyncio.gather(
@@ -87,6 +91,7 @@ async def lifespan(_: FastAPI):
                 stability_selection_task,
                 shap_task,
                 causal_verification_task,
+                task_protection_task,
                 return_exceptions=True,
             )
         except asyncio.CancelledError:
