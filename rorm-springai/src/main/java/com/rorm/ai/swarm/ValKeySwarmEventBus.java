@@ -78,7 +78,6 @@ public class ValKeySwarmEventBus implements SwarmEventBus, DisposableBean {
         } catch (Exception e) {
             if (!Thread.currentThread().isInterrupted()) {
                 log.error("[swarm-bus] XREAD loop failed for run {}", runId, e);
-                sink.tryEmitError(e);
             }
         }
     }

@@ -79,17 +79,21 @@ public class RormMlConfiguration {
         RormMlProperties properties,
         StringRedisTemplate redisTemplate
     ) {
-        var consumerName = generateConsumerName();
-
-        ensureConsumerGroup(properties, redisTemplate);
-
+        ensureConsumerGroup(properties, redisTemplate, properties.eventStreamName());
         container.start();
-
         return container.receive(
-            Consumer.from(properties.consumerGroup(), consumerName),
+            Consumer.from(properties.consumerGroup(), generateConsumerName()),
             StreamOffset.create(properties.eventStreamName(), ReadOffset.lastConsumed()),
             listener
         );
+    }
+
+    private static void ensureConsumerGroup(RormMlProperties properties, StringRedisTemplate redisTemplate, String streamName) {
+        try {
+            redisTemplate.opsForStream().createGroup(streamName, properties.consumerGroup());
+        } catch (Exception _) {
+            // Group may already exist, which is fine
+        }
     }
 
     private String generateConsumerName() {
@@ -101,14 +105,18 @@ public class RormMlConfiguration {
         }
     }
 
-    private static void ensureConsumerGroup(RormMlProperties properties, StringRedisTemplate redisTemplate) {
-        try {
-            redisTemplate.opsForStream().createGroup(
-                properties.eventStreamName(),
-                properties.consumerGroup()
-            );
-        } catch (Exception _) {
-            // Group may already exist, which is fine
-        }
+    @Bean
+    public Subscription jobStartsStreamSubscription(
+        StreamMessageListenerContainer<String, MapRecord<String, String, String>> container,
+        JobStreamListener listener,
+        RormMlProperties properties,
+        StringRedisTemplate redisTemplate
+    ) {
+        ensureConsumerGroup(properties, redisTemplate, properties.jobStartsStreamName());
+        return container.receive(
+            Consumer.from(properties.consumerGroup(), generateConsumerName() + "-starts"),
+            StreamOffset.create(properties.jobStartsStreamName(), ReadOffset.lastConsumed()),
+            listener
+        );
     }
 }
