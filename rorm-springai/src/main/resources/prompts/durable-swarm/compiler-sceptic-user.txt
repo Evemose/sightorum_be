@@ -1,3 +1,11 @@
+<target_hypothesis_id>{{HYPOTHESIS_ID}}</target_hypothesis_id>
+
+The hypothesis specification below lists ALL hypotheses the generator
+emitted for this anchor. Sibling sceptic invocations are reviewing
+other hypotheses — you verify the compilation of EXACTLY the one whose
+id matches `<target_hypothesis_id>`. The COMPILER_OUTPUT below
+corresponds to that hypothesis.
+
 Hypothesis specification:
 {{HYPOTHESIS_SPEC}}
 

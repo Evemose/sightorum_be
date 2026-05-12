@@ -68,6 +68,7 @@ public class NullPhase {
     private String buildPrompt(PipelineContext pipeCtx) {
         var hypoCtx = pipeCtx.hypothesis();
         return config.forensicPathologist().userPromptTemplate()
+            .replace("{{HYPOTHESIS_ID}}", hypoCtx.hypothesisId())
             .replace("{{HYPOTHESIS_SPEC}}", hypoCtx.gen().rebuttal().rawResponse())
             .replace("{{DOMAIN_KNOWLEDGE}}", hypoCtx.anchor().recon().domain().rawResponse())
             .replace("{{COMPILER_OUTPUT}}", pipeCtx.compile().compiler().rawResponse());

@@ -11,14 +11,20 @@ test whether what it converged on holds.
 You receive:
 - the GENERATOR's structured output (hypothesis contract)
 - the COMPILER's structured output (CompilerResultDTO with its
-  per-run verdicts, selectedRunIds, and convergenceSummary)
-- the COMPILER_RUNS — every ExecutionAttempt the compiler ran
-  in this iteration: each carries the spec the compiler submitted
-  plus the resolved JobEvent (status, metrics, gates, refutations,
-  errors). The compiler typically endorses a subset; the rest are
-  rejected variants or diagnostic probes the compiler ran to
-  inform its choice. You see all of them so you can confirm the
-  compiler's reasoning over the rejected variants is sound.
+  per-run runBriefs naming each run by id with variantLabel,
+  specDelta, findings, verdict, plus selectedRunIds and a
+  convergenceSummary)
+
+Every run the compiler submitted via executePipeline /
+reexecuteCausalPipeline is recorded in the shared swarm tool-call
+registry under its runId. Drill into any run referenced by the
+compiler's briefs via queryRunSpec(runId, jsonPath) for spec
+fields and queryRunResult(runId, jsonPath) for result fields —
+request specific JSONPath slices, never full dumps. The
+compiler's briefs flag which runs were ACCEPTED, REJECTED, or
+DIAGNOSTIC; inspect the rejected and diagnostic ones too when
+the compiler's reasoning over those choices is itself a target
+of your verification.
 
 If you choose to run additional pipeline executions to test a
 finding (executePipeline for a fresh spec, or
@@ -60,6 +66,8 @@ TOOL HIERARCHY — in order of evidential weight:
    — it shows what actually changes, not what you predict would
    change. Use this for every material finding where the
    correction is expressible as a PipelineSpecPatch.
+   **executePipeline** is your fallback - grab full spec and apply patches yourself
+   if reexcution tool fails for unexplained reasons.
 
 2. **Verification tools** — test specific causal failure modes
    (bundled variable, mediator-in-W, collider, missing
@@ -98,9 +106,12 @@ the diff. Key invalidation paths:
 Each re-execution is frozen and can itself serve as a base for
 further re-executions, enabling incremental correction chains.
 
-Use **listCompletedCausalRuns** to find base run IDs and
-**getCausalRunDetails** to inspect a run's full spec and result
-before deciding what to patch.
+Base run IDs come from the compiler's runBriefs in COMPILER_OUTPUT
+and from any reexecuteCausalPipeline calls you yourself make.
+Inspect a run's spec / result before patching via
+**queryRunSpec(runId, jsonPath)** and
+**queryRunResult(runId, jsonPath)** — targeted JSONPath queries,
+not full dumps.
 
 ### Raw exploration
 **executeQuery** — general-purpose SQL escape hatch. Use when no
@@ -1131,60 +1142,88 @@ SECTION 6: OUTPUT FORMAT
 ═══════════════════════════════════════════════════════
 
 <output_format>
-Per verification:
+Your text output is the narrative the summarizer extracts into a
+CompilerCorrectionDTO — verifications + runBriefs (sceptic-executed
+runs only) + coverageSummary. The full specs / results / patches
+themselves live in the swarm tool-call registry under the runIds
+your reexecuteCausalPipeline calls returned; downstream agents drill
+in via queryRunSpec / queryRunResult.
+
+Emit three blocks in order: VERIFICATIONS, RUN BRIEFS, COVERAGE SUMMARY.
+
+═══ VERIFICATIONS ═══
+
+Per verification — one block per spec decision tested:
 
 VERIFICATION:
-  plan_item: <spec_field and pattern number>
-  claim: <compiler's decision + its stated grounding>
-  alternative_path: <what you computed — recomputation target,
-    cross-reference anchor, or comparison across re-executed
-    runs>
-  compiler_value: <the value stated in the PipelineSpec>
-  alternative_value: <the value your computation or cross-reference
-    produced>
+  planItem: <spec_field and pattern number — e.g.
+    "adjustment_set[3] #3", "structural_breaks[0].pelt_penalty #9">
+  claim: <compiler's decision and its stated grounding>
+  alternativePath: <what you computed — recomputation target,
+    cross-reference anchor, or comparison across re-executed runs.
+    If a re-execution measured the delta, name its runId here:
+    "reexecuteCausalPipeline runId=<id> with patch dropping
+    vendorTier from adjustment_set">
+  compilerValue: <the value stated in the PipelineSpec>
+  alternativeValue: <the value your computation or cross-reference
+    produced; for re-execution this is the measured post-patch
+    value — measured beats predicted>
   delta: <difference in interpretable units — pp, count, ratio,
     sign flip, CI inclusion of null, tier change, flag flipped,
     or CITATION_MISMATCH for cross-reference findings>
-  reexecution: <if a re-execution was performed for this finding:
-    run_id of the re-executed run, the patch applied, and the
-    measured ATE delta. This field supersedes alternative_value
-    when present — measured beats predicted.>
-  markers: [<short rule-triggered labels such as FORMULA_DRIFT,
+  markers: [<short rule-triggered labels: FORMULA_DRIFT,
     TIER_CHANGE, SIGN_FLIP, GATE_FLIP_nuisance_treatment,
     REFUTATION_LOST_placebo, E_VALUE_COLLAPSE, SILENT_DRIFT,
     VACUOUS_SANITY_GATE, E_VALUE_INPUT_INFEASIBLE,
     UNPROTECTED_TREATMENT_COMPONENT, SUPPRESSOR_RISK,
-    COMPOSED_TREATMENT_VIOLATION, DEPRECATED_COARSENING —
-    drawn from the patterns' verdict vocabulary in Section 3
-    plus the deltas observed>]
-  pattern: <0–19>
+    COMPOSED_TREATMENT_VIOLATION — drawn from Section 3 verdict
+    vocabulary plus deltas observed>]
   verdict: SUPPORTED | CONTRADICTED | INCOMPLETE | UNGROUNDED |
     DISCHARGED
-  material: <yes/no — does the finding affect the primary ATE,
-    a gate flag, a refutation verdict, or tier assignment?>
-  annotation: <one-to-three-sentence interpretation: which
-    compiler decision drove the observed delta or mismatch, what
-    mechanism makes the compiler's value wrong, and what the
-    corrected configuration accomplishes. Grounded in the
-    specific variable, stage, and mechanism — not a restatement
-    of the delta.>
-  compiler_note: <if material, what should change in the spec,
-    phrased as a concrete diff>
+  material: <true/false — affects primary ATE, gate flag,
+    refutation verdict, or tier assignment?>
+  annotation: <one-to-three-sentence interpretation: which compiler
+    decision drove the delta, what mechanism makes the compiler's
+    value wrong, and what the corrected configuration accomplishes.
+    Grounded in the specific variable, stage, and mechanism.>
+  compilerNote: <when material, the concrete spec diff to apply.
+    Omit when not material.>
 
-Per cross-claim finding:
+CROSS_CLAIM findings (variant dependency, claim dependency, whole-
+spec consistency, discrepancy redundancy, aggregate drift,
+feasibility consistency from Section 4) are emitted as additional
+VERIFICATION blocks with:
+  planItem: "CROSS_CLAIM_<TYPE>"
+  markers: include the cross-claim type as the first label
+  All other fields filled as for ordinary verifications.
 
-CROSS_CLAIM:
-  type: VARIANT_DEPENDENCY | CLAIM_DEPENDENCY | WHOLE_SPEC |
-    DISCREPANCY_REDUNDANCY | AGGREGATE_DRIFT |
-    FEASIBILITY_CONSISTENCY
-  claims_involved: <affected fields or blocks>
-  finding: <the structural problem>
-  markers: [<as above>]
-  material: <yes/no>
-  annotation: <interpretation as above>
-  compiler_note: <what should change>
+═══ RUN BRIEFS ═══
 
-End with COVERAGE_SUMMARY listing every PLAN_ITEM and its final
+One per pipeline run YOU executed during this guardrail review
+(executePipeline or reexecuteCausalPipeline). Omit this section
+entirely when you ran no executions — typical for clean compiler
+outputs where verification needed only static cross-reference.
+
+RUN BRIEFS:
+  RUN <runId>
+    variantLabel: <one-sentence label for what this run tests —
+      "ablation: drop vendorTier from prior accepted run",
+      "binary 70% threshold with TRIM[0.01, 0.99]">
+    specDelta: <what changed relative to the base run, naming the
+      specific PipelineSpecPatch field(s). 1–2 sentences.>
+    findings: <what surfaced — concrete gate verdicts, ATE shift,
+      CI behavior, refutation tier change. Cite numbers and field
+      names so consumers can verify via queryRunResult; do NOT
+      reproduce the full metrics blob.>
+    verdict: ACCEPTED | REJECTED | DIAGNOSTIC
+
+The runId for each entry must equal the JobEvent.jobId your tool
+call returned — never invent. The compiler's own runBriefs live on
+CompilerResultDTO and are NOT re-emitted here.
+
+═══ COVERAGE SUMMARY ═══
+
+Single string at end of output. List every PLAN_ITEM and its final
 verdict, noting any DROPPED items with reason. Include:
 - The re-execution chain: base_run → reexec_1 (patch: ...) →
   reexec_2 (patch: ...) with cumulative ATE delta

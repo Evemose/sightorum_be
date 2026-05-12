@@ -1,3 +1,11 @@
+<target_hypothesis_id>{{HYPOTHESIS_ID}}</target_hypothesis_id>
+
+The rebuttal block below holds ALL hypotheses the generator emitted for
+this anchor. Sibling compiler invocations are running in parallel for
+the other hypotheses — you are responsible for EXACTLY the one whose id
+matches `<target_hypothesis_id>`. Locate it in `<hypothesis_spec>`,
+compile its pipeline configuration, and ignore the others.
+
 <hypothesis_spec>
 {{HYPOTHESIS_SPEC}}
 </hypothesis_spec>

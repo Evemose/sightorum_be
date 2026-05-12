@@ -71,7 +71,7 @@ public class PipelineExecutionTool {
             var request = pipelineSpecConverter.convert(
                 spec, spec.hypothesisId() + " causal verification",
                 ctx.modelSpace(), ctx.schema());
-            var future = mlService.submit(request);
+            var future = mlService.submit(request, ctx.stepJournal());
             var registry = swarmCtx.toolCallRegistry();
             return DeferredToolResult.defer(toolContext, future.map(jobEvent -> {
                 if (registry != null) {
@@ -175,8 +175,9 @@ public class PipelineExecutionTool {
             log.info("Submitting reexecution: base_run={} hypothesis_id={}",
                 runId, baseSpec.hypothesisId());
             var reexecRequest = new RunRecord.ReexecuteRequest(runId, specPatch);
-            var future = mlService.reexecuteWithBase(runId, baseSpec, specPatch,
-                ctx.modelSpace(), ctx.schema());
+            var future = mlService.reexecuteWithBase(
+                new MlTrainingService.ReexecuteWithBaseRequest(runId, baseSpec, specPatch),
+                ctx);
             return DeferredToolResult.defer(toolContext, future.map(jobEvent -> {
                 registry.record(swarmCtx.runId(), swarmCtx.askerEventId(),
                     "reexecuteCausalPipeline", reexecRequest, jobEvent);

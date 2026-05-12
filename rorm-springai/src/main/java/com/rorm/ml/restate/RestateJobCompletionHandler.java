@@ -18,6 +18,16 @@ public class RestateJobCompletionHandler implements JobCompletionHandler {
 
     @Override
     public void register(UUID jobId, DurableFuture<JobEvent> future) {
+        if (future instanceof com.rorm.CompletableDurableFuture<?>) {
+            throw new IllegalStateException(
+                "RestateJobCompletionHandler received an in-memory future (UUID id '"
+                + future.id() + "') for job " + jobId
+                + ". Restate's awakeableHandle.resolve rejects this format. "
+                + "Caller likely used StepJournal.current() on a thread where the "
+                + "Restate ScopedValue binding is gone (tool callbacks run on reactor's "
+                + "boundedElastic). Pass the journal captured in RormToolContext.stepJournal() "
+                + "down explicitly instead.");
+        }
         rendezvous.register(jobId, future.id())
             .ifPresent(event -> {
                 log.info("Resolving awakeable for job {} (event arrived before registration)", jobId);

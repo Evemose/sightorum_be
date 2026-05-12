@@ -143,6 +143,7 @@ public class StandoffPhase {
     private String renderSystemPrompt(String template, PipelineContext pipeCtx) {
         var hypoCtx = pipeCtx.hypothesis();
         return template
+            .replace("{{HYPOTHESIS_ID}}", hypoCtx.hypothesisId())
             .replace("{{HYPOTHESIS}}", hypoCtx.gen().rebuttal().rawResponse())
             .replace("{{DOMAIN_RESEARCH}}", hypoCtx.anchor().recon().domain().rawResponse())
             .replace("{{SCOUT_RESULT}}", hypoCtx.anchor().recon().scout().rawResponse())

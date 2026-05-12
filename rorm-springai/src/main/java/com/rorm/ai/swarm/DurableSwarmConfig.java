@@ -55,7 +55,7 @@ public record DurableSwarmConfig(
             compilerCacheStrategy()
         );
         compilerSceptic = withDefaults(compilerSceptic, "compiler-sceptic", ThinkingLevel.HIGH,
-            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.PIPELINE_EXECUTION),
+            Set.of(ToolGroup.QUERY, ToolGroup.STATS, ToolGroup.PIPELINE_EXECUTION, ToolGroup.RUN_QUERY),
             compilerScepticCacheStrategy()
         );
         forensicPathologist = withDefaults(forensicPathologist, "forensic-pathologist", ThinkingLevel.HIGH,
@@ -101,7 +101,7 @@ public record DurableSwarmConfig(
             config = config.withCacheStrategy(defaultCacheStrategy);
         }
         if (config.model() == null) {
-            config = config.withModel("claude-opus-4-6");
+            config = config.withModel("claude-opus-4-7");
         }
         return config;
     }

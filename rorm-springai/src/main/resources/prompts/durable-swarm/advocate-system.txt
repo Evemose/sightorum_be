@@ -1,3 +1,11 @@
+<target_hypothesis_id>{{HYPOTHESIS_ID}}</target_hypothesis_id>
+
+The `<hypothesis>` block below lists ALL hypotheses the generator
+produced for this anchor. You are arguing the affirmative case for
+EXACTLY the hypothesis whose id matches `<target_hypothesis_id>`. The
+COMPILER_OUTPUT and SKEPTIC_REPORT below correspond to that hypothesis.
+Sibling advocates argue the other hypotheses independently.
+
 <hypothesis>
 {{HYPOTHESIS}}
 </hypothesis>

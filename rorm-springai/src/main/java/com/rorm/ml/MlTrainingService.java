@@ -35,12 +35,15 @@ public class MlTrainingService {
      * Submit an async job and return a {@link DurableFuture} that completes
      * when the job finishes.
      * <p>
-     * Uses the current {@link StepJournal} for journaling the HTTP submission
-     * and creates an awakeable via {@link JobCompletionHandler} so the future
-     * survives process crashes when running under Restate.
+     * The caller MUST pass the {@link StepJournal} captured on the
+     * Restate-bound thread (typically {@code RormToolContext.stepJournal()}).
+     * {@code StepJournal.current()} cannot be used here: tool callbacks
+     * execute on reactor's boundedElastic threads where the
+     * {@code ScopedValue} binding is gone, so the fallback would be the
+     * in-memory journal whose awakeable ids are plain UUIDs — invalid
+     * for Restate's {@code awakeableHandle.resolve}.
      */
-    public DurableFuture<JobEvent> submit(AsyncJobRequest request) {
-        var journal = StepJournal.current();
+    public DurableFuture<JobEvent> submit(AsyncJobRequest request, StepJournal journal) {
 
         var jobId = journal.run("ml:submit:" + request.jobType(), UUID.class, () ->
             switch (request) {
@@ -300,12 +303,14 @@ public class MlTrainingService {
      * Python side); only step-level pipeline checkpoints are reused
      * server-side under {@code causal_cp:{baseRunId}:{step}}.
      */
-    public DurableFuture<JobEvent> reexecuteWithBase(String baseRunId,
-                                                     com.rorm.ml.dto.PipelineSpecRequest baseSpec,
-                                                     PipelineSpecPatch specPatch,
-                                                     com.rorm.metamodel.ModelSpace modelSpace,
-                                                     String schema) {
-        var journal = StepJournal.current();
+    public DurableFuture<JobEvent> reexecuteWithBase(ReexecuteWithBaseRequest req,
+                                                     com.rorm.ai.RormToolContext ctx) {
+        var baseRunId = req.baseRunId();
+        var baseSpec = req.baseSpec();
+        var specPatch = req.specPatch();
+        var modelSpace = ctx.modelSpace();
+        var schema = ctx.schema();
+        var journal = ctx.stepJournal();
         var baseRequest = pipelineSpecConverter.convert(
             baseSpec, baseSpec.hypothesisId() + " causal verification reexec",
             modelSpace, schema);
@@ -347,4 +352,17 @@ public class MlTrainingService {
             return false;
         }
     }
+
+    /**
+     * Inputs to {@link #reexecuteWithBase(ReexecuteWithBaseRequest, com.rorm.ai.RormToolContext)}
+     * bundling base-run identity, the recorded base spec, and the partial
+     * patch the caller wants applied. {@code modelSpace} / {@code schema}
+     * come from the {@link com.rorm.ai.RormToolContext} so they ride the
+     * same captured tool-context that carries {@code stepJournal}.
+     */
+    public record ReexecuteWithBaseRequest(
+        String baseRunId,
+        PipelineSpecRequest baseSpec,
+        PipelineSpecPatch specPatch
+    ) {}
 }

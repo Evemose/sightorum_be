@@ -1,5 +1,13 @@
 ITERATION: {{ITERATION}} of max {{MAX_ITERATIONS}}
 
+TARGET_HYPOTHESIS_ID: {{HYPOTHESIS_ID}}
+
+You are routing the loop for EXACTLY the hypothesis whose id matches
+TARGET_HYPOTHESIS_ID. The HYPOTHESIS_SPEC block below lists all
+hypotheses the generator emitted for this anchor — locate your target
+inside it. Sibling supervisor invocations route the other hypotheses
+independently; do not reason about them.
+
 HYPOTHESIS_SPEC (current generator rebuttal output):
 {{HYPOTHESIS_SPEC}}
 

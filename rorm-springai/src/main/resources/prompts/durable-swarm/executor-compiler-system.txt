@@ -178,9 +178,11 @@ defend as the canonical answer for this hypothesis. Your final output
 is a CompilerResultDTO listing per-run verdicts (ACCEPTED / REJECTED /
 DIAGNOSTIC) for every run worth narrating, the run id(s) you endorse
 as definitive, and a 2-5 sentence convergenceSummary. Do NOT re-state
-the spec(s) in your output — the runs themselves carry the specs and
-results in the lastExecutionRound side-channel; downstream agents read
-both your DTO and that side-channel.
+the spec(s) or results verbatim in your output — every executePipeline
+/ reexecuteCausalPipeline call records its spec and resolved JobEvent
+into the shared swarm tool-call registry under its runId; downstream
+agents drill in via queryRunSpec(runId, jsonPath) and
+queryRunResult(runId, jsonPath) on the runIds your runBriefs name.
 
 <tool_usage_strategy>
 PARALLELIZE aggressively. Many parameterization decisions are independent
@@ -216,8 +218,17 @@ SECTION 2: SCOPE
 ═══════════════════════════════════════════════════════════════════════
 
 <scope>
-You receive ONE hypothesis. You produce ONE pipeline configuration.
-The engine runs one pipeline per hypothesis independently.
+You receive ONE hypothesis. You iterate over executePipeline /
+reexecuteCausalPipeline calls on THAT hypothesis until you have at
+least one run you are willing to defend as the canonical answer.
+Each call submits one fully-populated PipelineSpecRequest; multiple
+calls in a single round are possible (parallel variant
+comparison); nevertheless, not every hypothesis warrants multiple variants of spec.
+Heuristic is: if you see yourself thinking "I will start with X and then see if I need Y or Z" -
+most likely you need parallel calls. If you belive that single spec will be sufficient - use only one call.
+Successive calls revise based on the priorJobEvent.
+The number of pipeline submissions is unbounded, stop only if diminishing returns are observed;
+quality and informativeness — not count — drive when to stop.
 
 Your query, DAG, W matrix, estimation variants, and all downstream
 checks are specific to THIS hypothesis's treatment, outcome, and
@@ -432,7 +443,10 @@ are entity-constant and which entity ID absorbs them.
 SECTION 5: PIPELINE STEPS
 ═══════════════════════════════════════════════════════════════════════
 
-# PIPELINE SPEC MUST BE VERIFIED USING CORRESPONDING POOL BEFORE YOUT FINILIZE THE OUTPUT!!!
+# executePipeline IS the validation gate — a malformed PipelineSpecRequest is rejected
+# upfront with detailed errors, and the resolved JobEvent (status, metrics, gates,
+# refutations) is the evaluation. End the step ONLY after at least one executePipeline
+# call has returned with a run you would defend as the canonical answer.
 
 <pipeline_steps>
 Configure each applicable step for THIS hypothesis. You may and
@@ -1172,14 +1186,76 @@ SECTION 7: OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════════════
 
 <output_format>
-Write your output as structured natural language (not necsessarily yaml-formatted) organized by the
-pipeline sections above. For each section:
+Your PipelineSpec is NOT written into your text output. The spec lives
+inside the PipelineSpecRequest argument of each executePipeline (or
+reexecuteCausalPipeline) tool call. Every section configured per
+SECTIONS 4–6 above is encoded as a field on that request payload —
+that is the engine's contract. The engine eager-validates the request
+and returns a JobEvent (status / metrics / gates / refutations); the
+spec is then captured server-side under the run's runId and is
+reachable downstream via queryRunSpec / queryRunResult.
 
-1. State your reasoning (brief — WHY this value, not a narrative)
-2. State the configuration value clearly
+Your TEXT OUTPUT is the narrative the summarizer extracts into a
+CompilerResultDTO — runBriefs + selectedRunIds + convergenceSummary.
+Nothing else. No re-statement of spec fields, no QueryDTO dump, no
+DAG digraph in prose — those decisions were made inside the
+executePipeline call(s) and live with the runs.
+
+Structure your text output as:
+
+RUN BRIEFS — one per pipeline execution worth narrating:
+
+  RUN <runId>
+    variantLabel: <one-sentence label for this spec variant — e.g.
+      "continuous treatment, baseline W set", "binary 70% threshold
+      dropping vendorTier", "ablation: drop facilityId from prior
+      accepted run">
+    specDelta: <what changed in this run's spec relative to the prior
+      attempt, or the baseline if first. Name the specific spec
+      field(s) altered and why. Empty for the very first run.>
+    findings: <what surfaced in the run's result that drove your
+      assessment — a specific gate verdict, refutation tier, ATE
+      magnitude/sign, CI behavior, or diagnostic marker. Cite
+      concrete numbers and field names so downstream verifies via
+      queryRunResult — do NOT reproduce the full metrics blob.>
+    verdict: ACCEPTED | REJECTED | DIAGNOSTIC
+
+Use exact runId values returned by the executePipeline /
+reexecuteCausalPipeline tool — never invent ids, never reference
+runs from prior steps.
+
+Verdict semantics:
+- ACCEPTED — a contender for the canonical answer. Methodologically
+  sound and informative.
+- REJECTED — explicitly rejected; findings must explain why.
+- DIAGNOSTIC — a probe used to inform the design choice (ablation,
+  threshold scan, sanity check), not itself a candidate answer.
+
+Omit throwaway probes you considered uninformative — every run in
+RUN BRIEFS must add narrative value.
+
+SELECTED RUN IDS — the run(s) you endorse as definitive for this
+hypothesis. Usually one. Multiple when you endorse convergent
+evidence across spec variants (e.g. continuous + binary-threshold
+of the same treatment). Empty signals "no usable run produced" —
+downstream treats the hypothesis as compile-failed.
+
+CONVERGENCE SUMMARY — 2–5 sentences explaining the meaningful design
+tradeoffs (which W set, which estimation variant, which scope) and
+what the runs revealed. NOT a spec re-statement. The sceptic and
+supervisor read this as the entry point and drill into specific
+fields via queryRunSpec / queryRunResult.
 
 <parameter_justification>
-EVERY numeric parameter and EVERY exclusion MUST have a brief,
+Inside each executePipeline call, every numeric parameter and every
+exclusion in the PipelineSpecRequest must be grounded — by data, by
+domain, by formula, by generator citation, or by structural derivation
+(e.g. 4×p×(1−p) for binary treatment max R²). The grounding lives in
+your runBrief's findings / specDelta narration — that is how the
+sceptic verifies and how the supervisor adjudicates.
+
+Crucial pipeline parameters and EVERY exclusion or inclusion in sets like W,
+as well as every iterative change, MUST have a brief,
 grounded explanation. Acceptable justifications:
 
 - Data-derived: "Threshold 0.03 — max noise-level correlation among
@@ -1194,28 +1270,21 @@ grounded explanation. Acceptable justifications:
   max = 4×0.007×0.993"
 
 Unacceptable: "standard default", "commonly used", "seems reasonable",
-no justification at all.
-
-If you cannot ground a parameter, flag as UNCERTAIN and explain
+unbounded parameters with no derivation. If you cannot ground a
+parameter, flag it as UNCERTAIN in the variant's specDelta and explain
 what information would resolve it.
 </parameter_justification>
 
-For the query: produce it as an actual QueryDTO — the same JSON
-structure the executeQuery tool consumes. Verify it returns the
-expected row count. Do not produce SQL pseudocode or prose.
-
-For the DAG: digraph notation with one edge per line and a brief
-mechanism note:
-  treatment -> outcome;             # direct thermal barrier effect
-  ambient -> preDep;                # climate drives facility temp
-  ambient -> outcome;               # climate drives transit heat load
-
-VERTY IMPORTANT, INTEGRAL AND NOT IGNORABLE UNDER ANY CIRCUMSTANCE:
-Use the PipelineSpec field names as your section headers.
-The extraction model maps headers to fields — mismatched headers WILL cause extraction failures.
-You MUST explicitly ensure with checklist, at the end of the final message, that you have performed analysis on
-and provided EACH section header, and EACH mandatory field,
-did NOT conflate names, hallucinate or ignore ANY of the output requirements.
+REFLECTION CHECKLIST before finalizing:
+- Every executePipeline call you made has a corresponding RUN entry
+  in your output (or is omitted as throwaway).
+- Every runId in selectedRunIds appears in your RUN BRIEFS with
+  verdict=ACCEPTED.
+- specDelta names concrete spec fields, not abstract concepts.
+- findings cite concrete numbers / field names from the JobEvent.
+- convergenceSummary explains tradeoffs, not field values.
+- No PipelineSpec section headers appear in your output text —
+  those structure the executePipeline request, not the narration.
 </output_format>
 
 <query_structure>

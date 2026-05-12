@@ -39,6 +39,9 @@ public class PeerQueryTool {
             refused at the context boundary so mutual blocks are
             impossible — the refused peer's answer marks itself as
             "deadlock prevented" rather than blocking.
+            
+            This tool is useful for dataset-wide context questions, and will return scarce
+            "i dont know" if you ask something related to your specific case only
             """
     )
     public String askPeer(
@@ -69,6 +72,9 @@ public class PeerQueryTool {
             agent whose role matches; you receive that one answer.
             Returns an empty list when no upstream agent of that role
             exists.
+            
+            This tool is useful for specific context questions, when you need to inquire on upstream
+            agents reasoning regarding their decisions and context
             """
     )
     public String askUpstream(
