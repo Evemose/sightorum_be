@@ -87,6 +87,11 @@ export class MlGlobalsStack extends cdk.Stack {
 
         modelsBucket.grantReadWrite(taskDef.taskRole);
 
+        taskDef.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+            actions: ['ecs:GetTaskProtection', 'ecs:UpdateTaskProtection'],
+            resources: ['*'],
+        }));
+
         const alb = new elbv2.ApplicationLoadBalancer(this, 'MlAlb', {
             vpc,
             internetFacing: true,

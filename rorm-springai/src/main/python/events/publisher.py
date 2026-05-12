@@ -2,9 +2,26 @@
 
 import datetime
 import json
+import logging
+import os
 import redis.asyncio as redis
+import urllib.request
 from enum import Enum
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+
+def _fetch_ecs_task_arn() -> Optional[str]:
+    uri = os.environ.get("ECS_CONTAINER_METADATA_URI_V4")
+    if not uri:
+        return None
+    try:
+        with urllib.request.urlopen(f"{uri}/task", timeout=2) as r:
+            return json.load(r).get("TaskARN") or None
+    except Exception as e:
+        logger.warning(f"failed to fetch ECS task ARN: {e}")
+        return None
 
 
 class EventType(str, Enum):
@@ -29,7 +46,8 @@ class JobEvent:
             metrics: Optional[Dict[str, Any]] = None,
             error: Optional[str] = None,
             error_code: Optional[str] = None,
-            metadata: Optional[Dict[str, Any]] = None
+            metadata: Optional[Dict[str, Any]] = None,
+            worker_task_arn: Optional[str] = None,
     ):
         self.job_id = job_id
         self.event_type = event_type
@@ -40,6 +58,7 @@ class JobEvent:
         self.error = error
         self.error_code = error_code
         self.metadata = metadata or {}
+        self.worker_task_arn = worker_task_arn
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert event to dictionary."""
@@ -61,6 +80,8 @@ class JobEvent:
             data["error_code"] = self.error_code
         if self.metadata:
             data["metadata"] = self.metadata
+        if self.worker_task_arn:
+            data["worker_task_arn"] = self.worker_task_arn
 
         return data
 
@@ -85,18 +106,11 @@ class EventPublisher:
             channel_prefix: str = "ml_training",
             results_stream: Optional[str] = None
     ):
-        """
-        Initialize event publisher.
-
-        Args:
-            redis_url: Redis/Valkey connection URL
-            channel_prefix: Prefix for Redis channels
-            results_stream: Redis stream for terminal events (Java wakeup)
-        """
         self.redis_url = redis_url
         self.channel_prefix = channel_prefix
         self.results_stream = results_stream
         self._client: Optional[redis.Redis] = None
+        self._worker_task_arn = _fetch_ecs_task_arn()
 
     async def connect(self):
         """Connect to Redis/Valkey."""
@@ -168,12 +182,12 @@ class EventPublisher:
             model_type: str,
             message: Optional[str] = None
     ):
-        """Publish job started event."""
         event = JobEvent(
             job_id=job_id,
             event_type=EventType.JOB_STARTED,
             message=message or f"Started {model_type}",
-            metadata={"model_type": model_type}
+            metadata={"model_type": model_type},
+            worker_task_arn=self._worker_task_arn,
         )
         await self.publish(event)
 
