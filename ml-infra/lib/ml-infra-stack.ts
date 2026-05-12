@@ -228,12 +228,8 @@ def handler(event, context):
     results = []
     for svc in services:
         region = svc['region']
-        cluster = svc['cluster']
-        service = svc['service']
-        avg_cpu = get_cpu_utilization(region, cluster, service)
-        cpu_norm = max(0.0, (avg_cpu - 60.0) / 20.0) if avg_cpu is not None else 0.0
         http_signal = 0.2 if (region == entrypoint_region and recent_http > 0) else 0.0
-        value = max(float(pending), http_signal, cpu_norm)
+        value = max(float(pending), http_signal)
 
         _cw(region).put_metric_data(
             Namespace='Custom/ML',
@@ -244,8 +240,8 @@ def handler(event, context):
                 'Unit': 'Count',
             }]
         )
-        results.append({'region': region, 'pending': pending, 'http': http_signal, 'cpu': avg_cpu, 'value': value})
-        print(f"region={region} pending={pending} http={http_signal} cpu={avg_cpu} published={value}")
+        results.append({'region': region, 'pending': pending, 'http': http_signal, 'value': value})
+        print(f"region={region} pending={pending} http={http_signal} published={value}")
 
     return {'results': results}
 
@@ -256,29 +252,6 @@ def get_total_pending():
     for stream, group in stream_groups:
         total += get_valkey_pending(stream, group)
     return total
-
-
-def get_cpu_utilization(region, cluster, service):
-    try:
-        resp = _cw(region).get_metric_statistics(
-            Namespace='AWS/ECS',
-            MetricName='CPUUtilization',
-            Dimensions=[
-                {'Name': 'ClusterName', 'Value': cluster},
-                {'Name': 'ServiceName', 'Value': service},
-            ],
-            StartTime=datetime.now(timezone.utc) - timedelta(minutes=5),
-            EndTime=datetime.now(timezone.utc),
-            Period=300,
-            Statistics=['Average'],
-        )
-        points = resp.get('Datapoints', [])
-        if not points:
-            return None
-        return float(points[-1]['Average'])
-    except Exception as e:
-        print(f"CPU query error ({region}/{cluster}/{service}): {e}")
-        return None
 
 
 def _resp_cmd(*args):

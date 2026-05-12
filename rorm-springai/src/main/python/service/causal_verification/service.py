@@ -85,7 +85,6 @@ class CausalVerificationService:
             checkpoint=None,
     ) -> dict[str, Any]:
         from datetime import datetime
-        from service.pipeline_checkpoint import PipelineCheckpoint
 
         result: dict[str, Any] = {"hypothesis_id": spec.hypothesis_id, "steps": {}}
 
@@ -103,6 +102,18 @@ class CausalVerificationService:
         # Store original_treatment at pipeline start
         if not spec.original_treatment:
             spec = dc_replace(spec, original_treatment=spec.treatment)
+
+        # Record run as in-progress with its full spec. The reexecution
+        # engine may overwrite this later with lineage form (parent + patch)
+        # for reexec runs — that's fine, this default works for fresh runs.
+        started_at = datetime.utcnow()
+        if checkpoint:
+            checkpoint.save_run_meta({
+                "status": "running",
+                "spec": spec.to_dict(),
+                "started_at": started_at.isoformat(),
+                "_score": started_at.timestamp(),
+            })
 
         # Step 0 — Load data
         report(0.02, "Loading data")
@@ -464,6 +475,19 @@ class CausalVerificationService:
                 f"{refutation_error_count} refutation(s) failed — "
                 f"robustness assessment is incomplete"
             )
+
+        # Freeze run: record completion with full spec + result.
+        # For reexecution runs the engine will overwrite with lineage form.
+        if checkpoint:
+            completed_at = datetime.utcnow()
+            checkpoint.save_run_meta({
+                "status": "completed",
+                "spec": spec.to_dict(),
+                "started_at": started_at.isoformat(),
+                "completed_at": completed_at.isoformat(),
+                "_score": completed_at.timestamp(),
+                "result": result,
+            })
 
         report(1.0, "Pipeline complete")
         return result

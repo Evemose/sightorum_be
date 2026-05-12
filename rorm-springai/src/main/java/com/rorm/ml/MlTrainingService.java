@@ -298,10 +298,15 @@ public class MlTrainingService {
     }
 
     /**
-     * Re-execute a base run with a partial spec change. The base spec
-     * is supplied by the caller (no longer loaded from Valkey on the
-     * Python side); only step-level pipeline checkpoints are reused
-     * server-side under {@code causal_cp:{baseRunId}:{step}}.
+     * Re-execute a base run with a partial spec change.
+     * <p>
+     * {@code baseSpec} is optional: when present it is sent in the
+     * request body and Python uses it directly; when null Python
+     * recovers the merged spec server-side by walking the base run's
+     * lineage (parent_run_id + patch chain) back to a root. Either way
+     * step-level pipeline checkpoints under
+     * {@code causal_cp:{baseRunId}:{step}} are reused to skip
+     * unaffected steps.
      */
     public DurableFuture<JobEvent> reexecuteWithBase(ReexecuteWithBaseRequest req,
                                                      com.rorm.ai.RormToolContext ctx) {
@@ -311,13 +316,19 @@ public class MlTrainingService {
         var modelSpace = ctx.modelSpace();
         var schema = ctx.schema();
         var journal = ctx.stepJournal();
-        var baseRequest = pipelineSpecConverter.convert(
-            baseSpec, baseSpec.hypothesisId() + " causal verification reexec",
-            modelSpace, schema);
-        var body = Map.of(
-            "base_spec", baseRequest,
-            "spec_patch", specPatch
-        );
+        Map<String, Object> body;
+        if (baseSpec != null) {
+            var baseRequest = pipelineSpecConverter.convert(
+                baseSpec, baseSpec.hypothesisId() + " causal verification reexec",
+                modelSpace, schema);
+            body = Map.of(
+                "base_spec", baseRequest,
+                "spec_patch", specPatch
+            );
+        } else {
+            // No base spec in registry — Python recovers it via lineage walk.
+            body = Map.of("spec_patch", specPatch);
+        }
         var jobId = journal.run("ml:reexec:" + baseRunId, UUID.class, () -> {
             try {
                 var resp = restClient.post()
@@ -355,14 +366,19 @@ public class MlTrainingService {
 
     /**
      * Inputs to {@link #reexecuteWithBase(ReexecuteWithBaseRequest, com.rorm.ai.RormToolContext)}
-     * bundling base-run identity, the recorded base spec, and the partial
-     * patch the caller wants applied. {@code modelSpace} / {@code schema}
-     * come from the {@link com.rorm.ai.RormToolContext} so they ride the
-     * same captured tool-context that carries {@code stepJournal}.
+     * bundling base-run identity, the optionally-recorded base spec, and
+     * the partial patch the caller wants applied.
+     * <p>
+     * {@code baseSpec} may be {@code null} when the base run was itself
+     * produced by reexecution (the registry only holds the patch in that
+     * case); Python recovers the merged spec server-side via lineage
+     * walk. {@code modelSpace} / {@code schema} come from the
+     * {@link com.rorm.ai.RormToolContext} so they ride the same captured
+     * tool-context that carries {@code stepJournal}.
      */
     public record ReexecuteWithBaseRequest(
         String baseRunId,
-        PipelineSpecRequest baseSpec,
+        @org.springframework.lang.Nullable PipelineSpecRequest baseSpec,
         PipelineSpecPatch specPatch
     ) {}
 }
