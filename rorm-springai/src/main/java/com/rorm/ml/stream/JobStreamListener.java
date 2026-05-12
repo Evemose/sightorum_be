@@ -26,6 +26,7 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redisTemplate;
     private final RormMlProperties properties;
+    private final WorkerTaskRegistry workerTaskRegistry;
 
     @Override
     @Retryable(retryFor = {Exception.class}, backoff = @Backoff(delay = 1000, multiplier = 2))
@@ -86,6 +87,7 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
 
     private void handleStarted(JobEvent event) {
         log.info("Job started: {} - {}", event.jobId(), event.message());
+        workerTaskRegistry.register(event.jobId(), event.workerTaskArn());
     }
 
     private void handleProgress(JobEvent event) {
@@ -99,6 +101,7 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
     private void handleSuccess(JobEvent event) {
         log.info("Job succeeded: {} - {}", event.jobId(), event.message());
 
+        workerTaskRegistry.clear(event.jobId());
         completionHandler.onJobSuccess(event);
     }
 
@@ -106,6 +109,7 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
         log.warn("Job failed: {} - {} ({})",
             event.jobId(), event.error(), event.errorCode());
 
+        workerTaskRegistry.clear(event.jobId());
         completionHandler.onJobFailure(event);
     }
 }

@@ -54,6 +54,10 @@ dependencies {
     implementation("com.bucket4j:bucket4j-core:8.10.1")
     implementation("com.jayway.jsonpath:json-path")
 
+    implementation(platform("software.amazon.awssdk:bom:2.29.45"))
+    implementation("software.amazon.awssdk:ecs")
+    implementation("software.amazon.awssdk:auth")
+
     // Restate durable execution (conditional via rorm.ml.durable-execution=true)
     implementation("dev.restate:sdk-spring-boot-starter:$restateVersion")
     implementation("dev.restate:admin-client:$restateVersion")

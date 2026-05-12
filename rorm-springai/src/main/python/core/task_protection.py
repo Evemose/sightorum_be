@@ -54,11 +54,18 @@ def _put_state(url: str, body: dict) -> None:
         url,
         data=json.dumps(body).encode(),
         method="PUT",
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
     )
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             if resp.status >= 400:
-                logger.warning(f"task protection PUT {resp.status}: {resp.read(200)!r}")
-    except (URLError, HTTPError) as e:
-        logger.warning(f"task protection PUT failed: {e}")
+                logger.warning(f"task protection PUT {resp.status}: {resp.read().decode(errors='replace')[:500]}")
+    except HTTPError as e:
+        body_str = ""
+        try:
+            body_str = e.read().decode(errors="replace")[:500]
+        except Exception:
+            pass
+        logger.warning(f"task protection PUT {e.code}: {body_str or e.reason}")
+    except URLError as e:
+        logger.warning(f"task protection PUT network error: {e}")

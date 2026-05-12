@@ -67,6 +67,10 @@ export class MlComputeOnlyRegionStack extends cdk.Stack {
             actions: ['s3:ListBucket'],
             resources: [`arn:aws:s3:::${props.modelsBucketName}`],
         }));
+        taskDef.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+            actions: ['ecs:GetTaskProtection', 'ecs:UpdateTaskProtection'],
+            resources: ['*'],
+        }));
 
         taskDef.addToExecutionRolePolicy(new iam.PolicyStatement({
             actions: [
