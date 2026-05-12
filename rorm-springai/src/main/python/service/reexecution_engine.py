@@ -154,34 +154,41 @@ class ReexecutionEngine:
     def reexecute(
             self,
             base_run_id: str,
-            base_spec: dict[str, Any],
             spec_patch: dict[str, Any],
             datasource,
+            base_spec: Optional[dict[str, Any]] = None,
             progress_callback=None,
             new_run_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Re-execute the pipeline with a partial spec change.
 
-        The base spec is supplied by the caller (the swarm holds it in
-        memory via its ToolCallRegistry) — this engine no longer reads
-        run metadata from Valkey. Only step-level checkpoints under
-        ``causal_cp:{base_run_id}:{step}`` are reused server-side.
+        The base spec is resolved in this order:
+
+        1. If ``base_spec`` is supplied by the caller, use it directly
+           (backward-compat path; the swarm's ToolCallRegistry may pass
+           it from in-memory state).
+        2. Otherwise, look up the base run's metadata in Valkey:
+           - Root runs store their full spec → use it.
+           - Reexec runs store ``parent_run_id`` + ``patch`` → walk the
+             chain to a root, replay patches forward.
 
         Parameters
         ----------
         base_run_id : str
             The base run whose step checkpoints will be reused.
-        base_spec : dict
-            The full PipelineSpec the base run was launched with (sent
-            by the caller; not loaded from storage).
         spec_patch : dict
             Partial PipelineSpec — only the fields that changed.
-            Deep-merged into ``base_spec``.
         datasource
             SQL datasource for data loading.
+        base_spec : dict, optional
+            Caller-supplied merged spec. Overrides chain-walk recovery
+            when provided. Kept for backward compat with callers that
+            still thread it through.
         progress_callback
             Optional ``(pct, msg)`` callback.
+        new_run_id : str, optional
+            ID to use for the new run. If omitted, a UUID is minted.
 
         Returns
         -------
@@ -191,10 +198,15 @@ class ReexecutionEngine:
         """
         base_cp = PipelineCheckpoint(base_run_id, self._redis_url)
 
-        # 1. Merge patch → new full spec
+        # 1. Resolve base spec — caller-supplied takes precedence,
+        # otherwise walk the lineage chain.
+        if base_spec is None:
+            base_spec = _resolve_spec_via_chain(base_run_id, self._redis_url)
+
+        # 2. Merge patch → new full spec
         merged = deep_merge(base_spec, spec_patch)
 
-        # 2. Determine which top-level fields actually changed
+        # 3. Determine which top-level fields actually changed
         changed_fields = find_changed_fields(base_spec, merged)
         if not changed_fields:
             # Nothing changed — return a no-op result. We do NOT have the
@@ -233,7 +245,9 @@ class ReexecutionEngine:
             if cached is not None:
                 new_cp.save(step, cached)
 
-        # 6. Execute pipeline (cached steps are skipped automatically)
+        # 6. Execute pipeline (cached steps are skipped automatically).
+        # run_pipeline writes a full-spec meta record by default — fine
+        # for fresh runs, but we want the lean lineage form for reexecs.
         spec = CausalVerificationRequest.from_dict(merged)
         result = self._service.run_pipeline(
             spec, datasource,
@@ -241,7 +255,20 @@ class ReexecutionEngine:
             checkpoint=new_cp,
         )
 
-        # 7. Compute diffs between base and new for invalidated steps
+        # 7. Overwrite meta with lean lineage form: keep parent + patch,
+        # drop the merged spec. The chain walk recovers it on demand.
+        existing_meta = new_cp.load_run_meta() or {}
+        new_cp.save_run_meta({
+            "status": "completed",
+            "parent_run_id": base_run_id,
+            "patch": spec_patch,
+            "started_at": existing_meta.get("started_at"),
+            "completed_at": existing_meta.get("completed_at"),
+            "_score": existing_meta.get("_score", 0),
+            "result": result,
+        })
+
+        # 8. Compute diffs between base and new for invalidated steps
         diffs = _compute_diffs(base_cp, new_cp, invalidated)
 
         skipped = [s for s in STEP_ORDER if s not in invalidated]
@@ -259,6 +286,93 @@ class ReexecutionEngine:
 # ======================================================================
 # DAG invalidation
 # ======================================================================
+
+_MAX_CHAIN_DEPTH = 100
+
+
+class SpecNotFoundError(ValueError):
+    """Raised when the merged spec for a run cannot be recovered.
+
+    Carries ``error_code="SPEC_NOT_FOUND"`` so the async failure pathway
+    (``on_permanent_failure`` → ``publish_failed(error_code=...)``)
+    surfaces a structured code to upstream callers instead of opaque
+    UNKNOWN_ERROR.
+
+    Causes covered: missing run metadata (never existed / TTL expired),
+    malformed lineage record, cycles in the parent chain, depth cap
+    exceeded. All point at the same end state for the caller — the spec
+    is irrecoverable from server-side state and must be supplied
+    explicitly via ``base_spec``.
+    """
+
+    error_code = "SPEC_NOT_FOUND"
+
+    def __init__(self, message: str, run_id: str, reason: str):
+        super().__init__(message)
+        self.run_id = run_id
+        self.reason = reason
+
+
+def _resolve_spec_via_chain(
+        run_id: str,
+        redis_url: str,
+        _depth: int = 0,
+        _seen: set[str] | None = None,
+) -> dict[str, Any]:
+    """Recover the merged PipelineSpec for *run_id* by walking lineage.
+
+    Root runs store ``spec`` directly. Reexec runs store ``parent_run_id``
+    + ``patch``; recurse to the root and replay forward.
+
+    Raises ``SpecNotFoundError`` for any failure to recover (missing
+    meta, malformed record, cycle, depth cap) — callers can catch this
+    specifically and either supply ``base_spec`` directly or surface a
+    coherent error to the user.
+    """
+    if _seen is None:
+        _seen = set()
+    if run_id in _seen:
+        raise SpecNotFoundError(
+            f"Cycle detected in reexecution lineage at run '{run_id}' "
+            f"(visited: {sorted(_seen)})",
+            run_id=run_id, reason="lineage_cycle",
+        )
+    if _depth > _MAX_CHAIN_DEPTH:
+        raise SpecNotFoundError(
+            f"Reexecution chain for run '{run_id}' exceeds max depth "
+            f"{_MAX_CHAIN_DEPTH} — likely a runaway loop",
+            run_id=run_id, reason="depth_exceeded",
+        )
+    _seen.add(run_id)
+
+    cp = PipelineCheckpoint(run_id, redis_url)
+    meta = cp.load_run_meta()
+    if meta is None:
+        raise SpecNotFoundError(
+            f"Cannot resolve spec for run '{run_id}': no run metadata "
+            f"found (run never existed, never completed, or metadata TTL "
+            f"expired — default 30 days)",
+            run_id=run_id, reason="meta_missing",
+        )
+
+    if "spec" in meta and isinstance(meta["spec"], dict):
+        return copy.deepcopy(meta["spec"])
+
+    parent_run_id = meta.get("parent_run_id")
+    patch = meta.get("patch")
+    if not parent_run_id or patch is None:
+        raise SpecNotFoundError(
+            f"Run '{run_id}' metadata is malformed: has neither a full "
+            f"spec nor lineage (parent_run_id + patch). Keys: "
+            f"{sorted(meta.keys())}",
+            run_id=run_id, reason="meta_malformed",
+        )
+
+    parent_spec = _resolve_spec_via_chain(
+        parent_run_id, redis_url, _depth + 1, _seen,
+    )
+    return deep_merge(parent_spec, patch)
+
 
 def find_invalidated_steps(changed_fields: set[str]) -> set[str]:
     """

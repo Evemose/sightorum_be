@@ -672,31 +672,30 @@ def _add_causal_verification_routes(app: FastAPI):
         """
         Re-execute a base run with a partial spec change.
 
-        The caller supplies the full base spec in the request body
-        (the swarm holds it in memory via its ToolCallRegistry); this
-        service no longer persists run metadata in Valkey. Only the
-        per-step pipeline checkpoints under causal_cp:{run_id}:{step}
-        are reused server-side to skip steps the patch does not
-        invalidate.
+        The base spec is normally recovered server-side from the base
+        run's metadata (full spec for root runs, lineage walk for
+        reexec runs). Callers may still pass ``base_spec`` in the body
+        to override / supplement, which is useful when the base run's
+        meta has expired (default 30-day TTL).
 
         Request body schema::
 
             {
-              "base_spec": <full PipelineSpec / CausalVerificationJobRequest>,
-              "spec_patch": <partial spec — only fields that changed>
+              "spec_patch": <partial spec — only fields that changed>,
+              "base_spec": <optional, full base PipelineSpec>
             }
 
         Queues the reexecution asynchronously — returns analysis_id
         immediately. Monitor progress via event channels.
         """
-        base_spec = body.get("base_spec")
         spec_patch = body.get("spec_patch")
-        if base_spec is None or spec_patch is None:
+        if spec_patch is None:
             raise HTTPException(
                 status_code=422,
-                detail="Body must include 'base_spec' (full base PipelineSpec) "
-                       "and 'spec_patch' (partial spec with changed fields).",
+                detail="Body must include 'spec_patch' (partial spec with "
+                       "changed fields).",
             )
+        base_spec = body.get("base_spec")  # optional
 
         analysis_id = str(uuid.uuid4())
 

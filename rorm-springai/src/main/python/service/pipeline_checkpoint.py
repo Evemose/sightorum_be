@@ -1,18 +1,19 @@
 """
-Checkpoint store for long-running pipeline runs.
+Checkpoint + run-metadata store for long-running pipeline runs.
 
-Persists each step's output variables to Redis so that a pipeline
-can resume from the last completed step after a crash or retry,
-and so that reexecuteCausalPipeline can skip steps unaffected by
-a spec patch.
+Two distinct concerns live here:
+
+* Per-step output checkpoints (``causal_cp:{run_id}:{step}``) — let a
+  pipeline resume after a crash and let ``reexecuteCausalPipeline``
+  skip steps unaffected by a spec patch. 7-day TTL.
+* Run-level metadata (``causal_run:{run_id}:meta``) — records what
+  spec each run was launched with, lineage of reexecutions (parent +
+  patch), status, and the final result. Lets the reexecution engine
+  recover the base spec from a run id alone, without the caller having
+  to thread it through. 30-day TTL.
 
 DataFrames and other large in-memory objects are NOT checkpointed —
 the caller must re-derive them (e.g., re-run the data-loading query).
-
-Run-level metadata (spec, status, final result) is NOT persisted
-here — the swarm carries it in memory via its ToolCallRegistry.
-Only per-step pipeline checkpoints (causal_cp:{run_id}:{step}) live
-in Valkey, and only to enable step reuse during reexecution.
 """
 
 import json
@@ -24,18 +25,21 @@ logger = logging.getLogger(__name__)
 
 _KEY_PREFIX = "causal_cp"
 _DEFAULT_TTL = 7 * 24 * 3600  # 7 days
+_META_TTL = 30 * 24 * 3600  # 30 days for run metadata
 
 
 class PipelineCheckpoint:
     """
-    Redis-backed synchronous checkpoint store.
+    Redis-backed synchronous checkpoint + run-metadata store.
 
     Key layout::
 
-        causal_cp:{run_id}:{step}  → JSON blob with the step's variables
-        causal_cp:{run_id}:_order  → JSON list of step names in completion order
+        causal_cp:{run_id}:{step}   → JSON blob with the step's variables
+        causal_cp:{run_id}:_order   → JSON list of step names in completion order
+        causal_run:{run_id}:meta    → JSON run metadata (spec OR lineage)
+        causal_runs:index           → sorted set of run_ids by completion time
 
-    Every key gets a TTL so abandoned runs clean themselves up.
+    Step keys get a 7-day TTL; meta keys get a 30-day TTL.
     """
 
     def __init__(self, run_id: str, redis_url: str, ttl_seconds: int = _DEFAULT_TTL):
@@ -65,6 +69,7 @@ class PipelineCheckpoint:
             logger.info(f"Checkpoint saved: {step}  (run={self._run_id})")
         except Exception as e:
             logger.warning(f"Checkpoint save failed for step '{step}': {e}")
+
 
     def load(self, step: str) -> Optional[dict[str, Any]]:
         """Return the saved dict for *step*, or ``None`` if absent."""
@@ -102,6 +107,66 @@ class PipelineCheckpoint:
             logger.info(f"Checkpoints cleared  (run={self._run_id})")
         except Exception as e:
             logger.warning(f"Checkpoint clear failed: {e}")
+
+    # -- run-level metadata -----------------------------------------------
+
+    def save_run_meta(self, metadata: dict[str, Any]) -> None:
+        """Persist run-level metadata.
+
+        Two valid shapes:
+        - Root run: ``{status, spec, started_at, ...}`` — full spec recorded.
+        - Reexecution: ``{status, parent_run_id, patch, started_at, ...}``
+          — only the patch is stored; the merged spec is recovered by
+          walking the lineage chain to the root.
+        """
+        if not self._available:
+            return
+        key = f"causal_run:{self._run_id}:meta"
+        try:
+            self._client.set(
+                key, json.dumps(metadata, default=_json_fallback),
+                ex=_META_TTL,
+            )
+            self._client.zadd(
+                "causal_runs:index",
+                {self._run_id: metadata.get("_score", 0)},
+                nx=False,
+            )
+        except Exception as e:
+            logger.warning(f"Run metadata save failed: {e}")
+
+    def load_run_meta(self) -> Optional[dict[str, Any]]:
+        """Load run-level metadata, or ``None`` if the run is unknown."""
+        if not self._available:
+            return None
+        key = f"causal_run:{self._run_id}:meta"
+        try:
+            raw = self._client.get(key)
+            return json.loads(raw) if raw else None
+        except Exception:
+            return None
+
+    @classmethod
+    def list_runs(cls, redis_url: str, limit: int = 50) -> list[dict[str, Any]]:
+        """List recent runs with their metadata (most recent first)."""
+        try:
+            client = redis.from_url(
+                redis_url, encoding="utf-8", decode_responses=True,
+            )
+            run_ids = client.zrevrange("causal_runs:index", 0, limit - 1)
+            runs = []
+            for rid in run_ids:
+                raw = client.get(f"causal_run:{rid}:meta")
+                if raw:
+                    meta = json.loads(raw)
+                    meta["run_id"] = rid
+                    meta.pop("result", None)
+                    meta.pop("spec", None)
+                    meta.pop("patch", None)
+                    runs.append(meta)
+            return runs
+        except Exception:
+            return []
 
     # -- internals --------------------------------------------------------
 

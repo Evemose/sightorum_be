@@ -165,15 +165,14 @@ public class PipelineExecutionTool {
             return errorResponse("Base run " + runId + " not found in registry "
                                  + "(only runs produced earlier in this swarm are reexecutable).");
         }
+        // baseSpec is null when the base run was itself a reexecution
+        // (registry holds only the patch). The server recovers the merged
+        // spec from the run's lineage in that case; we just pass null.
         var baseSpec = base.request() instanceof PipelineSpecRequest s ? s : null;
-        if (baseSpec == null) {
-            return errorResponse("Base run " + runId + " has no recorded spec "
-                                 + "(it was itself launched as a reexecute patch). "
-                                 + "Re-execute against an earlier ancestor that holds the full spec.");
-        }
         try {
             log.info("Submitting reexecution: base_run={} hypothesis_id={}",
-                runId, baseSpec.hypothesisId());
+                runId,
+                baseSpec != null ? baseSpec.hypothesisId() : "<recovered server-side>");
             var reexecRequest = new RunRecord.ReexecuteRequest(runId, specPatch);
             var future = mlService.reexecuteWithBase(
                 new MlTrainingService.ReexecuteWithBaseRequest(runId, baseSpec, specPatch),

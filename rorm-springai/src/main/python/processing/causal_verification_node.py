@@ -129,14 +129,13 @@ class CausalVerificationPipelineNode(PipelineNode):
     async def _process_reexecution(self, message: StreamMessage) -> Optional[StreamMessage]:
         analysis_id = message.payload.get("analysis_id")
         base_run_id = message.payload.get("base_run_id")
-        base_spec = message.payload.get("base_spec")
+        base_spec = message.payload.get("base_spec")  # optional — chain walk recovers it
         spec_patch = message.payload.get("spec_patch")
 
-        if (not analysis_id or not base_run_id or base_spec is None
-                or spec_patch is None):
+        if not analysis_id or not base_run_id or spec_patch is None:
             raise ValueError(
                 "Invalid reexecution message: missing analysis_id, base_run_id, "
-                "base_spec, or spec_patch")
+                "or spec_patch")
 
         if self.reexecution_engine is None:
             raise ValueError("Reexecution engine not configured")
@@ -157,9 +156,9 @@ class CausalVerificationPipelineNode(PipelineNode):
                 None,
                 lambda: self.reexecution_engine.reexecute(
                     base_run_id=base_run_id,
-                    base_spec=base_spec,
                     spec_patch=spec_patch,
                     datasource=datasource,
+                    base_spec=base_spec,
                     progress_callback=sync_progress,
                     new_run_id=analysis_id,
                 ),
