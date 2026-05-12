@@ -104,11 +104,13 @@ class EventPublisher:
             self,
             redis_url: str = "redis://localhost:6379",
             channel_prefix: str = "ml_training",
-            results_stream: Optional[str] = None
+            results_stream: Optional[str] = None,
+            started_stream: Optional[str] = None,
     ):
         self.redis_url = redis_url
         self.channel_prefix = channel_prefix
         self.results_stream = results_stream
+        self.started_stream = started_stream
         self._client: Optional[redis.Redis] = None
         self._worker_task_arn = _fetch_ecs_task_arn()
 
@@ -172,9 +174,11 @@ class EventPublisher:
         # Expire history after 7 days
         await self._client.expire(history_key, 7 * 24 * 60 * 60)
 
-        # XADD terminal events to results stream for Java fire-listen-wakeup
         if self.results_stream and event.event_type in _TERMINAL_EVENTS:
             await self._client.xadd(self.results_stream, {"payload": event_json})
+
+        if self.started_stream and event.event_type == EventType.JOB_STARTED:
+            await self._client.xadd(self.started_stream, {"payload": event_json})
 
     async def publish_started(
             self,

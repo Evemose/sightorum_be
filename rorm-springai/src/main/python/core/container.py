@@ -411,11 +411,11 @@ def _create_shap_curve_service(db_storage, worker_pool):
 
 
 def _create_event_publisher(cfg: Settings):
-    """Create event publisher."""
     from events.publisher import EventPublisher
     return EventPublisher(
         redis_url=cfg.redis.get_url(),
         results_stream=cfg.pipeline.streams.training_results,
+        started_stream=cfg.pipeline.streams.job_starts,
     )
 
 

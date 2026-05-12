@@ -80,6 +80,7 @@ class PipelineStreams:
     tuning_requests: str = "ml_training:tuning_requests"
     training_requests: str = "ml_training:training_requests"
     training_results: str = "ml_training:training_results"
+    job_starts: str = "ml_training:job_starts"
     stability_selection_requests: str = "ml_training:stability_selection_requests"
     shap_requests: str = "ml_training:shap_requests"
     causal_verification_requests: str = "ml_training:causal_verification_requests"

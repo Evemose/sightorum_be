@@ -13,6 +13,7 @@ public record RormMlProperties(
     @DefaultValue("redis://localhost:6379") String valkeyUrl,
     @DefaultValue("") String valkeyPassword,
     @DefaultValue("ml_training:training_results") String eventStreamName,
+    @DefaultValue("ml_training:job_starts") String jobStartsStreamName,
     @DefaultValue("spring_consumers") String consumerGroup,
     @DefaultValue("10m") Duration requestTimeout,
     @DefaultValue("5s") Duration connectTimeout,
