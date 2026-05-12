@@ -47,45 +47,47 @@ public class MlJobWatchdog {
             log.warn("watchdog: unparseable task ARN '{}' for jobId {}", taskArn, jobId);
             return;
         }
-        var resp = ecsClients.forRegion(ref.region())
-            .describeTasks(b -> b.cluster(ref.cluster()).tasks(ref.taskId()));
-        if (resp.tasks().isEmpty()) {
-            log.debug("watchdog: DescribeTasks returned no task for {} (GC'd by ECS retention)", taskArn);
-            return;
-        }
-        var task = resp.tasks().getFirst();
-        if (!"STOPPED".equalsIgnoreCase(task.lastStatus())) {
-            return;
-        }
-        if (task.containers().isEmpty()) {
-            return;
-        }
-        var container = task.containers().getFirst();
-        if (!isOomKill(container.exitCode(), container.reason())) {
-            return;
-        }
+        try (var ecsClient = ecsClients.forRegion(ref.region())) {
+            var resp = ecsClient
+                .describeTasks(b -> b.cluster(ref.cluster()).tasks(ref.taskId()));
+            if (resp.tasks().isEmpty()) {
+                log.debug("watchdog: DescribeTasks returned no task for {} (GC'd by ECS retention)", taskArn);
+                return;
+            }
+            var task = resp.tasks().getFirst();
+            if (!"STOPPED".equalsIgnoreCase(task.lastStatus())) {
+                return;
+            }
+            if (task.containers().isEmpty()) {
+                return;
+            }
+            var container = task.containers().getFirst();
+            if (!isOomKill(container.exitCode(), container.reason())) {
+                return;
+            }
 
-        log.warn("watchdog: synthesizing JOB_FAILED for jobId={} due to worker OOM (task={}, exit={}, reason={})",
-            jobId, taskArn, container.exitCode(), container.reason());
+            log.warn("watchdog: synthesizing JOB_FAILED for jobId={} due to worker OOM (task={}, exit={}, reason={})",
+                jobId, taskArn, container.exitCode(), container.reason());
 
-        var synthetic = new JobEvent(
-            jobId,
-            JobEventType.JOB_FAILED,
-            Instant.now(),
-            0.0,
-            "Worker task killed by OOM",
-            Map.of(),
-            container.reason() != null ? container.reason() : "OutOfMemory: worker killed",
-            "WORKER_OOM",
-            Map.of(
-                "watchdog", true,
-                "exitCode", container.exitCode() != null ? container.exitCode() : -1,
-                "taskArn", taskArn
-            ),
-            taskArn
-        );
-        completionHandler.onJobFailure(synthetic);
-        workerTaskRegistry.clear(jobId);
+            var synthetic = new JobEvent(
+                jobId,
+                JobEventType.JOB_FAILED,
+                Instant.now(),
+                0.0,
+                "Worker task killed by OOM",
+                Map.of(),
+                container.reason() != null ? container.reason() : "OutOfMemory: worker killed",
+                "WORKER_OOM",
+                Map.of(
+                    "watchdog", true,
+                    "exitCode", container.exitCode() != null ? container.exitCode() : -1,
+                    "taskArn", taskArn
+                ),
+                taskArn
+            );
+            completionHandler.onJobFailure(synthetic);
+            workerTaskRegistry.clear(jobId);
+        }
     }
 
     @Nullable

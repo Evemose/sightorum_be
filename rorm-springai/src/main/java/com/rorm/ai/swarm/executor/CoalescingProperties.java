@@ -14,7 +14,7 @@ import java.util.List;
  */
 @ConfigurationProperties(prefix = "rorm.ai.coalescing")
 public record CoalescingProperties(
-    @DefaultValue("PT5M") Duration window,
+    @DefaultValue("PT0M") Duration window,
     List<String> excludedRoles
 ) {
 
