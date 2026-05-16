@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import os
+import urllib.request
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -32,6 +33,20 @@ logger = logging.getLogger(__name__)
 # ========== Application Lifespan ==========
 
 
+def _fetch_ecs_task_id() -> Optional[str]:
+    uri = os.environ.get("ECS_CONTAINER_METADATA_URI_V4")
+    if not uri:
+        return None
+    try:
+        with urllib.request.urlopen(f"{uri}/task", timeout=2) as r:
+            arn = json.load(r).get("TaskARN")
+            if arn:
+                return arn.rsplit("/", 1)[-1]
+    except Exception as e:
+        logger.warning(f"failed to fetch ECS task id: {e}")
+    return None
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Manage application lifecycle with DI container."""
@@ -50,7 +65,7 @@ async def lifespan(_: FastAPI):
     causal_verification_node = container.causal_verification_node()
 
     region = os.environ.get("AWS_REGION", "local")
-    task_id = os.environ.get("ECS_TASK_ID") or str(uuid.uuid4())[:8]
+    task_id = os.environ.get("ECS_TASK_ID") or _fetch_ecs_task_id() or str(uuid.uuid4())[:8]
     for node in (training_node, tuning_node, stability_selection_node, shap_node, causal_verification_node):
         node.consumer_name = f"{node.consumer_group}-{region}-{task_id}"
 
