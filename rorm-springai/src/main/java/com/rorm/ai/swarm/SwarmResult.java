@@ -64,7 +64,10 @@ public record SwarmResult(
         @Nullable ForensicDiagnosisDTO diagnosis,
         @Nullable StandoffArgumentDTO advocate,
         @Nullable StandoffArgumentDTO prosecutor,
-        @Nullable SupervisorVerdictDTO supervisorVerdict
+        @Nullable SupervisorVerdictDTO supervisorVerdict,
+        @Nullable EventId advocateId,
+        @Nullable EventId prosecutorId,
+        @Nullable EventId diagnosisId
     ) {
     }
 }

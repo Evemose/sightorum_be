@@ -820,11 +820,11 @@ public class JournaledAnthropicChatModel implements ChatModel {
     }
 
     private AnthropicClient resolveClient(@Nullable ChatOptions options) {
-//        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
-//            return directClient;
-//        }
-//        return bedrockClient;
-        return directClient;
+        if (options instanceof AnthropicChatOptions ao && ao.isWebAccess()) {
+            return directClient;
+        }
+        return bedrockClient;
+//        return directClient;
     }
 
     @SneakyThrows

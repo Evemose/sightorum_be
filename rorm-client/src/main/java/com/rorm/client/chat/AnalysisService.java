@@ -29,19 +29,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @RequiredArgsConstructor
 public class AnalysisService {
 
-    private static final Duration EVENT_COLLECT_TIMEOUT = Duration.ofMinutes(2);
-
-    /**
-     * Max characters in one coalesced token event before forced split.
-     */
     private static final int MAX_TOKEN_BYTES = 4096;
-    /**
-     * Max events per buffered batch in the live stream.
-     */
     private static final int LIVE_BATCH_MAX = 256;
-    /**
-     * Time window the live stream waits before flushing a batch.
-     */
     private static final Duration LIVE_BATCH_INTERVAL = Duration.ofMillis(100);
 
     private final DurableRuntime durableRuntime;
@@ -65,45 +54,24 @@ public class AnalysisService {
     }
 
     /**
-     * Submit a durable run on a virtual thread and on completion drain the
-     * event bus into the session_analyses row so the run survives the Redis
-     * stream's TTL.
-     *
-     * @param closeBus when true, signal the bus to complete after submit
-     *                 returns. DurableSwarm completes its own bus in finally;
-     *                 standalone phases (descriptive) do not, so we close
-     *                 the bus here.
+     * Spawn the Restate submission on a virtual thread. Persistence of the
+     * collected event log is owned by
+     * {@link com.rorm.client.chat.session.AnalysisPersistenceCoordinator}
+     * — its subscriber holds the bus until {@code RunCompleted} arrives and
+     * survives JVM restarts via the no-TTL Valkey pending set.
      */
     private void runDurable(String runId, JobSpec spec, boolean closeBus) {
         Thread.startVirtualThread(() -> {
-            String error = null;
             try {
                 durableRuntime.submit(runId, spec);
             } catch (Exception e) {
                 log.error("Run {} failed", runId, e);
-                error = e.getMessage();
             } finally {
                 if (closeBus) {
                     swarmEventBus.complete(runId);
                 }
             }
-            var events = collectEvents(runId);
-            if (error == null) {
-                sessionService.markAnalysisSucceeded(runId, events);
-            } else {
-                sessionService.markAnalysisFailed(runId, error, events);
-            }
         });
-    }
-
-    private @Nullable List<SwarmStreamEvent> collectEvents(String runId) {
-        try {
-            var raw = swarmEventBus.subscribe(runId).collectList().block(EVENT_COLLECT_TIMEOUT);
-            return raw == null ? null : TokenAggregator.aggregate(raw, MAX_TOKEN_BYTES);
-        } catch (Exception e) {
-            log.warn("Failed to collect events for run {}: {}", runId, e.getMessage());
-            return null;
-        }
     }
 
     /**

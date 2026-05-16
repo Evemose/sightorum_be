@@ -63,7 +63,10 @@ export class MlGlobalsStack extends cdk.Stack {
         this.imageUri = repo.repositoryUri + ':latest';
         this.entrypointRegion = props.entrypointRegion;
 
-        const cluster = new ecs.Cluster(this, 'MlCluster', {vpc});
+        const cluster = new ecs.Cluster(this, 'MlCluster', {
+            vpc,
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED,
+        });
 
         const taskDef = new ecs.FargateTaskDefinition(this, 'MlTask', {
             cpu: 16384,
@@ -107,7 +110,13 @@ export class MlGlobalsStack extends cdk.Stack {
         });
         alb.logAccessLogs(accessLogsBucket);
 
-        const listener = alb.addListener('Http', {port: 80});
+        const listener = alb.addListener('Http', {
+            port: 80,
+            defaultAction: elbv2.ListenerAction.fixedResponse(404, {
+                contentType: 'text/plain',
+                messageBody: 'Not found\n',
+            }),
+        });
 
         const service = new ecs.FargateService(this, 'MlService', {
             cluster,
@@ -122,6 +131,8 @@ export class MlGlobalsStack extends cdk.Stack {
         listener.addTargets('MlTargets', {
             port: 8000,
             targets: [service],
+            priority: 100,
+            conditions: [elbv2.ListenerCondition.httpHeader('X-RORM-Client', ['1'])],
             healthCheck: {
                 path: '/health',
                 interval: cdk.Duration.seconds(30),
@@ -131,7 +142,7 @@ export class MlGlobalsStack extends cdk.Stack {
         });
 
         const scaling = service.autoScaleTaskCount({
-            minCapacity: 1,
+            minCapacity: 0,
             maxCapacity: 5,
         });
 
@@ -227,13 +238,13 @@ def _cw(region):
 def handler(event, context):
     pending = get_total_pending()
     entrypoint_region = os.environ['ENTRYPOINT_REGION']
-    recent_http = get_recent_request_count()
+    recent_5xx = get_recent_5xx_count()
     services = json.loads(os.environ['ECS_SERVICES'])
 
     results = []
     for svc in services:
         region = svc['region']
-        http_signal = 0.2 if (region == entrypoint_region and recent_http > 0) else 0.0
+        http_signal = 1.5 if (region == entrypoint_region and recent_5xx > 0) else 0.0
         value = max(float(pending), http_signal)
 
         _cw(region).put_metric_data(
@@ -246,7 +257,7 @@ def handler(event, context):
             }]
         )
         results.append({'region': region, 'pending': pending, 'http': http_signal, 'value': value})
-        print(f"region={region} pending={pending} http={http_signal} published={value}")
+        print(f"region={region} pending={pending} 5xx={recent_5xx} http_signal={http_signal} published={value}")
 
     return {'results': results}
 
@@ -297,28 +308,22 @@ def get_valkey_pending(stream, group):
     return 0
 
 
-def get_recent_request_count():
-    total = 0
-    for metric in ('NewConnectionCount', 'RequestCount', 'HTTPCode_ELB_5XX_Count'):
-        try:
-            resp = cw_local.get_metric_statistics(
-                Namespace='AWS/ApplicationELB',
-                MetricName=metric,
-                Dimensions=[{
-                    'Name': 'LoadBalancer',
-                    'Value': os.environ['ALB_ARN_SUFFIX']
-                }],
-                StartTime=datetime.now(timezone.utc) - timedelta(minutes=10),
-                EndTime=datetime.now(timezone.utc),
-                Period=600,
-                Statistics=['Sum'],
-            )
-            points = resp.get('Datapoints', [])
-            if points:
-                total += int(points[0]['Sum'])
-        except Exception as e:
-            print(f"CloudWatch query error ({metric}): {e}")
-    return total
+def get_recent_5xx_count():
+    try:
+        resp = cw_local.get_metric_statistics(
+            Namespace='AWS/ApplicationELB',
+            MetricName='HTTPCode_ELB_5XX_Count',
+            Dimensions=[{'Name': 'LoadBalancer', 'Value': os.environ['ALB_ARN_SUFFIX']}],
+            StartTime=datetime.now(timezone.utc) - timedelta(minutes=10),
+            EndTime=datetime.now(timezone.utc),
+            Period=600,
+            Statistics=['Sum'],
+        )
+        points = resp.get('Datapoints', [])
+        return int(points[0]['Sum']) if points else 0
+    except Exception as e:
+        print(f"CloudWatch query error (HTTPCode_ELB_5XX_Count): {e}")
+        return 0
 `),
         });
 

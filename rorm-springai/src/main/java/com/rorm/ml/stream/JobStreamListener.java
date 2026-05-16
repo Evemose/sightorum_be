@@ -37,7 +37,7 @@ public class JobStreamListener implements StreamListener<String, MapRecord<Strin
             var event = parseEvent(message.getValue());
             handleEvent(event);
             redisTemplate.opsForStream().acknowledge(
-                properties.eventStreamName(), properties.consumerGroup(), message.getId());
+                message.getStream(), properties.consumerGroup(), message.getId());
         } catch (Exception e) {
             log.error("Failed to process stream message: {}", e.getMessage(), e);
         }
