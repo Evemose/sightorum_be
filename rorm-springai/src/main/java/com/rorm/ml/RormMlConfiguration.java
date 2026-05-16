@@ -44,6 +44,7 @@ public class RormMlConfiguration {
         return builder.clone()
             .baseUrl(properties.serviceBaseUrl())
             .requestFactory(factory)
+            .defaultHeader("X-RORM-Client", "1")
             .build();
     }
 

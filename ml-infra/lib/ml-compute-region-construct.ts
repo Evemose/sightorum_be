@@ -37,6 +37,7 @@ export class MlComputeOnlyRegionStack extends cdk.Stack {
         const cluster = new ecs.Cluster(this, 'MlComputeCluster', {
             vpc,
             clusterName: `MlComputeCluster-${props.regionName}`,
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED,
         });
 
         const taskDef = new ecs.FargateTaskDefinition(this, 'MlComputeTask', {

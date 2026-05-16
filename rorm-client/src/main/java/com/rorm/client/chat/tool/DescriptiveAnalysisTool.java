@@ -3,6 +3,7 @@ package com.rorm.client.chat.tool;
 import com.rorm.ai.RormToolContext;
 import com.rorm.client.chat.AnalysisService;
 import com.rorm.client.chat.session.AnalysisKind;
+import com.rorm.client.chat.session.AnalysisPersistenceCoordinator;
 import com.rorm.client.chat.session.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
@@ -16,6 +17,7 @@ public class DescriptiveAnalysisTool {
 
     private final AnalysisService analysisService;
     private final SessionService sessionService;
+    private final AnalysisPersistenceCoordinator persistenceCoordinator;
 
     @Tool(
         name = "startDescriptiveAnalysis",
@@ -42,6 +44,7 @@ public class DescriptiveAnalysisTool {
         var runId = analysisService.startDescriptiveAnalysis(ctx.schema(), query);
         if (sessionId != null) {
             sessionService.registerAnalysis(sessionId, runId, AnalysisKind.DESCRIPTIVE, query);
+            persistenceCoordinator.track(runId);
         }
         return "Descriptive analysis started. Run ID: " + runId +
                ". The user can follow progress at /research/" + runId + "/stream (SSE endpoint).";

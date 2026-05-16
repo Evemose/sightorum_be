@@ -48,6 +48,9 @@ rorm:
   client:
     temp-file-dir: ${java.io.tmpdir}/rorm-uploads
     temp-file-ttl-hours: 24
+    analysis:
+      backfill:
+        enabled: true
     sse:
       heartbeat-interval-ms: 30000
       reconnect-delay-ms: 3000

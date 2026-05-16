@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Single, swarm-global phase that synthesizes advocate/prosecutor standoffs
@@ -80,7 +81,7 @@ public class JudgePhase {
 
     private EventId judgeId(SwarmInput input, List<AnchorResult> anchors) {
         var parents = new ArrayList<EventId>();
-        var fingerprint = new java.util.TreeMap<String, String>();
+        var fingerprint = new TreeMap<String, String>();
         fingerprint.put("kind", "judge");
         fingerprint.put("schema", input.schema());
         fingerprint.put("query", input.userQuery());
@@ -90,10 +91,19 @@ public class JudgePhase {
                     hypo.advocate() == null ? "" : hypo.advocate().argument());
                 fingerprint.put("pro:" + anchor.anchor() + "/" + hypo.hypothesisId(),
                     hypo.prosecutor() == null ? "" : hypo.prosecutor().argument());
+                addIfPresent(parents, hypo.advocateId());
+                addIfPresent(parents, hypo.prosecutorId());
+                addIfPresent(parents, hypo.diagnosisId());
             }
         }
         return EventId.child("judge", ContentHash.of(fingerprint), parents,
             Map.of("scope", "swarm"));
+    }
+
+    private static void addIfPresent(List<EventId> parents, @Nullable EventId id) {
+        if (id != null) {
+            parents.add(id);
+        }
     }
 
     private String renderHypothesis(AnchorResult anchor, HypothesisResult hypo) {

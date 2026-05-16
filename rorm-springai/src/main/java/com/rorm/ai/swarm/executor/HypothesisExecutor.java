@@ -3,9 +3,11 @@ package com.rorm.ai.swarm.executor;
 import com.rorm.ai.swarm.EventId;
 import com.rorm.ai.swarm.StepOutput;
 import com.rorm.ai.swarm.SwarmResult.HypothesisResult;
+import com.rorm.ai.swarm.dto.ForensicDiagnosisDTO;
 import com.rorm.ai.swarm.dto.HypothesisGenerationDTO;
 import com.rorm.ai.swarm.dto.SupervisorVerdictDTO;
 import com.rorm.ai.swarm.phase.*;
+import com.rorm.ml.dto.RunRecord;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -141,28 +143,50 @@ public class HypothesisExecutor {
         var pipeCtx = new PipelineContext(outcome.hypoCtx(), outcome.compile());
         var verdict = outcome.supervisorVerdict();
         var dead = isDead(verdict);
-        var compile = outcome.compile();
-        var allCalls = toolCallRegistry.snapshot(input.runId());
+        var runs = collectRuns(input.runId(), outcome.compile());
+        var terminals = runTerminals(input, pipeCtx, dead, runs.scepticRuns());
+        return buildResult(input, outcome, runs, terminals);
+    }
+
+    private CompiledRuns collectRuns(String runId, CompilePhase.Output compile) {
+        var allCalls = toolCallRegistry.snapshot(runId);
         var compilerTokens = collectAncestorTokensOfKind(compile.compiler().id(), "compiler");
         var scepticTokens = collectAncestorTokensOfKind(compile.scepticReview().id(), "compiler-sceptic");
         var compilerRuns = allCalls.stream()
             .filter(r -> compilerTokens.contains(r.producerEventId().token())).toList();
         var scepticRuns = allCalls.stream()
             .filter(r -> scepticTokens.contains(r.producerEventId().token())).toList();
-        var representativeMetrics = representativeMetrics(scepticRuns);
-        var wantsDiagnosis = dead || (representativeMetrics != null && needsNullPhase(representativeMetrics));
-        var diagnosis = wantsDiagnosis ? nullPhase.run(pipeCtx, input.runId()).diagnosis().dto() : null;
+        return new CompiledRuns(compilerRuns, scepticRuns);
+    }
+
+    private Terminals runTerminals(HypothesisExecutionInput input, PipelineContext pipeCtx,
+                                   boolean dead, List<RunRecord> scepticRuns) {
+        var metrics = representativeMetrics(scepticRuns);
+        var wantsDiagnosis = dead || (metrics != null && needsNullPhase(metrics));
+        var diagnosis = wantsDiagnosis ? nullPhase.run(pipeCtx, input.runId()).diagnosis() : null;
         var standoff = dead ? null : standoffPhase.run(pipeCtx, input.runId());
+        return new Terminals(diagnosis, standoff);
+    }
+
+    private static HypothesisResult buildResult(HypothesisExecutionInput input, LoopOutcome outcome,
+                                                CompiledRuns runs, Terminals terminals) {
+        var compile = outcome.compile();
+        var standoff = terminals.standoff();
+        var diagnosis = terminals.diagnosis();
         return new HypothesisResult(
             input.hypothesisTitle(), outcome.hypoCtx().gen().rebuttal().rawResponse(),
             compile.compiler().rawResponse(), compile.compiler().dto(),
-            compilerRuns,
+            runs.compilerRuns(),
             compile.scepticReview().rawResponse(),
-            scepticRuns,
-            compile.scepticReview().dto(), diagnosis,
+            runs.scepticRuns(),
+            compile.scepticReview().dto(),
+            diagnosis != null ? diagnosis.dto() : null,
             standoff != null ? standoff.advocate().dto() : null,
             standoff != null ? standoff.prosecutor().dto() : null,
-            verdict);
+            outcome.supervisorVerdict(),
+            standoff != null ? standoff.advocate().id() : null,
+            standoff != null ? standoff.prosecutor().id() : null,
+            diagnosis != null ? diagnosis.id() : null);
     }
 
     private static Set<UUID> collectAncestorTokensOfKind(
@@ -189,7 +213,7 @@ public class HypothesisExecutor {
     }
 
     private static @Nullable Map<String, Object> representativeMetrics(
-        java.util.List<com.rorm.ml.dto.RunRecord> scepticRuns
+        java.util.List<RunRecord> scepticRuns
     ) {
         if (scepticRuns.isEmpty()) {
             return null;
@@ -221,5 +245,15 @@ public class HypothesisExecutor {
         EventId supervisorId,
         int iter,
         String runId
+    ) {}
+
+    private record CompiledRuns(
+        List<RunRecord> compilerRuns,
+        List<RunRecord> scepticRuns
+    ) {}
+
+    private record Terminals(
+        @Nullable StepOutput<ForensicDiagnosisDTO> diagnosis,
+        StandoffPhase.@Nullable Output standoff
     ) {}
 }
