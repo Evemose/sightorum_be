@@ -90,6 +90,15 @@ class ExpressionTypeResolverTest {
     }
 
     @Test
+    @DisplayName("infers exact precision and scale for numeric literals")
+    void infersNumericLiteralPrecisionAndScale() {
+        assertThat(resolver.resolveWithRoot(new Literal(42), people))
+            .isEqualTo(new DataType.NumericType(19, 0));
+        assertThat(resolver.resolveWithRoot(new Literal(3.14), people))
+            .isEqualTo(new DataType.NumericType(15, 6));
+    }
+
+    @Test
     @DisplayName("resolves a basic attribute path to its declared type")
     void resolvesBasicPath() {
         assertThat(resolver.resolveWithRoot(new Path(age), people)).isInstanceOf(DataType.NumericType.class);
