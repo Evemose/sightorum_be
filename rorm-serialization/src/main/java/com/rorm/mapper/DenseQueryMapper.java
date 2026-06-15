@@ -152,9 +152,9 @@ public class DenseQueryMapper {
                 dense.alias()
             );
             case "multi" -> new MultiExprSelectorDTO(
-                dense.expressions() == null ? Set.of() : dense.expressions().stream()
+                dense.expressions() == null ? new LinkedHashSet<>() : dense.expressions().stream()
                     .map(se -> new SelectedExpressionDTO(toExpressionDTO(se.expression()), se.alias()))
-                    .collect(Collectors.toSet()),
+                    .collect(Collectors.toCollection(LinkedHashSet::new)),
                 dense.distinct()
             );
             default -> throw new IllegalArgumentException("Unknown selector type: " + dense.type());

@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -28,16 +29,21 @@ public class MockSwarmController {
     private final SwarmEventBus eventBus;
 
     @PostMapping
-    public AnalysisResponse start() {
+    public AnalysisResponse start(@RequestParam(defaultValue = "1.0") double speed) {
+        if (!Double.isFinite(speed) || speed <= 0) {
+            throw new IllegalArgumentException(
+                "speed must be a positive finite number (got " + speed
+                + "). Use 1.0 for real-time pacing, >1 to speed up, <1 to slow down.");
+        }
         var runId = "mock-" + UUID.randomUUID();
-        log.info("Mock swarm started: runId={}", runId);
-        Thread.startVirtualThread(() -> emit(runId));
+        log.info("Mock swarm started: runId={} speed={}", runId, speed);
+        Thread.startVirtualThread(() -> emit(runId, speed));
         return new AnalysisResponse(runId);
     }
 
-    private void emit(String runId) {
+    private void emit(String runId, double speed) {
         try {
-            new MockSwarmScript(runId, eventBus).run();
+            new MockSwarmScript(runId, eventBus, speed).run();
         } catch (Exception e) {
             log.error("Mock swarm {} crashed", runId, e);
         } finally {

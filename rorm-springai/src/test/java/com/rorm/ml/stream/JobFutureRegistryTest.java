@@ -22,14 +22,14 @@ class JobFutureRegistryTest {
     private static JobEvent successEvent(UUID jobId) {
         return new JobEvent(
             jobId, JobEventType.JOB_SUCCESS, Instant.now(),
-            0.0, "Model trained", Map.of("accuracy", 0.95), null, null, Map.of()
+            0.0, "Model trained", Map.of("accuracy", 0.95), null, null, Map.of(), null
         );
     }
 
     private static JobEvent failedEvent(UUID jobId, String error) {
         return new JobEvent(
             jobId, JobEventType.JOB_FAILED, Instant.now(),
-            0.0, null, null, error, "ERR_OOM", Map.of()
+            0.0, null, null, error, "ERR_OOM", Map.of(), null
         );
     }
 

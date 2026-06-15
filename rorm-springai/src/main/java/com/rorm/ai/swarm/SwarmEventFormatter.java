@@ -191,6 +191,8 @@ public class SwarmEventFormatter implements AutoCloseable {
             case SwarmStreamEvent.AgentAnswer a -> onAnswer(a);
             case SwarmStreamEvent.AgentProgress p -> onProgress(p);
             case SwarmStreamEvent.RunCompleted _ -> { /* terminal; Flux should complete */ }
+            case SwarmStreamEvent.RewindStarted _ -> { /* console formatter ignores; FE-only signal */ }
+            case SwarmStreamEvent.RewindReady   _ -> { /* console formatter ignores; FE-only signal */ }
         }
     }
 

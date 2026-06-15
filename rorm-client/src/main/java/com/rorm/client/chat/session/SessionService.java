@@ -4,11 +4,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rorm.ai.swarm.SwarmStreamEvent;
+import com.rorm.client.metamodel.Metamodel;
+import com.rorm.client.metamodel.MetamodelRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +30,7 @@ public class SessionService {
     private final SessionRepository sessionRepository;
     private final SessionAnalysisRepository analysisRepository;
     private final SessionImportRepository importRepository;
+    private final MetamodelRepository metamodelRepository;
     private final ObjectMapper objectMapper;
 
     public static String newId() {
@@ -45,7 +49,16 @@ public class SessionService {
     @Transactional
     public Session findOrCreate(String sessionId, @Nullable String schemaName) {
         return sessionRepository.findById(sessionId).orElseGet(() ->
-            sessionRepository.save(new Session(sessionId, sessionId, schemaName)));
+            sessionRepository.save(new Session(sessionId, sessionId, resolveMetamodel(schemaName))));
+    }
+
+    private @Nullable Metamodel resolveMetamodel(@Nullable String schemaName) {
+        if (schemaName == null) {
+            return null;
+        }
+        return metamodelRepository.findBySchemaName(schemaName)
+            .orElseThrow(() -> new EntityNotFoundException(
+                "Cannot create session: no metamodel registered for schema '" + schemaName + "'"));
     }
 
     @Transactional(readOnly = true)
@@ -142,6 +155,20 @@ public class SessionService {
     @Transactional(readOnly = true)
     public List<SessionAnalysis> analysesFor(String sessionId) {
         return analysisRepository.findBySessionIdOrderByStartedAtDesc(sessionId);
+    }
+
+    /**
+     * All recorded analyses, freshest first. Used by the FE home and chat
+     * list views to render the "Recent Researches" surface.
+     */
+    @Transactional(readOnly = true)
+    public List<SessionAnalysis> findAllAnalyses() {
+        return analysisRepository.findAll(Sort.by(Sort.Direction.DESC, "startedAt"));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<String> findSchemaName(String sessionId) {
+        return sessionRepository.findById(sessionId).map(Session::getSchemaName);
     }
 
     @Transactional(readOnly = true)

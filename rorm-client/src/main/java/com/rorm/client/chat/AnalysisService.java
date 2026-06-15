@@ -6,7 +6,6 @@ import com.rorm.ai.swarm.SwarmEventBus;
 import com.rorm.ai.swarm.SwarmInput;
 import com.rorm.ai.swarm.SwarmStreamEvent;
 import com.rorm.ai.swarm.SwarmStreamEvent.AgentProgress;
-import com.rorm.client.chat.dto.AnalysisRequest;
 import com.rorm.client.chat.session.AnalysisStatus;
 import com.rorm.client.chat.session.SessionAnalysis;
 import com.rorm.client.chat.session.SessionService;
@@ -37,10 +36,6 @@ public class AnalysisService {
     private final SwarmEventBus swarmEventBus;
     private final SseEmitterRegistry sseRegistry;
     private final SessionService sessionService;
-
-    public String startAnalysis(String schema, AnalysisRequest request) {
-        return startAnalysis(schema, request.query(), request.anchors());
-    }
 
     public String startAnalysis(String schema, String query, List<String> anchors) {
         var input = new SwarmInput(query, schema, anchors);
@@ -185,6 +180,8 @@ public class AnalysisService {
             case SwarmStreamEvent.AgentQuestion _ -> "agent_question";
             case SwarmStreamEvent.AgentAnswer _ -> "agent_answer";
             case SwarmStreamEvent.RunCompleted _ -> "run_completed";
+            case SwarmStreamEvent.RewindStarted _ -> "rewind_started";
+            case SwarmStreamEvent.RewindReady _ -> "rewind_ready";
             case AgentProgress _ -> "agent_progress";
         };
     }

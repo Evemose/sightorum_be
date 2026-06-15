@@ -60,6 +60,19 @@ public class MetamodelService implements ModelSpaceResolver {
         return metamodel.getModelSpace();
     }
 
+    /**
+     * Single-round-trip access to every registered metamodel's domain
+     * {@link ModelSpace}, keyed by schema name. Avoids the per-schema
+     * {@code findBySchemaName} fan-out when iterating across all
+     * datasets in a list endpoint.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, ModelSpace> getAllModelSpaces() {
+        return repository.findAll().stream()
+            .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                Metamodel::getSchemaName, Metamodel::getModelSpace));
+    }
+
     @Override
     @Transactional(readOnly = true)
     public ModelSpace resolve(String schema) {

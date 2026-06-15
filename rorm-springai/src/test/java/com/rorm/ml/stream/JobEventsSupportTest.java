@@ -23,21 +23,21 @@ class JobEventsSupportTest {
     private static JobEvent successEvent(UUID jobId) {
         return new JobEvent(
             jobId, JobEventType.JOB_SUCCESS, Instant.now(),
-            0.0, "Done", Map.of("accuracy", 0.92), null, null, Map.of()
+            0.0, "Done", Map.of("accuracy", 0.92), null, null, Map.of(), null
         );
     }
 
     private static JobEvent failedEvent(UUID jobId, String error) {
         return new JobEvent(
             jobId, JobEventType.JOB_FAILED, Instant.now(),
-            0.0, null, null, error, "ERR_CONVERGENCE", Map.of()
+            0.0, null, null, error, "ERR_CONVERGENCE", Map.of(), null
         );
     }
 
     private static JobEvent progressEvent(UUID jobId, double progress) {
         return new JobEvent(
             jobId, JobEventType.JOB_PROGRESS, Instant.now(),
-            progress, "Job in progress", null, null, null, Map.of()
+            progress, "Job in progress", null, null, null, Map.of(), null
         );
     }
 

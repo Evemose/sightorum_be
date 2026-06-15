@@ -38,13 +38,15 @@ class MockSwarmScript {
 
     private final String runId;
     private final SwarmEventBus eventBus;
+    private final double speed;
     private final ConcurrentMap<UUID, AtomicInteger> tokenSeqs = new ConcurrentHashMap<>();
     private final ConcurrentMap<UUID, AtomicInteger> roundSeqs = new ConcurrentHashMap<>();
     private final AtomicInteger peerSeq = new AtomicInteger();
 
-    MockSwarmScript(String runId, SwarmEventBus eventBus) {
+    MockSwarmScript(String runId, SwarmEventBus eventBus, double speed) {
         this.runId = runId;
         this.eventBus = eventBus;
+        this.speed = speed;
     }
 
     private static String supervisorProgress(SupervisorVerdictDTO output, String hyp, int iteration) {
@@ -80,8 +82,8 @@ class MockSwarmScript {
     }
 
     @SneakyThrows
-    private static void sleep(long millis) {
-        Thread.sleep(millis);
+    private void sleep(long millis) {
+        Thread.sleep((long) (millis / speed));
     }
 
     @SneakyThrows
@@ -510,13 +512,12 @@ class MockSwarmScript {
         streamChunked(id, text, THINK_CHUNK_CHARS, THINK_CHUNK_MS, true);
     }
 
-    @SneakyThrows
     private void streamChunked(EventId id, String text, int chunkSize, long tickMs, boolean thinking) {
         int len = text.length();
         for (int i = 0; i < len; i += chunkSize) {
             var chunk = text.substring(i, Math.min(i + chunkSize, len));
             emitToken(id, thinking ? new StreamToken.Thinking(chunk) : new StreamToken.Text(chunk));
-            Thread.sleep(tickMs);
+            sleep(tickMs);
         }
     }
 
@@ -536,12 +537,11 @@ class MockSwarmScript {
         eventBus.publish(runId, new SwarmStreamEvent.AgentProgress(id, nextRoundSeq(id), message));
     }
 
-    @SneakyThrows
     private void emitToolWithProgress(EventId id, String toolName, String progressMessage) {
         emitToken(id, new StreamToken.ToolCall(toolName));
-        Thread.sleep(PROGRESS_DELAY_MS);
+        sleep(PROGRESS_DELAY_MS);
         emitProgress(id, progressMessage);
-        Thread.sleep(TOOL_DELAY_MS - PROGRESS_DELAY_MS);
+        sleep(TOOL_DELAY_MS - PROGRESS_DELAY_MS);
     }
 
     private record CleanContent(

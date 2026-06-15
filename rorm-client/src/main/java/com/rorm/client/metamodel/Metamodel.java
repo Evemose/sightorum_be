@@ -26,7 +26,7 @@ public class Metamodel {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "schema_name", nullable = false, unique = true)
     private String schemaName;
 
     @Type(JsonType.class)
