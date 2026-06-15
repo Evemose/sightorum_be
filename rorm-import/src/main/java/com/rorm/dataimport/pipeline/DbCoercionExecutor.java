@@ -2,6 +2,7 @@ package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.attribute.DetectedAttribute;
 import com.rorm.dataimport.type.DbLevelCoercion;
+import com.rorm.metamodel.BasicAttribute;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.ModelSpace;
 import com.rorm.metamodel.Root;
@@ -47,43 +48,55 @@ public class DbCoercionExecutor {
     List<CoercionTarget> resolveTargets(ImportRequest request, ModelSpace modelSpace) {
         return request.coercionStrategies().entrySet().stream()
             .filter(e -> e.getValue() instanceof DbLevelCoercion)
-            .map(entry -> {
-                var key = entry.getKey();
-                var strategy = (DbLevelCoercion) entry.getValue();
-
-                var detectedRoot = request.detectedSchema().roots().get(key.rootName());
-                if (detectedRoot == null) {
-                    throw new IllegalStateException("Root not found: " + key.rootName());
-                }
-
-                var attribute = findAttributeByPath(detectedRoot.attributes(), key.attributePath());
-                if (attribute == null) {
-                    throw new IllegalStateException("Attribute not found: " + key.attributePath());
-                }
-                if (!(attribute instanceof DetectedAttribute.Basic basicAttr)) {
-                    throw new IllegalStateException(
-                        "DbLevelCoercion only applicable to basic attributes, not: " + attribute.getClass().getSimpleName()
-                    );
-                }
-
-                var root = findRoot(modelSpace, key.rootName());
-                var metamodelAttr = root.attributes().stream()
-                    .filter(a -> a instanceof com.rorm.metamodel.BasicAttribute)
-                    .map(a -> (com.rorm.metamodel.BasicAttribute) a)
-                    .filter(a -> a.location().column().equals(basicAttr.name()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Attribute not found in metamodel: " + basicAttr.name()));
-
-                return new CoercionTarget(
-                    strategy,
-                    request.targetSchema(),
-                    key.rootName(),
-                    basicAttr.name(),
-                    metamodelAttr.dataType(),
-                    root.idDescriptor().columnName()
-                );
-            })
+            .map(e -> toCoercionTarget(e.getKey(), (DbLevelCoercion) e.getValue(), request, modelSpace))
             .toList();
+    }
+
+    private CoercionTarget toCoercionTarget(
+        ImportRequest.AttributeKey key, DbLevelCoercion strategy, ImportRequest request, ModelSpace modelSpace
+    ) {
+        var detectedAttribute = resolveDetectedBasicAttribute(request, key);
+        var root = findRoot(modelSpace, key.rootName());
+        var metamodelAttribute = findBasicAttribute(root, detectedAttribute.name());
+        return new CoercionTarget(
+            strategy,
+            request.targetSchema(),
+            key.rootName(),
+            metamodelAttribute.location().column(),
+            metamodelAttribute.dataType(),
+            root.idDescriptor().columnName()
+        );
+    }
+
+    private DetectedAttribute.Basic resolveDetectedBasicAttribute(ImportRequest request, ImportRequest.AttributeKey key) {
+        var detectedRoot = request.detectedSchema().roots().get(key.rootName());
+        if (detectedRoot == null) {
+            throw new IllegalStateException("Root not found: " + key.rootName());
+        }
+        var attribute = findAttributeByPath(detectedRoot.attributes(), key.attributePath());
+        if (attribute == null) {
+            throw new IllegalStateException("Attribute not found: " + key.attributePath());
+        }
+        if (attribute instanceof DetectedAttribute.Basic basic) {
+            return basic;
+        }
+        throw new IllegalStateException(
+            "DbLevelCoercion only applicable to basic attributes, not: " + attribute.getClass().getSimpleName());
+    }
+
+    /**
+     * Locates the metamodel attribute by its logical name. Detection derives the name from the source header
+     * ({@code unit_price} becomes {@code unitPrice}), so the name is the only field shared with the coercion key;
+     * the physical column the SQL must address is then read from the resolved attribute's location.
+     */
+    private BasicAttribute findBasicAttribute(Root root, String attributeName) {
+        return root.attributes().stream()
+            .filter(BasicAttribute.class::isInstance)
+            .map(BasicAttribute.class::cast)
+            .filter(attribute -> attribute.name().equals(attributeName))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "Attribute not found in metamodel: " + attributeName + " on root " + root.primaryTableName()));
     }
 
     private Root findRoot(ModelSpace modelSpace, String rootName) {
