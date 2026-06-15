@@ -29,6 +29,7 @@ import com.rorm.query.Query;
 import com.rorm.query.SelectedExpression;
 import com.rorm.query.WindowSpec;
 import com.rorm.query.Selector.MultiExprSelector;
+import com.rorm.query.Selector.RootSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import com.rorm.testutil.TestHandlerRegistry;
 import org.junit.jupiter.api.DisplayName;
@@ -41,8 +42,11 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
+import java.time.OffsetDateTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -75,12 +79,19 @@ class ExpressionTypeResolverTest {
         return Stream.of(
             Arguments.of("text", DataType.StringType.class),
             Arguments.of(true, DataType.BooleanType.class),
+            Arguments.of((byte) 1, DataType.NumericType.class),
+            Arguments.of((short) 2, DataType.NumericType.class),
             Arguments.of(42, DataType.NumericType.class),
+            Arguments.of(5L, DataType.NumericType.class),
+            Arguments.of(1.5f, DataType.NumericType.class),
             Arguments.of(3.14, DataType.NumericType.class),
             Arguments.of(new BigDecimal("1.50"), DataType.NumericType.class),
             Arguments.of(LocalDate.of(2026, 1, 1), DataType.DateType.class),
             Arguments.of(LocalTime.NOON, DataType.TimeType.class),
+            Arguments.of(LocalDateTime.of(2026, 1, 1, 0, 0), DataType.DateTimeType.class),
             Arguments.of(Instant.EPOCH, DataType.DateTimeType.class),
+            Arguments.of(ZonedDateTime.now(), DataType.TimezoneType.class),
+            Arguments.of(OffsetDateTime.now(), DataType.TimezoneType.class),
             Arguments.of(DayOfWeek.MONDAY, DataType.DayOfWeekType.class),
             Arguments.of(List.of(1, 2, 3), DataType.ListType.class)
         );
@@ -134,10 +145,11 @@ class ExpressionTypeResolverTest {
     }
 
     @Test
-    @DisplayName("categorizes by data type, and reference paths as REFERENCE")
+    @DisplayName("categorizes by data type, reference paths as REFERENCE, and non-path expressions by their type")
     void categorizesExpressions() {
         assertThat(resolver.categorize(new Path(age), people)).isEqualTo(TypeCategory.NUMERIC);
         assertThat(resolver.categorize(new Path(company), people)).isEqualTo(TypeCategory.REFERENCE);
+        assertThat(resolver.categorize(new Literal(42), people)).isEqualTo(TypeCategory.NUMERIC);
     }
 
     @Test
@@ -179,6 +191,10 @@ class ExpressionTypeResolverTest {
         var multi = new Subquery(Query.builder().from(AliasedRoot.of(people))
             .selector(new MultiExprSelector(Set.of(new SelectedExpression(new Path(age), "a")), false)).build());
         assertThat(resolver.resolveType(multi, people)).isInstanceOf(ResolvedType.Composite.class);
+
+        var rootProjection = new Subquery(Query.builder().from(AliasedRoot.of(people))
+            .selector(RootSelector.of(people)).build());
+        assertThat(resolver.resolveType(rootProjection, people)).isInstanceOf(ResolvedType.Composite.class);
     }
 
     @Test
@@ -230,5 +246,39 @@ class ExpressionTypeResolverTest {
         assertThat(resolver.resolve(new Literal(42))).isInstanceOf(DataType.NumericType.class);
         assertThat(resolver.resolve(new Path(age))).isInstanceOf(DataType.NumericType.class);
         assertThatThrownBy(() -> resolver.resolve(new Path(address))).isInstanceOf(TypeResolutionException.class);
+    }
+
+    @Test
+    @DisplayName("unwraps reference types to the id type (singular) and a list of id type (plural)")
+    void unwrapsReferenceTypes() {
+        assertThat(resolver.resolve(new Path(company))).isInstanceOf(DataType.NumericType.class);
+        assertThat(resolver.resolve(new Path(orders))).isInstanceOf(DataType.ListType.class);
+        assertThat(resolver.resolveWithRoot(new Path(company), people)).isInstanceOf(DataType.NumericType.class);
+        assertThat(resolver.resolveWithRoot(new Path(orders), people)).isInstanceOf(DataType.ListType.class);
+    }
+
+    @Test
+    @DisplayName("resolves basic and composite collection-element path targets")
+    void resolvesCollectionElementPaths() {
+        var basicElement = new CollectionAttribute.BasicElement(
+            new AttributeLocation("people", "tag"), new DataType.StringType());
+        assertThat(resolver.resolveWithRoot(new Path(basicElement), people)).isInstanceOf(DataType.StringType.class);
+        var compositeElement = new CollectionAttribute.CompositeElement(Set.of(
+            new BasicAttribute("k", new AttributeLocation("people", "k"), new DataType.StringType())));
+        assertThat(resolver.resolveType(new Path(compositeElement), people)).isInstanceOf(ResolvedType.Composite.class);
+    }
+
+    @Test
+    @DisplayName("rejects a literal of an unsupported type")
+    void rejectsUnknownLiteralType() {
+        assertThatThrownBy(() -> resolver.resolveWithRoot(new Literal(new Object()), people))
+            .isInstanceOf(TypeResolutionException.class)
+            .hasMessageContaining("Unknown literal type");
+    }
+
+    @Test
+    @DisplayName("exposes no current root outside of a resolution call")
+    void fromRootIsNullOutsideResolution() {
+        assertThat(resolver.fromRoot()).isNull();
     }
 }
