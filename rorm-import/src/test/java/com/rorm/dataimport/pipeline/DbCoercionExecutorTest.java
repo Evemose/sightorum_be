@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -38,7 +39,7 @@ class DbCoercionExecutorTest {
     void resolvesTargetWhenAttributeNameDiffersFromColumn() {
         var detectedSchema = ordersSchemaWithSnakeCaseColumns();
         var modelSpace = metamodelConverter.convertToModelSpace(detectedSchema);
-        var request = importRequestWithCoercion(detectedSchema, "unitPrice", DbLevelCoercion.ForwardFill.INSTANCE);
+        var request = request(detectedSchema, "orders", "unitPrice", DbLevelCoercion.ForwardFill.INSTANCE);
 
         var targets = executor.resolveTargets(request, modelSpace);
 
@@ -57,12 +58,48 @@ class DbCoercionExecutorTest {
     void everyStrategyResolvesPhysicalColumn(DbLevelCoercion strategy) {
         var detectedSchema = ordersSchemaWithSnakeCaseColumns();
         var modelSpace = metamodelConverter.convertToModelSpace(detectedSchema);
-        var request = importRequestWithCoercion(detectedSchema, "unitPrice", strategy);
+        var request = request(detectedSchema, "orders", "unitPrice", strategy);
 
         var targets = executor.resolveTargets(request, modelSpace);
 
         assertThat(targets).singleElement()
             .satisfies(target -> assertThat(target.columnName()).isEqualTo("unit_price"));
+    }
+
+    @Test
+    @DisplayName("fails loudly when the coercion targets a root absent from the detected schema")
+    void throwsWhenRootIsUnknown() {
+        var detectedSchema = ordersSchemaWithSnakeCaseColumns();
+        var modelSpace = metamodelConverter.convertToModelSpace(detectedSchema);
+        var request = request(detectedSchema, "ghost", "unitPrice", DbLevelCoercion.ForwardFill.INSTANCE);
+
+        assertThatThrownBy(() -> executor.resolveTargets(request, modelSpace))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Root not found: ghost");
+    }
+
+    @Test
+    @DisplayName("fails loudly when the coercion targets an attribute absent from the detected schema")
+    void throwsWhenAttributeIsUnknown() {
+        var detectedSchema = ordersSchemaWithSnakeCaseColumns();
+        var modelSpace = metamodelConverter.convertToModelSpace(detectedSchema);
+        var request = request(detectedSchema, "orders", "ghost", DbLevelCoercion.ForwardFill.INSTANCE);
+
+        assertThatThrownBy(() -> executor.resolveTargets(request, modelSpace))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Attribute not found: ghost");
+    }
+
+    @Test
+    @DisplayName("rejects a db-level coercion on a non-basic attribute")
+    void throwsWhenAttributeIsNotBasic() {
+        var detectedSchema = schemaWithCompositeAttribute();
+        var modelSpace = metamodelConverter.convertToModelSpace(detectedSchema);
+        var request = request(detectedSchema, "people", "address", DbLevelCoercion.ForwardFill.INSTANCE);
+
+        assertThatThrownBy(() -> executor.resolveTargets(request, modelSpace))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("only applicable to basic attributes");
     }
 
     static Stream<DbLevelCoercion> dbLevelStrategies() {
@@ -75,10 +112,10 @@ class DbCoercionExecutorTest {
         );
     }
 
-    private ImportRequest importRequestWithCoercion(
-        DetectedSchema detectedSchema, String attributeName, InvalidValueCoercionStrategy strategy
+    private ImportRequest request(
+        DetectedSchema detectedSchema, String rootName, String attributeName, InvalidValueCoercionStrategy strategy
     ) {
-        var coercions = Map.of(new ImportRequest.AttributeKey("orders", attributeName), strategy);
+        var coercions = Map.of(new ImportRequest.AttributeKey(rootName, attributeName), strategy);
         return new ImportRequest("target_schema", List.of(), detectedSchema, 1000, coercions);
     }
 
@@ -96,5 +133,15 @@ class DbCoercionExecutorTest {
             new DetectedIdColumn("orderId", "order_id", new NumericType(19, 0))
         );
         return new DetectedSchema(Map.of("orders", root));
+    }
+
+    private DetectedSchema schemaWithCompositeAttribute() {
+        var address = new DetectedAttribute.Composite("address", Map.of(
+            "zip", new DetectedAttribute.Basic("zip", new SourceMapping("people", "zip"), new StringType())));
+        var root = new DetectedRoot(
+            "people", "people", Map.of("address", address),
+            new DetectedIdColumn("id", "id", new NumericType(19, 0))
+        );
+        return new DetectedSchema(Map.of("people", root));
     }
 }
