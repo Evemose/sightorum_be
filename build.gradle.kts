@@ -39,9 +39,14 @@ val jspecifyVersion = "1.0.0"
 subprojects {
     apply(plugin = "io.spring.dependency-management")
     apply(plugin = "org.springframework.boot")
+    apply(plugin = "jacoco")
 
     if (!this.plugins.hasPlugin("java-library")) {
         apply(plugin = "java")
+    }
+
+    extensions.configure<JacocoPluginExtension> {
+        toolVersion = "0.8.13"
     }
 
     group = rootProject.group
@@ -77,6 +82,16 @@ subprojects {
         systemProperty("junit.jupiter.execution.parallel.enabled", "true")
         systemProperty("junit.jupiter.execution.parallel.mode.default", "concurrent")
         systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
+        finalizedBy(tasks.named("jacocoTestReport"))
+    }
+
+    tasks.named<JacocoReport>("jacocoTestReport") {
+        dependsOn(tasks.named("test"))
+        reports {
+            xml.required.set(true)
+            html.required.set(true)
+            csv.required.set(true)
+        }
     }
 
     tasks.withType<JavaCompile> {
