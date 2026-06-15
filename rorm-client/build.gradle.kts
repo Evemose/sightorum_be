@@ -1,5 +1,5 @@
 import org.flywaydb.gradle.FlywayExtension
-import java.util.*
+import java.util.TimeZone
 
 TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
 
@@ -12,6 +12,14 @@ tasks.test {
     useJUnitPlatform()
     testLogging.showStandardStreams = true
     jvmArgs("-XX:+EnableDynamicAgentLoading", "-Duser.timezone=UTC")
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    jvmArgs(
+        "--enable-preview",
+        "-Duser.timezone=UTC",
+        "-Dspring.devtools.restart.enabled=false",
+    )
 }
 
 configure<FlywayExtension> {
