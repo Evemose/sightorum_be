@@ -8,9 +8,11 @@ import com.rorm.metamodel.PluralReferenceAttribute;
 import com.rorm.metamodel.ReferenceAttribute;
 import com.rorm.metamodel.Root;
 import com.rorm.metamodel.SingularReferenceAttribute;
+import com.rorm.query.Expression.Aggregation;
 import com.rorm.query.Path;
 import com.rorm.query.Query;
 import com.rorm.query.SelectedExpression;
+import com.rorm.query.StandardAggregation;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import com.rorm.testutil.TestHandlerRegistry;
@@ -79,19 +81,23 @@ class DataOverviewServiceTest {
     }
 
     @Test
-    @DisplayName("numeric stats query exposes the full statistic set")
+    @DisplayName("numeric stats query exposes the full statistic set wired to the matching aggregations")
     void numericStatsQuery() {
-        assertThat(aliasesOf(service.buildNumericStatsQuery(people, new Path(age))))
-            .containsExactlyInAnyOrder(
-                "total_count", "non_null_count", "null_count", "min", "max", "avg", "sum", "stddev", "variance");
+        var query = service.buildNumericStatsQuery(people, new Path(age));
+        assertThat(aliasesOf(query)).containsExactlyInAnyOrder(
+            "total_count", "non_null_count", "null_count", "min", "max", "avg", "sum", "stddev", "variance");
+        assertThat(aggregationBehind(query, "min")).isEqualTo(StandardAggregation.MIN.identifier());
+        assertThat(aggregationBehind(query, "max")).isEqualTo(StandardAggregation.MAX.identifier());
+        assertThat(aggregationBehind(query, "avg")).isEqualTo(StandardAggregation.AVG.identifier());
+        assertThat(aggregationBehind(query, "sum")).isEqualTo(StandardAggregation.SUM.identifier());
     }
 
     @Test
-    @DisplayName("categorical frequency query groups, orders by count and filters nulls when excluded")
+    @DisplayName("categorical frequency query groups, orders by descending count and filters nulls when excluded")
     void categoricalFrequencyQuery() {
         var query = service.buildCategoricalFrequencyQuery(people, new Path(status), 20, false);
         assertThat(query.groupBy()).isNotNull();
-        assertThat(query.orderBy()).hasSize(1);
+        assertThat(query.orderBy()).singleElement().satisfies(o -> assertThat(o.ascending()).isFalse());
         assertThat(query.where()).isNotNull();
         assertThat(query.limit()).isEqualTo(20L);
     }
@@ -111,7 +117,7 @@ class DataOverviewServiceTest {
         assertThat(aliasesOf(query)).containsExactlyInAnyOrder("bucket", "count", "bucket_min", "bucket_max");
         assertThat(query.where()).isNotNull();
         assertThat(query.groupBy()).isNotNull();
-        assertThat(query.orderBy()).hasSize(1);
+        assertThat(query.orderBy()).singleElement().satisfies(o -> assertThat(o.ascending()).isTrue());
     }
 
     @Test
@@ -153,5 +159,14 @@ class DataOverviewServiceTest {
         return ((MultiExprSelector) query.selector()).expressions().stream()
             .map(SelectedExpression::alias)
             .collect(Collectors.toSet());
+    }
+
+    private static String aggregationBehind(Query query, String alias) {
+        var expression = ((MultiExprSelector) query.selector()).expressions().stream()
+            .filter(selected -> alias.equals(selected.alias()))
+            .map(SelectedExpression::expression)
+            .findFirst()
+            .orElseThrow();
+        return ((Aggregation) expression).functionName();
     }
 }

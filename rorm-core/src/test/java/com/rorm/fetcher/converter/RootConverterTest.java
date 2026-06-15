@@ -20,27 +20,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The Root-aware converters de-flatten a single result row into nested maps/records/beans using the metamodel's
  * composite attributes. A fake {@link Row} stands in for a JDBC result so the conversion is tested without a database.
+ * The {@code fullName}/{@code full_name} attribute deliberately differs from its physical column so the converters
+ * are pinned to reading by column, not by logical name.
  */
 @DisplayName("Root-aware row converters")
 class RootConverterTest {
 
     private final Root person = new Root("person", List.of(
         new BasicAttribute("id", new AttributeLocation("person", "id"), new DataType.NumericType(19, 0)),
-        new BasicAttribute("name", new AttributeLocation("person", "name"), new DataType.StringType()),
+        new BasicAttribute("fullName", new AttributeLocation("person", "full_name"), new DataType.StringType()),
         new CompositeAttribute("address", Set.of(
             new BasicAttribute("zip", new AttributeLocation("person", "zip"), new DataType.StringType()),
             new BasicAttribute("city", new AttributeLocation("person", "city"), new DataType.StringType())))
     ), IdDescriptor.longId("person"));
 
     @Test
-    @DisplayName("map converter de-flattens composite columns into a nested map")
+    @DisplayName("map converter de-flattens composite columns into a nested map keyed by attribute name")
     void mapConverterNestsComposites() {
         var consumed = new HashSet<String>();
         var result = new RootMapConverter(person).convert(fullRow(), consumed);
 
-        assertThat(result).containsEntry("id", 1L).containsEntry("name", "Alice");
+        assertThat(result).containsEntry("id", 1L).containsEntry("fullName", "Alice");
         assertThat(result).extractingByKey("address").isEqualTo(Map.of("zip", "12345", "city", "NYC"));
-        assertThat(consumed).containsExactlyInAnyOrder("id", "name", "zip", "city");
+        assertThat(consumed).containsExactlyInAnyOrder("id", "full_name", "zip", "city");
     }
 
     @Test
@@ -57,7 +59,7 @@ class RootConverterTest {
         var result = new RootRecordConverter<>(PersonRecord.class, person).convert(fullRow(), consumed);
 
         assertThat(result).isEqualTo(new PersonRecord(1L, "Alice", new AddressRecord("12345", "NYC")));
-        assertThat(consumed).containsExactlyInAnyOrder("id", "name", "zip", "city");
+        assertThat(consumed).containsExactlyInAnyOrder("id", "full_name", "zip", "city");
     }
 
     @Test
@@ -82,14 +84,14 @@ class RootConverterTest {
         var result = new RootBeanConverter<>(PersonBean.class, person).convert(fullRow(), consumed);
 
         assertThat(result.getId()).isEqualTo(1L);
-        assertThat(result.getName()).isEqualTo("Alice");
+        assertThat(result.getFullName()).isEqualTo("Alice");
         assertThat(result.getAddress()).isNotNull();
         assertThat(result.getAddress().getZip()).isEqualTo("12345");
-        assertThat(consumed).containsExactlyInAnyOrder("id", "name", "zip", "city");
+        assertThat(consumed).containsExactlyInAnyOrder("id", "full_name", "zip", "city");
     }
 
     private Row fullRow() {
-        return rowOf(Map.of("id", 1L, "name", "Alice", "zip", "12345", "city", "NYC"));
+        return rowOf(Map.of("id", 1L, "full_name", "Alice", "zip", "12345", "city", "NYC"));
     }
 
     private Row idOnlyRow() {
@@ -124,7 +126,7 @@ class RootConverterTest {
     public record AddressRecord(String zip, String city) {
     }
 
-    public record PersonRecord(Long id, String name, AddressRecord address) {
+    public record PersonRecord(Long id, String fullName, AddressRecord address) {
     }
 
     public static class AddressBean {
@@ -150,7 +152,7 @@ class RootConverterTest {
 
     public static class PersonBean {
         private Long id;
-        private String name;
+        private String fullName;
         private AddressBean address;
 
         public Long getId() {
@@ -161,12 +163,12 @@ class RootConverterTest {
             this.id = id;
         }
 
-        public String getName() {
-            return name;
+        public String getFullName() {
+            return fullName;
         }
 
-        public void setName(String name) {
-            this.name = name;
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
         }
 
         public AddressBean getAddress() {
