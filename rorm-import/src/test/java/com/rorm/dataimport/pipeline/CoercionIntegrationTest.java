@@ -446,6 +446,36 @@ class CoercionIntegrationTest extends AbstractImportTest {
     }
 
     @Test
+    @DisplayName("ForwardFill should work when the source column name differs from the derived attribute name")
+    void forwardFillShouldPropagateForwardForSnakeCaseColumn() throws Exception {
+        var csvPath = tempDir.resolve("orders.csv");
+        Files.writeString(csvPath, """
+            id,full_name,unit_price
+            1,Alice,10.0
+            2,Bob,invalid
+            3,Charlie,invalid
+            4,Dave,20.0
+            5,Eve,invalid
+            """);
+
+        var dataSource = new CsvDataSource(csvPath);
+        var detectedSchema = modelSpaceDetector.detect(List.of(dataSource), Map.of(), ",");
+
+        var request = ImportRequest.forSchema(testSchema, detectedSchema)
+            .withCoercionForPath("orders", "unitPrice", CoercionBuilder::forwardFill)
+            .importFromSources(List.of(dataSource));
+
+        awaitImportCompletion(importData(request));
+
+        var prices = jdbcTemplate.queryForList(
+            "SELECT unit_price FROM " + testSchema + ".orders ORDER BY id",
+            Double.class
+        );
+
+        assertThat(prices).containsExactly(10.0, 10.0, 10.0, 20.0, 20.0);
+    }
+
+    @Test
     @DisplayName("BackwardFill should propagate next valid value backward")
     void backwardFillShouldPropagateBackward() throws Exception {
         var csvPath = tempDir.resolve("users.csv");
