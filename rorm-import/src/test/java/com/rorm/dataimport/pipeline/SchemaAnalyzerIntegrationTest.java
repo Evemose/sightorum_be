@@ -2,8 +2,11 @@ package com.rorm.dataimport.pipeline;
 
 import com.rorm.dataimport.override.SchemaOverride;
 import com.rorm.dataimport.pipeline.profile.SchemaAnalyzer;
+import com.rorm.dataimport.pipeline.profile.SchemaProfile.Cardinality;
 import com.rorm.dataimport.pipeline.profile.SchemaProfile.SummaryFlag;
+import com.rorm.dataimport.pipeline.profile.SchemaProfileStore;
 import com.rorm.dataimport.source.CsvDataSource;
+import com.rorm.dataimport.source.ImportDataSource;
 import com.rorm.engine.TypeCategory;
 import com.rorm.metamodel.DataType.BooleanType;
 import com.rorm.metamodel.DataType.DateType;
@@ -15,16 +18,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @DisplayName("SchemaAnalyzer profiling")
 class SchemaAnalyzerIntegrationTest extends AbstractImportTest {
 
     @Autowired
     private SchemaAnalyzer schemaAnalyzer;
+
+    @Autowired
+    private SchemaProfileStore profileStore;
 
     @TempDir
     private Path tempDir;
@@ -61,5 +69,57 @@ class SchemaAnalyzerIntegrationTest extends AbstractImportTest {
         assertThat(users.findAttribute("active").orElseThrow().category()).isEqualTo(TypeCategory.BOOLEAN);
         assertThat(users.findAttribute("joined").orElseThrow().category()).isEqualTo(TypeCategory.TEMPORAL);
         assertThat(users.findAttribute("status")).isPresent();
+    }
+
+    @Test
+    @DisplayName("profiles a foreign-key column as a many-to-one relationship with reference statistics")
+    void profilesReferenceRelationships() throws Exception {
+        Files.writeString(tempDir.resolve("customers.csv"), """
+            id,name
+            1,Acme
+            2,Globex
+            """);
+        Files.writeString(tempDir.resolve("orders.csv"), """
+            id,customer_id,amount
+            10,1,99
+            11,1,5
+            12,2,42
+            """);
+        List<ImportDataSource> sources = List.of(
+            new CsvDataSource(tempDir.resolve("customers.csv")),
+            new CsvDataSource(tempDir.resolve("orders.csv")));
+        var detectedSchema = modelSpaceDetector.detect(sources, Map.of(), ",");
+        var request = ImportRequest.forSchema(testSchema, detectedSchema).importFromSources(sources);
+
+        var result = awaitImportCompletion(importData(request));
+        var profile = schemaAnalyzer.analyze(testSchema, result.modelSpace());
+
+        assertThat(profile.relationships()).anySatisfy(relationship -> {
+            assertThat(relationship.source()).isEqualTo("orders");
+            assertThat(relationship.target()).isEqualTo("customers");
+            assertThat(relationship.cardinality()).isEqualTo(Cardinality.MANY_TO_ONE);
+        });
+        var orders = profile.findEntity("orders").orElseThrow();
+        assertThat(orders.findAttribute("customerId").orElseThrow().category()).isEqualTo(TypeCategory.REFERENCE);
+    }
+
+    @Test
+    @DisplayName("AnalyzeSchemaStep runs the analysis and stores the profile once import completes")
+    void analyzeStepStoresProfile() throws Exception {
+        Files.writeString(tempDir.resolve("widgets.csv"), """
+            id,label
+            1,a
+            2,b
+            """);
+        var dataSource = new CsvDataSource(tempDir.resolve("widgets.csv"));
+        var detectedSchema = modelSpaceDetector.detect(List.of(dataSource), Map.of(), ",");
+        var request = ImportRequest.forSchema(testSchema, detectedSchema).importFromSources(List.of(dataSource));
+        var result = awaitImportCompletion(importData(request));
+
+        new AnalyzeSchemaStep(schemaAnalyzer, profileStore).execute(result);
+
+        await().atMost(Duration.ofSeconds(30))
+            .untilAsserted(() -> assertThat(profileStore.get(testSchema)).isPresent());
+        assertThat(profileStore.get(testSchema).orElseThrow().findEntity("widgets")).isPresent();
     }
 }

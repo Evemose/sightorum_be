@@ -4,6 +4,7 @@ import com.rorm.engine.ExpressionTypeResolver.ResolvedType;
 import com.rorm.metamodel.AliasedRoot;
 import com.rorm.metamodel.AttributeLocation;
 import com.rorm.metamodel.BasicAttribute;
+import com.rorm.metamodel.CollectionAttribute;
 import com.rorm.metamodel.CompositeAttribute;
 import com.rorm.metamodel.DataType;
 import com.rorm.metamodel.IdDescriptor;
@@ -11,16 +12,22 @@ import com.rorm.metamodel.PluralReferenceAttribute;
 import com.rorm.metamodel.ReferenceAttribute;
 import com.rorm.metamodel.Root;
 import com.rorm.metamodel.SingularReferenceAttribute;
+import com.rorm.query.CaseExpression;
 import com.rorm.query.Expression.Aggregation;
 import com.rorm.query.Expression.BinaryExpression;
 import com.rorm.query.Expression.FunctionCall;
 import com.rorm.query.Expression.Literal;
+import com.rorm.query.Expression.QuantifiedComparison;
+import com.rorm.query.Expression.TernaryExpression;
 import com.rorm.query.Expression.UnaryExpression;
+import com.rorm.query.Expression.WindowFunction;
 import com.rorm.query.Path;
 import com.rorm.query.StandardOperator;
+import com.rorm.query.StandardWindowFunction;
 import com.rorm.query.Subquery;
 import com.rorm.query.Query;
 import com.rorm.query.SelectedExpression;
+import com.rorm.query.WindowSpec;
 import com.rorm.query.Selector.MultiExprSelector;
 import com.rorm.query.Selector.SingleExprSelector;
 import com.rorm.testutil.TestHandlerRegistry;
@@ -35,6 +42,7 @@ import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -55,8 +63,10 @@ class ExpressionTypeResolverTest {
     private final PluralReferenceAttribute orders =
         new PluralReferenceAttribute("orders", new Root("orders", List.of(), IdDescriptor.stringId("orders")),
             new ReferenceAttribute.SameTableColumn("person_id"));
+    private final CollectionAttribute tags = new CollectionAttribute("tags", "people",
+        new CollectionAttribute.BasicElement(new AttributeLocation("people", "tags"), new DataType.StringType()));
     private final Root people =
-        new Root("people", List.of(age, address, company, orders), IdDescriptor.longId("people"));
+        new Root("people", List.of(age, address, company, orders, tags), IdDescriptor.longId("people"));
 
     private final ExpressionTypeResolver resolver =
         new ExpressionTypeResolver(TestHandlerRegistry.createWithAllBuiltIns());
@@ -169,5 +179,56 @@ class ExpressionTypeResolverTest {
         var multi = new Subquery(Query.builder().from(AliasedRoot.of(people))
             .selector(new MultiExprSelector(Set.of(new SelectedExpression(new Path(age), "a")), false)).build());
         assertThat(resolver.resolveType(multi, people)).isInstanceOf(ResolvedType.Composite.class);
+    }
+
+    @Test
+    @DisplayName("types a CASE expression by its first THEN result")
+    void resolvesCaseExpression() {
+        var caseExpr = new CaseExpression(
+            List.of(new CaseExpression.WhenClause(new Literal(true), new Literal(42))), null);
+        assertThat(resolver.resolveWithRoot(caseExpr, people)).isInstanceOf(DataType.NumericType.class);
+    }
+
+    @Test
+    @DisplayName("types BETWEEN, quantified comparison and window functions via their handlers")
+    void resolvesTernaryQuantifiedAndWindow() {
+        assertThat(resolver.resolveWithRoot(
+            TernaryExpression.between(new Path(age), new Literal(1), new Literal(100)), people))
+            .isInstanceOf(DataType.BooleanType.class);
+        var subquery = new Subquery(Query.builder().from(AliasedRoot.of(people))
+            .selector(new SingleExprSelector(new Path(age), false, "a")).build());
+        assertThat(resolver.resolveWithRoot(
+            QuantifiedComparison.any(new Path(age), StandardOperator.Binary.EQUALS, subquery), people))
+            .isInstanceOf(DataType.BooleanType.class);
+        assertThat(resolver.resolveWithRoot(
+            WindowFunction.of(StandardWindowFunction.ROW_NUMBER, new WindowSpec(null, null)), people))
+            .isInstanceOf(DataType.NumericType.class);
+    }
+
+    @Test
+    @DisplayName("infers list, enum and empty-list literal types")
+    void infersCollectionAndCategoricalLiterals() {
+        assertThat(resolver.resolveWithRoot(new Path(tags), people)).isInstanceOf(DataType.ListType.class);
+        assertThat(resolver.resolveWithRoot(new Literal(Month.JANUARY), people))
+            .isInstanceOf(DataType.CategorcialType.class);
+        assertThat(resolver.resolveWithRoot(new Literal(List.of()), people)).isInstanceOf(DataType.ListType.class);
+    }
+
+    @Test
+    @DisplayName("a composite-element collection and an aliased root cannot be projected directly")
+    void rejectsCompositeCollectionAndAliasedRoot() {
+        var compositeCollection = new CollectionAttribute("aliases", "people",
+            new CollectionAttribute.CompositeElement(Set.of(
+                new BasicAttribute("alias", new AttributeLocation("people", "alias"), new DataType.StringType()))));
+        assertThat(resolver.resolveType(new Path(compositeCollection), people)).isInstanceOf(ResolvedType.Composite.class);
+        assertThat(resolver.resolveType(new Path(AliasedRoot.of(people)), people)).isInstanceOf(ResolvedType.Composite.class);
+    }
+
+    @Test
+    @DisplayName("the no-arg resolve() handles basic types and rejects an unprojectable composite")
+    void resolveHandlesBasicAndRejectsComposite() {
+        assertThat(resolver.resolve(new Literal(42))).isInstanceOf(DataType.NumericType.class);
+        assertThat(resolver.resolve(new Path(age))).isInstanceOf(DataType.NumericType.class);
+        assertThatThrownBy(() -> resolver.resolve(new Path(address))).isInstanceOf(TypeResolutionException.class);
     }
 }
