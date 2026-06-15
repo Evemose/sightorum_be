@@ -1,5 +1,6 @@
 package com.rorm.client.data;
 
+import com.rorm.client.metamodel.Metamodel;
 import com.rorm.dataimport.pipeline.profile.SchemaProfile;
 import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
@@ -14,9 +15,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "schema_profiles", indexes = {
-    @Index(name = "idx_schema_profiles_schema_name", columnList = "schemaName", unique = true)
-})
+@Table(name = "schema_profiles")
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -27,8 +26,15 @@ public class SchemaAnalysisProfile {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
-    private String schemaName;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+        name = "schema_name",
+        referencedColumnName = "schema_name",
+        nullable = false,
+        unique = true,
+        foreignKey = @ForeignKey(name = "fk_schema_profiles_metamodel")
+    )
+    private Metamodel metamodel;
 
     @Type(JsonType.class)
     @Column(columnDefinition = "jsonb", nullable = false)
@@ -37,8 +43,12 @@ public class SchemaAnalysisProfile {
     @CreatedDate
     private Instant createdAt;
 
-    public SchemaAnalysisProfile(String schemaName, SchemaProfile profile) {
-        this.schemaName = schemaName;
+    public SchemaAnalysisProfile(Metamodel metamodel, SchemaProfile profile) {
+        this.metamodel = metamodel;
         this.profile = profile;
+    }
+
+    public String getSchemaName() {
+        return metamodel.getSchemaName();
     }
 }

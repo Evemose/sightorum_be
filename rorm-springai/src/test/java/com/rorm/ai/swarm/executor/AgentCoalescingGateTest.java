@@ -56,7 +56,7 @@ class AgentCoalescingGateTest {
     }
 
     @Test
-    void twoSameRole_leaderRunsFirst_followerWaitsForFirstTokenSignal() throws Exception {
+    void twoSameRole_leaderRunsFirst_followerWaitsForFirstTokenSignal() {
         var leaderHasSignal = new CompletableFuture<Runnable>();
         var followerEnteredWork = new CompletableFuture<Long>();
         var leaderResult = submit("role-A", signal -> {
@@ -66,19 +66,22 @@ class AgentCoalescingGateTest {
             signal.run();
             return "leader";
         });
-        sleepQuietly(20);
+        awaitEnrollment("role-A", 1);
         var followerResult = submit("role-A", signal -> {
             followerEnteredWork.complete(System.nanoTime());
             return "follower";
         });
+        awaitEnrollment("role-A", 2);
 
-        var signal = leaderHasSignal.get(2, TimeUnit.SECONDS);
-        assertThat(signal).isNotNull();
+        Awaitility.await().atMost(2, TimeUnit.SECONDS).until(leaderHasSignal::isDone);
+        assertThat(leaderHasSignal.getNow(null)).isNotNull();
         // follower must NOT have entered work yet — leader hasn't fired the signal
         assertThat(followerEnteredWork).isNotDone();
 
-        assertThat(leaderResult.get(2, TimeUnit.SECONDS)).isEqualTo("leader");
-        assertThat(followerResult.get(2, TimeUnit.SECONDS)).isEqualTo("follower");
+        Awaitility.await().atMost(2, TimeUnit.SECONDS)
+            .until(() -> leaderResult.isDone() && followerResult.isDone());
+        assertThat(leaderResult.getNow(null)).isEqualTo("leader");
+        assertThat(followerResult.getNow(null)).isEqualTo("follower");
     }
 
     private CompletableFuture<String> submit(String role,
@@ -94,6 +97,12 @@ class AgentCoalescingGateTest {
         }), pool);
     }
 
+    private void awaitEnrollment(String role, int expectedCount) {
+        Awaitility.await().atMost(1, TimeUnit.SECONDS)
+            .pollInterval(Duration.ofMillis(1))
+            .until(() -> gate.enrolledCount(role) >= expectedCount);
+    }
+
     private static void sleepQuietly(long millis) {
         try {
             Thread.sleep(millis);
@@ -103,7 +112,7 @@ class AgentCoalescingGateTest {
     }
 
     @Test
-    void slidingExtension_repeatedArrivalsKeepWindowOpen() throws Exception {
+    void slidingExtension_repeatedArrivalsKeepWindowOpen() {
         var entered = new ConcurrentLinkedQueue<Long>();
         var futures = new java.util.ArrayList<CompletableFuture<String>>();
         var firstArrival = System.nanoTime();
@@ -117,11 +126,14 @@ class AgentCoalescingGateTest {
                 }
                 return "ok-" + idx;
             }));
-            sleepQuietly(WINDOW.toMillis() / 2);
+            awaitEnrollment("role-A", idx + 1);
+            if (i < 3) {
+                sleepQuietly(WINDOW.toMillis() / 2);
+            }
         }
-        for (var f : futures) {
-            assertThat(f.get(5, TimeUnit.SECONDS)).startsWith("ok-");
-        }
+        Awaitility.await().atMost(5, TimeUnit.SECONDS)
+            .until(() -> futures.stream().allMatch(CompletableFuture::isDone));
+        assertThat(futures).allSatisfy(f -> assertThat(f.getNow(null)).startsWith("ok-"));
         var firstEntered = entered.peek();
         assertThat(firstEntered).isNotNull();
         // Without sliding extension: leader would release at t=WINDOW (200ms).
@@ -135,7 +147,7 @@ class AgentCoalescingGateTest {
     }
 
     @Test
-    void differentRoles_independent() throws Exception {
+    void differentRoles_independent() {
         var aEntered = new CompletableFuture<Long>();
         var bEntered = new CompletableFuture<Long>();
         var aFuture = submit("role-A", signal -> {
@@ -148,16 +160,18 @@ class AgentCoalescingGateTest {
             signal.run();
             return "B";
         });
-        assertThat(aFuture.get(2, TimeUnit.SECONDS)).isEqualTo("A");
-        assertThat(bFuture.get(2, TimeUnit.SECONDS)).isEqualTo("B");
-        var spread = Math.abs(aEntered.get() - bEntered.get()) / 1_000_000;
+        Awaitility.await().atMost(2, TimeUnit.SECONDS)
+            .until(() -> aFuture.isDone() && bFuture.isDone());
+        assertThat(aFuture.getNow(null)).isEqualTo("A");
+        assertThat(bFuture.getNow(null)).isEqualTo("B");
+        var spread = Math.abs(aEntered.getNow(0L) - bEntered.getNow(0L)) / 1_000_000;
         assertThat(spread)
             .as("different roles should not gate each other — both release after own window")
             .isLessThan(WINDOW.toMillis());
     }
 
     @Test
-    void leaderFirstTokenSignal_releasesAllFollowers() throws Exception {
+    void leaderFirstTokenSignal_releasesAllFollowers() {
         var leaderReady = new CompletableFuture<Runnable>();
         var followers = new ConcurrentLinkedQueue<Long>();
         var leader = submit("role-A", signal -> {
@@ -166,28 +180,31 @@ class AgentCoalescingGateTest {
             signal.run();
             return "leader";
         });
-        // 3 followers, all should be parked until leader signals
+        awaitEnrollment("role-A", 1);
         var f1 = submit("role-A", signal -> {
             followers.add(System.nanoTime());
             return "f1";
         });
-        sleepQuietly(20);
+        awaitEnrollment("role-A", 2);
         var f2 = submit("role-A", signal -> {
             followers.add(System.nanoTime());
             return "f2";
         });
-        sleepQuietly(20);
+        awaitEnrollment("role-A", 3);
         var f3 = submit("role-A", signal -> {
             followers.add(System.nanoTime());
             return "f3";
         });
+        awaitEnrollment("role-A", 4);
 
-        leaderReady.get(2, TimeUnit.SECONDS);
+        Awaitility.await().atMost(2, TimeUnit.SECONDS).until(leaderReady::isDone);
 
         Awaitility.await().atMost(3, TimeUnit.SECONDS)
             .until(() -> followers.size() == 3 && leader.isDone());
+        Awaitility.await().atMost(1, TimeUnit.SECONDS)
+            .until(() -> f1.isDone() && f2.isDone() && f3.isDone());
         assertThat(List.of(f1, f2, f3))
-            .allSatisfy(f -> assertThat(f.get(1, TimeUnit.SECONDS)).startsWith("f"));
+            .allSatisfy(f -> assertThat(f.getNow(null)).startsWith("f"));
         var releaseSpreadMs = (max(followers) - min(followers)) / 1_000_000;
         assertThat(releaseSpreadMs)
             .as("followers should release together after leader's signal")
@@ -203,7 +220,7 @@ class AgentCoalescingGateTest {
     }
 
     @Test
-    void followerSignalIsNoOp_noEarlyReleaseFromFollower() throws Exception {
+    void followerSignalIsNoOp_noEarlyReleaseFromFollower() {
         var leaderEntered = new CompletableFuture<Long>();
         var leaderShouldFinish = new CompletableFuture<Void>();
         var followerEntered = new CompletableFuture<Long>();
@@ -214,20 +231,23 @@ class AgentCoalescingGateTest {
             signal.run();
             return "leader";
         });
-        sleepQuietly(20);
+        awaitEnrollment("role-A", 1);
         var follower = submit("role-A", signal -> {
             followerEntered.complete(System.nanoTime());
             signal.run();   // follower's signal must be NO_OP — should not unblock anyone
             return "follower";
         });
+        awaitEnrollment("role-A", 2);
 
-        leaderEntered.get(2, TimeUnit.SECONDS);
+        Awaitility.await().atMost(2, TimeUnit.SECONDS).until(leaderEntered::isDone);
         // follower must still be parked because leader hasn't signalled
         sleepQuietly(150);
         assertThat(followerEntered).isNotDone();
 
         leaderShouldFinish.complete(null);
-        assertThat(leader.get(2, TimeUnit.SECONDS)).isEqualTo("leader");
-        assertThat(follower.get(2, TimeUnit.SECONDS)).isEqualTo("follower");
+        Awaitility.await().atMost(2, TimeUnit.SECONDS)
+            .until(() -> leader.isDone() && follower.isDone());
+        assertThat(leader.getNow(null)).isEqualTo("leader");
+        assertThat(follower.getNow(null)).isEqualTo("follower");
     }
 }

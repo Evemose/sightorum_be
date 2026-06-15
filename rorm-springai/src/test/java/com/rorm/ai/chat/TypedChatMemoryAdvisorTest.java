@@ -146,16 +146,14 @@ class TypedChatMemoryAdvisorTest {
             var saved = repository.findByConversationId(CONV_ID);
             assertThat(saved).hasSize(6);
             assertThat(saved.get(0)).isInstanceOf(UserMessage.class);
-            // generation 0: final assistant text
-            assertThat(saved.get(1)).isInstanceOf(AssistantMessage.class);
-            assertThat(((AssistantMessage) saved.get(1)).getText()).isEqualTo("Final answer");
-            // custom generations
-            assertThat(saved.get(2)).isInstanceOf(ThinkingMessage.class);
-            assertThat(((ThinkingMessage) saved.get(2)).text()).isEqualTo("Let me think about this...");
-            assertThat(saved.get(3)).isInstanceOf(AssistantMessage.class);
-            assertThat(((AssistantMessage) saved.get(3)).getToolCalls()).hasSize(1);
-            assertThat(saved.get(4)).isInstanceOf(ToolResponseMessage.class);
-            assertThat(saved.get(5)).isInstanceOf(ServerToolMessage.class);
+            assertThat(saved.get(1)).isInstanceOf(ThinkingMessage.class);
+            assertThat(((ThinkingMessage) saved.get(1)).text()).isEqualTo("Let me think about this...");
+            assertThat(saved.get(2)).isInstanceOf(AssistantMessage.class);
+            assertThat(((AssistantMessage) saved.get(2)).getToolCalls()).hasSize(1);
+            assertThat(saved.get(3)).isInstanceOf(ToolResponseMessage.class);
+            assertThat(saved.get(4)).isInstanceOf(ServerToolMessage.class);
+            assertThat(saved.get(5)).isInstanceOf(AssistantMessage.class);
+            assertThat(((AssistantMessage) saved.get(5)).getText()).isEqualTo("Final answer");
         }
 
         @Test

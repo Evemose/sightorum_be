@@ -148,6 +148,7 @@ public class MlServiceStartup implements SmartLifecycle {
         try {
             rest.get()
                 .uri(albUrl + "/health")
+                .header("X-RORM-Client", "1")
                 .retrieve()
                 .body(String.class);
             return true;

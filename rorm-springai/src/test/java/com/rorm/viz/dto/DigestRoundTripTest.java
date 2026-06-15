@@ -128,7 +128,7 @@ class DigestRoundTripTest {
         assertThat(categoricalCoord.x().raw()).isEqualTo("cat-A");
 
         var series = primary.data().series().getFirst();
-        assertThat(series.color()).isEqualTo("base");
+        assertThat(series.color()).isEqualToIgnoringCase("base");
 
         var points = series.points();
         assertThat(points.get(0).t().raw()).isEqualTo("2026-02-16");

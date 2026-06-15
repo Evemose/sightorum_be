@@ -1,5 +1,6 @@
 package com.rorm.client.chat.session;
 
+import com.rorm.client.metamodel.Metamodel;
 import jakarta.persistence.*;
 import lombok.*;
 import org.jspecify.annotations.Nullable;
@@ -33,7 +34,13 @@ public class Session {
     private String title;
 
     @Nullable
-    private String schemaName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "schema_name",
+        referencedColumnName = "schema_name",
+        foreignKey = @ForeignKey(name = "fk_sessions_metamodel")
+    )
+    private Metamodel metamodel;
 
     @Column(nullable = false)
     private String primaryChatId;
@@ -46,10 +53,14 @@ public class Session {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    public Session(String id, String primaryChatId, @Nullable String schemaName) {
+    public Session(String id, String primaryChatId, @Nullable Metamodel metamodel) {
         this.id = id;
         this.primaryChatId = primaryChatId;
-        this.schemaName = schemaName;
+        this.metamodel = metamodel;
+    }
+
+    public @Nullable String getSchemaName() {
+        return metamodel == null ? null : metamodel.getSchemaName();
     }
 
     public void touch() {

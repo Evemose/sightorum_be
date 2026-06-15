@@ -27,6 +27,16 @@ public sealed interface Selector permits RootSelector, SingleExprSelector, Multi
     record SingleExprSelector(Expression expression, boolean distinct, @Nullable String alias) implements Selector {
     }
 
+    /**
+     * Multiple expression selector.
+     *
+     * <p>The {@code expressions} set is order-significant in two places:
+     * (1) the column order of the result rows, and
+     * (2) when this query is the body of a CTE that declares explicit column
+     *     names, the positional mapping between WITH-clause column names and
+     *     the inner SELECT's projection. A {@link java.util.LinkedHashSet} (or
+     *     any sequenced set) preserves the insertion order callers care about.
+     */
     record MultiExprSelector(Set<SelectedExpression> expressions, boolean distinct) implements Selector {
     }
 

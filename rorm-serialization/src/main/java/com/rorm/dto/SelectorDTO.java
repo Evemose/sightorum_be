@@ -1,8 +1,10 @@
 package com.rorm.dto;
 
 import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.SequencedSet;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
 @JsonSubTypes({
@@ -48,9 +50,10 @@ public sealed interface SelectorDTO permits
 
     @JsonClassDescription("Select multiple expressions")
     record MultiExprSelectorDTO(
-        @JsonPropertyDescription("Set of expressions to select, each with optional alias.")
+        @JsonPropertyDescription("Ordered set of expressions to select, each with optional alias. Order is significant: it determines the column order of the result, and — when this query is used as a CTE body with declared columns — the WITH-clause column positional mapping.")
         @JsonProperty(required = true)
-        Set<SelectedExpressionDTO> expressions,
+        @JsonDeserialize(as = LinkedHashSet.class)
+        SequencedSet<SelectedExpressionDTO> expressions,
 
         @JsonPropertyDescription("Whether to select distinct rows.")
         @JsonProperty(required = true)

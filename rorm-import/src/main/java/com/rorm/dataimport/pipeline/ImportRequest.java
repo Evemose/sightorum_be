@@ -86,7 +86,28 @@ public record ImportRequest(
         void truncate();
     }
 
-    public record AttributeKey(String rootName, String attributePath) {}
+    /**
+     * Equality across this key couples FE coercion configs to BE lookups in
+     * {@code DatabaseItemWriter}. The FE may submit {@code rootName} bare
+     * ({@code shipments}) or quoted ({@code "shipments"}); the BE
+     * constructs lookups off the quoted qualified table name, so the
+     * canonical form here is bare — strip surrounding double quotes on
+     * construction so equality works regardless of which side added them.
+     */
+    public record AttributeKey(String rootName, String attributePath) {
+        public AttributeKey {
+            rootName = stripQuotes(rootName);
+            attributePath = stripQuotes(attributePath);
+        }
+
+        private static String stripQuotes(String s) {
+            if (s == null || s.length() < 2) return s;
+            if (s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') {
+                return s.substring(1, s.length() - 1);
+            }
+            return s;
+        }
+    }
 
     @With
     @AllArgsConstructor(access = AccessLevel.PRIVATE)

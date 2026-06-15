@@ -58,6 +58,11 @@ public class AgentCoalescingGate {
             : runFollower(assignment.firstTokenSignal(), work);
     }
 
+    int enrolledCount(String role) {
+        var slot = slots.get(role);
+        return slot != null ? slot.size() : 0;
+    }
+
     private Assignment enrollAndAwait(String role) {
         var ticket = new Ticket();
         slots.compute(role, (key, existing) -> {

@@ -84,6 +84,10 @@ public class ImportJobWorker {
             var pipelineRequest = toPipelineRequest(payload);
             var result = pipelineExecutor.execute(pipelineRequest);
 
+            // Persist the metamodel before the async schema-profile analysis can land — the
+            // schema_profiles.schema_name FK requires its metamodels row to exist first.
+            metamodelService.saveMetamodel(payload.targetSchema(), result.modelSpace());
+
             var finalProgress = result.progress()
                 .doOnNext(progress -> {
                     var importEvent = progress.events().getLast();

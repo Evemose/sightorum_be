@@ -205,6 +205,18 @@ class DatabaseItemWriter implements ItemWriter<Map<String, Object>>, ChunkListen
         var key = new ImportRequest.AttributeKey(tableName, mapping.dbColumnName());
         var rawValue = row.get(mapping.sourceColumn());
         if (rawValue == null) {
+            // A configured strategy may want to populate the column even when
+            // the source row had no value — `USE_DEFAULT` is the canonical
+            // example. Hand the null through to the strategy's existing
+            // coerce(value, type, column) entry point so a null in the
+            // source becomes its configured default in the target column.
+            // Strategies that don't override null handling (Skip, NullOnInvalid)
+            // already return null for null input, preserving the prior
+            // semantics for everything except UseDefault.
+            var nullStrategy = inMemoryCoercions.get(key);
+            if (nullStrategy != null) {
+                return nullStrategy.coerce(null, mapping.dataType(), mapping.dbColumnName());
+            }
             return null;
         }
 

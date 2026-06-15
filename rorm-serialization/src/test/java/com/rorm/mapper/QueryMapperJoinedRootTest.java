@@ -405,14 +405,14 @@ class QueryMapperJoinedRootTest {
         @Test
         @DisplayName("deserializes ORDER BY selector alias in set-operation query")
         void deserializesOrderBySelectorAliasInSetOperationQuery() {
-            var leftSelector = new MultiExprSelectorDTO(Set.of(
+            var leftSelector = new MultiExprSelectorDTO(new LinkedHashSet<>(Set.of(
                 new SelectedExpressionDTO(new LiteralDTO("left"), "branch"),
                 new SelectedExpressionDTO(new PathDTO("id"), "id")
-            ), false);
-            var rightSelector = new MultiExprSelectorDTO(Set.of(
+            )), false);
+            var rightSelector = new MultiExprSelectorDTO(new LinkedHashSet<>(Set.of(
                 new SelectedExpressionDTO(new LiteralDTO("right"), "branch"),
                 new SelectedExpressionDTO(new PathDTO("id"), "id")
-            ), false);
+            )), false);
 
             var rightQuery = new QueryDTO(
                 "orders",

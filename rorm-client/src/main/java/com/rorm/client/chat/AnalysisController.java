@@ -1,40 +1,39 @@
 package com.rorm.client.chat;
 
 import com.rorm.client.chat.dto.AnalysisDetailDTO;
-import com.rorm.client.chat.dto.AnalysisRequest;
-import com.rorm.client.chat.dto.AnalysisResponse;
+import com.rorm.client.chat.dto.AnalysisListItemDTO;
 import com.rorm.client.chat.dto.NudgeResponse;
 import com.rorm.client.chat.session.SessionService;
-import com.rorm.client.utils.WithSchema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.List;
 
 @Slf4j
 @RestController
 @RequestMapping("/research")
 @RequiredArgsConstructor
-@Validated
 public class AnalysisController {
 
     private final AnalysisService analysisService;
     private final SessionService sessionService;
 
-    @WithSchema("schema")
-    @PostMapping
-    public AnalysisResponse startAnalysis(
-        @RequestParam @NotBlank String schema,
-        @Valid @RequestBody AnalysisRequest request
-    ) {
-        var runId = analysisService.startAnalysis(schema, request);
-        log.info("Analysis started: schema={}, runId={}", schema, runId);
-        return new AnalysisResponse(runId);
+    @GetMapping
+    public List<AnalysisListItemDTO> list() {
+        return sessionService.findAllAnalyses().stream()
+            .map(a -> new AnalysisListItemDTO(
+                a.getRunId(),
+                sessionService.findSchemaName(a.getSessionId()).orElse(null),
+                a.getKind(),
+                a.getStatus(),
+                a.getQuery(),
+                a.getStartedAt(),
+                a.getCompletedAt()))
+            .toList();
     }
 
     @GetMapping(value = "/{runId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

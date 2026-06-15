@@ -12,7 +12,9 @@ import com.rorm.ai.chat.StreamToken;
     @JsonSubTypes.Type(value = SwarmStreamEvent.AgentQuestion.class, name = "AGENT_QUESTION"),
     @JsonSubTypes.Type(value = SwarmStreamEvent.AgentAnswer.class, name = "AGENT_ANSWER"),
     @JsonSubTypes.Type(value = SwarmStreamEvent.AgentProgress.class, name = "AGENT_PROGRESS"),
-    @JsonSubTypes.Type(value = SwarmStreamEvent.RunCompleted.class, name = "RUN_COMPLETED")
+    @JsonSubTypes.Type(value = SwarmStreamEvent.RunCompleted.class, name = "RUN_COMPLETED"),
+    @JsonSubTypes.Type(value = SwarmStreamEvent.RewindStarted.class, name = "REWIND_STARTED"),
+    @JsonSubTypes.Type(value = SwarmStreamEvent.RewindReady.class, name = "REWIND_READY")
 })
 public sealed interface SwarmStreamEvent {
 
@@ -87,6 +89,29 @@ public sealed interface SwarmStreamEvent {
         @Override
         public String dedupKey() {
             return "run-completed";
+        }
+    }
+
+    /**
+     * Emitted once the post-run rewind composer starts (immediately
+     * after {@link RunCompleted} on causal runs). The FE flips its
+     * anticipation animation on; @{code startedAt} populates the
+     * elapsed-time chip.
+     */
+    record RewindStarted(String startedAt) implements SwarmStreamEvent {
+        @Override
+        public String dedupKey() {
+            return "rewind-started";
+        }
+    }
+
+    /** Emitted once the rewind JSON is cached and retrievable via
+     *  {@code GET /research/{runId}/rewind}. The FE re-fetches and
+     *  switches from the anticipation animation to the slide stage. */
+    record RewindReady(String readyAt) implements SwarmStreamEvent {
+        @Override
+        public String dedupKey() {
+            return "rewind-ready";
         }
     }
 }
