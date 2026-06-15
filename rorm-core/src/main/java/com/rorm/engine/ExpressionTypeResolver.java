@@ -227,40 +227,6 @@ public class ExpressionTypeResolver implements TypeResolutionContext {
         };
     }
 
-    @Nullable
-    private DataType resolveFirstArgOrDefault(List<Expression> args, Root fromRoot, @Nullable DataType defaultType) {
-        if (args == null || args.isEmpty()) {
-            return defaultType;
-        }
-        return resolveWithRoot(args.getFirst(), fromRoot);
-    }
-
-    @Nullable
-    private DataType resolveSecondArgOrDefault(List<Expression> args, Root fromRoot, @Nullable DataType defaultType) {
-        if (args == null || args.size() < 2) {
-            return defaultType;
-        }
-        return resolveWithRoot(args.get(1), fromRoot);
-    }
-
-    private DataType promoteNumericTypes(@Nullable DataType left, @Nullable DataType right) {
-        if (left instanceof DataType.NumericType(
-            int precision1, int scale1
-        ) && right instanceof DataType.NumericType(int precision, int scale)) {
-            return new DataType.NumericType(
-                Math.max(precision1, precision),
-                Math.max(scale1, scale)
-            );
-        }
-        if (left instanceof DataType.NumericType) {
-            return left;
-        }
-        if (right instanceof DataType.NumericType) {
-            return right;
-        }
-        return new DataType.NumericType(19, 6);
-    }
-
     /**
      * Checks if the given path points to a reference attribute.
      *
