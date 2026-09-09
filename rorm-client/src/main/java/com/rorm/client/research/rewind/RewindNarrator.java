@@ -18,11 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -386,8 +382,9 @@ class RewindNarrator {
         // Names alone are deliberately bare — the narrator should not
         // start cross-comparing details it can't see.
         var hypothesisNames = new ArrayList<>(byHypothesis.keySet());
-        try (var executor = Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("rewind-sec-", 0).factory())) {
+        var executor = Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("rewind-sec-", 0).factory());
+        try {
             var reconF   = CompletableFuture.supplyAsync(
                 () -> composeRecon(analysis, agents, schema, modelSpace), executor);
             var verdictF = CompletableFuture.supplyAsync(
@@ -430,6 +427,13 @@ class RewindNarrator {
             var verdict = safeJoin(verdictF,
                 () -> placeholderVerdict(findOne(agents, "judge").orElse(null), agents));
             return new RewindCompose(recon, chains, verdict);
+        } finally {
+            // shutdownNow() interrupts hung HTTP I/O so close() returns
+            // promptly. The default ExecutorService.close() calls plain
+            // shutdown() and then awaitTermination(Long.MAX_VALUE) — which
+            // means a stuck chat call would block this method forever,
+            // defeating the 12-minute wall-clock cap above.
+            executor.shutdownNow();
         }
     }
 

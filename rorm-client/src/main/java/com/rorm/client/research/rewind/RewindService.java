@@ -14,14 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Composes the post-run rewind slideshow for a causal analysis.
@@ -56,6 +52,7 @@ public class RewindService {
      *  introduce a new persistence table for the demo path. */
     private final Map<String, RewindDTO> cache = new ConcurrentHashMap<>();
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
+    private final Map<String, Future<?>> workerFutures = new ConcurrentHashMap<>();
     private final java.util.concurrent.ExecutorService workers =
         Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("rewind-", 0).factory());
 
@@ -80,7 +77,7 @@ public class RewindService {
             RewindDTO.Status.IN_PROGRESS, startedAt, null, null, null, List.of(), null));
         eventBus.publish(runId, new SwarmStreamEvent.RewindStarted(startedAt));
 
-        workers.submit(() -> {
+        var future = workers.submit(() -> {
             try {
                 var dto = compose(runId, startedAt);
                 cache.put(runId, dto);
@@ -93,9 +90,11 @@ public class RewindService {
                     e.getMessage(), null, List.of(), null));
                 eventBus.publish(runId, new SwarmStreamEvent.RewindReady(Instant.now().toString()));
             } finally {
+                workerFutures.remove(runId);
                 inFlight.remove(runId);
             }
         });
+        workerFutures.put(runId, future);
     }
 
     /**
@@ -203,9 +202,21 @@ public class RewindService {
 
     /** Test/admin escape hatch: clear a cached rewind so the next
      *  read regenerates from scratch. Useful when the narrator
-     *  implementation changes and we want a forced refresh. */
+     *  implementation changes and we want a forced refresh.
+     *
+     *  <p>Also cancels any in-flight worker and frees the {@code inFlight}
+     *  slot — without this, a stuck worker would keep regenerate calls
+     *  bailing on the in-flight guard until the JVM restarts. Cancelling
+     *  with {@code mayInterruptIfRunning=true} interrupts hung HTTP I/O
+     *  inside the narrator's section calls, which {@code RewindNarrator}
+     *  observes and bails out of cleanly. */
     public void invalidate(String runId) {
         cache.remove(runId);
+        var pending = workerFutures.remove(runId);
+        if (pending != null) {
+            pending.cancel(true);
+        }
+        inFlight.remove(runId);
     }
 
     /** Helper for code paths that want to enumerate every entry the

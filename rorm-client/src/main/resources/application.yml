@@ -61,6 +61,6 @@ rorm:
       poll-interval: PT3S
   ai:
     throttle:
-      enabled: true
+      enabled: false
       max-tokens-per-minute: 400000
       strategy: UNCACHED_ONLY

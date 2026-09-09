@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 public class AnthropicParamsBuilder {
 
     private static final long DEFAULT_MAX_TOKENS = 64_000L;
-    static final String DEFAULT_MODEL = "claude-sonnet-4-6";
+    static final String DEFAULT_MODEL = "claude-opus-4-6";
     static final int MAX_CACHE_BREAKPOINTS = 4;
     private static final Pattern INLINE_CACHE_MARKER = Pattern.compile("<--CACHE\\[(5m|1h)]-->");
 
