@@ -1,20 +1,20 @@
 spring:
   datasource:
-    url: jdbc:postgresql://***REMOVED-HOST***:5444/mydatabase?options=-c%20TimeZone%3DEurope/Kyiv
+    url: jdbc:postgresql://${DEV_HOST}:5444/mydatabase?options=-c%20TimeZone%3DEurope/Kyiv
     username: myuser
-    password: mypassword
+    password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
   data:
     redis:
-      host: ***REMOVED-HOST***
+      host: ${DEV_HOST}
       port: 6379
-      password: ***REMOVED-VALKEY-PASSWORD***
+      password: ${VALKEY_PASSWORD}
 
 restate:
   client:
-    baseUri: http://***REMOVED-HOST***:9080
+    baseUri: http://${DEV_HOST}:9080
   sdk:
     http:
       port: 9081
@@ -23,9 +23,9 @@ rorm:
   ml:
     cluster: MlInfraStack-MlCluster87EBA3AE-k1zgJGFRBWkS
     service: MlInfraStack-MlServiceAC8BC53F-R1WsD6iG3HoP
-    restateAdminUrl: http://***REMOVED-HOST***:9070
-    restateEndpointUrl: http://***REMOVED-HOST***:9081
-    valkeyUrl: redis://:***REMOVED-VALKEY-PASSWORD***@***REMOVED-HOST***:6379
+    restateAdminUrl: http://${DEV_HOST}:9070
+    restateEndpointUrl: http://${DEV_CALLBACK_HOST}:9081
+    valkeyUrl: redis://:${VALKEY_PASSWORD}@${DEV_HOST}:6379
     durable-execution: true
     serviceBaseUrl: http://MlInfr-MlAlb-fsf84yGJ69Ex-1790046904.eu-central-1.elb.amazonaws.com
 

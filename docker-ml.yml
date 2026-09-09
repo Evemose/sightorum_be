@@ -6,9 +6,9 @@ services:
       - "6379:6379"
     volumes:
       - valkey-data:/data
-    command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-***REMOVED-VALKEY-PASSWORD***}
+    command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set in the environment or .env}
     healthcheck:
-      test: [ "CMD", "valkey-cli", "-a", "${VALKEY_PASSWORD:-***REMOVED-VALKEY-PASSWORD***}", "ping" ]
+      test: [ "CMD", "valkey-cli", "-a", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set in the environment or .env}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5

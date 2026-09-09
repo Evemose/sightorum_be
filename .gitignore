@@ -38,9 +38,52 @@ out/
 
 *.txt
 !**/resources/**/*.txt
+!requirements.txt
 
-.aws/credentials
+.aws/
 
 .env
 
-.claude
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+
+*.png
+*.log
+*.docx
+*.pdf
+
+diagrams
+baseline
+workspace
+
+### Secrets ###
+*.pem
+*.key
+*.p12
+*.jks
+
+### Runtime / tooling artefacts ###
+logs/
+*.tmp
+nul
+.monitor-state.json
+.backups/
+.learning/
+/Test Results*
+
+### Python ###
+__pycache__/
+*.pyc
+.coverage
+.pytest_cache/
+.venv/
+
+### JS coverage ###
+coverage/
+
+### Local scratch (kept out of the repository) ###
+/conv_dump.json
+/import_conv_dump.py
+/sync_abstract.py
+/query.json
